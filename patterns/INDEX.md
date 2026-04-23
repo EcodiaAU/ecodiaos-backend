@@ -55,6 +55,7 @@ Grep command: `Grep triggers: ~/ecodiaos/patterns/ -A 1` - returns each pattern'
 | [grace-timer-must-not-kill-chat-session.md](grace-timer-must-not-kill-chat-session.md) | grace-timer, process-exit, pm2-respawn, abort-grace, empty_sdk_stream, inactivity_timeout, turn-pin, restart-loop, chat-kill, SDK_ABORT_GRACE_EXIT_ENABLED, scheduleAbortGraceTimer |
 | [curl-attachments-on-restart-no-refetch.md](curl-attachments-on-restart-no-refetch.md) | webfetch, attachments, restart, recent_exchanges, message-redelivery, re-fetch, supabase-os-attachments, turn-restart, file-url, one-shot-download, /tmp, spec-file, attached-file, http-attachment |
 | [[redacted]-prepush-pipeline.md]([redacted]-prepush-pipeline.md) | [redacted], prepush, push-to-[redacted], bitbucket, scope-check, semgrep, pre-submission, client-push, [redacted], [redacted]-pr, reviewer-persona, pre-review, authorised-push |
+| [factory-quality-gate-over-cron-mandate.md](factory-quality-gate-over-cron-mandate.md) | parallel-builder, factory-dispatch, always-have-work-queued, dispatch-quality-gate, speculative-factory, mediocre-dispatch, idle-factory, cron-mandate, quantity-vs-quality, factory-slot, no-slot-to-fill |
 
 ## Authoring rules
 
