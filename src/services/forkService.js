@@ -566,6 +566,10 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
             for (const resolve of state.pendingResolvers.splice(0)) resolve(null)
             state.status = 'reporting'
             _emitForkEvent('status', state)
+            // Durability: write reporting-state to DB immediately so a memory-restart
+            // between here and the for-await loop close still leaves a recoverable row.
+            // (fork-persistence Option A, fork_mokpm24w_4daefb)
+            await _dbUpdate(state)
             break
           }
         }
@@ -726,6 +730,85 @@ async function forksRollup({ includeRecentDone = true } = {}) {
   return `<forks_rollup>\nActive forks (${live.length}/${HARD_FORK_CAP}):\n${lines.join('\n')}\n</forks_rollup>`
 }
 
+// ── Startup recovery (fork-persistence Option A, fork_mokpm24w_4daefb) ──────
+// On api startup, the in-memory _forks Map is empty but os_forks may contain
+// rows in non-terminal states ('spawning'/'running'/'reporting') from a prior
+// process that was SIGTERMed (PM2 max_memory_restart hits ecodia-api every
+// ~6min at the time of writing). Without recovery, those forks just vanish:
+// main never sees a [FORK_REPORT], the slot looks free but the work is dead,
+// and continuation-aware redispatch (per ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md)
+// never gets a chance to fire because main has no signal.
+//
+// This function:
+//  1. Queries os_forks for non-terminal rows older than 5min (fork-id has
+//     a stale last_heartbeat → safe to declare dead).
+//  2. Flips them to status='crashed' with abort_reason='api_memory_restart'
+//     and ended_at=NOW().
+//  3. Enqueues a [SYSTEM: fork_crashed] recovery message to main's
+//     durable messageQueue per crashed fork, so main sees them on next turn
+//     and can route a continuation-aware redispatch.
+//
+// Idempotent. Safe to call on every startup. Logs and never throws.
+async function recoverStaleForks() {
+  let crashed = []
+  try {
+    crashed = await db`
+      UPDATE os_forks
+      SET status = 'crashed',
+          abort_reason = COALESCE(abort_reason, 'api_memory_restart'),
+          ended_at = COALESCE(ended_at, now()),
+          position = COALESCE(position, '') || ' :: killed mid-flight at api restart (recovered)'
+      WHERE status IN ('spawning', 'running', 'reporting')
+        AND COALESCE(last_heartbeat, started_at) < now() - interval '2 minutes'
+      RETURNING fork_id, brief, position, started_at, last_heartbeat, tokens_input, tokens_output, tool_calls
+    `
+  } catch (err) {
+    logger.warn('forkService.recoverStaleForks: query failed (non-fatal)', { error: err.message })
+    return { recovered: 0, error: err.message }
+  }
+
+  if (!crashed.length) {
+    logger.info('forkService.recoverStaleForks: no stale forks to recover')
+    return { recovered: 0 }
+  }
+
+  // Enqueue one [SYSTEM: fork_crashed] message per crashed fork so main can
+  // see and route. messageQueue is durable (DB-backed), so even if THIS api
+  // process dies again before main consumes them, they survive.
+  let mq = null
+  try { mq = require('./messageQueue') } catch (err) {
+    logger.warn('forkService.recoverStaleForks: messageQueue unavailable, skipping enqueue', { error: err.message })
+  }
+
+  let enqueued = 0
+  for (const row of crashed) {
+    if (!mq) break
+    try {
+      const body = [
+        `[SYSTEM: fork_crashed ${row.fork_id}]`,
+        `Brief: ${(row.brief || '').slice(0, 240)}`,
+        `Last position: ${(row.position || '').slice(0, 240)}`,
+        `Tokens: in=${row.tokens_input || 0}, out=${row.tokens_output || 0}, tool_calls=${row.tool_calls || 0}`,
+        `Started: ${row.started_at?.toISOString?.() || row.started_at}, last_heartbeat: ${row.last_heartbeat?.toISOString?.() || row.last_heartbeat || 'null'}`,
+        '',
+        'Cause: ecodia-api SIGTERM mid-flight (likely PM2 max_memory_restart). Per ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md, before redispatching check the 5 substrates (filesystem mtime, kv_store, status_board, git commits, Neo4j) for partial deliverables. all-present → verify+exit; partial → complete missing pieces only; none → full work.',
+      ].join('\n')
+      await mq.enqueueMessage({ body, source: `fork_recovery:${row.fork_id}`, mode: 'queue' })
+      enqueued++
+    } catch (err) {
+      logger.warn('forkService.recoverStaleForks: enqueue failed (non-fatal)', { fork_id: row.fork_id, error: err.message })
+    }
+  }
+
+  logger.warn('forkService.recoverStaleForks: recovered stale forks', {
+    recovered: crashed.length,
+    enqueued,
+    fork_ids: crashed.map(r => r.fork_id),
+  })
+
+  return { recovered: crashed.length, enqueued, fork_ids: crashed.map(r => r.fork_id) }
+}
+
 // ── Test hooks ──────────────────────────────────────────────────────────────
 function _resetForTest() { _forks.clear() }
 function _getForkMapForTest() { return _forks }
@@ -738,6 +821,7 @@ module.exports = {
   listForks,
   getFork,
   forksRollup,
+  recoverStaleForks,
   HARD_FORK_CAP,
   ENERGY_FORK_CAPS,
   _resetForTest,
