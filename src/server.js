@@ -149,6 +149,24 @@ server.listen(env.PORT, async () => {
     logger.warn('Schema constraint validation failed (non-fatal)', { error: err.message })
   }
 
+  // ── Boot: Recover stale forks from prior api process ──────────────
+  // PM2 max_memory_restart SIGTERMs ecodia-api roughly every 6 minutes at
+  // peak load. Without recovery, all in-flight forks just vanish — main
+  // never sees [FORK_REPORT], the 5/5 slot count is wrong, and the
+  // continuation-aware redispatch path can't fire. recoverStaleForks
+  // flips non-terminal os_forks rows to 'crashed' and enqueues a
+  // [SYSTEM: fork_crashed] message per fork onto main's durable queue.
+  // Idempotent, never throws. (fork-persistence Option A, fork_mokpm24w_4daefb)
+  try {
+    const forkService = require('./services/forkService')
+    const recovery = await forkService.recoverStaleForks()
+    if (recovery && recovery.recovered > 0) {
+      logger.warn('Recovered stale forks at boot', recovery)
+    }
+  } catch (err) {
+    logger.warn('Fork recovery at boot failed (non-fatal)', { error: err.message })
+  }
+
   // ── Boot: Factory Bridge ──────────────────────────────────────────
   // Subscribe to Redis channels from factoryRunner for:
   // 1. Session completions → trigger oversight pipeline
