@@ -4,9 +4,17 @@
  * Phase D (Layer 5) of the Decision Quality Self-Optimization Architecture.
  * See: ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
  *
- * For each outcome_event with outcome='correction' and classification IS NULL,
- * classify the failure into one of three modes so the remediation routes to
- * the right layer:
+ * Phase G Critique #1 expansion (30 Apr 2026): processes BOTH outcome='correction'
+ * AND outcome='failure' rows where classification IS NULL. Failures are real
+ * negative ground-truth signals that deserve the same usage_failure /
+ * surfacing_failure / doctrine_failure routing - the prior code only
+ * classified corrections, leaving the failure path unrouted. The 'unverified'
+ * outcome state introduced by Phase G is intentionally NOT classified here -
+ * unverified is dark matter the metric pipeline surfaces as a verification-rate
+ * problem, not a doctrine failure.
+ *
+ * For each qualifying outcome_event with classification IS NULL, classify the
+ * failure into one of three modes so the remediation routes to the right layer:
  *
  *   usage_failure      - relevant pattern surfaced AND was tagged [APPLIED]
  *                        AND outcome was still a correction. Doctrine was
@@ -274,7 +282,11 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
     let errors = 0
     const distribution = { usage_failure: 0, surfacing_failure: 0, doctrine_failure: 0 }
 
-    // Pull oldest unclassified corrections first, capped at `max`.
+    // Pull oldest unclassified corrections AND failures first, capped at `max`.
+    // Phase G Critique #1: failures are real negative ground-truth signals that
+    // need the same usage_failure / surfacing_failure / doctrine_failure routing.
+    // 'unverified' rows are intentionally excluded - they are dark matter, not
+    // a doctrine failure to classify.
     // Joined with dispatch_event so we have action context for the query.
     const r = await client.query(
       `SELECT o.id              AS outcome_id,
@@ -288,7 +300,7 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
               d.metadata
        FROM outcome_event o
        LEFT JOIN dispatch_event d ON d.id = o.dispatch_event_id
-       WHERE o.outcome = 'correction'
+       WHERE o.outcome IN ('correction', 'failure')
          AND o.classification IS NULL
        ORDER BY o.ts ASC
        LIMIT $1`,
