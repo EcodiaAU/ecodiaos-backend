@@ -2,6 +2,19 @@ const { runQuery, runWrite, healthCheck } = require('../config/neo4j')
 const logger = require('../config/logger')
 const env = require('../config/env')
 const axios = require('axios')
+// §2.4 / §2.5 — labels and rel-types are NOT parameterizable in Cypher.
+// Validate against the canonical allowlist before any interpolation. The
+// helpers raise descriptive errors on miss; coerceLabel/coerceRelType are
+// the LLM-friendly fallbacks for ingestion paths that get to choose
+// `MENTIONS` / drop the write when coercion fails.
+const {
+  isAllowedLabel,
+  assertAllowedLabel,
+  isAllowedRelType,
+  assertAllowedRelType,
+  coerceLabel,
+  coerceRelType,
+} = require('../lib/cypher/labelAllowlist')
 
 // ═══════════════════════════════════════════════════════════════════════
 // KNOWLEDGE GRAPH SERVICE
@@ -60,7 +73,12 @@ function recordIngestion(sourceId) {
 
 // ─── Node Operations ─────────────────────────────────────────────────
 
-async function ensureNode({ label, name, properties = {}, sourceModule, sourceId }) {
+async function ensureNode({ label, name, properties = {}, sourceModule, sourceId, provenance = null }) {
+  // §2.4: every label is validated against the canonical allowlist
+  // BEFORE any Cypher interpolation. Throws on miss with a descriptive
+  // error - we no longer accept arbitrary alphanumeric strings.
+  const safeLabel = assertAllowedLabel(label)
+
   const props = {
     ...properties,
     name,
@@ -68,10 +86,21 @@ async function ensureNode({ label, name, properties = {}, sourceModule, sourceId
     source_id: sourceId || null,
     updated_at: new Date().toISOString(),
   }
+  // §2.5: provenance is forward-only. Existing nodes are unchanged.
+  // Nodes written via this path may optionally carry provenance metadata
+  // describing the trigger source. The dedicated writeQuarantined helper
+  // is the privileged path for external-trigger writes - call it when
+  // the session itself was triggered by an external event.
+  if (provenance && typeof provenance === 'object') {
+    if (provenance.source) props.provenance_source = String(provenance.source)
+    if (provenance.session_id) props.provenance_session_id = String(provenance.session_id)
+    if (provenance.trigger) props.provenance_trigger = String(provenance.trigger)
+    if (provenance.external_actor) props.provenance_external_actor = String(provenance.external_actor)
+  }
 
   // Merge on name + label — if same name and label exists, update properties
   const records = await runWrite(
-    `MERGE (n:\`${sanitizeLabel(label)}\` {name: $name})
+    `MERGE (n:\`${safeLabel}\` {name: $name})
      ON CREATE SET n += $props, n.created_at = datetime(), n.embedding_stale = true
      ON MATCH SET n += $props, n.updated_at = datetime(), n.embedding_stale = true
      RETURN n`,
@@ -82,6 +111,14 @@ async function ensureNode({ label, name, properties = {}, sourceModule, sourceId
 }
 
 async function ensureRelationship({ fromLabel, fromName, toLabel, toName, relType, properties = {}, sourceModule }) {
+  // §2.4: validate every interpolated identifier before it touches
+  // Cypher. Labels go through assertAllowedLabel (allowlist); rel types
+  // go through assertAllowedRelType (strict shape check, since rel
+  // types are open vocabulary).
+  const safeFromLabel = assertAllowedLabel(fromLabel)
+  const safeToLabel = assertAllowedLabel(toLabel)
+  const safeRelType = assertAllowedRelType(relType)
+
   const props = {
     ...properties,
     source_module: sourceModule || null,
@@ -89,11 +126,11 @@ async function ensureRelationship({ fromLabel, fromName, toLabel, toName, relTyp
   }
 
   const records = await runWrite(
-    `MERGE (a:\`${sanitizeLabel(fromLabel)}\` {name: $fromName})
+    `MERGE (a:\`${safeFromLabel}\` {name: $fromName})
      ON CREATE SET a.created_at = datetime(), a.embedding_stale = true
-     MERGE (b:\`${sanitizeLabel(toLabel)}\` {name: $toName})
+     MERGE (b:\`${safeToLabel}\` {name: $toName})
      ON CREATE SET b.created_at = datetime(), b.embedding_stale = true
-     MERGE (a)-[r:\`${sanitizeLabel(relType)}\`]->(b)
+     MERGE (a)-[r:\`${safeRelType}\`]->(b)
      ON CREATE SET r += $props
      ON MATCH SET r += $props
      RETURN a, r, b`,
@@ -105,6 +142,65 @@ async function ensureRelationship({ fromLabel, fromName, toLabel, toName, relTyp
     rel: records[0].get('r')?.properties,
     to: records[0].get('b')?.properties,
   } : null
+}
+
+/**
+ * §2.5 quarantine routing.
+ *
+ * Writes a Pattern or Decision under its quarantined twin label
+ * (`QuarantinedPattern` / `QuarantinedDecision`). External-event-triggered
+ * sessions (email arrival, cowork inbox, webhooks) MUST use this path
+ * for any Pattern/Decision write so the durable doctrine surfaces are
+ * not poisoned by external content.
+ *
+ * Provenance is REQUIRED. Missing provenance throws.
+ *
+ * The fusedSearch retrieval path filters out `Quarantined*` labels by
+ * default - quarantined nodes only surface when explicitly opted in via
+ * `includeQuarantined: true` (used by the promotion-path tooling).
+ *
+ * Promotion (out of scope for this PR): a clean session may copy a
+ * quarantined node to its canonical label (Pattern, Decision) once
+ * either Tate explicitly approves it OR the validation signal fires
+ * (3+ applications without incident, in sessions NOT triggered by the
+ * same external event).
+ *
+ * @param {object} params
+ * @param {'Pattern'|'Decision'} params.label - canonical label; the
+ *   quarantine twin is selected automatically.
+ * @param {string} params.name
+ * @param {object} [params.properties]
+ * @param {string} [params.sourceModule]
+ * @param {string} [params.sourceId]
+ * @param {object} params.provenance - {source, session_id, trigger,
+ *   external_actor?}. All four fields except external_actor are
+ *   required (external_actor is optional).
+ */
+async function writeQuarantined({ label, name, properties = {}, sourceModule, sourceId, provenance }) {
+  if (!provenance || typeof provenance !== 'object') {
+    throw new Error('writeQuarantined: provenance is required (object with source, session_id, trigger)')
+  }
+  if (!provenance.source || !provenance.session_id || !provenance.trigger) {
+    throw new Error('writeQuarantined: provenance must contain source, session_id, trigger')
+  }
+  if (label !== 'Pattern' && label !== 'Decision') {
+    throw new Error(`writeQuarantined: only Pattern and Decision support quarantine routing (got ${JSON.stringify(label)})`)
+  }
+  const quarantinedLabel = `Quarantined${label}`
+  // Defense in depth - the quarantined twin is in ALLOWED_LABELS, but
+  // verify here so a future edit to the allowlist that drops the twin
+  // surfaces as a runtime error rather than silently bypassing the
+  // assertion.
+  assertAllowedLabel(quarantinedLabel)
+
+  return ensureNode({
+    label: quarantinedLabel,
+    name,
+    properties,
+    sourceModule,
+    sourceId,
+    provenance,
+  })
 }
 
 // ─── LLM-Driven Ingestion ────────────────────────────────────────────
@@ -177,9 +273,20 @@ Respond as JSON:
     const parsed = parseJSON(response)
 
     // Write all nodes
+    // §2.4: the LLM emits open-vocabulary labels. coerceLabel lands the
+    // value if it matches the allowlist (with a light cleanup), else
+    // returns null and we skip the write rather than mint an arbitrary
+    // label. This is the primary write path that produced the
+    // `Microsoft_Forms`, `forkService`, and `Co_Exist_excel_sync_Edge_Function`
+    // pollution observed in production prior to this change.
     for (const node of (parsed.nodes || [])) {
+      const coercedLabel = coerceLabel(node.label)
+      if (!coercedLabel) {
+        logger.debug('KG node label rejected', { rawLabel: node.label, name: node.name })
+        continue
+      }
       await ensureNode({
-        label: node.label,
+        label: coercedLabel,
         name: node.name,
         properties: node.properties || {},
         sourceModule,
@@ -188,13 +295,27 @@ Respond as JSON:
     }
 
     // Write all relationships
+    // §2.4: similar pattern for rel types. coerceRelType normalises the
+    // LLM's free-text rel-type strings into the strict shape; values
+    // that cannot be coerced are skipped.
     for (const rel of (parsed.relationships || [])) {
+      const coercedFromLabel = coerceLabel(rel.from_label)
+      const coercedToLabel = coerceLabel(rel.to_label)
+      const coercedRelType = coerceRelType(rel.rel_type)
+      if (!coercedFromLabel || !coercedToLabel || !coercedRelType) {
+        logger.debug('KG rel rejected', {
+          rawFrom: rel.from_label,
+          rawTo: rel.to_label,
+          rawRel: rel.rel_type,
+        })
+        continue
+      }
       await ensureRelationship({
-        fromLabel: rel.from_label,
+        fromLabel: coercedFromLabel,
         fromName: rel.from_name,
-        toLabel: rel.to_label,
+        toLabel: coercedToLabel,
         toName: rel.to_name,
-        relType: rel.rel_type,
+        relType: coercedRelType,
         properties: rel.properties || {},
         sourceModule,
       }).catch(err => logger.warn(`KG rel failed: ${rel.rel_type}`, { error: err.message }))
@@ -609,7 +730,17 @@ async function sweepOrphanedEmbeddings() {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
+/**
+ * @deprecated Use assertAllowedLabel / coerceLabel from
+ *   src/lib/cypher/labelAllowlist.js instead.
+ *
+ * Legacy regex-strip - kept as a fallback for the kgConsolidationService
+ * out-rel/in-rel transfer path, which reads relType strings from
+ * existing Neo4j edges (already-validated at write time) and re-uses
+ * them. For new write paths use the allowlist helpers directly.
+ */
 function sanitizeLabel(label) {
+  if (typeof label !== 'string' || !label) return 'Unknown'
   // Neo4j labels can't have special chars — sanitize
   return label.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'Unknown'
 }
@@ -697,6 +828,7 @@ async function getBatchEmbeddings(texts) {
 module.exports = {
   ensureNode,
   ensureRelationship,
+  writeQuarantined,
   ingestFromLLM,
   embedStaleNodes,
   countStaleNodes,

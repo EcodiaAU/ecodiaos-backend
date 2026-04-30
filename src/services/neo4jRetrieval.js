@@ -22,6 +22,16 @@ const DEFAULT_LABELS = ['Pattern', 'Decision', 'Episode', 'Strategic_Direction',
 // so non-doctrine labels are never filtered out.
 const CURRENT_ONLY_CLAUSE = '(n.t_invalid_from IS NULL OR n.t_invalid_from > datetime())'
 
+// §2.5: quarantine labels are excluded from every retrieval surface by
+// default. External-trigger-written Pattern/Decision nodes wear a
+// `Quarantined<X>` twin label; allowing them through retrieval would
+// re-introduce the doctrine-pollution attack vector that motivated the
+// quarantine in the first place.
+//
+// Promotion-path tooling that needs to inspect quarantined nodes can
+// pass `includeQuarantined: true` to opt in.
+const EXCLUDE_QUARANTINED_CLAUSE = '(NOT n:QuarantinedPattern AND NOT n:QuarantinedDecision)'
+
 /**
  * Embed a text string via OpenAI text-embedding-3-small.
  * Returns null if embedding fails.
@@ -61,8 +71,12 @@ async function semanticSearch(query, opts = {}) {
   const minScore = opts.minScore ?? 0.70
   const labels = opts.labels ?? DEFAULT_LABELS
   const onlyCurrent = opts.onlyCurrent !== false
-  // Vector query uses `node` as the variable name; adapt the clause accordingly
+  // §2.5: quarantine filter is on by default. Pass includeQuarantined:true
+  // to disable (used by promotion-path tooling).
+  const includeQuarantined = opts.includeQuarantined === true
+  // Vector query uses `node` as the variable name; adapt the clauses
   const currentFilter = onlyCurrent ? `AND ${CURRENT_ONLY_CLAUSE.replace(/\bn\./g, 'node.')}` : ''
+  const quarantineFilter = includeQuarantined ? '' : `AND ${EXCLUDE_QUARANTINED_CLAUSE.replace(/\bn:/g, 'node:')}`
 
   const embedding = await embedText(query)
   if (!embedding) return []
@@ -77,6 +91,7 @@ async function semanticSearch(query, opts = {}) {
        WHERE any(lbl IN labels(node) WHERE lbl IN $labels)
          AND score >= $minScore
          ${currentFilter}
+         ${quarantineFilter}
        RETURN node, labels(node) AS lbls, score
        ORDER BY score DESC
        LIMIT $limit`,
@@ -180,6 +195,9 @@ async function keywordSearch(query, opts = {}) {
   const labels = opts.labels ?? DEFAULT_LABELS
   const onlyCurrent = opts.onlyCurrent !== false
   const currentFilter = onlyCurrent ? `AND ${CURRENT_ONLY_CLAUSE}` : ''
+  // §2.5: quarantine filter (see semanticSearch for context).
+  const includeQuarantined = opts.includeQuarantined === true
+  const quarantineFilter = includeQuarantined ? '' : `AND ${EXCLUDE_QUARANTINED_CLAUSE}`
 
   // Tokenise: lowercase, split on non-alphanumeric, drop stopwords and tokens <3 chars
   const STOPWORDS = new Set([
@@ -201,6 +219,7 @@ async function keywordSearch(query, opts = {}) {
        WHERE any(lbl IN labels(n) WHERE lbl IN $labels)
          AND n.name IS NOT NULL
          ${currentFilter}
+         ${quarantineFilter}
        WITH n, labels(n) AS lbls,
             toLower(coalesce(n.name, '') + ' ' + coalesce(n.description, '')) AS hay
        WITH n, lbls, hay,
@@ -309,10 +328,13 @@ async function fusedSearch(query, opts = {}) {
   const vectorK = opts.vectorK ?? 15
   const keywordK = opts.keywordK ?? 15
   const onlyCurrent = opts.onlyCurrent !== false
+  // §2.5: quarantine filter propagates to both legs by default. Pass
+  // `includeQuarantined: true` only from promotion-path tooling.
+  const includeQuarantined = opts.includeQuarantined === true
 
   const [vectorHits, keywordHits] = await Promise.all([
-    semanticSearch(query, { limit: vectorK, minScore: opts.minScore ?? 0.55, labels, onlyCurrent }),
-    keywordSearch(query, { limit: keywordK, labels, onlyCurrent }),
+    semanticSearch(query, { limit: vectorK, minScore: opts.minScore ?? 0.55, labels, onlyCurrent, includeQuarantined }),
+    keywordSearch(query, { limit: keywordK, labels, onlyCurrent, includeQuarantined }),
   ])
 
   // Build a union map of all hits
@@ -404,6 +426,9 @@ async function getRecentHighPriorityNodes(opts = {}) {
   const priorityFilter = opts.priorityFilter ?? null
   const onlyCurrent = opts.onlyCurrent !== false
   const currentFilter = onlyCurrent ? `AND ${CURRENT_ONLY_CLAUSE}` : ''
+  // §2.5: quarantine filter (see semanticSearch).
+  const includeQuarantined = opts.includeQuarantined === true
+  const quarantineFilter = includeQuarantined ? '' : `AND ${EXCLUDE_QUARANTINED_CLAUSE}`
 
   try {
     const records = await runQuery(
@@ -416,6 +441,7 @@ async function getRecentHighPriorityNodes(opts = {}) {
          )
          AND ($priorityFilter IS NULL OR n.priority = $priorityFilter)
          ${currentFilter}
+         ${quarantineFilter}
        RETURN n AS node, labels(n) AS lbls,
               coalesce(n.date, n.created_at) AS when,
               coalesce(n.priority, '') AS priority
