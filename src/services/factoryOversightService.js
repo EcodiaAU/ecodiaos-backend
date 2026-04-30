@@ -322,6 +322,45 @@ async function runPostSessionPipeline(sessionId) {
     await db`UPDATE cc_sessions SET confidence_score = ${confidence} WHERE id = ${sessionId}`
   }
 
+  // ─── Self-modification path allowlist (SECURITY_HARDENING.md section 2.3) ───
+  // Hard-block deploys that touch DENY_PATHS, regardless of review outcome
+  // or confidence. Fires AFTER review (we have filesChanged + review feedback)
+  // but BEFORE the deploy decision below. The deploy decision must never be
+  // reached for a denied diff.
+  {
+    const { checkDiff: checkAllowlist } = require('../lib/selfModAllowlist')
+    const allowlistResult = checkAllowlist(filesChanged)
+    if (!allowlistResult.allowed) {
+      logger.warn(`Factory oversight: self-mod allowlist DENIED for session ${sessionId}`, {
+        sessionId,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+      cleanWorkingDir(session.repo_path)
+      try {
+        await db`
+          INSERT INTO notifications (type, message, metadata)
+          VALUES ('security_allowlist_blocked',
+                  ${'Self-mod allowlist blocked: ' + allowlistResult.deniedFiles.join(', ')},
+                  ${JSON.stringify({ sessionId, deniedFiles: allowlistResult.deniedFiles })})
+        `
+      } catch (notifErr) {
+        logger.error('Failed to record allowlist block notification', { error: notifErr.message })
+      }
+      await reportToTriggerSource(session, {
+        success: false,
+        stage: 'security_review',
+        error: `Self-mod allowlist blocked: ${allowlistResult.deniedFiles.join(', ')}`,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      await recordOutcome(session, 'deploy_blocked_allowlist', {
+        confidence,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      return
+    }
+  }
+
   // Step 3: Deploy decision
   // Minimum thresholds prevent zero-validation auto-deploys.
   // Self-modifications require higher confidence because the blast radius is the Factory itself.
