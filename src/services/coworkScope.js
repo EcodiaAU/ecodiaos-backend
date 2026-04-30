@@ -20,6 +20,7 @@ const SCOPES = Object.freeze([
   'read.crm',
   'read.forks',
   'read.cowork.inbox',
+  'read.scheduler.list',
   'write.status_board.cowork_owned',
   'write.kv_store.cowork_namespace',
   'write.neo4j.episode',
@@ -28,6 +29,9 @@ const SCOPES = Object.freeze([
   'write.os_session.message',
   'write.cowork.session_log',
   'write.cowork.heartbeat',
+  'write.gmail.send',
+  'write.sms.tate',
+  'write.scheduler.cron',
 ])
 
 const KV_WRITE_NAMESPACES = Object.freeze([
@@ -57,6 +61,9 @@ const RATE_CAPS = Object.freeze({
   os_session_message_per_hour: 6,
   forks_spawn_per_day:         30,
   status_board_upsert_per_day: 200,
+  gmail_send_per_day:          50,
+  sms_tate_per_day:            3,
+  scheduler_create_per_day:    20,
 })
 
 const COWORK_FORK_CAP = 3

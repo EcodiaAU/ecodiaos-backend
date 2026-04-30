@@ -3,7 +3,7 @@
  *
  * Mount: /api/mcp/cowork in src/app.js (after /api/hands).
  * Auth:  bearer from kv_store.creds.cowork_mcp_bearer via coworkAuth middleware.
- * Tools: 17 V2 endpoints + V1 alias (graph_semantic_search shim).
+ * Tools: 22 V2 endpoints (Wave 3: gmail.send + sms.tate + scheduler trio) + V1 alias (graph_semantic_search shim).
  *
  * Spec:  ~/ecodiaos/drafts/cowork-deep-integration-architecture-2026-04-30.md
  * Recon: ~/ecodiaos/drafts/cowork-mcp-v2-implementation-recon-2026-04-30.md
@@ -39,7 +39,7 @@ router.get('/_health', (_req, res) => {
     ok: true,
     service: 'cowork-mcp-v2',
     version: 2,
-    endpoints: 17,
+    endpoints: 22,
     v1_alias: true,
     mounted_at: new Date().toISOString(),
   })
@@ -900,7 +900,380 @@ router.post('/inbox.read', scope.requireScope('read.cowork.inbox'), async (req, 
   }
 })
 
-// ── 18. MCP JSON-RPC 2.0 shim ────────────────────────────────────────────
+// ── 18. gmail.send ──────────────────────────────────────────────────────
+const ALLOWED_FROM_INBOXES = ['code@ecodia.au', 'tate@ecodia.au']
+
+router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, res) => {
+  await withIdempotency(req, res, 'gmail.send', async () => {
+    const b = req.body || {}
+    const fromKey = (b.from || 'code').toLowerCase()
+    const fromInbox = fromKey === 'tate' ? 'tate@ecodia.au'
+                    : fromKey === 'code' ? 'code@ecodia.au'
+                    : (ALLOWED_FROM_INBOXES.includes(fromKey) ? fromKey : null)
+    if (!fromInbox) {
+      throw Object.assign(new Error(`from must be 'code' or 'tate' (or full inbox address)`), {
+        httpStatus: 422, code: 'invalid_from',
+      })
+    }
+    if (!b.to || (typeof b.to !== 'string' && !Array.isArray(b.to))) {
+      throw Object.assign(new Error('to (string or array) required'), { httpStatus: 422, code: 'missing_to' })
+    }
+    if (!b.subject || typeof b.subject !== 'string') {
+      throw Object.assign(new Error('subject (string) required'), { httpStatus: 422, code: 'missing_subject' })
+    }
+    if (!b.body || typeof b.body !== 'string') {
+      throw Object.assign(new Error('body (string) required'), { httpStatus: 422, code: 'missing_body' })
+    }
+
+    const since = new Date(Date.now() - 86400_000).toISOString()
+    const count = await _auditCountSince('gmail.send', since)
+    if (count >= scope.RATE_CAPS.gmail_send_per_day) {
+      throw Object.assign(new Error('gmail.send day cap reached'), {
+        httpStatus: 429, code: 'rate_cap',
+        details: { cap: scope.RATE_CAPS.gmail_send_per_day, window: '24h', current: count },
+      })
+    }
+
+    const gmailService = require('../../services/gmailService')
+    const result = await gmailService.sendEmail({
+      from: fromInbox,
+      to: b.to,
+      cc: b.cc,
+      bcc: b.bcc,
+      subject: b.subject,
+      body: b.body,
+      threadId: b.thread_id,
+    })
+
+    const toSummary = Array.isArray(b.to) ? b.to.join(',') : b.to
+    audit.logWrite(req, 'gmail.send', {
+      scope_used: 'write.gmail.send',
+      cowork_session_id: b.cowork_session_id,
+      affected_substrate: 'gmail',
+      affected_row_ref: result.message_id,
+      // Body excluded from audit log — only to/subject/length recorded.
+      request_summary: {
+        from: fromInbox, to: toSummary, subject: b.subject,
+        body_chars: b.body.length,
+        cc_count: Array.isArray(b.cc) ? b.cc.length : (b.cc ? 1 : 0),
+        bcc_count: Array.isArray(b.bcc) ? b.bcc.length : (b.bcc ? 1 : 0),
+        thread_id: b.thread_id || null,
+      },
+      response_summary: {
+        message_id: result.message_id,
+        gmail_thread_id: result.gmail_thread_id,
+      },
+    })
+
+    return result
+  })
+})
+
+// ── 19. sms.tate ────────────────────────────────────────────────────────
+const TATE_PHONE = '+61404247153'
+const SMS_DEDUPE_WINDOW_MS = 6 * 3600_000  // 6h dedupe per sms-tate skill spec
+
+function _stripFiller(msg) {
+  // Strip greetings, signoffs, common filler. Match the sms-tate skill behaviour.
+  let out = String(msg || '').trim()
+  out = out.replace(/^(hey|hi|hello|gday|g'day|cheers|tate)[, ]+/i, '')
+  out = out.replace(/(cheers|thanks|ta|regards|--?\s*ecodia(os)?)\s*$/i, '').trim()
+  out = out.replace(/\bjust wanted to (say|let you know|flag|mention)\b/gi, '')
+  out = out.replace(/\bheads up that\b/gi, '')
+  out = out.replace(/\s+/g, ' ').trim()
+  return out
+}
+
+function _isUnicode(str) {
+  // GSM-7 alphabet check — anything outside basic ASCII + the GSM extension
+  // forces UCS-2 encoding (70 chars/segment instead of 160).
+  return /[^\x00-\x7F]/.test(str)
+}
+
+router.post('/sms.tate', scope.requireScope('write.sms.tate'), async (req, res) => {
+  try {
+    const b = req.body || {}
+    const dryRun = !!b.dry_run
+
+    if (!b.message || typeof b.message !== 'string') {
+      return _validationFail(res, 'message (string) required')
+    }
+    const urgency = b.urgency || 'fyi'
+    if (!['critical', 'decision', 'delta', 'fyi'].includes(urgency)) {
+      return _validationFail(res, `urgency must be critical|decision|delta|fyi, got: ${urgency}`)
+    }
+
+    const stripped = _stripFiller(b.message)
+    const unicode = _isUnicode(stripped)
+    const cap = unicode ? 70 : 160
+    if (stripped.length > cap) {
+      return _validationFail(res, `message exceeds 1-segment cap (${stripped.length}/${cap}, ${unicode ? 'unicode' : 'gsm'})`, {
+        stripped, length: stripped.length, cap, unicode,
+      })
+    }
+    if (stripped.length === 0) {
+      return _validationFail(res, 'message empty after stripping filler')
+    }
+
+    // 24h dedupe via kv_store + 6h same-body window
+    const [dedupeRow] = await db`SELECT value, updated_at FROM kv_store WHERE key = 'cowork.sms_last_tate'`
+    if (dedupeRow) {
+      const last = _parseKvValue(dedupeRow.value)
+      const lastBody = last?.body || ''
+      const lastTs = last?.timestamp ? new Date(last.timestamp).getTime() : 0
+      if (lastBody === stripped && Date.now() - lastTs < SMS_DEDUPE_WINDOW_MS && urgency !== 'critical') {
+        return res.status(409).json({
+          error: 'dedupe_hit',
+          message: 'identical body sent within 6h window — pass urgency=critical to override',
+          details: { last_sent_at: last.timestamp, body: stripped },
+        })
+      }
+    }
+
+    // Day rate cap (3/day unless critical)
+    const since = new Date(Date.now() - 86400_000).toISOString()
+    const count = await _auditCountSince('sms.tate', since)
+    if (count >= scope.RATE_CAPS.sms_tate_per_day && urgency !== 'critical') {
+      return res.status(429).json({
+        error: 'rate_cap',
+        message: 'sms.tate day cap reached — pass urgency=critical to override',
+        details: { cap: scope.RATE_CAPS.sms_tate_per_day, window: '24h', current: count },
+      })
+    }
+
+    if (dryRun) {
+      audit.logWrite(req, 'sms.tate', {
+        scope_used: 'write.sms.tate',
+        cowork_session_id: b.cowork_session_id,
+        affected_substrate: 'twilio',
+        affected_row_ref: 'dry_run',
+        request_summary: { message_first_60: stripped.slice(0, 60), urgency, dry_run: true, length: stripped.length },
+        response_summary: { sent: false, dry_run: true },
+      })
+      return res.json({ sent: false, dry_run: true, would_send: stripped, length: stripped.length, urgency })
+    }
+
+    const sid = process.env.TWILIO_ACCOUNT_SID
+    const token = process.env.TWILIO_AUTH_TOKEN
+    const from = (process.env.TWILIO_FROM_NUMBER || '').trim()
+    if (!sid || !token || !from) {
+      return res.status(503).json({ error: 'twilio_unconfigured', message: 'TWILIO_* env not set' })
+    }
+
+    const auth = Buffer.from(`${sid}:${token}`).toString('base64')
+    const params = new URLSearchParams({ From: from, To: TATE_PHONE, Body: stripped })
+    const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    })
+    if (!twilioRes.ok) {
+      const text = await twilioRes.text()
+      logger.error('cowork-mcp: twilio sms failed', { status: twilioRes.status, body: text.slice(0, 200) })
+      return res.status(502).json({ error: 'twilio_failed', message: `twilio returned ${twilioRes.status}` })
+    }
+    const twilioBody = await twilioRes.json()
+    const sidOut = twilioBody?.sid || null
+
+    // Update dedupe pointer
+    await db`
+      INSERT INTO kv_store (key, value, updated_at)
+      VALUES ('cowork.sms_last_tate', ${JSON.stringify({ body: stripped, timestamp: new Date().toISOString(), urgency, sid: sidOut })}, NOW())
+      ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value, updated_at = NOW()
+    `
+
+    audit.logWrite(req, 'sms.tate', {
+      scope_used: 'write.sms.tate',
+      cowork_session_id: b.cowork_session_id,
+      affected_substrate: 'twilio',
+      affected_row_ref: sidOut,
+      request_summary: { message_first_60: stripped.slice(0, 60), urgency, length: stripped.length },
+      response_summary: { sent: true, sid: sidOut },
+    })
+
+    res.json({ sent: true, sid: sidOut, body: stripped, length: stripped.length, urgency })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+// ── 20-22. scheduler.cron / scheduler.delayed / scheduler.list ──────────
+const COWORK_NAME_PREFIX = 'cowork.'
+
+function _ensureCoworkPrefix(name) {
+  if (typeof name !== 'string' || !name) return null
+  return name.startsWith(COWORK_NAME_PREFIX) ? name : COWORK_NAME_PREFIX + name
+}
+
+function _parseCronSchedule(schedule) {
+  // "every 30m", "every 2h", "daily HH:MM" (AEST = UTC+10)
+  const everyMatch = String(schedule || '').match(/^every\s+(\d+)(m|h)$/i)
+  if (everyMatch) {
+    const val = parseInt(everyMatch[1])
+    const unit = everyMatch[2].toLowerCase()
+    const ms = unit === 'm' ? val * 60_000 : val * 3_600_000
+    return new Date(Date.now() + ms)
+  }
+  const dailyMatch = String(schedule || '').match(/^daily\s+(\d{1,2}):(\d{2})$/i)
+  if (dailyMatch) {
+    let utcHour = parseInt(dailyMatch[1]) - 10  // AEST = UTC+10
+    if (utcHour < 0) utcHour += 24
+    const next = new Date()
+    next.setUTCHours(utcHour, parseInt(dailyMatch[2]), 0, 0)
+    if (next <= new Date()) next.setUTCDate(next.getUTCDate() + 1)
+    return next
+  }
+  return null
+}
+
+function _parseDelay(delay) {
+  // "in 30m" / "in 3h" / "in 30d" / ISO datetime
+  const m = String(delay || '').match(/^in\s+(\d+)(m|h|d)$/i)
+  if (m) {
+    const val = parseInt(m[1])
+    const unit = m[2].toLowerCase()
+    const ms = unit === 'm' ? val * 60_000 : unit === 'h' ? val * 3_600_000 : val * 86_400_000
+    return new Date(Date.now() + ms)
+  }
+  const d = new Date(delay)
+  if (isNaN(d.getTime())) return null
+  return d
+}
+
+router.post('/scheduler.cron', scope.requireScope('write.scheduler.cron'), async (req, res) => {
+  await withIdempotency(req, res, 'scheduler.cron', async () => {
+    const b = req.body || {}
+    if (!b.name || !b.schedule || !b.prompt) {
+      throw Object.assign(new Error('name, schedule, prompt required'), { httpStatus: 422, code: 'missing_fields' })
+    }
+    const nextRun = _parseCronSchedule(b.schedule)
+    if (!nextRun) {
+      throw Object.assign(new Error(`can't parse schedule: "${b.schedule}". Use "every Xm|h" or "daily HH:MM"`), {
+        httpStatus: 422, code: 'invalid_schedule',
+      })
+    }
+
+    const since = new Date(Date.now() - 86400_000).toISOString()
+    const totalCount = (await _auditCountSince('scheduler.cron', since)) +
+                       (await _auditCountSince('scheduler.delayed', since))
+    if (totalCount >= scope.RATE_CAPS.scheduler_create_per_day) {
+      throw Object.assign(new Error('scheduler create day cap reached'), {
+        httpStatus: 429, code: 'rate_cap',
+        details: { cap: scope.RATE_CAPS.scheduler_create_per_day, window: '24h', current: totalCount },
+      })
+    }
+
+    const name = _ensureCoworkPrefix(b.name)
+    const [row] = await db`
+      INSERT INTO os_scheduled_tasks (type, name, prompt, cron_expression, status, next_run_at, run_count, max_runs)
+      VALUES ('cron', ${name}, ${b.prompt}, ${b.schedule}, 'active', ${nextRun}, 0, 0)
+      RETURNING id, name, next_run_at, type, status
+    `
+
+    audit.logWrite(req, 'scheduler.cron', {
+      scope_used: 'write.scheduler.cron',
+      cowork_session_id: b.cowork_session_id,
+      affected_substrate: 'os_scheduled_tasks',
+      affected_row_ref: row.id,
+      request_summary: { name, schedule: b.schedule, prompt_chars: b.prompt.length },
+      response_summary: { task_id: row.id, next_run_at: row.next_run_at },
+    })
+
+    return { task_id: row.id, name: row.name, next_run_at: row.next_run_at, schedule: b.schedule, type: 'cron' }
+  })
+})
+
+router.post('/scheduler.delayed', scope.requireScope('write.scheduler.cron'), async (req, res) => {
+  await withIdempotency(req, res, 'scheduler.delayed', async () => {
+    const b = req.body || {}
+    if (!b.name || !b.delay || !b.prompt) {
+      throw Object.assign(new Error('name, delay, prompt required'), { httpStatus: 422, code: 'missing_fields' })
+    }
+    const runAt = _parseDelay(b.delay)
+    if (!runAt) {
+      throw Object.assign(new Error(`can't parse delay: "${b.delay}". Use "in Xm|h|d" or ISO datetime`), {
+        httpStatus: 422, code: 'invalid_delay',
+      })
+    }
+
+    const since = new Date(Date.now() - 86400_000).toISOString()
+    const totalCount = (await _auditCountSince('scheduler.cron', since)) +
+                       (await _auditCountSince('scheduler.delayed', since))
+    if (totalCount >= scope.RATE_CAPS.scheduler_create_per_day) {
+      throw Object.assign(new Error('scheduler create day cap reached'), {
+        httpStatus: 429, code: 'rate_cap',
+        details: { cap: scope.RATE_CAPS.scheduler_create_per_day, window: '24h', current: totalCount },
+      })
+    }
+
+    const name = _ensureCoworkPrefix(b.name)
+    const [row] = await db`
+      INSERT INTO os_scheduled_tasks (type, name, prompt, status, run_at, next_run_at, run_count, max_runs)
+      VALUES ('delayed', ${name}, ${b.prompt}, 'active', ${runAt}, ${runAt}, 0, 1)
+      RETURNING id, name, next_run_at, type, status
+    `
+
+    audit.logWrite(req, 'scheduler.delayed', {
+      scope_used: 'write.scheduler.cron',
+      cowork_session_id: b.cowork_session_id,
+      affected_substrate: 'os_scheduled_tasks',
+      affected_row_ref: row.id,
+      request_summary: { name, delay: b.delay, prompt_chars: b.prompt.length },
+      response_summary: { task_id: row.id, fires_at: row.next_run_at },
+    })
+
+    return { task_id: row.id, name: row.name, fires_at: row.next_run_at, delay: b.delay, type: 'delayed' }
+  })
+})
+
+router.post('/scheduler.list', scope.requireScope('read.scheduler.list'), async (req, res) => {
+  try {
+    const b = req.body || {}
+    const filter = b.filter || {}
+    const limit = Math.max(1, Math.min(200, parseInt(b.limit) || 50))
+    // Default to cowork-owned (name starts with cowork.) — pass name_prefix='*' for unfiltered
+    const namePrefix = filter.name_prefix === '*' ? null
+                     : (filter.name_prefix || COWORK_NAME_PREFIX)
+    const status = filter.status || null
+
+    const rows = namePrefix
+      ? (status
+          ? await db`
+              SELECT id, type, name, prompt, cron_expression, run_at, chain_after,
+                     status, last_run_at, next_run_at, run_count, max_runs, result, created_at
+              FROM os_scheduled_tasks
+              WHERE name LIKE ${namePrefix + '%'} AND status = ${status}
+              ORDER BY next_run_at ASC NULLS LAST LIMIT ${limit}
+            `
+          : await db`
+              SELECT id, type, name, prompt, cron_expression, run_at, chain_after,
+                     status, last_run_at, next_run_at, run_count, max_runs, result, created_at
+              FROM os_scheduled_tasks
+              WHERE name LIKE ${namePrefix + '%'}
+              ORDER BY next_run_at ASC NULLS LAST LIMIT ${limit}
+            `)
+      : (status
+          ? await db`
+              SELECT id, type, name, prompt, cron_expression, run_at, chain_after,
+                     status, last_run_at, next_run_at, run_count, max_runs, result, created_at
+              FROM os_scheduled_tasks
+              WHERE status = ${status}
+              ORDER BY next_run_at ASC NULLS LAST LIMIT ${limit}
+            `
+          : await db`
+              SELECT id, type, name, prompt, cron_expression, run_at, chain_after,
+                     status, last_run_at, next_run_at, run_count, max_runs, result, created_at
+              FROM os_scheduled_tasks
+              ORDER BY next_run_at ASC NULLS LAST LIMIT ${limit}
+            `)
+    res.json({ tasks: rows, count: rows.length, name_prefix_filter: namePrefix })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+// ── MCP JSON-RPC 2.0 shim ────────────────────────────────────────────────
 // MOUNTED EARLIER (above the `router.use(coworkAuth)` line) so MCP discovery
 // methods (initialize, tools/list, prompts/list, resources/list,
 // notifications/initialized, ping) are reachable without a bearer per spec.

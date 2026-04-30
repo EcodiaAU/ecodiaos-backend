@@ -784,13 +784,19 @@ function encodeHeaderValue(str) {
   return `=?UTF-8?B?${Buffer.from(str, 'utf-8').toString('base64')}?=`
 }
 
-function createRawEmail({ to, from, subject, body, inReplyTo }) {
+function createRawEmail({ to, from, subject, body, inReplyTo, cc, bcc }) {
   const lines = [
-    `To: ${to}`,
+    `To: ${Array.isArray(to) ? to.join(', ') : to}`,
     `From: ${from}`,
     `Subject: ${encodeHeaderValue(subject)}`,
     'Content-Type: text/plain; charset=utf-8',
   ]
+  if (cc) {
+    lines.splice(1, 0, `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+  }
+  if (bcc) {
+    lines.splice(1, 0, `Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
+  }
   if (inReplyTo) {
     lines.push(`In-Reply-To: ${inReplyTo}`)
     lines.push(`References: ${inReplyTo}`)
@@ -959,6 +965,28 @@ async function sendNewEmail(inbox, to, subject, body) {
   return { sent: true, messageId: result.data?.id, to, subject }
 }
 
+/**
+ * sendEmail — extended sender supporting cc, bcc, and threadId.
+ * Used by Cowork V2 MCP gmail.send endpoint.
+ */
+async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
+  if (!GMAIL_ENABLED) throw new Error('Gmail disabled')
+  const fromInbox = from || (await getInboxes())[0]
+  const gmail = getGmailClient(fromInbox)
+
+  const raw = createRawEmail({ to, from: fromInbox, cc, bcc, subject, body })
+  const requestBody = { raw }
+  if (threadId) requestBody.threadId = threadId
+  const result = await gmail.users.messages.send({ userId: 'me', requestBody })
+  logger.info(`Email sent from ${fromInbox} to ${Array.isArray(to) ? to.join(',') : to}: ${subject}`)
+  return {
+    sent: true,
+    message_id: result.data?.id || null,
+    gmail_thread_id: result.data?.threadId || null,
+    from: fromInbox,
+  }
+}
+
 async function createFollowUpTask(threadId, title, description, priority = 'medium') {
   const [thread] = await db`SELECT * FROM email_threads WHERE id = ${threadId}`
   if (!thread) throw new Error('Thread not found')
@@ -1065,6 +1093,6 @@ module.exports = {
   // New
   listThreads, searchThreads, batchArchive, batchTrash,
   labelThread, removeLabel, starThread, unstarThread,
-  forwardThread, sendNewEmail, createFollowUpTask, unsubscribe,
+  forwardThread, sendNewEmail, sendEmail, createFollowUpTask, unsubscribe,
   getThreadsByClient, getInboxStats, listLabels, saveDraftToGmail,
 }
