@@ -268,6 +268,17 @@ const envSchema = z.object({
   // action-specific grant tokens that replace the old tateGoaheadRef
   // freetext lie.
   TIER3_TOKEN_HMAC_KEY: z.string().default(''),
+  // docs/PROMPT_ASSEMBLY_SPEC.md §7 rollout flag for the promptAssembler
+  // migration. Three values:
+  //   'off'     - v1 only. buildCustomSystemPrompt is the sole path. Default.
+  //   'shadow'  - v1 ships to the model; v2 runs in parallel; output diff is
+  //               written to prompt_assembly_audit fire-and-forget.
+  //   'canary'  - 20% of sessions (deterministic sha256(session_id) bucket)
+  //               route v2 to the model; remainder stay on v1. Still writes
+  //               audit rows for comparison.
+  // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
+  // clean rows (zero semantic_equivalent=false).
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary']).default('off'),
 })
 
 const parsed = envSchema.safeParse(process.env)
