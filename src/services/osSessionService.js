@@ -412,6 +412,42 @@ function buildCustomSystemPrompt(cwd) {
     logger.warn('Failed to read CLAUDE.md for custom system prompt', { cwd, error: err.message })
   }
 
+  // Read SELF.md (my first-person identity - Jarvis Layer 1 hinge).
+  // This is the OS-authored, weekly-refreshed self-narrative described in
+  // docs/JARVIS_GAP_ANALYSIS.md §6. It sits between CLAUDE.md (operational
+  // identity, authored by Tate) and the environment block so I always open
+  // a session knowing who I am, what I'm doing, and what's unresolved.
+  //
+  // Loaded as its own block so it can become an independent Anthropic
+  // prompt-cache breakpoint later (PROMPT_ASSEMBLY_SPEC §4). Missing file
+  // is non-fatal — logged and skipped.
+  //
+  // Lookup order (first hit wins):
+  //   1. cwd/SELF.md  - alongside CLAUDE.md (production layout on VPS
+  //      where cwd = ~/ecodiaos and SELF.md is tracked in the backend repo)
+  //   2. cwd/.claude/SELF.md - legacy / local-workspace layout
+  let selfMd = ''
+  const selfMdCandidates = [
+    path.join(cwd, 'SELF.md'),
+    path.join(cwd, '.claude', 'SELF.md'),
+  ]
+  for (const selfMdPath of selfMdCandidates) {
+    try {
+      if (fs.existsSync(selfMdPath)) {
+        selfMd = fs.readFileSync(selfMdPath, 'utf8')
+        break
+      }
+    } catch (err) {
+      logger.warn('Failed to read SELF.md candidate', { cwd, selfMdPath, error: err.message })
+    }
+  }
+  if (!selfMd) {
+    logger.info('SELF.md not found in any candidate path — running without first-person self-context', {
+      cwd,
+      candidates: selfMdCandidates,
+    })
+  }
+
   // Minimal environment context — replaces the SDK's verbose default env block
   const today = new Date().toISOString().slice(0, 10)
   const envBlock = `# Environment
@@ -480,11 +516,18 @@ The fork has none of your context unless you give it. A fork brief should read l
 
 ${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
 
-  _cachedSystemPrompt = [claudeMd, envBlock, behaviorBlock, forkBlock, untrustedInputBlock].filter(Boolean).join('\n\n---\n\n')
+  // Assembly order matters for prompt cache stability:
+  //   1. claudeMd - most stable (only changes on deliberate Tate edits)
+  //   2. selfMd   - stable within the week (weekly self-review cadence)
+  //   3. env/behavior/fork/untrusted - stable across sessions
+  // The less-stable per-turn data (relevant_memory, forks_rollup, etc.)
+  // is appended downstream in the user-message path, not here.
+  _cachedSystemPrompt = [claudeMd, selfMd, envBlock, behaviorBlock, forkBlock, untrustedInputBlock].filter(Boolean).join('\n\n---\n\n')
   _cachedSystemPromptCwd = cwd
   logger.info('Custom system prompt built', {
     bytes: _cachedSystemPrompt.length,
     hasClaudeMd: !!claudeMd,
+    hasSelfMd: !!selfMd,
   })
   return _cachedSystemPrompt
 }
