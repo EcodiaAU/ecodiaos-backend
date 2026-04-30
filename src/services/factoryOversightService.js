@@ -103,6 +103,60 @@ function cleanWorkingDir(repoPath) {
   }
 }
 
+// ─── Review B diff builder ──────────────────────────────────────────
+// Assembles a unified diff for the §2.2 security reviewer. Runs after the
+// CC session has edited files in-place but before the allowlist-cleared
+// diff is committed, so the diff lives in the working tree.
+//
+// Strategy:
+//   1. Prefer `git diff HEAD --` limited to the filesChanged list. This
+//      captures both staged and unstaged edits the CC session made.
+//   2. If HEAD already has the changes staged/committed (e.g. a parallel
+//      session raced), fall back to `git diff HEAD~1 HEAD --` for the
+//      same files.
+//   3. Cap the diff at 200KB so the Review B prompt never blows out the
+//      reviewer's context window. Trailing truncation is flagged to the
+//      reviewer in the prompt.
+//
+// Security: we never read file contents outside the git working tree and
+// never include any data from the CC session's initial_prompt, CRM logs,
+// or inbox. That isolation is the entire point of Review B.
+function _buildReviewBDiff(repoPath, filesChanged) {
+  if (!repoPath || !Array.isArray(filesChanged) || filesChanged.length === 0) {
+    return ''
+  }
+  const MAX_DIFF_BYTES = 200 * 1024
+  const gitArgsBase = ['diff', '--no-color']
+  const pathArgs = filesChanged.filter((f) => typeof f === 'string' && f && !f.includes('\x00'))
+  if (pathArgs.length === 0) return ''
+
+  const candidates = [
+    ['HEAD', '--', ...pathArgs],
+    ['HEAD~1', 'HEAD', '--', ...pathArgs],
+  ]
+
+  for (const extra of candidates) {
+    try {
+      const out = execFileSync('git', [...gitArgsBase, ...extra], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        maxBuffer: 4 * MAX_DIFF_BYTES,
+        timeout: 15_000,
+      })
+      if (!out || !out.trim()) continue
+      if (out.length <= MAX_DIFF_BYTES) return out
+      return out.slice(0, MAX_DIFF_BYTES) + '\n... [diff truncated at 200KB for Review B]\n'
+    } catch (err) {
+      logger.debug('Review B diff build attempt failed', {
+        repoPath,
+        extra: extra.slice(0, 2).join(' '),
+        error: err.message,
+      })
+    }
+  }
+  return ''
+}
+
 // ─── Full Pipeline Orchestrator ─────────────────────────────────────
 
 async function runPostSessionPipeline(sessionId) {
@@ -358,6 +412,97 @@ async function runPostSessionPipeline(sessionId) {
         deniedFiles: allowlistResult.deniedFiles,
       })
       return
+    }
+  }
+
+  // ─── §2.2 Dual-reviewer: Review B (security-only, diff-isolated) ───
+  // Fires when the session is self-mod OR when the diff touches a path in
+  // the security-sensitive prefix list. Review B sees ONLY the unified diff
+  // and file list - not the initial_prompt, not the CRM-derived context -
+  // so a prompt-injected reviewer cannot smuggle approval through.
+  //
+  // Behaviour:
+  //   - Shadow mode (default): record verdict on cc_sessions, never block.
+  //   - Enforce mode (opt-in via SECURITY_DUAL_REVIEWER_ENFORCE=1): a
+  //     rejection aborts the deploy exactly like the allowlist block above.
+  //
+  // Failure handling: the reviewer fails closed. A network error or parse
+  // failure is written as 'rejected' (or 'shadow_rejected' in shadow mode)
+  // so the only way to deploy is a positive approval.
+  {
+    const {
+      shouldRunReviewB,
+      reviewApprovalToStatus,
+      isEnforceMode,
+      isApprovedStatus,
+    } = require('../lib/securityGate')
+
+    if (shouldRunReviewB({ isSelfMod, filesChanged })) {
+      let status = null
+      let concerns = []
+      try {
+        const { reviewSecurity } = require('./securityReviewerService')
+        const diff = _buildReviewBDiff(session.repo_path, filesChanged)
+        const verdict = await reviewSecurity({ sessionId, diff, filesChanged })
+        status = reviewApprovalToStatus(verdict.approved)
+        concerns = verdict.concerns || []
+      } catch (err) {
+        logger.error(`Factory oversight: Review B threw — failing closed`, {
+          sessionId,
+          error: err.message,
+        })
+        status = reviewApprovalToStatus(false)
+        concerns = [`Review B dispatcher failed: ${err.message.slice(0, 200)}`]
+      }
+
+      await db`
+        UPDATE cc_sessions
+        SET security_review_status = ${status},
+            security_review_concerns = ${JSON.stringify(concerns)},
+            security_review_at = now()
+        WHERE id = ${sessionId}
+      `
+
+      logger.info(`Factory oversight: Review B verdict recorded`, {
+        sessionId,
+        status,
+        concernCount: concerns.length,
+        enforce: isEnforceMode(),
+        isSelfMod,
+      })
+
+      // In enforce mode, a non-approved status blocks the deploy here,
+      // before the auto-deploy decision runs. Shadow verdicts are recorded
+      // but never block.
+      if (isEnforceMode() && !isApprovedStatus(status)) {
+        logger.warn(`Factory oversight: Review B REJECTED (enforce mode) — blocking deploy`, {
+          sessionId,
+          concerns,
+        })
+        await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+        cleanWorkingDir(session.repo_path)
+        try {
+          await db`
+            INSERT INTO notifications (type, message, metadata)
+            VALUES ('security_review_b_blocked',
+                    ${'Review B blocked self-mod deploy: ' + (concerns[0] || 'no reason given').slice(0, 200)},
+                    ${JSON.stringify({ sessionId, concerns })})
+          `
+        } catch (notifErr) {
+          logger.error('Failed to record Review B block notification', { error: notifErr.message })
+        }
+        await reportToTriggerSource(session, {
+          success: false,
+          stage: 'security_review_b',
+          error: `Review B rejected: ${(concerns[0] || 'no reason given').slice(0, 200)}`,
+          concerns,
+        })
+        await recordOutcome(session, 'deploy_blocked_review_b', {
+          confidence,
+          concerns,
+        })
+        return
+      }
     }
   }
 
