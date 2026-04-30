@@ -32,6 +32,7 @@
 const { Router } = require('express')
 const db = require('../config/db')
 const logger = require('../config/logger')
+const credentialRedactionMonitor = require('../lib/credentialRedactionMonitor')
 
 const router = Router()
 
@@ -123,6 +124,7 @@ async function _securityMetrics() {
       FROM cc_sessions
       WHERE security_review_at >= NOW() - INTERVAL '24 hours'
     `
+    const redactSnap = credentialRedactionMonitor.snapshot()
     return {
       review_b_24h: {
         total: b?.total || 0,
@@ -130,11 +132,20 @@ async function _securityMetrics() {
         rejected: b?.rejected || 0,
         shadow_verdicts: b?.shadow_verdicts || 0,
       },
+      credential_redactions_24h: redactSnap.total_since_boot,
+      credential_redactions_bootstrap_done: redactSnap.bootstrap_done,
+      credential_redactions_by_source: redactSnap.counters_by_type_source,
       quarantined_doctrine_pending: null,
     }
   } catch (err) {
     logger.debug('/ops: securityMetrics unavailable', { error: err.message })
-    return null
+    return {
+      review_b_24h: null,
+      credential_redactions_24h: credentialRedactionMonitor.snapshot().total_since_boot,
+      credential_redactions_bootstrap_done: credentialRedactionMonitor.snapshot().bootstrap_done,
+      credential_redactions_by_source: credentialRedactionMonitor.snapshot().counters_by_type_source,
+      quarantined_doctrine_pending: null,
+    }
   }
 }
 
@@ -284,14 +295,27 @@ function renderClaims(d) {
 }
 
 function renderSecurity(d) {
-  if (!d.security || !d.security.review_b_24h) return panel('security (24h)', null)
-  const b = d.security.review_b_24h
-  return panel('security (24h)', [
-    kv('review B total', b.total),
-    kv('approved', b.approved, 'ok'),
-    kv('rejected', b.rejected, b.rejected > 0 ? 'err' : 'ok'),
-    kv('shadow verdicts', b.shadow_verdicts),
-  ])
+  if (!d.security) return panel('security (24h)', null)
+  const s = d.security
+  const items = []
+  if (s.review_b_24h) {
+    const b = s.review_b_24h
+    items.push(
+      kv('review B total', b.total),
+      kv('approved', b.approved, 'ok'),
+      kv('rejected', b.rejected, b.rejected > 0 ? 'err' : 'ok'),
+      kv('shadow verdicts', b.shadow_verdicts),
+    )
+  }
+  const red = s.credential_redactions_24h
+  if (red !== undefined && red !== null) {
+    const bootDone = s.credential_redactions_bootstrap_done
+    const cls = !bootDone ? 'warn' : (red > 0 ? 'err' : 'ok')
+    const label = bootDone ? 'credential redactions (post-boot)' : 'credential redactions (bootstrap)'
+    items.push(kv(label, red, cls))
+  }
+  if (items.length === 0) return panel('security (24h)', null)
+  return panel('security (24h)', items)
 }
 
 async function load() {
