@@ -87,6 +87,8 @@ describe('/api/ops/metrics', () => {
     expect(r.body.claims.verified_24h).toBe(17)
     expect(r.body.claims.verification_rate).toBeCloseTo(17 / 20, 3)
     expect(r.body.security.review_b_24h.shadow_verdicts).toBe(1)
+    expect(typeof r.body.security.credential_redactions_24h).toBe('number')
+    expect(typeof r.body.security.credential_redactions_bootstrap_done).toBe('boolean')
   })
 
   test('missing claude_usage table: turn_economics is null, request still 200s', async () => {
@@ -99,7 +101,7 @@ describe('/api/ops/metrics', () => {
     expect(r.body.forks).toBeDefined()
   })
 
-  test('all panels unavailable: request still 200s with nulls', async () => {
+  test('all panels unavailable: request still 200s with nulls (security still surfaces credential redactions)', async () => {
     setMock('claude_usage', new Error('x'))
     setMock('os_forks', new Error('x'))
     setMock('conductor_claims', new Error('x'))
@@ -111,7 +113,11 @@ describe('/api/ops/metrics', () => {
     expect(r.body.turn_economics).toBeNull()
     expect(r.body.forks).toBeNull()
     expect(r.body.claims).toBeNull()
-    expect(r.body.security).toBeNull()
+    // Security panel: review_b_24h is null (cc_sessions failed) but credential
+    // redactions always surface from the in-process monitor.
+    expect(r.body.security).not.toBeNull()
+    expect(r.body.security.review_b_24h).toBeNull()
+    expect(typeof r.body.security.credential_redactions_24h).toBe('number')
   })
 
   test('empty results: each panel returns zero rather than null', async () => {

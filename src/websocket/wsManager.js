@@ -24,6 +24,26 @@ const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const logger = require('../config/logger')
 const env = require('../config/env')
+const credentialFilter = require('../lib/credentialFilter')
+
+// Envelope metadata keys that must never be redacted — they're either
+// deterministic (seq, ts, epoch, type) or already scrubbed (sessionId).
+// Everything else on the envelope (data, content, payload) is user/tool
+// text and must be redacted.
+const _ENVELOPE_META_KEYS = new Set(['seq', 'ts', 'epoch', 'type', 'sessionId'])
+
+function _redactEnvelope(envelope) {
+  if (!envelope || typeof envelope !== 'object') return envelope
+  const out = {}
+  for (const [k, v] of Object.entries(envelope)) {
+    if (_ENVELOPE_META_KEYS.has(k)) {
+      out[k] = v
+    } else {
+      out[k] = credentialFilter.redactDeep(v, 'wsManager.broadcast')
+    }
+  }
+  return out
+}
 
 // In-memory ticket store - tickets are single-use and expire after 90s.
 // Bumped from 30s because African wifi reconnects can take 10-20s and were
@@ -228,14 +248,14 @@ function _flushDeltas() {
   const combined = parts.join('')
   const seq = ++_sessionSeq
   const ts = new Date().toISOString()
-  const envelope = {
+  const envelope = _redactEnvelope({
     seq,
     ts,
     epoch: _sessionEpoch,
     type: 'os-session:output',
     ...extra,
     data: { type: 'text_delta', content: combined },
-  }
+  })
   _addToRing(envelope)
   _sendRaw(JSON.stringify(envelope))
   _fanOut('os-session:output', envelope)
@@ -288,7 +308,7 @@ function broadcast(type, payload) {
 
   const seq = ++_sessionSeq
   const ts = new Date().toISOString()
-  const envelope = { seq, ts, epoch: _sessionEpoch, type, ...payload }
+  const envelope = _redactEnvelope({ seq, ts, epoch: _sessionEpoch, type, ...payload })
   _addToRing(envelope)
   _sendRaw(JSON.stringify(envelope))
   _fanOut(type, envelope)

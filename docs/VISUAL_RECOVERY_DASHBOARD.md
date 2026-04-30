@@ -1,14 +1,14 @@
 # EcodiaOS Visual Recovery Dashboard
-## One-Page Status Reference — updated 2026-04-30 (Phase 0.5 code-complete)
+## One-Page Status Reference — updated 2026-05-01 (Phase 0.5 merged + §5.1 wired)
 
 **Purpose:** Quick-glance view of recovery progress. Update this document as each phase completes.
 
 ---
 
-## CURRENT STATUS: 🟡 Phase 0.5 code-complete, awaiting migration apply + wire-in on VPS
+## CURRENT STATUS: 🟢 Phase 0.5 merged to main, migrations applied on VPS, §5.1 credential filter wired
 
-**Last Online:** 2026-04-30 (before usage exhaustion)
-**Expected Back Online:** When Claude Max resets OR Tate tops up
+**Last Online:** 2026-05-01
+**Expected Back Online:** running
 **Estimated Recovery Time:** 24 hours to stability, 6 weeks to full transformation
 
 ### Phase 0.5 Security Hardening — ship state
@@ -16,19 +16,20 @@
 | Section | Module | Tests | Status |
 |---|---|---:|---|
 | §2.1 Untrusted-input delimiters | lib/untrustedInput.js | ✅ | ✅ merged main (PR #29) |
-| §2.2 Dual-reviewer gate | services/securityReviewerService.js + lib/securityGate.js | 51 | 🟡 PR #33 — shadow mode default |
+| §2.2 Dual-reviewer gate | services/securityReviewerService.js + lib/securityGate.js | 51 | ✅ merged main (PR #33) — shadow mode default |
 | §2.3 Self-mod path allowlist | lib/selfModAllowlist.js | ✅ | ✅ merged main (PR #32) |
 | §2.4 Cypher parameterization | lib/labelAllowlist.js | ✅ | ✅ merged main (PR #31) |
 | §2.5 Quarantined Neo4j labels | services/knowledgeGraphService.js | ✅ | ✅ merged main (PR #31) |
-| §3.2 Tier-3 token gate | services/tier3GateService.js + mig 071-073 | 26 | 🟡 module done, wire-in pending |
-| §3.3 Commitment detector | services/commitmentDetector.js | 19 | 🟡 module done, wire-in pending |
-| §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
-| §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
-| §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
-| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
+| §3.2 Tier-3 token gate | services/tier3GateService.js + mig 071-073 | 26 | ✅ merged main (PR #34) — wire-in pending (gmail) |
+| §3.3 Commitment detector | services/commitmentDetector.js | 19 | ✅ merged main (PR #34) — wire-in pending (gmail) |
+| §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | ✅ merged main (PR #34) — wire-in pending (gmail) |
+| §5.1 Credential pre-emit filter | lib/credentialFilter.js + lib/credentialRedactionMonitor.js | 44 | 🟢 **WIRED 2026-05-01** into osConversationLog / wsManager / osSessionService tool-result; boot poller fires `credential_redaction_burst` post-bootstrap |
+| §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | ✅ merged main (PR #34) — wire-in pending (gmail) |
+| §7.2 Incident response | services/securityIncidentResponse.js | 11 | ✅ merged main (PR #34) — fireIncident wired from credentialRedactionMonitor; full services container (setEmergencyMode/pauseCrons/haltForks/smsTate) wire-in pending |
+| fork atomicity / /ops / claim grammar | lib/forkCapAtomic.js + services/taskLease.js + routes/ops.js + lib/claimGrammar.js | 68 | ✅ merged main (PR #35) — forkService call-site swap SMS-OTP gated |
 
-**Test totals:** 192+ new unit tests across 11 specs, zero regressions.
-**Next step:** merge PR #33 (§2.2), open PR for the §3.2-§7.2 batch, apply migrations 071-076 on VPS, then wire into live send/deploy paths.
+**Test totals:** 236+ new unit tests (Phase 0.5 modules + §5.1 wire-in), zero regressions in the module group.
+**Next step:** wire gmail `sendEmailGated` (§3.2/§3.3/§3.4/§7.1), claim grammar post-turn + verifier cron, full `securityIncidentResponse.wireServices(...)` container at boot, forkService atomic cap-check swap (SMS-OTP gated).
 
 ---
 
@@ -314,9 +315,9 @@ Decision: [PENDING]
 
 ## LAST UPDATED
 
-**Date:** 2026-04-30  
-**Updated By:** Claude Code (Sonnet 4.5) — Initial Document Creation  
-**Next Update Due:** When OS comes back online (Phase 1 complete)  
+**Date:** 2026-05-01  
+**Updated By:** Claude Code (Opus 4.7) — §5.1 credential filter wire-in  
+**Next Update Due:** After next wire-in step (gmail sendEmailGated) or 2h VPS bootstrap window elapse  
 **Update Frequency:** After each phase/track completion + daily during first week  
 
 ---
