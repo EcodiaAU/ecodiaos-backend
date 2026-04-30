@@ -887,4 +887,17 @@ router.post('/inbox.read', scope.requireScope('read.cowork.inbox'), async (req, 
   }
 })
 
+// ── 18. MCP JSON-RPC 2.0 shim (Anthropic custom-connector entry point) ───
+// POST /api/mcp/cowork/ with a JSON-RPC envelope. Bridges initialize /
+// tools/list / tools/call / prompts/list / resources/list /
+// notifications/initialized to the 17 V2 REST endpoints above.
+//
+// Auth: same coworkAuth middleware applied at line 48 covers this route too.
+// Dispatch: in-process synthetic-request injection (no HTTP loopback) so
+// scope checks, idempotency, audit logging, and rate caps still apply.
+//
+// Spec: ~/ecodiaos/src/routes/mcp/coworkMcpShim.js
+const mcpShim = require('./coworkMcpShim')
+router.post('/', (req, res) => mcpShim.handleMcpRequest(router, req, res))
+
 module.exports = router
