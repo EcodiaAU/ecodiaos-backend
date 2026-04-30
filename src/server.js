@@ -69,6 +69,11 @@ async function gracefulShutdown(signal) {
     tokenRefresh.stop()
   } catch {}
 
+  try {
+    const claimVerifier = require('./workers/claimVerifierWorker')
+    claimVerifier.stop()
+  } catch {}
+
   // Force-destroy open connections (especially WebSockets) so server.close()
   // doesn't hang waiting for them to end. Without this, PM2 SIGKILLs the
   // process at kill_timeout and sessions that weren't yet marked in DB become orphans.
@@ -334,6 +339,20 @@ server.listen(env.PORT, async () => {
       messageQueue.startSweepPoller()
     } catch (err) {
       logger.warn('Message queue sweep poller failed to start', { error: err.message })
+    }
+  }
+
+  // ── Boot: Claim Verifier Worker (OBSERVABILITY_SPEC §3) ───────────
+  // Every 30s, sweeps conductor_claims.pending rows claimed in the last
+  // 5 minutes and dispatches per-action verifiers (git rev-parse for
+  // deployed/committed, email/scheduled/fork table lookups otherwise).
+  // Self-guards against overlap via an _inFlight flag.
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const claimVerifier = require('./workers/claimVerifierWorker')
+      claimVerifier.start()
+    } catch (err) {
+      logger.warn('Claim verifier worker failed to start', { error: err.message })
     }
   }
 
