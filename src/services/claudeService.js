@@ -76,4 +76,41 @@ async function callClaudeJSON(messages, opts = {}) {
   }
 }
 
-module.exports = { callClaude, callClaudeJSON }
+// ─── cache keepalive — minimal ping to refresh Anthropic prompt cache TTL ──
+// docs/PROMPT_ASSEMBLY_SPEC.md §4.3. Called by workers/cacheKeepaliveWorker
+// every 45 minutes during work hours. Sends the stable BP1+BP2 prefix +
+// "health=?" user message via the existing callClaude path so the upstream
+// cache (whether factory-bg-subprocess or direct SDK) sees the same content
+// and extends its 1h TTL. Returns { usage: { input_tokens, cache_read_input_tokens } }
+// or the best approximation factoryBridge can provide.
+async function cacheKeepalivePing({ stablePrefix, userMessage = 'health=?' } = {}) {
+  const start = Date.now()
+  const messages = [
+    { role: 'user', content: userMessage },
+  ]
+  try {
+    const content = await callClaude(messages, {
+      module: 'cache_keepalive',
+      system: stablePrefix,
+    })
+    const durationMs = Date.now() - start
+    // factoryBridge doesn't pass through token accounting; we estimate from
+    // char length so the keepalive metric has a plausible number. Real-SDK
+    // wire-in would return actual cache_read_input_tokens — that's a follow-up.
+    const inputTokens = Math.ceil((stablePrefix.length + userMessage.length) / 4)
+    const outputTokens = Math.ceil((content || '').length / 4)
+    return {
+      usage: {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cache_read_input_tokens: 0,  // unknown via factoryBridge; SDK wire-in would populate
+      },
+      duration_ms: durationMs,
+    }
+  } catch (err) {
+    // Bubble up — worker's fireRefresh catches and logs.
+    throw err
+  }
+}
+
+module.exports = { callClaude, callClaudeJSON, cacheKeepalivePing }
