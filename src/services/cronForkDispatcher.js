@@ -55,6 +55,10 @@ const {
   budgetGateDecision,
   DAILY_FORK_BUDGET_DEFAULT,
 } = require('../config/cronPriority')
+// Imported as namespace (not destructured) so jest.spyOn / runtime overrides
+// in tests can intercept the call. The dispatcher reads session_mode via
+// cronSessionMode.getCronSessionMode(...) below.
+const cronSessionMode = require('../config/cronSessionMode')
 
 // Estimate token cost for a cron-spawned fork. Brief size is the largest
 // variable; handler overhead is roughly fixed.
@@ -201,6 +205,7 @@ async function _stampForkIdOnCron(taskId, forkId) {
  */
 async function dispatchCronAsFork(cronTask) {
   const route = classifyCron(cronTask.name)
+  const sessionMode = cronSessionMode.getCronSessionMode(cronTask.name)
 
   // Conductor + direct_exec routes are NOT our concern — caller should keep
   // them on the existing os-session POST path. Returning shouldHandle=false
@@ -209,6 +214,7 @@ async function dispatchCronAsFork(cronTask) {
     return {
       spawned: false,
       route,
+      session_mode: sessionMode,
       fork_id: null,
       reason: 'route_handled_by_caller_not_dispatcher',
       budget_remaining: await _readBudget(),
@@ -216,6 +222,73 @@ async function dispatchCronAsFork(cronTask) {
       shouldHandle: false,
     }
   }
+
+  // Session-mode short-circuits, orthogonal to the priority route.
+  // direct_exec at the session-mode layer means "this cron's intent runs as
+  // a shell call, not as a fork." If priority and session_mode disagree (a
+  // cron classified as fork-priority but session-mode='direct_exec'), the
+  // session_mode wins on substrate selection — caller falls back to the
+  // os-session POST path.
+  if (sessionMode === 'direct_exec') {
+    return {
+      spawned: false,
+      route,
+      session_mode: sessionMode,
+      fork_id: null,
+      reason: 'session_mode_direct_exec_handled_by_caller',
+      budget_remaining: await _readBudget(),
+      estimated_cost: 0,
+      shouldHandle: false,
+    }
+  }
+
+  // conductor_inline: the conductor's main session handles this. Return a
+  // sentinel so the caller knows not to spawn a fork AND not to POST to
+  // /api/os-session/message (the conductor will pick it up on its own loop).
+  if (sessionMode === 'conductor_inline') {
+    logger.info('cronForkDispatcher: cron flagged conductor_inline (no spawn)', {
+      cron: cronTask.name,
+      route,
+    })
+    return {
+      spawned: false,
+      route,
+      session_mode: sessionMode,
+      fork_id: null,
+      reason: 'session_mode_conductor_inline_handle_on_main',
+      budget_remaining: await _readBudget(),
+      estimated_cost: 0,
+      shouldHandle: false,
+    }
+  }
+
+  // factory_cc_session: never auto-routed. Manual dispatch only. Log a
+  // warning so the operator notices and surfaces a status_board row if the
+  // cron keeps firing without a manual handler picking it up.
+  if (sessionMode === 'factory_cc_session') {
+    logger.warn('cronForkDispatcher: cron classified factory_cc_session — manual dispatch only', {
+      cron: cronTask.name,
+      route,
+      hint: 'use start_cc_session by hand; never auto-routed by the dispatcher',
+    })
+    return {
+      spawned: false,
+      route,
+      session_mode: sessionMode,
+      fork_id: null,
+      reason: 'session_mode_factory_cc_session_manual_only',
+      budget_remaining: await _readBudget(),
+      estimated_cost: 0,
+      shouldHandle: false,
+    }
+  }
+
+  // From here we KNOW session_mode is brief_fork or inherit_fork. Map to
+  // forkService's context_mode argument. Default falls back to 'recent'
+  // (matches forkService.spawnFork's own default) if classification is
+  // missing — but sessionModeToContextMode returning null means the caller
+  // shouldn't have reached this path; treat null as a programming error.
+  const contextMode = cronSessionMode.sessionModeToContextMode(sessionMode) || 'recent'
 
   const cost = estimateForkTokenCost(cronTask.prompt)
   const budgetRemaining = await _readBudget()
@@ -231,6 +304,7 @@ async function dispatchCronAsFork(cronTask) {
     logger.info('cronForkDispatcher: cron deferred by budget gate', {
       cron: cronTask.name,
       route,
+      session_mode: sessionMode,
       tier: gate.tier,
       reason: gate.reason,
       budget_remaining: budgetRemaining,
@@ -238,6 +312,7 @@ async function dispatchCronAsFork(cronTask) {
     return {
       spawned: false,
       route,
+      session_mode: sessionMode,
       fork_id: null,
       reason: gate.reason,
       budget_remaining: budgetRemaining,
@@ -255,19 +330,22 @@ async function dispatchCronAsFork(cronTask) {
   try {
     forkSnapshot = await forkService.spawnFork({
       brief: cronTask.prompt,
-      context_mode: 'brief',
+      context_mode: contextMode,
     })
   } catch (err) {
     // Refund — spawn never happened.
     await _refundBudget(cost)
     logger.warn('cronForkDispatcher: spawnFork failed', {
       cron: cronTask.name,
+      session_mode: sessionMode,
+      context_mode: contextMode,
       error: err.message,
       code: err.code,
     })
     return {
       spawned: false,
       route,
+      session_mode: sessionMode,
       fork_id: null,
       reason: err.code || `spawn_error: ${err.message}`,
       budget_remaining: await _readBudget(),
@@ -285,6 +363,8 @@ async function dispatchCronAsFork(cronTask) {
     cron: cronTask.name,
     fork_id: forkId,
     route,
+    session_mode: sessionMode,
+    context_mode: contextMode,
     estimated_cost: cost,
     budget_remaining: budgetRemaining - cost,
     tier: gate.tier,
@@ -293,6 +373,7 @@ async function dispatchCronAsFork(cronTask) {
   return {
     spawned: true,
     route,
+    session_mode: sessionMode,
     fork_id: forkId,
     reason: 'spawned',
     budget_remaining: budgetRemaining - cost,
