@@ -4,6 +4,41 @@ const { broadcastToSession, broadcast } = require('../websocket/wsManager')
 const { callClaude, callClaudeJSON } = require('./claudeService')
 const { callDeepSeek } = require('./deepseekService')
 const kgHooks = require('./kgIngestionHooks')
+// §2.1 untrusted-input boundary helpers - any external-derived text that
+// flows into a Claude/DeepSeek prompt here MUST be wrapped at the boundary
+// so the reviewer treats it as data, not as operator intent. See
+// docs/SECURITY_HARDENING.md §1 for the live attack chain this closes.
+//
+// session.initial_prompt audit (2026-04-30, §2.1 ship):
+//   WRAPPED at LLM-prompt boundaries:
+//     - reviewSessionWithClaude review prompt (~line 535)
+//     - generateFollowUp DeepSeek prompt (~line 710)
+//     - extractLearningPattern Claude prompt (~line 947)
+//     - recordOutcome KG ingestion content (~line 822)
+//   SAFE without wrap (no LLM exposure - structured/tokenized/persisted):
+//     - _extractKeywords tokenization (lines 144, 159, 172, 1039) - returns
+//       a token array, never concatenated into a prompt.
+//     - SELECT ... initial_prompt query (lines 149, 1416, 1423) - DB read,
+//       not prompt text.
+//     - regex match on initial_prompt (line 346) - boolean check.
+//     - notification message field (lines 420, 834) - DB row written for
+//       UI display, not consumed by an LLM.
+//     - JSON.stringify into factory_learnings.evidence (lines 1144, 1159,
+//       1172) - persisted as structured data; if/when re-consumed by an
+//       LLM the consumer must wrap on read.
+//     - goalService.advanceFromSession({ prompt }) (line 906) - structured
+//       service call with a typed field; goalService is responsible for
+//       wrapping on its own LLM boundary if it has one.
+//     - computeTaskDiffAlignment(initial_prompt, ...) (lines 1537, 1566) -
+//       deterministic alignment scoring, not LLM.
+//     - returned `task` field (line 1542) - data field on the review
+//       payload; downstream UI/LLM consumers wrap on read.
+//     - short snippets used as DB notification text or log lines (lines
+//       171, 1036) - human display, not LLM input.
+const {
+  wrapUntrusted,
+  UNTRUSTED_INPUT_SYSTEM_CLAUSE,
+} = require('../lib/untrustedInput')
 
 // ═══════════════════════════════════════════════════════════════════════
 // FACTORY OVERSIGHT SERVICE — Freedom Edition
@@ -527,12 +562,25 @@ async function reviewChanges(session, filesChanged) {
       ? `\nThis is a self-modification — the Factory editing its own code.\n`
       : ''
 
+    // §2.1: wrap session.initial_prompt at the boundary - it can carry
+    // unsanitised external text (email body via CRM activity, scraped web
+    // content, fork-result narration). The reviewer must read it as data,
+    // not as instructions to follow. Inject the system clause inline so
+    // it is co-located with the wrapped data even when this prompt is
+    // dispatched without a custom system prompt (callClaude defaults).
+    const wrappedTask = wrapUntrusted(session.initial_prompt, {
+      source: session.trigger_source || 'unknown',
+      trigger_ref: session.trigger_ref_id || 'unknown',
+      session_id: session.id,
+    })
     const response = await callClaude([{
       role: 'user',
       content: `Code review for Factory auto-deployment gate.
+
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
 ${selfModNote}
 ## Task
-${session.initial_prompt}
+${wrappedTask}
 
 ## Codebase
 ${session.codebase_name || 'unknown'}
@@ -686,13 +734,27 @@ async function reportToTriggerSource(session, result) {
 
 async function generateFollowUp(session, failureType, errorDetails) {
   try {
+    // §2.1: wrap session.initial_prompt and errorDetails at the boundary -
+    // both can carry external-influenced text (CRM/email body in the prompt,
+    // fork-result narration in errorDetails).
+    const wrappedTask = wrapUntrusted(session.initial_prompt, {
+      source: session.trigger_source || 'unknown',
+      trigger_ref: session.trigger_ref_id || 'unknown',
+      session_id: session.id,
+    })
+    const wrappedError = wrapUntrusted(errorDetails, {
+      source: 'factory_failure',
+      session_id: session.id,
+    })
     const response = await callDeepSeek([{
       role: 'user',
       content: `Factory CC session failed.
 
-Task: ${session.initial_prompt}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTask}
 Codebase: ${session.codebase_name || 'unknown'}
-Failure: ${failureType} — ${errorDetails}
+Failure: ${failureType} - ${wrappedError}
 Trigger: ${session.trigger_source}
 Self-modification: ${!!session.self_modification}
 
@@ -777,9 +839,24 @@ async function recordOutcome(session, outcome, details = {}) {
   try {
     // KG ingestion for institutional memory
     const kg = require('./knowledgeGraphService')
+    // §2.1: kg.ingestFromLLM feeds this content to a Claude/DeepSeek call
+    // for pattern extraction. session.initial_prompt may carry external
+    // text and must be wrapped at this boundary too. This is also part
+    // of the §2.5 / §4 Neo4j pollution defence - if the wrapped text
+    // does happen to contain hostile imperatives, the model treats them
+    // as data rather than emitting a Pattern node that follows them.
+    const wrappedTaskSnippet = wrapUntrusted(
+      (session.initial_prompt || '').slice(0, 200),
+      {
+        source: session.trigger_source || 'unknown',
+        trigger_ref: session.trigger_ref_id || 'unknown',
+        session_id: session.id,
+      },
+    )
     const content = `Factory session outcome: ${outcome}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
 Codebase: ${session.codebase_name || 'unknown'}
-Task: ${(session.initial_prompt || '').slice(0, 200)}
+Task: ${wrappedTaskSnippet}
 Trigger: ${session.trigger_source || 'manual'}
 Confidence: ${details.confidence || 'N/A'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}
@@ -903,10 +980,26 @@ async function extractLearningPattern(session, outcome, details) {
 
     const reviewNotes = details.reviewNotes ? `\nReview notes: ${details.reviewNotes}` : ''
 
+    // §2.1: wrap session.initial_prompt at the boundary - same exposure
+    // path as the review/follow-up prompts above. The 400-char slice is
+    // not a sanitisation primitive; it just bounds size. Truncate first,
+    // then wrap, so the wrapper attributes still apply to whatever made
+    // it through.
+    const wrappedTaskSnippet = wrapUntrusted(
+      (session.initial_prompt || '').slice(0, 400),
+      {
+        source: session.trigger_source || 'unknown',
+        trigger_ref: session.trigger_ref_id || 'unknown',
+        session_id: session.id,
+      },
+    )
+
     const prompt = outcome === 'success'
       ? `Factory CC session succeeded. Extract a SPECIFIC, ACTIONABLE learning.
 
-Task: ${(session.initial_prompt || '').slice(0, 400)}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTaskSnippet}
 Codebase: ${session.codebase_name || 'unknown'}
 Confidence: ${details.confidence || 'N/A'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}${diffSnippet}${reviewNotes}
@@ -928,7 +1021,9 @@ Respond as JSON:
 If nothing specific is worth remembering, respond: {"pattern_type": "none", "pattern_description": "", "confidence": 0}`
       : `Factory CC session failed (${outcome}). Extract a SPECIFIC, ACTIONABLE learning.
 
-Task: ${(session.initial_prompt || '').slice(0, 400)}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTaskSnippet}
 Codebase: ${session.codebase_name || 'unknown'}
 Error: ${details.error || details.reason || 'unknown'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}${diffSnippet}${reviewNotes}

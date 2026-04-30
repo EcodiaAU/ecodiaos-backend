@@ -1,6 +1,20 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
 const env = require('../config/env')
+// §2.1 untrusted-input boundary helper. Trigger sources that did not
+// originate from the conductor or Tate directly (i.e. anything routed
+// from external-influenced state - CRM activity, email arrival, social
+// inbox, scheduled briefs derived from external data) are wrapped at
+// the INSERT boundary so the prompt the Factory CLI eventually receives
+// reads the external text as data inside <untrusted_input> tags. See
+// docs/SECURITY_HARDENING.md §1 for the live attack chain.
+const { wrapUntrusted } = require('../lib/untrustedInput')
+
+// Trigger sources that originate from the conductor's own decision
+// pipeline or Tate's direct typed instructions - these prompts are
+// authored by trusted code paths and never need external-input wrapping.
+// Anything else is treated as untrusted at the boundary.
+const TRUSTED_TRIGGER_SOURCES = new Set(['conductor_direct', 'tate_direct'])
 
 // ═══════════════════════════════════════════════════════════════════════
 // FACTORY TRIGGER SERVICE — Central Dispatch
@@ -297,13 +311,30 @@ async function createAndStartSession({ codebaseId, prompt, triggeredBy, triggerS
     return null
   }
 
+  // §2.1: prompts from non-trusted trigger sources may have been seeded
+  // by external content (email body landing in CRM activity, scraped
+  // web content, social inbox payloads, etc). Wrap at the INSERT
+  // boundary so every downstream consumer of session.initial_prompt -
+  // the factoryRunner CLI prompt, the oversight reviewer, the
+  // follow-up generator, the learning extractor, the KG ingestor -
+  // sees the external text inside <untrusted_input> tags. Trusted
+  // sources (conductor decisions, Tate direct) bypass the wrap.
+  const _isTrusted = TRUSTED_TRIGGER_SOURCES.has(triggerSource)
+  const _promptToInsert = _isTrusted
+    ? prompt
+    : wrapUntrusted(prompt, {
+      source: triggerSource || 'unknown',
+      trigger_ref: triggerRefId || 'unknown',
+      triggered_by: triggeredBy || 'manual',
+    })
+
   const [session] = await db`
     INSERT INTO cc_sessions (
       codebase_id, initial_prompt, triggered_by, trigger_source,
       trigger_ref_id, project_id, client_id, pipeline_stage, working_dir,
       self_modification, stream_source, goal_id
     ) VALUES (
-      ${codebaseId || null}, ${prompt}, ${triggeredBy || 'manual'},
+      ${codebaseId || null}, ${_promptToInsert}, ${triggeredBy || 'manual'},
       ${triggerSource || 'manual'}, ${triggerRefId || null},
       ${projectId || null}, ${clientId || null}, 'queued', ${workingDir || null},
       ${!!selfModification}, ${streamSource || null}, ${goalId || null}

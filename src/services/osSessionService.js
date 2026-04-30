@@ -29,6 +29,17 @@ const sessionMemory = require('./sessionMemoryService')
 const osConversationLog = require('./osConversationLog')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./doctrineSurface')
+// §2.1 untrusted-input system clause - the conductor reads listener
+// wake messages (which the listeners themselves now wrap with
+// wrapUntrusted), gmail bodies (via subagent tool returns), CRM activity,
+// and fork reports. The wrapping happens at the producer boundary
+// (listeners/emailArrival, listeners/forkComplete, factoryTriggerService);
+// here we only need the system clause appended to buildCustomSystemPrompt
+// so the conductor knows to treat <untrusted_input> tags as data, not
+// as instructions. See docs/SECURITY_HARDENING.md §1.
+const {
+  UNTRUSTED_INPUT_SYSTEM_CLAUSE,
+} = require('../lib/untrustedInput')
 
 // Fire quota-checks for BOTH accounts on startup to get real usage % immediately.
 // Log failure — if both accounts are misconfigured, the first user message fails
@@ -459,7 +470,17 @@ The fork has none of your context unless you give it. A fork brief should read l
 - Work that needs your context to make decisions and can't be expressed as a clean brief — do it yourself.
 - When you've already got 4–5 forks live; finish those first or you'll thrash the energy budget.`
 
-  _cachedSystemPrompt = [claudeMd, envBlock, behaviorBlock, forkBlock].filter(Boolean).join('\n\n---\n\n')
+  // §2.1 untrusted-input system clause - tells the conductor to treat
+  // <untrusted_input> tags emitted by listeners / fork reports / CRM
+  // activity / email envelopes as DATA, never instructions. Append last
+  // so it is the final block before the system prompt is cached - that
+  // way it lands inside the cached prefix and stays stable across turns.
+  // See docs/SECURITY_HARDENING.md §1 for the live attack chain.
+  const untrustedInputBlock = `# Security: untrusted-input handling
+
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
+
+  _cachedSystemPrompt = [claudeMd, envBlock, behaviorBlock, forkBlock, untrustedInputBlock].filter(Boolean).join('\n\n---\n\n')
   _cachedSystemPromptCwd = cwd
   logger.info('Custom system prompt built', {
     bytes: _cachedSystemPrompt.length,
