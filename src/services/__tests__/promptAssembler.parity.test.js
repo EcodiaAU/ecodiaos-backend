@@ -195,37 +195,31 @@ describe('promptAssembler.assemble (PR 1 skeleton)', () => {
     })
   })
 
-  describe('skeleton contract', () => {
-    test('returns {systemPrompt, userMessage, cacheBreakpoints}', () => {
+  describe('contract (PR 2: 4-breakpoint structured output)', () => {
+    // Contract assertions — the PR 1 skeleton's userMessage=null and
+    // cacheBreakpoints=[] shape was replaced in PR 2. The load-bearing
+    // byte-for-byte parity above still holds; this block pins the
+    // structured output shape for PR 2 onward.
+
+    test('returns {systemPrompt, userMessage, contentBlocks, cacheBreakpoints}', () => {
       const cwd = makeFixtureCwd({ claudeMd: '# CLAUDE\n' })
       try {
         const out = promptAssembler.assemble({ cwd })
         expect(out).toEqual(expect.objectContaining({
           systemPrompt: expect.any(String),
-          userMessage: null,
-          cacheBreakpoints: [],
+          contentBlocks: expect.any(Array),
+          cacheBreakpoints: expect.any(Array),
         }))
       } finally {
         cleanupFixture(cwd)
       }
     })
 
-    test('cacheBreakpoints is empty array (no cache_control markers in PR 1)', () => {
+    test('userMessage is null when turn_context is absent or empty', () => {
       const cwd = makeFixtureCwd({ claudeMd: '# CLAUDE\n' })
       try {
-        const out = promptAssembler.assemble({ cwd })
-        expect(Array.isArray(out.cacheBreakpoints)).toBe(true)
-        expect(out.cacheBreakpoints.length).toBe(0)
-      } finally {
-        cleanupFixture(cwd)
-      }
-    })
-
-    test('userMessage is null in PR 1 (no turn-context envelope yet)', () => {
-      const cwd = makeFixtureCwd({ claudeMd: '# CLAUDE\n' })
-      try {
-        const out = promptAssembler.assemble({ cwd, session_id: 's1', turn_context: { foo: 'bar' } })
-        expect(out.userMessage).toBeNull()
+        expect(promptAssembler.assemble({ cwd }).userMessage).toBeNull()
+        expect(promptAssembler.assemble({ cwd, session_id: 's1', turn_context: {} }).userMessage).toBeNull()
       } finally {
         cleanupFixture(cwd)
       }
