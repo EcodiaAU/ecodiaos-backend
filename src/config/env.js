@@ -223,7 +223,14 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().default(''),
   AWS_SECRET_ACCESS_KEY: z.string().default(''),
   AWS_REGION: z.string().default('us-east-1'),
-  BEDROCK_MODEL: z.string().default('us.anthropic.claude-sonnet-4-6'),  // Bedrock fallback: Sonnet 4.6 cross-region inference profile (no date suffix — dated form doesn't exist)
+  // Bedrock fallback model id. MUST be a real Bedrock cross-region inference
+  // profile id (e.g. us.anthropic.claude-opus-4-1-20250805-v1:0) — Anthropic
+  // OAuth ids like `claude-opus-4-7` are REJECTED by the Bedrock SDK with
+  // "invalid model identifier" errors. Default below is the Opus 4.1 profile
+  // verified by the Bedrock SDK error message (30 Apr 2026 23:24 AEST incident).
+  // TODO: confirm real Bedrock ids for Sonnet 4.5/4.6 and Haiku 4.5 against AWS docs
+  // before switching tier. Validated downstream in osSessionService/forkService.
+  BEDROCK_MODEL: z.string().default('us.anthropic.claude-opus-4-1-20250805-v1:0'),
   // Supabase Storage
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),

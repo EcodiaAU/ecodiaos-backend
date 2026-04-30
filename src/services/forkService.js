@@ -324,7 +324,21 @@ function _resolveProviderForFork() {
     if (env.AWS_SECRET_ACCESS_KEY) sessionEnv.AWS_SECRET_ACCESS_KEY = env.AWS_SECRET_ACCESS_KEY
     if (env.AWS_REGION) sessionEnv.AWS_REGION = env.AWS_REGION
     sessionEnv.CLAUDE_CODE_USE_BEDROCK = '1'
-    model = env.BEDROCK_MODEL || 'us.anthropic.claude-sonnet-4-6'
+    // Bedrock requires cross-region inference profile ids (us./eu./apac.anthropic.*).
+    // Anthropic OAuth ids like `claude-opus-4-7` are rejected by the Bedrock SDK
+    // with "invalid model identifier" errors. Validate and substitute safe default.
+    // Origin: 30 Apr 2026 23:24 AEST — 3 turn failures from BEDROCK_MODEL=claude-opus-4-7.
+    const bedrockDefault = 'us.anthropic.claude-opus-4-1-20250805-v1:0'
+    const candidate = env.BEDROCK_MODEL || bedrockDefault
+    if (!/^(us|eu|apac)\.anthropic\.claude-/i.test(candidate)) {
+      logger.warn('Bedrock fork: BEDROCK_MODEL is not a Bedrock-shaped id, using safe default', {
+        configured: candidate,
+        using: bedrockDefault,
+      })
+      model = bedrockDefault
+    } else {
+      model = candidate
+    }
   } else if (best.provider === 'claude_max_2') {
     provider = 'claude_max_2'
     delete sessionEnv.ANTHROPIC_API_KEY

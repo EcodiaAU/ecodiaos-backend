@@ -1358,7 +1358,21 @@ async function _sendMessageImpl(content, opts = {}) {
     // CC Agent SDK supports Bedrock via CLAUDE_CODE_USE_BEDROCK=1
     sessionEnv.CLAUDE_CODE_USE_BEDROCK = '1'
     options.env = sessionEnv
-    options.model = env.BEDROCK_MODEL || 'us.anthropic.claude-sonnet-4-6'
+    // Bedrock requires cross-region inference profile ids (us./eu./apac.anthropic.*).
+    // Anthropic OAuth ids like `claude-opus-4-7` are rejected by the Bedrock SDK
+    // with "invalid model identifier" errors. Validate and substitute safe default.
+    // Origin: 30 Apr 2026 23:24 AEST — 3 turn failures from BEDROCK_MODEL=claude-opus-4-7.
+    const bedrockDefault = 'us.anthropic.claude-opus-4-1-20250805-v1:0'
+    const candidateBedrockModel = env.BEDROCK_MODEL || bedrockDefault
+    if (!/^(us|eu|apac)\.anthropic\.claude-/i.test(candidateBedrockModel)) {
+      logger.warn('Bedrock fallback: BEDROCK_MODEL is not a Bedrock-shaped id, using safe default', {
+        configured: candidateBedrockModel,
+        using: bedrockDefault,
+      })
+      options.model = bedrockDefault
+    } else {
+      options.model = candidateBedrockModel
+    }
     delete options.resume
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to Bedrock (${options.model}).` })
   } else if (best.provider === 'claude_max_2') {
