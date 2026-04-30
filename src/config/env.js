@@ -272,6 +272,12 @@ const envSchema = z.object({
   // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
   // clean rows (zero semantic_equivalent=false).
   PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary']).default('off'),
+  // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
+  // grep of patterns/*.md) with skillsSurfaceService (description-driven
+  // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
+  // '1' = skillsSurfaceService populates BP3. Both run when enabled so
+  // the 3-day hit-count comparison metric can fire.
+  USE_SKILLS_SURFACE: z.string().default('0'),
 })
 
 const parsed = envSchema.safeParse(process.env)
