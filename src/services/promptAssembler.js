@@ -166,15 +166,65 @@ ${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
 function _buildBp3(turn_context) {
   const userContent = (turn_context && turn_context.user_content) || null
   if (!userContent) return ''
+
+  // USE_SKILLS_SURFACE switches BP3 between doctrineSurface (legacy keyword
+  // grep over patterns/*.md) and skillsSurfaceService (description-driven
+  // retrieval over .claude/skills/*/SKILL.md). When enabled both paths run
+  // and their hit lists are compared via the 3-day metric
+  // skills_vs_doctrine_surface_hit_count. ANTHROPIC_NATIVE_LEVERAGE §1.
+  let env
+  try { env = require('../config/env') } catch { env = {} }
+  const useSkills = env.USE_SKILLS_SURFACE === '1'
+
+  let doctrineBlock = ''
+  let skillsBlock = ''
+
   try {
-    // Lazy require so tests can mock without importing doctrineSurface at load.
     const doctrineSurface = require('./doctrineSurface')
     const block = doctrineSurface.surfaceDoctrineBlock(userContent)
-    return typeof block === 'string' ? block : ''
+    doctrineBlock = typeof block === 'string' ? block : ''
   } catch (err) {
-    logger.debug('promptAssembler: doctrineSurface shim failed, BP3 empty', { error: err.message })
-    return ''
+    logger.debug('promptAssembler: doctrineSurface shim failed', { error: err.message })
   }
+
+  if (useSkills) {
+    try {
+      const skillsSurface = require('./skillsSurfaceService')
+      skillsBlock = skillsSurface.surfaceSkillsBlock(userContent) || ''
+
+      // Comparison metric for the 3-day shadow. Emit matched-name lists for
+      // both sides so /ops can aggregate skills_vs_doctrine_surface_hit_count
+      // per turn and per pattern.
+      const skillsMatched = skillsSurface.matchedSkillNames(userContent)
+      const doctrineMatched = _extractDoctrineMatches(doctrineBlock)
+      logger.info('skills_vs_doctrine_surface_hit_count', {
+        skills_matched: skillsMatched,
+        doctrine_matched: doctrineMatched,
+        skills_count: skillsMatched.length,
+        doctrine_count: doctrineMatched.length,
+        overlap: skillsMatched.filter(n => doctrineMatched.includes(n)).length,
+      })
+
+      // BP3 ships the Skills block when flag is on. Doctrine stays alive as
+      // the baseline for metric comparison only.
+      return skillsBlock
+    } catch (err) {
+      logger.debug('promptAssembler: skillsSurface shim failed, falling back to doctrine', { error: err.message })
+    }
+  }
+
+  return doctrineBlock
+}
+
+function _extractDoctrineMatches(doctrineBlock) {
+  if (!doctrineBlock) return []
+  // doctrineSurface outputs "N. [label] slug:..." lines; slug is the filename.
+  const names = []
+  for (const line of doctrineBlock.split('\n')) {
+    const m = line.match(/^\d+\.\s+\[[^\]]+\]\s+([\w-]+)/)
+    if (m) names.push(m[1])
+  }
+  return names
 }
 
 // ─── BP4 — per-turn dynamic blocks ───────────────────────────────────────────
