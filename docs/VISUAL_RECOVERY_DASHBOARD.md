@@ -25,7 +25,7 @@
 | §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
 | §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
 | §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
-| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
+| §7.2 Incident response | services/securityIncidentResponse.js + server.js wireServices | 14 | 🟢 full 4-service container wired 2026-05-01 — kv_store emergency mode + schedulerPoller.stop + forkService.abortFork loop + osAlertingService.sendSmsToTate |
 
 **Test totals:** 192+ new unit tests across 11 specs, zero regressions.
 **Next step:** merge PR #33 (§2.2), open PR for the §3.2-§7.2 batch, apply migrations 071-076 on VPS, then wire into live send/deploy paths.
