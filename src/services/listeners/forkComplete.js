@@ -97,6 +97,7 @@ module.exports = {
       // (Tate 30 Apr 2026 13:18 AEST).
       if (status === 'done') {
         logger.info('forkComplete: terminal done (silent, no wake)', { forkId })
+        try { require('../perceptionBus').publish({ source: 'fork', kind: 'fork_complete', data: { fork_id: forkId, status: 'done' }, confidence: 1.0 }) } catch {}
         return
       }
 
@@ -128,6 +129,7 @@ module.exports = {
         `Source: forkComplete listener (sourceEventId=${ctx.sourceEventId}).`
       )
       logger.info('forkComplete: terminal failure', { forkId, status })
+      try { require('../perceptionBus').publish({ source: 'fork', kind: `fork_${status}`, data: { fork_id: forkId, status }, confidence: 1.0 }) } catch {}
       await _wakeOsSession(message, forkId)
     } else {
       // Stale heartbeat - dedupe so we don't spam the OS per-tick

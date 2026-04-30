@@ -94,6 +94,7 @@ module.exports = {
       `Source: emailArrival listener (sourceEventId=${ctx.sourceEventId}).`
     )
     logger.info('emailArrival: handle invoked', { eventId: row.id })
+    try { require('../perceptionBus').publish({ source: 'email', kind: row.kind || 'email_arrival', data: { id: row.id, kind: row.kind }, confidence: 1.0 }) } catch {}
     await _wakeOsSession(message, row.id)
   },
 

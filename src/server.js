@@ -74,6 +74,16 @@ async function gracefulShutdown(signal) {
     claimVerifier.stop()
   } catch {}
 
+  try {
+    const proactivityEngine = require('./services/proactivityEngine')
+    proactivityEngine.stop()
+  } catch {}
+
+  try {
+    const patternEvolution = require('./services/patternEvolution')
+    patternEvolution.stop()
+  } catch {}
+
   // Force-destroy open connections (especially WebSockets) so server.close()
   // doesn't hang waiting for them to end. Without this, PM2 SIGKILLs the
   // process at kill_timeout and sessions that weren't yet marked in DB become orphans.
@@ -587,6 +597,24 @@ server.listen(env.PORT, async () => {
     })
   } catch (err) {
     logger.warn('Listener subsystem failed to start', { error: err.message })
+  }
+
+  // ── Boot: Proactivity Engine (Layer 2) ───────────────────────────
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const proactivityEngine = require('./services/proactivityEngine')
+      proactivityEngine.start()
+    } catch (err) {
+      logger.warn('Proactivity engine failed to start (non-fatal)', { error: err.message })
+    }
+  }
+
+  // ── Boot: Pattern Evolution (Layer 10) ───────────────────────────
+  try {
+    const patternEvolution = require('./services/patternEvolution')
+    patternEvolution.start()
+  } catch (err) {
+    logger.warn('Pattern evolution failed to start (non-fatal)', { error: err.message })
   }
 })
 

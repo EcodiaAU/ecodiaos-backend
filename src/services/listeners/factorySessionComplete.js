@@ -95,6 +95,7 @@ module.exports = {
       `Source: factorySessionComplete listener (sourceEventId=${ctx.sourceEventId}).`
     )
     logger.info('factorySessionComplete: handle invoked', { sessionId: row.id, status: row.status })
+    try { require('../perceptionBus').publish({ source: 'factory', kind: `factory_${row.status}`, data: { session_id: row.id, status: row.status, pipeline_stage: row.pipeline_stage }, confidence: 1.0 }) } catch {}
     await _wakeOsSession(message, row.id)
   },
 

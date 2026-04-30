@@ -640,12 +640,12 @@ function _buildSummary({ acct1, acct2, active, hasRealData, turns, best }) {
 }
 
 // ─── Log a turn to our DB (for activity tracking / history) ──────────────────
-async function logUsage({ sessionId = null, source = 'os_session', provider = 'claude_max', model = null, inputTokens = 0, outputTokens = 0 }) {
+async function logUsage({ sessionId = null, source = 'os_session', provider = 'claude_max', model = null, inputTokens = 0, outputTokens = 0, clientId = null, projectId = null }) {
   try {
     const weekStart = _getWeekStart()
     await db`
-      INSERT INTO claude_usage (session_id, source, provider, model, input_tokens, output_tokens, week_start)
-      VALUES (${sessionId}, ${source}, ${provider}, ${model}, ${inputTokens}, ${outputTokens}, ${weekStart})
+      INSERT INTO claude_usage (session_id, source, provider, model, input_tokens, output_tokens, week_start, client_id, project_id)
+      VALUES (${sessionId}, ${source}, ${provider}, ${model}, ${inputTokens}, ${outputTokens}, ${weekStart}, ${clientId}, ${projectId})
     `
     _cache = null
     _cacheAt = 0
