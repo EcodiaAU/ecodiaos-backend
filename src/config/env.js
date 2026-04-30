@@ -246,6 +246,21 @@ const envSchema = z.object({
   // When true, each semantic hit is expanded by 1 hop to show relationship context.
   // Set to 'false' to revert to point-only (no neighbourhood query).
   OS_MEMORY_NEIGHBORHOOD_ENABLED: z.string().default('true'),
+  // §2.2 Dual-reviewer feature flags. Gate runs whenever enabled; enforce
+  // decides whether a rejection blocks deploy or only shadow-records the
+  // verdict. Ship as shadow (enforce=0) first, flip to enforce=1 after
+  // 24-48h of clean verdicts. See docs/SECURITY_HARDENING.md §2.2.
+  SECURITY_DUAL_REVIEWER: z.string().default('1'),
+  SECURITY_DUAL_REVIEWER_ENFORCE: z.string().default('0'),
+  // §7.1 Signed audit log HMAC key. Must be a high-entropy secret, rotated
+  // per VPS. When unset, audit log writes proceed with hmac=null and a
+  // warning is logged - this is a dev convenience only; production MUST
+  // set a real value.
+  AUDIT_LOG_HMAC_KEY: z.string().default(''),
+  // §3.2 Tier-3 token HMAC key. Same shape as audit log key; used to sign
+  // action-specific grant tokens that replace the old tateGoaheadRef
+  // freetext lie.
+  TIER3_TOKEN_HMAC_KEY: z.string().default(''),
 })
 
 const parsed = envSchema.safeParse(process.env)
