@@ -338,6 +338,113 @@ const TOOLS = Object.freeze([
       additionalProperties: true,
     },
   },
+  {
+    name: 'gmail.send',
+    description:
+      "Send an email from code@ecodia.au or tate@ecodia.au. Subject + body + optional cc/bcc/thread_id. Audit logs to/subject/length only — body excluded. Rate cap 50/day.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', enum: ['code', 'tate'], default: 'code', description: "'code' = code@ecodia.au, 'tate' = tate@ecodia.au" },
+        to: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'array', items: { type: 'string' } },
+          ],
+          description: 'Recipient email(s). String or array.',
+        },
+        cc: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'array', items: { type: 'string' } },
+          ],
+        },
+        bcc: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'array', items: { type: 'string' } },
+          ],
+        },
+        subject: { type: 'string' },
+        body: { type: 'string', description: 'Plain text email body.' },
+        thread_id: { type: 'string', description: 'Gmail thread id to thread the reply into.' },
+        cowork_session_id: { type: 'string' },
+        idempotency_key: { type: 'string' },
+      },
+      required: ['to', 'subject', 'body'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'sms.tate',
+    description:
+      "Send a 1-segment SMS to Tate's phone (+61404247153). Enforces segment economics (160 GSM, 70 Unicode). 6h same-body dedupe + 3/day rate cap unless urgency=critical. Body is auto-stripped of greetings/signoffs/filler. For critical/decision/delta updates only.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Pre-stripping message. Server strips filler and validates 1-segment cap.' },
+        urgency: { type: 'string', enum: ['critical', 'decision', 'delta', 'fyi'], default: 'fyi', description: 'critical bypasses dedupe + rate cap.' },
+        dry_run: { type: 'boolean', default: false, description: 'If true, validates + strips but does not send to Twilio.' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['message'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'scheduler.cron',
+    description:
+      "Schedule a recurring task. name auto-prefixed with 'cowork.' if not already. schedule: 'every 30m' | 'every 2h' | 'daily HH:MM' (AEST). Rate cap 20/day shared with scheduler.delayed.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: "Task name. Auto-prefixed with 'cowork.' if not already." },
+        schedule: { type: 'string', description: "'every 30m' | 'every 2h' | 'daily HH:MM' (AEST = UTC+10)" },
+        prompt: { type: 'string', description: 'The prompt fired when the task runs.' },
+        cowork_session_id: { type: 'string' },
+        idempotency_key: { type: 'string' },
+      },
+      required: ['name', 'schedule', 'prompt'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'scheduler.delayed',
+    description:
+      "Schedule a one-shot future task. name auto-prefixed with 'cowork.' if not already. delay: 'in 30m' | 'in 3h' | 'in 30d' | ISO datetime. Rate cap 20/day shared with scheduler.cron.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: "Task name. Auto-prefixed with 'cowork.' if not already." },
+        delay: { type: 'string', description: "'in 30m' | 'in 3h' | 'in 30d' | ISO datetime" },
+        prompt: { type: 'string', description: 'The prompt fired when the task runs.' },
+        cowork_session_id: { type: 'string' },
+        idempotency_key: { type: 'string' },
+      },
+      required: ['name', 'delay', 'prompt'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'scheduler.list',
+    description:
+      "List scheduled tasks. Default filter: cowork-owned (name starts with 'cowork.'). Pass filter.name_prefix='*' for unfiltered, or any other prefix to filter.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filter: {
+          type: 'object',
+          properties: {
+            name_prefix: { type: 'string', description: "default 'cowork.', '*' for unfiltered" },
+            status: { type: 'string', enum: ['active', 'paused', 'completed', 'failed', 'cancelled'] },
+          },
+          additionalProperties: true,
+        },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+      },
+      additionalProperties: true,
+    },
+  },
 ])
 
 const TOOL_NAMES = new Set(TOOLS.map(t => t.name))
