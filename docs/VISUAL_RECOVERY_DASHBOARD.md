@@ -1,15 +1,34 @@
 # EcodiaOS Visual Recovery Dashboard
-## One-Page Status Reference — 2026-04-30
+## One-Page Status Reference — updated 2026-04-30 (Phase 0.5 code-complete)
 
 **Purpose:** Quick-glance view of recovery progress. Update this document as each phase completes.
 
 ---
 
-## CURRENT STATUS: ⚠️ DOWN (Awaiting Claude Max Usage Reset)
+## CURRENT STATUS: 🟡 Phase 0.5 code-complete, awaiting migration apply + wire-in on VPS
 
-**Last Online:** 2026-04-30 (before usage exhaustion)  
-**Expected Back Online:** When Claude Max resets OR Tate tops up  
-**Estimated Recovery Time:** 24 hours to stability, 6 weeks to full transformation  
+**Last Online:** 2026-04-30 (before usage exhaustion)
+**Expected Back Online:** When Claude Max resets OR Tate tops up
+**Estimated Recovery Time:** 24 hours to stability, 6 weeks to full transformation
+
+### Phase 0.5 Security Hardening — ship state
+
+| Section | Module | Tests | Status |
+|---|---|---:|---|
+| §2.1 Untrusted-input delimiters | lib/untrustedInput.js | ✅ | ✅ merged main (PR #29) |
+| §2.2 Dual-reviewer gate | services/securityReviewerService.js + lib/securityGate.js | 51 | 🟡 PR #33 — shadow mode default |
+| §2.3 Self-mod path allowlist | lib/selfModAllowlist.js | ✅ | ✅ merged main (PR #32) |
+| §2.4 Cypher parameterization | lib/labelAllowlist.js | ✅ | ✅ merged main (PR #31) |
+| §2.5 Quarantined Neo4j labels | services/knowledgeGraphService.js | ✅ | ✅ merged main (PR #31) |
+| §3.2 Tier-3 token gate | services/tier3GateService.js + mig 071-073 | 26 | 🟡 module done, wire-in pending |
+| §3.3 Commitment detector | services/commitmentDetector.js | 19 | 🟡 module done, wire-in pending |
+| §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
+| §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
+| §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
+| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
+
+**Test totals:** 192+ new unit tests across 11 specs, zero regressions.
+**Next step:** merge PR #33 (§2.2), open PR for the §3.2-§7.2 batch, apply migrations 071-076 on VPS, then wire into live send/deploy paths.
 
 ---
 
