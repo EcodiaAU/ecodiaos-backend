@@ -359,20 +359,29 @@ function _accountHealth(account) {
 
   // Rejected = completely unusable UNLESS the reset time has passed.
   // Without this, once we mark an account rejected we stay on Bedrock forever.
-  // When weeklyResetsAt is in the past, clear rejection and treat as unknown
-  // (next quota-check will re-probe and update with real headers).
+  // Check BOTH weekly reset AND 5-hour session reset — if either has passed,
+  // the account is usable again. The quota-check will re-probe and update
+  // with real headers.
   if (state.rateLimitStatus === 'rejected') {
     const nowSec = Date.now() / 1000
-    const resetPassed = state.weeklyResetsAt && state.weeklyResetsAt < nowSec
-    if (resetPassed) {
-      logger.info('Account rejection auto-cleared: reset time passed', { account, weeklyResetsAt: state.weeklyResetsAt })
+    const weeklyResetPassed = state.weeklyResetsAt && state.weeklyResetsAt < nowSec
+    const sessionResetPassed = state.sessionResetsAt && state.sessionResetsAt < nowSec
+    if (weeklyResetPassed || sessionResetPassed) {
+      const resetType = weeklyResetPassed ? 'weekly' : '5h-session'
+      logger.info('Account rejection auto-cleared: reset time passed', {
+        account,
+        resetType,
+        weeklyResetsAt: state.weeklyResetsAt,
+        sessionResetsAt: state.sessionResetsAt,
+      })
       state.rateLimitStatus = 'allowed'
       state.rateLimitType = null
       state.weeklyUtilization = null  // force re-probe
+      state.sessionUtilization = null // clear 5h session too
       state.rejectionClearedAt = Date.now()  // debounce markAccountRejected for 5 min
       // Fire a fresh quota-check in the background (don't await — decision needs a value now)
       refreshQuotaCheck(account).catch(() => {})
-      return { score: 30, reason: 'reset_just_passed_reprobing' }
+      return { score: 30, reason: `reset_just_passed_reprobing (${resetType})` }
     }
     return { score: -10, reason: `rejected (${state.rateLimitType || 'unknown'})` }
   }
