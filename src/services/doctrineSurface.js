@@ -303,8 +303,15 @@ function surfaceDoctrineForPrompt(text, options = {}) {
  * Returns null if no surfaces.
  */
 function surfaceDoctrineBlock(text, options = {}) {
-  const body = surfaceDoctrineForPrompt(text, options)
+  let body = surfaceDoctrineForPrompt(text, options)
   if (!body) return null
+  // Hard cap at 1500 chars to bound per-turn token overhead. Token-burn audit
+  // 30 Apr 2026 (drafts/token-burn-audit-2026-04-30.md Trim 2): uncapped block
+  // can balloon to 3KB+ with 100+ pattern files. ~50-100K tokens/session saving.
+  const HARD_CAP = 1500
+  if (body.length > HARD_CAP) {
+    body = body.slice(0, HARD_CAP) + '\n[...truncated, more matches in patterns/]'
+  }
   return `<doctrine_surface>\n${body}\n</doctrine_surface>`
 }
 
