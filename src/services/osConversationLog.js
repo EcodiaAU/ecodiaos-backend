@@ -1,5 +1,6 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
+const credentialFilter = require('../lib/credentialFilter')
 
 const ENABLED = process.env.OS_CONV_LOG_ENABLED === 'true'
 
@@ -10,9 +11,11 @@ function _disabled(fn) {
 
 async function logTurn({ ccSessionId, turnNumber, role, content, contentJson, tokenCount }) {
   if (!ENABLED) return _disabled('logTurn')
+  const safeContent = content == null ? null : credentialFilter.redact(content, 'osConversationLog.logTurn')
+  const safeContentJson = contentJson == null ? null : credentialFilter.redactDeep(contentJson, 'osConversationLog.logTurn')
   await db`
     INSERT INTO os_conversation (cc_session_id, turn_number, role, content, content_json, token_count)
-    VALUES (${ccSessionId}, ${turnNumber}, ${role}, ${content ?? null}, ${contentJson ?? null}, ${tokenCount ?? null})
+    VALUES (${ccSessionId}, ${turnNumber}, ${role}, ${safeContent}, ${safeContentJson}, ${tokenCount ?? null})
   `
   return null
 }

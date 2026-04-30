@@ -361,6 +361,20 @@ server.listen(env.PORT, async () => {
     logger.warn('TLS cert monitor failed to start', { error: err.message })
   }
 
+  // ── Boot: Credential Redaction Monitor (§5.1 + §7.2) ──────────────
+  // Polls credentialFilter counters every 30s. During the 2h bootstrap
+  // window, increments are observed but don't fire. After bootstrap, any
+  // increment fires credential_redaction_burst via securityIncidentResponse.
+  try {
+    const credRedactMonitor = require('./lib/credentialRedactionMonitor')
+    const incidentResponse = require('./services/securityIncidentResponse')
+    credRedactMonitor.start({
+      fireIncident: (args) => incidentResponse.fireIncident(args),
+    })
+  } catch (err) {
+    logger.warn('credentialRedactionMonitor failed to start', { error: err.message })
+  }
+
   // ── Boot: Claude Token Refresh ────────────────────────────────────
   // Proactively refreshes OAuth tokens before they expire so the VPS
   // never needs manual `claude /login`. Runs every 30 min.

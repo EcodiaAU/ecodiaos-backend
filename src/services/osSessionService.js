@@ -27,6 +27,7 @@ const usageEnergy = require('./usageEnergyService')
 const osIncident = require('./osIncidentService')
 const sessionMemory = require('./sessionMemoryService')
 const osConversationLog = require('./osConversationLog')
+const credentialFilter = require('../lib/credentialFilter')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./doctrineSurface')
 // §2.1 untrusted-input system clause - the conductor reads listener
@@ -1895,6 +1896,7 @@ async function _sendMessageImpl(content, opts = {}) {
                     .join('\n')
                 }
                 if (resultText.length > 2000) resultText = resultText.slice(0, 2000) + '\n… (truncated)'
+                resultText = credentialFilter.redact(resultText, 'osSessionService.toolResultEmit')
                 if (!suppressOutput) {
                   emitOutput({
                     type: 'tool_result',
