@@ -235,10 +235,22 @@ System is alive. No action needed if numbers look sane.`
   )
 }
 
+/**
+ * Generic Twilio SMS to Tate bypassing the alert-cooldown table. Used by
+ * securityIncidentResponse.wireServices so incident SMS always fires —
+ * an incident is not subject to the per-alertType cooldowns.
+ *
+ * Returns boolean success; never throws.
+ */
+async function sendSmsToTate(body) {
+  return _sendSms(String(body || ''))
+}
+
 module.exports = {
   alertBedrockFallback,
   alertQuotaHigh,
   alertConsecutiveFailures,
   alertProcessRestart,
   sendDailyDigest,
+  sendSmsToTate,
 }
