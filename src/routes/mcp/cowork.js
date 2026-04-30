@@ -28,6 +28,10 @@ const patterns = require('../../services/patternsRetrieval')
 const neo4jRetrieval = require('../../services/neo4jRetrieval')
 const crmService = require('../../services/crmService')
 const messageQueue = require('../../services/messageQueue')
+// §2.4 - Cowork is an external trigger surface. Every label and rel-type
+// the bearer hands us is attacker-influenced and must be validated
+// before Cypher interpolation.
+const { coerceLabel, coerceRelType } = require('../../lib/cypher/labelAllowlist')
 const forkService = require('../../services/forkService')
 const osSession = require('../../services/osSessionService')
 
@@ -402,11 +406,25 @@ router.post('/neo4j.write_episode', scope.requireScope('write.neo4j.episode'), a
     if (Array.isArray(b.related_entities)) {
       for (const rel of b.related_entities) {
         if (!rel?.label || !rel?.name || !rel?.rel_type) continue
+        // §2.4: validate label and rel-type against the canonical
+        // allowlist BEFORE Cypher interpolation. Drop the relationship
+        // (continue) on coercion failure - silent rejection is the
+        // right behavior here because Cowork bearer-controlled writes
+        // should never ride past the allowlist.
+        const safeLabel = coerceLabel(rel.label)
+        const safeRelType = coerceRelType(rel.rel_type)
+        if (!safeLabel || !safeRelType) {
+          logger.warn('neo4j.write_episode: rel rejected by allowlist', {
+            rawLabel: rel.label,
+            rawRelType: rel.rel_type,
+          })
+          continue
+        }
         try {
           await runWrite(
             `MATCH (e:Episode {name: $epName})
-             MERGE (n:\`${rel.label.replace(/[^A-Za-z0-9_]/g, '')}\` {name: $relName})
-             MERGE (e)-[r:\`${rel.rel_type.replace(/[^A-Za-z0-9_]/g, '')}\`]->(n)
+             MERGE (n:\`${safeLabel}\` {name: $relName})
+             MERGE (e)-[r:\`${safeRelType}\`]->(n)
              RETURN type(r)`,
             { epName: b.name, relName: rel.name }
           )
