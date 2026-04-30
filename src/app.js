@@ -137,6 +137,7 @@ app.use('/api/triage', require('./routes/triage'))
 app.use('/api/telemetry', require('./routes/telemetry'))
 app.use('/api/hands', require('./routes/hands'))
 app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
+app.use('/api/ops', require('./routes/ops'))
 
 // Error handler (must be last)
 app.use(errorHandler)
