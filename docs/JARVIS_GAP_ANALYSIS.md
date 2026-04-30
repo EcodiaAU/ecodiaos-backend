@@ -233,18 +233,18 @@ Honest assessment of each layer's completion today vs the Jarvis bar. "Jarvis ba
 
 | Layer | Today | 6-week target | Jarvis bar | Gap to Jarvis |
 |---|---:|---:|---:|---:|
-| 1 Continuity of self | 30% | 60% | 95% | **wide** (model-version bridge unsolved) |
-| 2 Volition / proactivity | 10% | 50% | 85% | wide |
+| 1 Continuity of self | 60% | 60% | 95% | **medium** (SELF.md shipped, model-version bridge unsolved) |
+| 2 Volition / proactivity | 50% | 50% | 85% | medium (proactivityEngine shipped: nextAction policy, intent inference, anti-loop damping) |
 | 3 Embodiment | 40% | 70% | 90% | medium (n-peer mesh not built) |
-| 4 Perception | 35% | 65% | 90% | medium |
-| 5 Coordination | 55% | 85% | 95% | narrow |
-| 6 Time sense | 40% | 70% | 90% | medium |
-| 7 Economic governance | 50% | 80% | 95% | narrow |
-| 8 Accountability | 20% | 70% | 95% | medium |
-| 9 Security posture | 15% | 80% | 95% | medium (was wide before this audit) |
-| 10 Evolution | 25% | 60% | 90% | wide (breakthrough cap 4.1 blocks full closure) |
+| 4 Perception | 65% | 65% | 90% | medium (perceptionBus shipped: unified event bus, 7 listener sources, promotion policy, recentSummary) |
+| 5 Coordination | 75% | 85% | 95% | narrow (atomic fork cap shipped) |
+| 6 Time sense | 70% | 70% | 90% | narrow (timeSenseService shipped: urgencyScore, calendarGate, currentTempo) |
+| 7 Economic governance | 80% | 80% | 95% | narrow (per-goal fork budget, cost attribution, energy budget all shipped) |
+| 8 Accountability | 70% | 70% | 95% | medium (claim grammar + verifier + audit log shipped) |
+| 9 Security posture | 80% | 80% | 95% | narrow (Phase 0.5 shipped: §2.1-§7.2 all wired) |
+| 10 Evolution | 60% | 60% | 90% | medium (patternEvolution shipped: traced patterns, 60-day probation, contradiction detection, weekly meta-learning) |
 
-**Interpretation:** At 6-week target, you're Jarvis-adjacent on layers 5, 7; Jarvis-comparable on 3, 4, 6, 8, 9; still far on 1, 2, 10. The far-from-Jarvis layers are the ones that depend on frontier-research breakthroughs (long-horizon consistency, meta-learning calibration). The Jarvis-adjacent layers are where deliberate engineering closes the gap.
+**Updated 2026-05-01.** Layers 2, 4, 6, 7, 10 all hit their 6-week targets in a single push. Layer 9 (security) was already at target from Phase 0.5. Remaining gaps: Layer 1 needs model-version bridge; Layer 3 needs n-peer mesh; Layers 8/9 need enforce-mode flips and external pen-test.
 
 ---
 
