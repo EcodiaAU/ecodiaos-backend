@@ -21,7 +21,13 @@
 #   focus                          - bring Claude Desktop to foreground
 #   instruct "<step>"              - type the step into the Claude chat
 #   wait <seconds>                 - sleep
-#   step "<step>" [--wait=N]       - focus + instruct + wait + screenshot
+#   step "<step>" [--wait=N] [--force]
+#                                  - focus + instruct + wait + screenshot.
+#                                    Aborts if agent health_ok=false OR if
+#                                    foreground is not Claude Desktop after
+#                                    focus + AppActivate retry. --force
+#                                    bypasses both guards (default OFF).
+#                                    See cowork-no-focus-collision.md.
 #   account-chip                   - mid-loop account-revert verification
 #   passkey-inject                 - one-shot Hello-prompt detect + inject
 #   step-with-passkey-watch "<step>" [--max-watch-seconds=N]
@@ -176,6 +182,53 @@ try { $proc = (Get-Process -Id $pid_out -ErrorAction Stop).ProcessName } catch {
     return 0
 }
 
+# Verify Corazon's foreground window is Claude Desktop. Returns 0 if yes, 1
+# if no (or if probe failed). Used as a routing-safety guard before any
+# input.* typing call - typing into a non-Claude-Desktop foreground would
+# inject keystrokes into Tate's active window. (Bug observed 30 Apr 2026
+# 13:38 AEST: step typed into Tate's EcodiaOS textarea and looped back as a
+# Tate-shaped message. fork_mokyb5xq_0f3020.)
+#
+# Match logic: process name is "Claude" / "Claude.exe" (canonical signal),
+# OR window title contains "Claude" AND process is also a Claude-shaped
+# binary (avoids matching e.g. a Chrome tab whose title happens to contain
+# the word "Claude").
+is_foreground_claude_desktop() {
+    local probe_json fg_app fg_title
+    if ! probe_json="$(probe_foreground_window)"; then
+        return 1
+    fi
+    fg_app="$(echo "$probe_json" | jq -r '.process // empty' 2>/dev/null)"
+    fg_title="$(echo "$probe_json" | jq -r '.title // empty' 2>/dev/null)"
+    if echo "$fg_app" | grep -qiE '^Claude(\.exe)?$'; then
+        return 0
+    fi
+    if echo "$fg_title" | grep -qi 'Claude' && echo "$fg_app" | grep -qiE 'Claude'; then
+        return 0
+    fi
+    return 1
+}
+
+# Best-effort AppActivate retry for Claude Desktop via WScript.Shell COM.
+# Brings a window matching "Claude" to foreground if such a window exists.
+# Caller MUST re-verify with is_foreground_claude_desktop after; AppActivate
+# can return $false (no match) or $true without actually surfacing the
+# window (race / minimised state / focus-stealing prevention).
+try_activate_claude_desktop() {
+    local ps_script
+    ps_script='$wsh = New-Object -ComObject WScript.Shell; $r = $wsh.AppActivate("Claude"); Write-Output $r'
+    local b64
+    b64="$(printf '%s' "$ps_script" | iconv -f UTF-8 -t UTF-16LE 2>/dev/null | base64 -w 0 2>/dev/null)"
+    if [ -z "$b64" ]; then
+        return 1
+    fi
+    local cmd="powershell -NoProfile -EncodedCommand $b64"
+    local payload
+    payload="$(jq -n --arg c "$cmd" '{command: $c, timeout: 5000}')"
+    agent_tool shell.shell "$payload" >/dev/null 2>&1 || true
+    return 0
+}
+
 # Probe Corazon for Windows Hello / LogonUI prompt.
 # Returns 0 (yes, Hello on screen) or 1 (no Hello on screen).
 # Echoes a one-line signature on stdout (process_name|window_title) on detection.
@@ -264,7 +317,9 @@ cmd_precheck() {
 
     local hp ok
     hp="$(agent_health 2>&1)"
-    if echo "$hp" | grep -q '"ok":true'; then
+    # Agent's /api/health returns {"status":"ok",...} (canonical). Some older
+    # agent builds returned {"ok":true,...}; accept either to be tolerant.
+    if echo "$hp" | grep -qE '"status":"ok"|"ok":true'; then
         ok=true
     else
         ok=false
@@ -330,23 +385,79 @@ cmd_wait() {
 }
 
 # ---------------------------------------------------------------------------
-# Subcommand: step "<step>" [--wait=N]
+# Subcommand: step "<step>" [--wait=N] [--force]
+#
+# Routing-safety guards (P1 fix - 30 Apr 2026, fork_mokyb5xq_0f3020,
+# status_board row 97505bb0):
+#
+#   1. agent health check (precheck health_ok) - if false, abort.
+#   2. foreground guard - cmd_focus is best-effort; verify it actually landed
+#      on Claude Desktop. If not, AppActivate retry, re-verify. If still not
+#      Claude Desktop, abort with screenshot. NEVER type into the wrong
+#      foreground.
+#
+# --force bypasses both guards (default OFF; use only for explicit override
+# cases where the conductor has independently verified routing).
+#
+# Doctrine: ~/ecodiaos/patterns/cowork-no-focus-collision.md
 # ---------------------------------------------------------------------------
 cmd_step() {
     local step=""
     local wait_s=15
+    local force=false
     while [ $# -gt 0 ]; do
         case "$1" in
             --wait=*) wait_s="${1#*=}" ;;
+            --force) force=true ;;
             *) step="$1" ;;
         esac
         shift
     done
     if [ -z "$step" ]; then
-        echo "usage: cowork-dispatch step \"<step>\" [--wait=N]" >&2
+        echo "usage: cowork-dispatch step \"<step>\" [--wait=N] [--force]" >&2
         exit 2
     fi
+
+    if [ "$force" != "true" ]; then
+        # Guard 1: agent health. Accept either "status":"ok" (current
+        # canonical) or "ok":true (older agent builds).
+        local hp
+        hp="$(agent_health 2>&1)"
+        if ! echo "$hp" | grep -qE '"status":"ok"|"ok":true'; then
+            echo "ABORT: laptop agent health check failed. Refusing to type into unknown state." >&2
+            echo "  agent_url: $AGENT_URL" >&2
+            echo "  response:  $hp" >&2
+            echo "Use --force to override (NOT RECOMMENDED)." >&2
+            exit 1
+        fi
+    fi
+
     cmd_focus
+
+    if [ "$force" != "true" ]; then
+        # Guard 2: foreground must be Claude Desktop. If cmd_focus failed to
+        # surface it (focus-stealing prevention, minimised state, etc), try
+        # AppActivate then re-probe. Abort if still wrong.
+        if ! is_foreground_claude_desktop; then
+            try_activate_claude_desktop
+            sleep 1
+            if ! is_foreground_claude_desktop; then
+                local sshot probe fg_title fg_app
+                sshot="$(capture_screenshot step-aborted-wrong-foreground 2>/dev/null || echo '')"
+                probe="$(probe_foreground_window 2>/dev/null || echo '{}')"
+                fg_app="$(echo "$probe" | jq -r '.process // empty' 2>/dev/null)"
+                fg_title="$(echo "$probe" | jq -r '.title // empty' 2>/dev/null)"
+                echo "ABORT: foreground is not Claude Desktop after focus + AppActivate retry." >&2
+                echo "  foreground_app:   $fg_app" >&2
+                echo "  foreground_title: $fg_title" >&2
+                echo "  screenshot:       $sshot" >&2
+                echo "Routing keystrokes here would type into the wrong window (Tate's active app)." >&2
+                echo "Use --force to override (NOT RECOMMENDED)." >&2
+                exit 1
+            fi
+        fi
+    fi
+
     cmd_instruct "$step"
     sleep "$wait_s"
     capture_screenshot step
@@ -558,7 +669,7 @@ usage:
   cowork-dispatch focus
   cowork-dispatch instruct "<step>"
   cowork-dispatch wait <seconds>
-  cowork-dispatch step "<step>" [--wait=N]
+  cowork-dispatch step "<step>" [--wait=N] [--force]
   cowork-dispatch account-chip
   cowork-dispatch passkey-inject
   cowork-dispatch step-with-passkey-watch "<step>" [--max-watch-seconds=N]
