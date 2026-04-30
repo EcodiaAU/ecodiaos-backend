@@ -20,15 +20,15 @@
 | §2.3 Self-mod path allowlist | lib/selfModAllowlist.js | ✅ | ✅ merged main (PR #32) |
 | §2.4 Cypher parameterization | lib/labelAllowlist.js | ✅ | ✅ merged main (PR #31) |
 | §2.5 Quarantined Neo4j labels | services/knowledgeGraphService.js | ✅ | ✅ merged main (PR #31) |
-| §3.2 Tier-3 token gate | services/tier3GateService.js + mig 071-073 | 26 | 🟡 module done, wire-in pending |
-| §3.3 Commitment detector | services/commitmentDetector.js | 19 | 🟡 module done, wire-in pending |
-| §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
-| §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
-| §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
-| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
+| §3.2 Tier-3 token gate | services/tier3GateService.js + mig 071-073 | 26 | 🟢 wired 2026-05-01 via gmailService.sendEmailGated + cowork MCP (shadow-mode); mig 079 seeds internal_ecodia_comms pattern |
+| §3.3 Commitment detector | services/commitmentDetector.js | 19 | 🟢 wired 2026-05-01 via gmailService.sendEmailGated |
+| §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟢 wired 2026-05-01 via gmailService.sendEmailGated |
+| §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟢 wired 2026-05-01 (PR #37) — 3 seams + boot monitor + /api/ops metric |
+| §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟢 wired 2026-05-01 for gmail_send_external via sendEmailGated; deploymentService / factoryDispatch still pending |
+| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 fireIncident wired via credentialRedactionMonitor (PR #37); full wireServices(setEmergencyMode/pauseCrons/haltForks/smsTate) container still pending |
 
-**Test totals:** 192+ new unit tests across 11 specs, zero regressions.
-**Next step:** merge PR #33 (§2.2), open PR for the §3.2-§7.2 batch, apply migrations 071-076 on VPS, then wire into live send/deploy paths.
+**Test totals:** 236+ unit tests across Phase 0.5 modules + step 2 (§5.1) + step 3 (§3.2-§3.4/§7.1 gmail gate), zero regressions.
+**Next step:** step 4 — claim grammar post-turn hook + claimVerifierWorker cron; step 5 — full securityIncidentResponse.wireServices container at boot; step 6 (SMS-OTP-gated) — forkService atomic cap-check swap.
 
 ---
 
