@@ -45,6 +45,19 @@ router.get('/_health', (_req, res) => {
   })
 })
 
+// MCP JSON-RPC root mount — BEFORE coworkAuth so discovery handshake
+// (initialize / tools/list / prompts/list / resources/list /
+// notifications/initialized / ping) flows publicly per MCP spec.
+// The shim itself enforces bearer auth for tools/call only.
+//
+// Architectural reasoning: claude.ai custom-connector handshake POSTs an
+// unauthenticated `initialize` first to discover capabilities, THEN the user
+// authenticates separately at the connector-OAuth/bearer layer for tools/call.
+// A blanket bearer gate at this router would 401 the discovery POST and the
+// connector never registers. Discovery is genuinely public per spec.
+const mcpShim = require('./coworkMcpShim')
+router.post('/', (req, res) => mcpShim.handleMcpRequest(router, req, res))
+
 router.use(coworkAuth)
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -887,17 +900,13 @@ router.post('/inbox.read', scope.requireScope('read.cowork.inbox'), async (req, 
   }
 })
 
-// ── 18. MCP JSON-RPC 2.0 shim (Anthropic custom-connector entry point) ───
-// POST /api/mcp/cowork/ with a JSON-RPC envelope. Bridges initialize /
-// tools/list / tools/call / prompts/list / resources/list /
-// notifications/initialized to the 17 V2 REST endpoints above.
-//
-// Auth: same coworkAuth middleware applied at line 48 covers this route too.
-// Dispatch: in-process synthetic-request injection (no HTTP loopback) so
-// scope checks, idempotency, audit logging, and rate caps still apply.
+// ── 18. MCP JSON-RPC 2.0 shim ────────────────────────────────────────────
+// MOUNTED EARLIER (above the `router.use(coworkAuth)` line) so MCP discovery
+// methods (initialize, tools/list, prompts/list, resources/list,
+// notifications/initialized, ping) are reachable without a bearer per spec.
+// The shim performs its OWN bearer check for tools/call by invoking
+// coworkAuth programmatically against parentReq before dispatching.
 //
 // Spec: ~/ecodiaos/src/routes/mcp/coworkMcpShim.js
-const mcpShim = require('./coworkMcpShim')
-router.post('/', (req, res) => mcpShim.handleMcpRequest(router, req, res))
 
 module.exports = router

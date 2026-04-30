@@ -19,6 +19,7 @@
 'use strict'
 
 const logger = require('../../config/logger')
+const coworkAuth = require('../../middleware/coworkAuth')
 
 const PROTOCOL_VERSION = '2025-03-26'
 const SERVER_INFO = Object.freeze({
@@ -348,7 +349,44 @@ const RPC_ERR = Object.freeze({
   METHOD_NOT_FOUND: { code: -32601, message: 'Method not found' },
   INVALID_PARAMS:   { code: -32602, message: 'Invalid params' },
   INTERNAL_ERROR:   { code: -32603, message: 'Internal error' },
+  // Server-defined (-32000..-32099 reserved for impl). MCP-tools/call only.
+  UNAUTHENTICATED:  { code: -32000, message: 'unauthenticated' },
 })
+
+// ── Programmatic coworkAuth wrap ─────────────────────────────────────────
+// The shim is mounted BEFORE the router-level coworkAuth so MCP discovery
+// methods (initialize / tools/list / etc.) flow publicly. tools/call is
+// privileged and runs coworkAuth here against the *parent* request so the
+// downstream synthetic dispatch sees req.coworkScopes etc. populated by the
+// real middleware (single source of truth, no logic duplication).
+function _runCoworkAuth(parentReq) {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const fakeRes = {
+      _status: 200,
+      status(code) { this._status = code; return this },
+      json(body) {
+        if (settled) return this
+        settled = true
+        const err = new Error((body && body.message) || 'auth_failed')
+        err._coworkAuthFail = true
+        err._coworkAuthBody = body || { error: 'auth_failed' }
+        err._coworkAuthStatus = this._status
+        reject(err)
+        return this
+      },
+    }
+    const next = (err) => {
+      if (settled) return
+      settled = true
+      if (err) reject(err)
+      else resolve()
+    }
+    Promise.resolve()
+      .then(() => coworkAuth(parentReq, fakeRes, next))
+      .catch((e) => { if (!settled) { settled = true; reject(e) } })
+  })
+}
 
 function rpcError(id, err, details) {
   return {
@@ -496,7 +534,8 @@ async function _handleSingle(router, parentReq, rpcBody) {
       return rpcResult(id ?? null, { resources: [] })
     }
 
-    // tools/call — dispatch to V2 handler
+    // tools/call — dispatch to V2 handler. Bearer enforced HERE (not at the
+    // router level) so MCP discovery methods above flow publicly per spec.
     if (method === 'tools/call') {
       const toolName = params?.name
       const toolArgs = params?.arguments || {}
@@ -506,6 +545,23 @@ async function _handleSingle(router, parentReq, rpcBody) {
       }
       if (!TOOL_NAMES.has(toolName)) {
         return rpcError(id ?? null, RPC_ERR.METHOD_NOT_FOUND, { reason: 'unknown tool', tool: toolName })
+      }
+
+      // Run coworkAuth against the parent req. On success it populates
+      // req.coworkScopes / coworkBearerFingerprint / coworkBearerRow which
+      // the synthetic dispatch picks up via Object.assign.
+      try {
+        if (!parentReq.coworkScopes) {
+          await _runCoworkAuth(parentReq)
+        }
+      } catch (authErr) {
+        if (authErr && authErr._coworkAuthFail) {
+          return rpcError(id ?? null, RPC_ERR.UNAUTHENTICATED, {
+            reason: authErr._coworkAuthBody?.error || 'unauthenticated',
+            http_status: authErr._coworkAuthStatus || 401,
+          })
+        }
+        return rpcError(id ?? null, RPC_ERR.INTERNAL_ERROR, { error: authErr?.message || 'auth_error' })
       }
 
       const result = await dispatchTool(router, parentReq, toolName, toolArgs)

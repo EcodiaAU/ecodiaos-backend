@@ -35,14 +35,23 @@ app.use(cors({
     const allowed = [
       'https://admin.ecodia.au',
       'http://localhost:5173',
+      // Anthropic — claude.ai custom MCP connector + general Anthropic surfaces.
+      // Bare + subdomain forms (mcp.claude.ai, etc.) per Anthropic's MCP fetcher.
+      'https://claude.ai',
+      'https://anthropic.com',
     ]
-    if (!origin || allowed.includes(origin) || origin.endsWith('.vercel.app')) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
-    }
+    if (!origin) return callback(null, true)
+    if (allowed.includes(origin)) return callback(null, true)
+    if (origin.endsWith('.vercel.app')) return callback(null, true)
+    if (origin.endsWith('.claude.ai')) return callback(null, true)
+    if (origin.endsWith('.anthropic.com')) return callback(null, true)
+    return callback(new Error('Not allowed by CORS'))
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  // MCP fetcher sends Mcp-Session-Id + Mcp-Protocol-Version on streamable-http.
+  // Authorization for bearer-gated tools/call. X-Requested-With kept for legacy.
+  allowedHeaders: ['Authorization', 'Content-Type', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'X-Requested-With'],
 }))
 app.use(compression())
 app.use(express.json({ limit: '5mb' }))
