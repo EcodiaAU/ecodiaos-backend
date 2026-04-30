@@ -512,6 +512,10 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
             if (text) {
               const safe = secretSafety.scrubSecrets(text)
               state.transcript.push(safe)
+              // Cap transcript at 80 entries to prevent unbounded growth that hits
+              // ecodia-api's max_memory_restart 2G ceiling within ~6min under fork
+              // load. Per status_board row f4180a2c quick-win (30 Apr 2026 09:58 AEST).
+              if (state.transcript.length > 80) state.transcript.shift()
               // Position = first ~100 chars of latest assistant text.
               state.position = safe.replace(/\s+/g, ' ').slice(0, 140)
               _emitForkOutput(fork_id, { type: 'assistant_text', content: safe, fork_id })
@@ -634,9 +638,11 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       await _dbUpdate(state)
       logger.error('forkService: fork failed', { fork_id, status: state.status, error: err?.message, stack: err?.stack })
     } finally {
-      // Keep the entry for ~5min after termination so the frontend can render
+      // Keep the entry for ~1min after termination so the frontend can render
       // its final state, then evict to keep the Map small.
-      setTimeout(() => { _forks.delete(fork_id) }, 5 * 60 * 1000).unref?.()
+      // Reduced from 5min to 1min per status_board row f4180a2c quick-win (30 Apr
+      // 2026 09:58 AEST) to slow ecodia-api memory accumulation under fork load.
+      setTimeout(() => { _forks.delete(fork_id) }, 60 * 1000).unref?.()
     }
   })().catch(err => logger.error('forkService: top-level fork loop threw (should never happen)', { fork_id, error: err.message }))
 
