@@ -27,6 +27,7 @@ const usageEnergy = require('./usageEnergyService')
 const osIncident = require('./osIncidentService')
 const sessionMemory = require('./sessionMemoryService')
 const osConversationLog = require('./osConversationLog')
+const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./doctrineSurface')
 // §2.1 untrusted-input system clause - the conductor reads listener
@@ -2026,6 +2027,35 @@ async function _sendMessageImpl(content, opts = {}) {
               }
             } catch (e) {
               logger.debug('osConversationLog.logTurn(assistant/tool_use) failed', { err: e.message })
+            }
+
+            // ─── Claim grammar post-turn hook (OBSERVABILITY_SPEC §3) ────
+            // Parse [CLAIM:action k=v ...] tags out of the finalized
+            // assistant text and record them for async verification. The
+            // verifier worker (src/workers/claimVerifierWorker.js) picks
+            // pending rows up on a 30s cadence and dispatches per-action
+            // verifiers. Failures here are non-blocking — a broken claim
+            // parser must not break turn emission.
+            if (safeText && safeText.trim()) {
+              try {
+                const claims = claimGrammar.parseClaims(safeText)
+                for (const c of claims) {
+                  try {
+                    await db`
+                      INSERT INTO conductor_claims
+                        (session_id, action, handle_kv, verification_status, claimed_at)
+                      VALUES
+                        (${dbSessionId}, ${c.action}, ${JSON.stringify(c.handle || {})}, 'pending', NOW())
+                    `
+                  } catch (insErr) {
+                    logger.debug('claimGrammar: INSERT conductor_claims failed', {
+                      err: insErr.message, action: c.action,
+                    })
+                  }
+                }
+              } catch (parseErr) {
+                logger.debug('claimGrammar: parseClaims threw (non-fatal)', { err: parseErr.message })
+              }
             }
             break
           }
