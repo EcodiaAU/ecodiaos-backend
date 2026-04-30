@@ -12,6 +12,8 @@ const db = require('../config/db')
 const logger = require('../config/logger')
 const usageEnergy = require('./usageEnergyService')
 const doctrineSurface = require('./doctrineSurface')
+const cronForkDispatcher = require('./cronForkDispatcher')
+const { classifyCron } = require('../config/cronPriority')
 
 const POLL_INTERVAL_MS = 30_000
 const TZ_OFFSET_HOURS = 10 // AEST (UTC+10, no DST)
@@ -72,11 +74,62 @@ async function isSessionBusy() {
 
 // ── Fire a single task ──
 
+// Decide whether to route a cron task to the conductor (POST to os-session) or
+// to spawn it as an ephemeral fork via cronForkDispatcher. Returns the task
+// result for run_count / result-stamp purposes downstream.
+//
+// Decision 3993 commit 3/3: forks-as-primitive routing.
+//   conductor       → POST to /api/os-session/message (status quo, judgment loop)
+//   direct_exec     → POST to /api/os-session/message (status quo, tiny shell-exec
+//                     prompts; pollution footprint negligible, churn-not-worth)
+//   high_priority_fork → spawn fork (always, budget bypass)
+//   low_priority_fork  → spawn fork (skipped if budget < 25%)
+//
+// Delayed (one-shot) tasks always go via the os-session POST path — they
+// don't carry a classification yet and the convention is to handle them in
+// the conductor for Tate-typed scheduling.
+async function _shouldDispatchAsFork(task) {
+  if (task.type !== 'cron') return false
+  const route = classifyCron(task.name)
+  return route === 'high_priority_fork' || route === 'low_priority_fork'
+}
+
 async function fireTask(task) {
   // No pre-gate. Trust /api/os-session/message with source:'scheduler' to queue
   // behind in-flight turns or initialise an idle session. See
   // patterns/scheduler-no-pregate-trust-os-message-queue.md.
   try {
+    // Decision 3993: route fork-eligible crons through cronForkDispatcher
+    // rather than POSTing into the conductor's message queue. See
+    // src/config/cronPriority.js for the classification table.
+    if (await _shouldDispatchAsFork(task)) {
+      const dispatchResult = await cronForkDispatcher.dispatchCronAsFork(task)
+      const now = new Date()
+      const nextRun = computeNextRun(task.cron_expression)
+      const stampedResult = JSON.stringify({
+        dispatched_as_fork: true,
+        spawned: dispatchResult.spawned,
+        fork_id: dispatchResult.fork_id,
+        route: dispatchResult.route,
+        reason: dispatchResult.reason,
+        budget_remaining: dispatchResult.budget_remaining,
+      }).slice(0, 500)
+      await db`
+        UPDATE os_scheduled_tasks
+        SET last_run_at = ${now}, next_run_at = ${nextRun},
+            run_count = run_count + 1, result = ${stampedResult}
+        WHERE id = ${task.id}
+      `
+      logger.info('Scheduler fired task (fork-route)', {
+        name: task.name,
+        type: task.type,
+        spawned: dispatchResult.spawned,
+        fork_id: dispatchResult.fork_id,
+        reason: dispatchResult.reason,
+      })
+      return
+    }
+
     // Doctrine surface: keyword-grep ~/ecodiaos/{patterns,clients,docs/secrets}
     // for files whose triggers: frontmatter matches tokens in this prompt, and
     // prepend a <doctrine_surface> block so the conductor sees relevant durable
