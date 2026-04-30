@@ -48,6 +48,7 @@ const logger = require('../config/logger')
 const usageEnergy = require('./usageEnergyService')
 const { broadcast } = require('../websocket/wsManager')
 const secretSafety = require('./secretSafetyService')
+const forkFinalizer = require('./forkFinalizer')
 
 // ── SDK loader (shared shape with osSessionService) ─────────────────────────
 let _query = null
@@ -594,6 +595,16 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       _emitForkEvent('done', state)
       _emitForkStatus(fork_id, 'complete', { fork_id })
       await _dbUpdate(state)
+      // Idempotent terminal-state write — guarantees os_forks row converges
+      // even if a concurrent process restart is mid-flight. Per Decision 3993
+      // commit 1/3 (forkFinalizer.js). Wrapped: a finalizer failure must not
+      // flip state.status into the outer catch's error path, since the work
+      // itself succeeded.
+      try {
+        await forkFinalizer.finalize(fork_id, 'done', state.result)
+      } catch (err) {
+        logger.warn('forkService: finalize() in success path failed (non-fatal)', { fork_id, error: err.message })
+      }
 
       logger.info('forkService: fork complete', {
         fork_id,
@@ -638,6 +649,24 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       await _dbUpdate(state)
       logger.error('forkService: fork failed', { fork_id, status: state.status, error: err?.message, stack: err?.stack })
     } finally {
+      // Guarantor: ensure os_forks row converges to terminal even if an
+      // exception escaped the try/catch above (e.g. catch handler itself
+      // threw) or the process is mid-shutdown when this finally runs. Per
+      // Decision 3993 commit 1/3 — this is the durable terminal-state write
+      // the forks-as-primitive bootstrap depends on.
+      //
+      // Idempotent: if the success/error path already wrote terminal, this
+      // call returns alreadyTerminal=true. If state.status is somehow still
+      // non-terminal here (uncaught exception path), default to 'error'.
+      try {
+        const finalStatus = (state.status === 'done' || state.status === 'aborted' || state.status === 'error')
+          ? state.status
+          : 'error'
+        const finalResult = state.result || state.abort_reason || null
+        await forkFinalizer.finalize(fork_id, finalStatus, finalResult)
+      } catch (err) {
+        logger.warn('forkService: finalizer guarantor failed (non-fatal)', { fork_id, error: err.message })
+      }
       // Keep the entry for ~1min after termination so the frontend can render
       // its final state, then evict to keep the Map small.
       // Reduced from 5min to 1min per status_board row f4180a2c quick-win (30 Apr
