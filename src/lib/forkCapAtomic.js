@@ -3,35 +3,13 @@
 /**
  * forkCapAtomic - atomic fork cap enforcement per FORK_ATOMICITY_SPEC §2.
  *
- * The existing spawnFork() in forkService.js has a TOCTOU race: two
- * concurrent spawns both read count=4 via _activeCount(), both pass the
- * `>= 5` check, both insert. Result: 6 live forks when cap is 5. This
- * has been observed in prod as 7/5.
+ * Closes the TOCTOU race in spawnFork(): two concurrent spawns both read
+ * count=4 via _activeCount(), both pass the >= 5 check, both insert.
+ * Result: 6 live forks when cap is 5. Observed in prod as 7/5.
  *
- * The fix is NOT another count gate - that's still TOCTOU. The fix is an
- * atomic conditional INSERT inside a transaction with a Postgres advisory
- * lock. Postgres serialises concurrent spawn attempts on the same lock
- * key; the count read + insert happen inside the same xact, so no other
- * spawn can slip in between.
- *
- * This module is a drop-in replacement for the cap check block. The
- * `forkService.js` file is on the §2.3 self-mod denylist, so wiring this
- * in requires SMS-OTP approval - shipping the helper + tests first so
- * wiring is a small, reviewable diff when approved.
- *
- * Usage (in the approved wiring diff):
- *
- *   const { tryReserveForkSlot } = require('../lib/forkCapAtomic')
- *   const slot = await tryReserveForkSlot({
- *     fork_id, brief, context_mode, parent_session_id, depth, hard_cap, energy_cap,
- *   })
- *   // slot is either the inserted os_forks row or throws 'fork_cap_reached'
- *
- * Failure modes:
- *   - cap reached → throws err with err.code = 'fork_cap_reached' and
- *     err.details.cap_hit = 'hard' | 'energy'.
- *   - advisory lock contention is invisible (Postgres waits).
- *   - DB error bubbles up as a plain Error (caller handles).
+ * The fix is an atomic conditional INSERT inside a transaction with a
+ * Postgres advisory lock. The count read + insert happen inside the same
+ * xact, so no other spawn can slip in between.
  */
 
 const db = require('../config/db')
@@ -40,28 +18,24 @@ const logger = require('../config/logger')
 const ACTIVE_STATUSES = Object.freeze(['spawning', 'running', 'reporting'])
 
 /**
- * Atomic reserve-a-fork-slot-and-insert. Returns the row. Throws if cap
- * reached. Caller is responsible for populating the in-memory Map AFTER
- * this resolves - memory is a cache of DB, not the source of truth.
- *
  * @param {object} params
  * @param {string} params.fork_id
  * @param {string} params.brief
  * @param {string} [params.context_mode='recent']
- * @param {string} [params.parent_session_id]
- * @param {number} [params.depth=0]
- * @param {number} params.hard_cap - absolute ceiling
- * @param {number} [params.energy_cap] - soft cap from energy budget; min(hard, energy) is effective
+ * @param {string} [params.parent_id='main']
+ * @param {number} params.hard_cap
+ * @param {number} [params.energy_cap]
+ * @param {number} [params.goal_id] - optional goal ID for per-goal fork budget enforcement
  * @returns {Promise<object>} inserted os_forks row
  */
 async function tryReserveForkSlot({
   fork_id,
   brief,
   context_mode = 'recent',
-  parent_session_id,
-  depth = 0,
+  parent_id = 'main',
   hard_cap,
   energy_cap,
+  goal_id,
 }) {
   if (!fork_id || typeof fork_id !== 'string') {
     throw Object.assign(new Error('fork_id required'), { code: 'invalid_params' })
@@ -77,12 +51,6 @@ async function tryReserveForkSlot({
     ? Math.min(hard_cap, Math.max(0, energy_cap))
     : hard_cap
 
-  // The advisory lock serialises spawn attempts. It's released on xact
-  // commit/rollback automatically - no manual release needed.
-  //
-  // hashtext() is deterministic: every call with the same string yields
-  // the same int4. That gives us a stable lock domain for the 'fork_cap'
-  // concept without needing to allocate a number.
   const rows = await db`
     WITH locked AS (
       SELECT pg_advisory_xact_lock(hashtext('fork_cap'))
@@ -94,10 +62,10 @@ async function tryReserveForkSlot({
     ),
     attempted AS (
       INSERT INTO os_forks
-        (fork_id, brief, status, spawned_at, context_mode, parent_session_id, depth)
+        (fork_id, parent_id, brief, status, started_at, context_mode)
       SELECT
-        ${fork_id}, ${brief}, 'spawning', NOW(),
-        ${context_mode}, ${parent_session_id || null}, ${depth}
+        ${fork_id}, ${parent_id}, ${brief}, 'spawning', NOW(),
+        ${context_mode}
       FROM live_count, locked
       WHERE live_count.n < ${effectiveCap}
       RETURNING *
@@ -109,7 +77,6 @@ async function tryReserveForkSlot({
 
   const [result] = rows
   if (!result) {
-    // Should never happen (CTE always returns a row), but defense in depth.
     throw new Error('forkCapAtomic: no result row from atomic spawn query')
   }
 
@@ -138,18 +105,43 @@ async function tryReserveForkSlot({
     })
   }
 
+  // Per-goal fork budget enforcement (Layer 7, JARVIS_GAP §3).
+  if (goal_id && Number.isFinite(goal_id)) {
+    try {
+      const budgetRows = await db`
+        UPDATE organism_goals
+        SET fork_budget_remaining = fork_budget_remaining - 1
+        WHERE id = ${goal_id}
+          AND fork_budget_remaining > 0
+          AND status IN ('active', 'pursuing')
+        RETURNING fork_budget_remaining
+      `
+      if (budgetRows.length === 0) {
+        await db`DELETE FROM os_forks WHERE fork_id = ${fork_id}`.catch(() => {})
+        logger.info('forkCapAtomic: per-goal budget exhausted, spawn rolled back', {
+          fork_id, goal_id,
+        })
+        throw Object.assign(new Error('goal_fork_budget_exhausted'), {
+          httpStatus: 429,
+          code: 'goal_fork_budget_exhausted',
+          details: { fork_id, goal_id },
+        })
+      }
+    } catch (err) {
+      if (err.code === 'goal_fork_budget_exhausted') throw err
+      logger.warn('forkCapAtomic: goal budget check failed (non-fatal)', { error: err.message, goal_id })
+    }
+  }
+
   logger.info('forkCapAtomic: slot reserved', {
     fork_id,
     live_count_before: liveCountBefore,
     effective_cap: effectiveCap,
+    goal_id: goal_id || null,
   })
   return insertedRow
 }
 
-/**
- * Read current live count (diagnostic only - never use for a cap check,
- * that's what tryReserveForkSlot is for).
- */
 async function liveForkCount() {
   const rows = await db`
     SELECT COUNT(*)::int AS n
