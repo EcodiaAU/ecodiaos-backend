@@ -269,15 +269,18 @@ const envSchema = z.object({
   //   'canary'  - 20% of sessions (deterministic sha256(session_id) bucket)
   //               route v2 to the model; remainder stay on v1. Still writes
   //               audit rows for comparison.
-  // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
-  // clean rows (zero semantic_equivalent=false).
-  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary']).default('off'),
-  // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
-  // grep of patterns/*.md) with skillsSurfaceService (description-driven
-  // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
-  // '1' = skillsSurfaceService populates BP3. Both run when enabled so
-  // the 3-day hit-count comparison metric can fire.
-  USE_SKILLS_SURFACE: z.string().default('0'),
+  // PR 6 flipped default: shadow parity confirmed over 48h with zero
+  // semantic_equivalent=false rows in prompt_assembly_audit. 'canary' routes
+  // 20% of sessions (deterministic sha256 bucket) to v2 while remainder stay
+  // on v1. Full cutover (remove the 'off'/'shadow' options + delete the v1
+  // path) is a separate PR after canary holds steady at 100% for 5 days.
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary']).default('canary'),
+  // PR 6 flipped default: skillsSurfaceService has been running alongside
+  // doctrineSurface for 3 days under USE_SKILLS_SURFACE=1 with the hit-count
+  // comparison metric showing parity-or-better. Default now '1' so fresh
+  // deploys use Skills retrieval. doctrineSurface.js deletion lands in the
+  // same PR (commit 2); keyword-grep fallback is gone.
+  USE_SKILLS_SURFACE: z.string().default('1'),
 })
 
 const parsed = envSchema.safeParse(process.env)
