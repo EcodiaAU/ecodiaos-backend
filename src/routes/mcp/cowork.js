@@ -953,15 +953,68 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
     }
 
     const gmailService = require('../../services/gmailService')
-    const result = await gmailService.sendEmail({
-      from: fromInbox,
-      to: b.to,
-      cc: b.cc,
-      bcc: b.bcc,
-      subject: b.subject,
-      body: b.body,
-      threadId: b.thread_id,
-    })
+
+    // §3.2-§3.4+§7.1 gating. Shadow mode by default so existing MCP callers
+    // that don't yet pass `gate_token` keep working; when
+    // GMAIL_SEND_GATE_ENFORCE=true, a missing/failing token hard-rejects.
+    // The cowork_session_id becomes the sessionId the gate binds to.
+    const gateEnforce = process.env.GMAIL_SEND_GATE_ENFORCE === 'true'
+    const sessionId = b.cowork_session_id || req.get('x-ecodia-session-id') || null
+    let result
+    if (b.gate_token && sessionId) {
+      try {
+        result = await gmailService.sendEmailGated({
+          from: fromInbox,
+          to: b.to, cc: b.cc, bcc: b.bcc,
+          subject: b.subject, body: b.body,
+          threadId: b.thread_id,
+          sessionId,
+          gate_token: b.gate_token,
+        })
+        // Queued-by-delay-queue path: surface to caller; no message_id yet.
+        if (result && result.queued) {
+          audit.logWrite(req, 'gmail.send', {
+            scope_used: 'write.gmail.send',
+            cowork_session_id: b.cowork_session_id,
+            affected_substrate: 'gmail',
+            affected_row_ref: null,
+            request_summary: {
+              from: fromInbox,
+              to: Array.isArray(b.to) ? b.to.join(',') : b.to,
+              subject: b.subject,
+              body_chars: b.body.length,
+              queued: true,
+            },
+            response_summary: { queued: true, row_id: result.row?.id || null },
+          })
+          return { queued: true, delay_queue_id: result.row?.id || null }
+        }
+      } catch (err) {
+        if (err.code === 'tier3_gate_denied') {
+          throw Object.assign(new Error(err.message), { httpStatus: 403, code: 'tier3_gate_denied' })
+        }
+        throw err
+      }
+    } else {
+      if (gateEnforce) {
+        throw Object.assign(new Error('tier3_gate_denied: gate_token + cowork_session_id required when GMAIL_SEND_GATE_ENFORCE=true'), {
+          httpStatus: 403, code: 'tier3_gate_denied',
+        })
+      }
+      // Shadow mode: log the bypass so we can see which callers still need
+      // token wiring, then fall through to the legacy internal sender.
+      logger.warn('gmail.send shadow-mode bypass (no gate_token)', {
+        cowork_session_id: b.cowork_session_id,
+        to: Array.isArray(b.to) ? b.to.join(',') : b.to,
+        subject: b.subject,
+      })
+      result = await gmailService.sendEmail({
+        from: fromInbox,
+        to: b.to, cc: b.cc, bcc: b.bcc,
+        subject: b.subject, body: b.body,
+        threadId: b.thread_id,
+      })
+    }
 
     const toSummary = Array.isArray(b.to) ? b.to.join(',') : b.to
     audit.logWrite(req, 'gmail.send', {
@@ -976,6 +1029,7 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
         cc_count: Array.isArray(b.cc) ? b.cc.length : (b.cc ? 1 : 0),
         bcc_count: Array.isArray(b.bcc) ? b.bcc.length : (b.bcc ? 1 : 0),
         thread_id: b.thread_id || null,
+        gate_used: Boolean(b.gate_token && sessionId),
       },
       response_summary: {
         message_id: result.message_id,
