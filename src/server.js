@@ -373,6 +373,70 @@ server.listen(env.PORT, async () => {
     }
   }
 
+  // ── Boot: Security Incident Response wiring (§7.2) ────────────────
+  // Injects the four actuator closures the securityIncidentResponse
+  // module needs to carry out kill-switch duties:
+  //   setEmergencyMode — writes kv_store.system.emergency_mode JSON,
+  //     which tier3GateService reads to revoke pending Tier-3 tokens.
+  //   pauseCrons       — stops the scheduler poller (manual restart to
+  //     resume — this is the intended one-way door).
+  //   haltForks        — iterates forkService.listForks() and calls
+  //     abortFork(id, reason) on each in-flight fork. Uses only the
+  //     already-exported public API; does not modify forkService.
+  //   smsTate          — osAlertingService.sendSmsToTate, Twilio SMS
+  //     bypassing the alert-cooldown table (incidents are not rate-limited).
+  //
+  // All closures are defensive: any one throwing must not take down the
+  // incident response chain. The module itself wraps each in its own
+  // Promise.allSettled; here we just need to not throw synchronously.
+  try {
+    const ir = require('./services/securityIncidentResponse')
+    const schedulerPoller = require('./services/schedulerPollerService')
+    const forkService = require('./services/forkService')
+    const alerting = require('./services/osAlertingService')
+
+    ir.wireServices({
+      setEmergencyMode: async (flag, reason) => {
+        try {
+          await db`
+            INSERT INTO kv_store (key, value)
+            VALUES (
+              'system.emergency_mode',
+              ${JSON.stringify({ active: !!flag, reason: reason || null, at: new Date().toISOString() })}
+            )
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+          `
+        } catch (err) {
+          logger.error('setEmergencyMode: kv_store upsert failed', { error: err.message, flag, reason })
+        }
+      },
+      pauseCrons: () => {
+        try { schedulerPoller.stop() } catch (err) {
+          logger.error('pauseCrons: schedulerPoller.stop threw', { error: err.message })
+        }
+      },
+      haltForks: async (reason) => {
+        try {
+          const live = forkService.listForks()
+          for (const f of live) {
+            if (['done', 'aborted', 'error'].includes(f.status)) continue
+            try { await forkService.abortFork(f.fork_id, reason || 'security_incident') }
+            catch (err) { logger.warn('haltForks: abortFork failed', { fork_id: f.fork_id, error: err.message }) }
+          }
+        } catch (err) {
+          logger.error('haltForks: listForks threw', { error: err.message })
+        }
+      },
+      smsTate: async (msg) => {
+        try { await alerting.sendSmsToTate(msg) } catch (err) {
+          logger.error('smsTate: sendSmsToTate threw', { error: err.message })
+        }
+      },
+    })
+  } catch (err) {
+    logger.warn('securityIncidentResponse.wireServices failed to boot', { error: err.message })
+  }
+
   // ── Boot: Rescue Service (api-side subscriber) ────────────────────
   // Subscribes to Redis channels published by the ecodia-rescue process
   // and relays rescue events over WS to the frontend. The rescue process
