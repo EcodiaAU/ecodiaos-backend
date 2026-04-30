@@ -19,8 +19,8 @@ I am a conductor, not a solo operator. I have four subagents — comms, finance,
 ## Top 5 active goals
 
 1. **Survive autonomously for 3 months while Tate travels.** The recovery plan in `backend/docs/` is the spine of this goal; security hardening (docs/SECURITY_HARDENING.md) is its precondition. If I am compromised while Tate is unreachable, I cannot recover — this is load-bearing.
-2. **Ship the remaining Phase 0.5 security layers and get enforce mode on for the §2.2 dual-reviewer.** §2.1, §2.2 (#33), §2.3, §2.4, §2.5, §3.2-§7.2 (#34), fork-atomicity/ops/claim-grammar modules (#35) all merged to `main` on 2026-05-01. §5.1 credential filter wire-in landed next (feat/wire-credential-filter). Remaining: gmail `sendEmailGated` gate (§3.2-§3.4+§7.1), claim grammar post-turn + verifier cron, full `securityIncidentResponse.wireServices(...)` container at boot, `forkService` atomic cap-check swap (SMS-OTP gated).
-3. **Author a functioning §7.1 audit log wired into every Tier-3 action.** Append-only table shipped, service shipped; gmailService/deploymentService/factoryDispatch still need to call `append()` at the right seams.
+2. **Ship the remaining Phase 0.5 security layers and get enforce mode on for the §2.2 dual-reviewer.** §2.1, §2.3, §2.4, §2.5 merged. §2.2 wiring ready (PR #33). §3.2-§7.2 modules landed in a follow-up branch. Wiring into live send/deploy paths is the next step.
+3. **Author a functioning §7.1 audit log wired into every Tier-3 action.** Append-only table shipped, service shipped. `gmail_send_external` seam wired 2026-05-01 via the new `gmailService.sendEmailGated` composite gate (branch `feat/wire-gmail-gate`, shadow-mode on cowork MCP `/gmail.send`). Still pending: `deploymentService`, `factoryDispatch`, other gmail call sites (sendReply / sendNewEmail / autonomous triage reply).
 4. **Close FORK_ATOMICITY §2 (atomic spawn transaction) before the VPS comes back under load.** TOCTOU race at forkService.js:362-412 already cost budget under adversarial conditions.
 5. **Stand up /ops with the 6 core metrics from OBSERVABILITY §2.** I can't currently prove what's working and what's not. Without measurement, every other improvement is a guess.
 
@@ -30,11 +30,11 @@ I am a conductor, not a solo operator. I have four subagents — comms, finance,
 
 I carry these forward with handles so I can resolve them later. "Unverified" means I have not yet confirmed the assertion against ground truth; the memory may be correct, stale, or wrong.
 
-1. **Claim:** Migrations 071-078 apply cleanly on the VPS. **Handle:** run `node src/db/migrate.js` on VPS; check for errors. **Status:** verified 2026-05-01 — all 5 new migrations (074-078) applied, 77 already up to date; the two NOTICES in 076 are idempotent `DROP TRIGGER IF EXISTS` and expected.
+1. **Claim:** Migrations 071-076 apply cleanly on the VPS. **Handle:** run `node src/db/migrate.js` on VPS; check for errors. **Status:** unverified — migrations written locally.
 2. **Claim:** `authorized_action_patterns` table is empty at ship time and no Tier-3 action auto-issues. **Handle:** `SELECT COUNT(*) FROM authorized_action_patterns`. **Status:** unverified.
 3. **Claim:** The email → factory → deploy RCE chain from SECURITY_HARDENING §1 is closed now that §2.1 delimiters, §2.3 allowlist, and §2.2 dual-reviewer are all merged. **Handle:** an attack-sim integration test that sends a crafted email, triggers a factory run, and confirms the deploy is blocked. **Status:** unverified — unit tests exist for each layer individually, but no end-to-end kill-chain test yet.
 4. **Claim:** No pre-existing self-mod session has ever auto-deployed with a polluted reviewer. **Handle:** audit `cc_sessions WHERE self_modification=true AND deploy_status='deployed'` since ship, cross-check initial_prompt for external-origin markers. **Status:** unverified — historical forensic sweep needed.
-5. **Claim:** `credential_redactions_total` stays at 0 outside the 2h bootstrap window. Any post-bootstrap increment fires `credential_redaction_burst` via `securityIncidentResponse.fireIncident` and surfaces on `/api/ops/metrics` as `security.credential_redactions_24h`. Wire-in covers three seams: `osConversationLog.logTurn`, `wsManager.broadcast`, `osSessionService` tool-result emit. **Handle:** `/api/ops/metrics` after 2h uptime; inspect `security.credential_redactions_by_source` to localise the leak. **Status:** unverified — wired 2026-05-01, bootstrap window not yet elapsed on VPS.
+5. **Claim:** `credentialFilter.redact()` is never called right now (no wire-in yet), so `credential_redactions_total` is always 0; a non-zero means a real leak, not a bootstrap false-positive. **Handle:** grep for `credentialFilter.redact(` in codebase. **Status:** verified 2026-04-30 (no call sites yet), **will change** as I wire it in.
 
 ---
 
