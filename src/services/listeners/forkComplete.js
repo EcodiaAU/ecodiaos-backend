@@ -8,7 +8,13 @@
  *   (b) status in ['running', 'spawning', 'reporting'] AND last_heartbeat
  *       is more than 10 minutes old - implies the fork has hung
  *
- * Wakes the OS via HTTP POST so it can review the fork result or intervene.
+ * Wake-on-failure-only contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST):
+ *   - status='done' is SILENT. Logs to DB only, no wake POST. Parent dispatchers
+ *     know what they queued and probe the DB on their next turn. Avoids flooding
+ *     the conductor's chat context with successful-completion noise.
+ *   - status='aborted' or status='error' WAKES. Failures need conductor attention.
+ *   - Stale-heartbeat (no progress signal for 10+ minutes) WAKES.
+ *
  * Stale-heartbeat alerts are deduplicated per fork_id (in-memory Set).
  *
  * Wakes the OS via HTTP POST - never imports the session service directly.
@@ -77,14 +83,24 @@ module.exports = {
       // Clear stale-alert dedup on terminal transition - fork is done
       _staledForks.delete(forkId)
 
+      // Silent path: successful completion. Log to DB only, no wake.
+      // Parent dispatchers know what they queued and will probe DB on next turn.
+      // Avoids flooding conductor context per silent-ears architecture
+      // (Tate 30 Apr 2026 13:18 AEST).
+      if (status === 'done') {
+        logger.info('forkComplete: terminal done (silent, no wake)', { forkId })
+        return
+      }
+
+      // Wake path: aborted or error. Conductor needs to know.
       const resultSnippet = row.result ? String(row.result).slice(0, 200) : 'none'
       const message = (
-        `Fork ${forkId} completed with status=${status}. ` +
+        `Fork ${forkId} completed with status=${status} (FAILED). ` +
         `Result: ${resultSnippet}. ` +
-        `Next step: ${row.next_step || 'none'}. ` +
+        `Next step: ${row.next_step || 'investigate'}. ` +
         `Source: forkComplete listener (sourceEventId=${ctx.sourceEventId}).`
       )
-      logger.info('forkComplete: terminal state', { forkId, status })
+      logger.info('forkComplete: terminal failure', { forkId, status })
       await _wakeOsSession(message, forkId)
     } else {
       // Stale heartbeat - dedupe so we don't spam the OS per-tick
