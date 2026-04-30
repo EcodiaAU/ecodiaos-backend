@@ -1,6 +1,13 @@
 const { runQuery, runWrite } = require('../config/neo4j')
 const logger = require('../config/logger')
 const env = require('../config/env')
+// §2.4 - validate every label/rel-type before any Cypher interpolation.
+// In this file the values come from `labels(n)` / `type(r)` queries on
+// already-stored nodes/edges (validated at write time as of this PR),
+// but defense in depth: we re-coerce + assert before re-interpolation so
+// a future write path that bypassed the allowlist cannot poison the
+// consolidation pipeline.
+const { coerceRelType, assertAllowedRelType, coerceLabel, isAllowedLabel } = require('../lib/cypher/labelAllowlist')
 
 // ═══════════════════════════════════════════════════════════════════════
 // KNOWLEDGE GRAPH MEMORY CONSOLIDATION
@@ -265,10 +272,18 @@ async function transferRelationships(keepId, dupeId) {
     RETURN type(r) AS relType, elementId(target) AS targetId, properties(r) AS props
   `, { dupeId, keepId })
 
-  // Group by rel type to batch where possible
+  // Group by rel type to batch where possible.
+  // §2.4: rel types from existing edges may pre-date the allowlist.
+  // Coerce + assert before interpolation. Drop edges whose rel type
+  // cannot be coerced cleanly (logs a debug, very rare).
   const outByType = {}
   for (const rel of outRels) {
-    const relType = sanitizeLabel(rel.get('relType'))
+    const coerced = coerceRelType(rel.get('relType'))
+    if (!coerced) {
+      logger.debug('consolidation: skipping rel with invalid type (out)', { rawRelType: rel.get('relType') })
+      continue
+    }
+    const relType = assertAllowedRelType(coerced)
     if (!outByType[relType]) outByType[relType] = []
     outByType[relType].push({ targetId: rel.get('targetId'), props: rel.get('props') || {} })
   }
@@ -305,9 +320,15 @@ async function transferRelationships(keepId, dupeId) {
     RETURN type(r) AS relType, elementId(source) AS sourceId, properties(r) AS props
   `, { dupeId, keepId })
 
+  // §2.4: same coerce + assert path on the in-rel side.
   const inByType = {}
   for (const rel of inRels) {
-    const relType = sanitizeLabel(rel.get('relType'))
+    const coerced = coerceRelType(rel.get('relType'))
+    if (!coerced) {
+      logger.debug('consolidation: skipping rel with invalid type (in)', { rawRelType: rel.get('relType') })
+      continue
+    }
+    const relType = assertAllowedRelType(coerced)
     if (!inByType[relType]) inByType[relType] = []
     inByType[relType].push({ sourceId: rel.get('sourceId'), props: rel.get('props') || {} })
   }
@@ -727,7 +748,11 @@ For each numbered relationship, respond as JSON:
           fromName: fromName,
           toLabel: toLabels[0],
           toName: toName,
-          relType: sanitizeLabel(verdict.downgrade_to),
+          // §2.4: rel types must pass the strict shape regex. Coerce
+          // first; fall back to MENTIONS if the LLM verdict cannot
+          // coerce cleanly. assertAllowedRelType inside ensureRelationship
+          // would also catch this, but failing here is more informative.
+          relType: coerceRelType(verdict.downgrade_to) || 'MENTIONS',
           properties: {
             description: `${verdict.reason} (downgraded from ${relType})`,
             confidence: Math.max(confidence - 0.15, 0.3),
@@ -1890,8 +1915,27 @@ async function getConsolidationStats() {
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
+/**
+ * §2.4 - validate the label against the canonical allowlist BEFORE
+ * Cypher interpolation. Behavior preserves the legacy-callsite contract
+ * (returns a string, never throws) but upgrades the safety story:
+ *   1. Allowlist hit -> return label unchanged.
+ *   2. Coercible to an allowlisted label -> return coerced.
+ *   3. Else -> return the safe sentinel 'Unknown'. The caller's MATCH /
+ *      MERGE then no-ops (no nodes carry the `Unknown` label), instead
+ *      of injecting an attacker-controlled identifier.
+ *
+ * For new code, prefer assertAllowedLabel from
+ * src/lib/cypher/labelAllowlist.js - it raises on miss, which surfaces
+ * bugs faster than a silent 'Unknown' fallback.
+ */
 function sanitizeLabel(label) {
-  return label.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'Unknown'
+  if (typeof label !== 'string' || !label) return 'Unknown'
+  if (isAllowedLabel(label)) return label
+  const coerced = coerceLabel(label)
+  if (coerced) return coerced
+  logger.debug('consolidation: sanitizeLabel rejected label, returning Unknown sentinel', { rawLabel: label })
+  return 'Unknown'
 }
 
 // Parse a free-form timeframe string into an expiry duration (days).
