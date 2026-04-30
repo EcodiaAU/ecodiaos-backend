@@ -27,8 +27,15 @@
 | §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
 | §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
 
-**Test totals:** 192+ new unit tests across 11 specs, zero regressions.
-**Next step:** merge PR #33 (§2.2), open PR for the §3.2-§7.2 batch, apply migrations 071-076 on VPS, then wire into live send/deploy paths.
+**Test totals:** 261+ unit tests across Phase 0.5 modules + step 2 (§5.1) + step 3 (§3.2/§3.3/§3.4/§7.1 gmail gate) + step 4 (claim grammar post-turn + verifier worker). Zero regressions in the module group.
+
+**Step 4 shipped (2026-05-01, branch `feat/wire-claim-grammar-verifier`):**
+- Post-turn hook in `osSessionService` parses `[CLAIM:action k=v ...]` tags from finalized assistant text and inserts `conductor_claims` rows with `verification_status='pending'`.
+- `src/workers/claimVerifierWorker.js` polls every 30s (configurable) and dispatches per-action verifiers: `deployed`/`committed` → `git rev-parse --verify <sha>^{commit}` (sha regex-validated); `emailed` → email_threads/email_events lookup; `scheduled` → os_scheduled_tasks; `forked` → os_forks; unknown action → `action_unknown`.
+- Boot-wired in `server.js`, graceful-shutdown stops it.
+- 18 tests covering every branch including injection-shaped sha rejection.
+
+**Next step:** step 5 — full `securityIncidentResponse.wireServices(...)` container at boot (setEmergencyMode/pauseCrons/haltForks/smsTate). Step 6 (SMS-OTP gated) — forkService atomic cap-check swap.
 
 ---
 
