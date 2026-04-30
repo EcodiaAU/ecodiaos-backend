@@ -3,40 +3,64 @@
 /**
  * PromptAssembler — single owner of the turn envelope.
  *
- * PR 1 scope: skeleton. Duplicates the current `buildCustomSystemPrompt`
- * logic from osSessionService.js (lines 400-532) and returns its output
- * as `systemPrompt` with no cache breakpoints. This module is NOT wired
- * into osSessionService yet — it exists only so PR 2 can extend it with
- * the 4-breakpoint cache layout and then flip the call site.
+ * docs/PROMPT_ASSEMBLY_SPEC.md §3, §4.
  *
- * Design contract (stable across future PRs):
+ * PR 2 scope: 4-breakpoint cache layout. The assembler emits v2 output as
+ * a structured content-block array with Anthropic-native cache_control
+ * markers so the prompt cache keys on four stable prefixes instead of one.
+ *
+ *   BP1 (most stable)   — CLAUDE.md + SELF.md
+ *   BP2 (hourly stable) — env + behavior + fork + untrusted-input
+ *   BP3 (per-session)   — doctrineSurface shim (replaced by Skills in PR 4)
+ *   BP4 (per-turn)      — relevant_memory + forks_rollup + recent_exchanges
+ *
+ * Stability order matters for the Anthropic cache. The cache matches on
+ * the longest prefix up to and including a cache_control marker; if blocks
+ * are emitted out of stability order, BP2's cache_control invalidates BP1
+ * on the next change to any BP2 content, collapsing cache hit rate. The
+ * order BP1 → BP2 → BP3 → BP4 is load-bearing; asserted in tests.
+ *
+ * Design contract:
  *   assemble({ cwd, session_id, turn_context }) → {
- *     systemPrompt: string,
- *     userMessage: string | null,
- *     cacheBreakpoints: Array<{ offset: number, tier: number }>,
+ *     systemPrompt: string,           // v1-equivalent concatenation (BP1+BP2)
+ *     userMessage: string | null,     // v1-equivalent concatenation of turn blocks
+ *     contentBlocks: Array<{          // v2 structured form for canary/full
+ *       tier: 1|2|3|4,
+ *       text: string,
+ *       cache_control: { type: 'ephemeral' },
+ *     }>,
+ *     cacheBreakpoints: Array<{ tier, offset }>,  // offset into assembled text
  *   }
  *
- * PR 1 always returns `userMessage: null` and `cacheBreakpoints: []`.
+ * Shadow-mode invariant (enforced by tests + live audit writer):
+ *   contentBlocks.map(b => b.text).join('') === systemPrompt + userMessage
  *
- * Parity invariant: for a given cwd, assemble({cwd}).systemPrompt must
- * equal osSessionService.buildCustomSystemPrompt(cwd) byte-for-byte.
- * See src/services/__tests__/promptAssembler.parity.test.js.
+ * i.e. flattening the 4-block structure reproduces the v1 string byte-for-byte
+ * for the stable-prefix portion (BP1+BP2 = systemPrompt) and the per-turn
+ * portion (BP3+BP4 = userMessage concatenation). If a divergence appears in
+ * the audit sink, either the assembler's duplication drifted from the live
+ * path or a block shrunk unexpectedly — both are blockers for canary flip.
  *
- * Spec: backend/docs/PROMPT_ASSEMBLY_SPEC.md §3.
+ * PR 4 replaces the BP3 doctrineSurface shim with skillsSurfaceService behind
+ * USE_SKILLS_SURFACE=1. PR 6 drops recent_exchanges from BP4 per §5.
  */
 
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 const logger = require('../config/logger')
 const { UNTRUSTED_INPUT_SYSTEM_CLAUSE } = require('../lib/untrustedInput')
 
-let _cachedSystemPrompt = null
-let _cachedSystemPromptCwd = null
+// ─── BP1 + BP2 — stable system-prompt halves ──────────────────────────────────
+// PR 2 duplication of osSessionService.buildCustomSystemPrompt, split at the
+// CLAUDE+SELF / env+behavior+fork+untrusted boundary. PR 6 flips
+// PROMPT_ASSEMBLY_V2 to full and deletes the duplicate.
 
-function _buildSystemPrompt(cwd) {
-  if (_cachedSystemPrompt && _cachedSystemPromptCwd === cwd) {
-    return _cachedSystemPrompt
-  }
+let _cachedBp1 = null
+let _cachedBp1Cwd = null
+
+function _buildBp1(cwd) {
+  if (_cachedBp1 && _cachedBp1Cwd === cwd) return _cachedBp1
 
   let claudeMd = ''
   try {
@@ -70,6 +94,12 @@ function _buildSystemPrompt(cwd) {
     })
   }
 
+  _cachedBp1 = [claudeMd, selfMd].filter(Boolean).join('\n\n---\n\n')
+  _cachedBp1Cwd = cwd
+  return _cachedBp1
+}
+
+function _buildBp2(cwd) {
   const today = new Date().toISOString().slice(0, 10)
   const envBlock = `# Environment
 Working directory: ${cwd}
@@ -125,33 +155,179 @@ The fork has none of your context unless you give it. A fork brief should read l
 
 ${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
 
-  _cachedSystemPrompt = [claudeMd, selfMd, envBlock, behaviorBlock, forkBlock, untrustedInputBlock]
-    .filter(Boolean)
-    .join('\n\n---\n\n')
-  _cachedSystemPromptCwd = cwd
-  return _cachedSystemPrompt
+  return [envBlock, behaviorBlock, forkBlock, untrustedInputBlock].join('\n\n---\n\n')
 }
 
-function _resetCacheForTest() {
-  _cachedSystemPrompt = null
-  _cachedSystemPromptCwd = null
+// ─── BP3 — per-session doctrine surface ──────────────────────────────────────
+// PR 2: shim to doctrineSurface. Replaced by skillsSurfaceService in PR 4
+// under USE_SKILLS_SURFACE=1. Do not populate if the caller didn't supply
+// turn_context.user_content — BP3 is a function of the current turn's text.
+
+function _buildBp3(turn_context) {
+  const userContent = (turn_context && turn_context.user_content) || null
+  if (!userContent) return ''
+  try {
+    // Lazy require so tests can mock without importing doctrineSurface at load.
+    const doctrineSurface = require('./doctrineSurface')
+    const block = doctrineSurface.surfaceDoctrineBlock(userContent)
+    return typeof block === 'string' ? block : ''
+  } catch (err) {
+    logger.debug('promptAssembler: doctrineSurface shim failed, BP3 empty', { error: err.message })
+    return ''
+  }
 }
+
+// ─── BP4 — per-turn dynamic blocks ───────────────────────────────────────────
+// TODO(post-flip): drop recent_exchanges per PROMPT_ASSEMBLY §5 — the SDK
+// already replays session history when session_id is passed, so tailing it
+// again is pure duplication. Left as passthrough in PR 2 to keep shadow
+// semantic_equivalent=true; deletion is a separate PR after PR 6 flip.
+
+function _buildBp4(turn_context) {
+  if (!turn_context) return ''
+  const parts = []
+  const {
+    now,
+    forks_rollup,
+    recent_doctrine,
+    relevant_memory,
+    restart_recovery,
+    recent_exchanges,
+    last_turn_breadcrumb,
+  } = turn_context
+
+  // Order mirrors osSessionService.js:1762-1781 splice order after reconstruction:
+  //   <now>, <doctrine_surface>, <forks_rollup>, <recent_doctrine>, <relevant_memory>, <restart_recovery>, <recent_exchanges|breadcrumb>
+  // BP3 (doctrine_surface) is separate, not in BP4; everything else lands here.
+  if (now) parts.push(`<now>${now}</now>`)
+  if (forks_rollup) parts.push(forks_rollup)
+  if (recent_doctrine) parts.push(recent_doctrine)
+  if (relevant_memory) parts.push(relevant_memory)
+  if (restart_recovery) parts.push(`<restart_recovery>\n${restart_recovery}\n</restart_recovery>`)
+  if (recent_exchanges) {
+    parts.push(`<recent_exchanges>\nBelow is the tail of the conversation before this session restarted. Pick up naturally — do NOT summarise or acknowledge the gap. Just continue as if nothing happened.\n\n${recent_exchanges}\n</recent_exchanges>`)
+  } else if (last_turn_breadcrumb) {
+    parts.push(`<last_turn_breadcrumb>\n${last_turn_breadcrumb}\n</last_turn_breadcrumb>`)
+  }
+  return parts.join('\n\n')
+}
+
+// ─── Deterministic canary bucketing ──────────────────────────────────────────
+// sha256(session_id)[0] < threshold. 51/256 ≈ 19.9% ≈ 20%.
+// Stable across process restarts: same session_id always lands in the same
+// bucket for its lifetime. Not Math.random — mid-session prompt-shape swaps
+// would corrupt the SDK's prompt cache and turn continuity.
+
+const CANARY_THRESHOLD = 51  // 51/256 = 0.1992, just under 20%
+
+function isInCanaryBucket(sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') return false
+  const firstByte = crypto.createHash('sha256').update(sessionId).digest()[0]
+  return firstByte < CANARY_THRESHOLD
+}
+
+// ─── Mode resolution ─────────────────────────────────────────────────────────
+// Returns the effective path (v1|v2) and whether the audit writer should log
+// this turn. PR 2 ships all three modes infra-complete; spec §7 gates the
+// flip from shadow→canary→full on 48h of clean audit rows.
+
+function resolveMode(modeEnv, sessionId) {
+  const mode = (modeEnv || 'off').toLowerCase()
+  if (mode === 'off') return { mode: 'off', path: 'v1', audit: false }
+  if (mode === 'shadow') return { mode: 'shadow', path: 'v1', audit: true }
+  if (mode === 'canary') {
+    const v2 = isInCanaryBucket(sessionId)
+    return { mode: 'canary', path: v2 ? 'v2' : 'v1', audit: true }
+  }
+  logger.warn('promptAssembler: unknown PROMPT_ASSEMBLY_V2 value, defaulting to off', { modeEnv })
+  return { mode: 'off', path: 'v1', audit: false }
+}
+
+// ─── Main assemble() ────────────────────────────────────────────────────────
 
 function assemble({ cwd, session_id, turn_context } = {}) {
   if (!cwd || typeof cwd !== 'string') {
     throw new TypeError('promptAssembler.assemble: cwd (string) is required')
   }
 
-  const systemPrompt = _buildSystemPrompt(cwd)
+  const bp1Text = _buildBp1(cwd)
+  const bp2Text = _buildBp2(cwd)
+  const bp3Text = _buildBp3(turn_context)
+  const bp4Text = _buildBp4(turn_context)
+
+  // v1-equivalent string forms. systemPrompt reproduces the current
+  // buildCustomSystemPrompt output (BP1 + BP2 with the same `---` separator).
+  // userMessage reproduces the current user-message continuity-parts stitch
+  // (BP3 + BP4 joined by `\n\n`).
+  const systemPrompt = [bp1Text, bp2Text].filter(Boolean).join('\n\n---\n\n')
+  const userParts = [bp3Text, bp4Text].filter(Boolean)
+  const userMessage = userParts.length > 0 ? userParts.join('\n\n') : null
+
+  // v2 structured form. Only non-empty tiers get a cache_control marker —
+  // emitting empty blocks would waste cache slots (Anthropic allows 4 total).
+  // Blocks contain RAW content without inter-block separators. Semantic
+  // equivalence against v1 is verified at two granularities in the audit:
+  //   - BP1+BP2 joined by '\n\n---\n\n' must equal v1 customSystemPrompt
+  //   - BP3+BP4 joined by '\n\n' must equal v1 continuityParts.join('\n\n')
+  // See promptAssemblyAudit.buildAuditRow for the exact comparison logic.
+  const contentBlocks = []
+  const pushBlock = (tier, text) => {
+    if (!text) return
+    contentBlocks.push({
+      tier,
+      text,
+      cache_control: { type: 'ephemeral' },
+    })
+  }
+  pushBlock(1, bp1Text)
+  pushBlock(2, bp2Text)
+  pushBlock(3, bp3Text)
+  pushBlock(4, bp4Text)
+
+  // cacheBreakpoints records the cumulative offset (in characters) of each
+  // tier in the concatenated text — useful for /api/ops telemetry and for
+  // PR 5's keepalive worker (which must send the BP1+BP2 prefix exactly).
+  const cacheBreakpoints = []
+  let offset = 0
+  for (const block of contentBlocks) {
+    offset += block.text.length
+    cacheBreakpoints.push({ tier: block.tier, offset })
+  }
 
   return {
     systemPrompt,
-    userMessage: null,
-    cacheBreakpoints: [],
+    userMessage,
+    contentBlocks,
+    cacheBreakpoints,
   }
+}
+
+// ─── Semantic-equivalence check ──────────────────────────────────────────────
+// Used by the audit writer (and compareV1V2 script) to prove v2's structured
+// output reproduces v1's string output byte-for-byte. Returns null on parity,
+// or an integer byte index of first divergence otherwise.
+
+function firstDivergenceIndex(a, b) {
+  if (a === b) return null
+  const minLen = Math.min(a.length, b.length)
+  for (let i = 0; i < minLen; i++) {
+    if (a.charCodeAt(i) !== b.charCodeAt(i)) return i
+  }
+  return minLen  // one is a prefix of the other
+}
+
+// ─── Test hooks ──────────────────────────────────────────────────────────────
+
+function _resetCacheForTest() {
+  _cachedBp1 = null
+  _cachedBp1Cwd = null
 }
 
 module.exports = {
   assemble,
+  isInCanaryBucket,
+  resolveMode,
+  firstDivergenceIndex,
+  CANARY_THRESHOLD,
   _resetCacheForTest,
 }

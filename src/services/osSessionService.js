@@ -30,6 +30,13 @@ const osConversationLog = require('./osConversationLog')
 const credentialFilter = require('../lib/credentialFilter')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./doctrineSurface')
+// docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
+// cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
+// this service's v1 path and diffs are written fire-and-forget to
+// prompt_assembly_audit. Canary/full flip happens via env flag after 48h of
+// clean shadow rows.
+const promptAssembler = require('./promptAssembler')
+const promptAssemblyAudit = require('./promptAssemblyAudit')
 // §2.1 untrusted-input system clause - the conductor reads listener
 // wake messages (which the listeners themselves now wrap with
 // wrapUntrusted), gmail bodies (via subagent tool returns), CRM activity,
@@ -1807,6 +1814,71 @@ async function _sendMessageImpl(content, opts = {}) {
       recent_exchanges: !!recentExchangeBlock,
       breadcrumb: !!breadcrumbBlock,
       totalBlocksLen: continuityParts.join('\n\n').length,
+    })
+  }
+
+  // ─── PROMPT_ASSEMBLY_V2 shadow dispatch ─────────────────────────────────
+  // docs/PROMPT_ASSEMBLY_SPEC.md §7. Under 'shadow' mode, run the assembler
+  // against the same turn_context this service just built, diff its output
+  // against v1, and write the audit row fire-and-forget. Under 'canary' a
+  // 20% bucket (deterministic sha256(session_id)) would route v2 to the
+  // model; default is 'off' so canary code never runs in prod until the
+  // flag is flipped. Under 'off' this whole block no-ops.
+  //
+  // CRITICAL: this is fire-and-forget. The assembler call is synchronous
+  // (pure string building) so it adds < 5ms; the audit insert runs on a
+  // microtask and is awaited nowhere. Losing an audit row is cheap;
+  // delaying a turn is expensive.
+  try {
+    const _mode = promptAssembler.resolveMode(env.PROMPT_ASSEMBLY_V2, dbSessionId)
+    if (_mode.audit) {
+      // Rebuild the turn_context the assembler needs from the blocks v1 just
+      // computed. Keeps duplication local to this block — the assembler is
+      // blind to osSessionService's internals by design.
+      const _v2TurnContext = {
+        user_content: content,
+        now: continuityParts.length > 0 ? (continuityParts.find(p => typeof p === 'string' && p.startsWith('<now>')) || '').replace(/^<now>|<\/now>$/g, '') : null,
+        forks_rollup: _forksBlock || null,
+        recent_doctrine: _doctrineBlock || null,
+        relevant_memory: _memoryBlock || null,
+        restart_recovery: recoveryBlock || null,
+        recent_exchanges: recentExchangeBlock || null,
+        last_turn_breadcrumb: breadcrumbBlock || null,
+      }
+      const _v2Out = promptAssembler.assemble({
+        cwd,
+        session_id: dbSessionId,
+        turn_context: _v2TurnContext,
+      })
+      // Comparison baseline: v1 system prompt + the continuity envelope (not
+      // including the raw user message — the assembler doesn't own that).
+      const _v1Text = customSystemPrompt +
+        (continuityParts.length > 0 ? '\n\n' + continuityParts.join('\n\n') : '')
+      // Emit per-breakpoint byte metric for /ops dashboard. JSON log line
+      // parsed by metricsCollector.
+      logger.info('prompt_assembler_bytes_per_breakpoint', {
+        session_id: dbSessionId,
+        mode: _mode.mode,
+        path: _mode.path,
+        breakpoint_bytes: _v2Out.contentBlocks.reduce((acc, b) => {
+          acc[`bp${b.tier}`] = b.text.length
+          return acc
+        }, {}),
+        v2_total_bytes: _v2Out.contentBlocks.reduce((a, b) => a + b.text.length, 0),
+        v1_total_bytes: _v1Text.length,
+      })
+      promptAssemblyAudit.dispatch({
+        session_id: dbSessionId,
+        turn_id: null,  // turn_id is assigned after osConversationLog.logTurn below; acceptable to leave null for PR 2 shadow
+        mode: _mode.mode,
+        v1Text: _v1Text,
+        v2Out: _v2Out,
+      })
+    }
+  } catch (err) {
+    // Belt-and-braces: the assembler path must never crash a turn.
+    logger.warn('promptAssembler shadow dispatch failed, turn proceeds on v1', {
+      error: err.message,
     })
   }
 
