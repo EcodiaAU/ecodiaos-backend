@@ -120,6 +120,39 @@ async function deploySession(sessionId) {
       }
     }
 
+    // ─── §2.2 Dual-reviewer deploy-time gate ─────────────────────────
+    // Defense in depth against Review B bypass: even if factoryOversight
+    // decided to auto-deploy, this refuses to push self-mod code unless
+    // Review B explicitly approved. Shadow-mode verdicts ('shadow_*') do
+    // NOT gate here - the enforce decision lives in securityGate so both
+    // services agree on when to block. A null security_review_status on a
+    // self-mod session in enforce mode is treated as "gate never ran",
+    // which fails closed.
+    {
+      const isSelfMod = !!(session.self_modification || session.context_bundle?.selfModification)
+      if (isSelfMod) {
+        const { isEnforceMode, isApprovedStatus } = require('../lib/securityGate')
+        if (isEnforceMode() && !isApprovedStatus(session.security_review_status)) {
+          logger.warn('Self-mod deploy blocked at deploymentService: Review B not approved', {
+            sessionId,
+            status: session.security_review_status,
+          })
+          await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+          try {
+            await db`
+              INSERT INTO notifications (type, message, metadata)
+              VALUES ('security_review_b_blocked',
+                      ${'Deploy refused: security_review_status = ' + (session.security_review_status || 'null')},
+                      ${JSON.stringify({ sessionId, status: session.security_review_status })})
+            `
+          } catch (notifErr) {
+            logger.error('Failed to record deploy-time Review B block', { error: notifErr.message })
+          }
+          throw new Error(`Self-mod deploy denied: Review B status = ${session.security_review_status || 'null'}`)
+        }
+      }
+    }
+
     git(['add', '-A'], repoPath)
     const commitMsg = [
       `Factory: ${session.initial_prompt.slice(0, 100)}`,
