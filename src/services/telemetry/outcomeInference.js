@@ -6,44 +6,71 @@
  *   ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
  *
  * For each dispatch_event without an outcome_event row, look up downstream
- * signals that imply the dispatch's outcome (success / failure / correction /
- * partial). Conservative defaults: when in doubt, defer to the next cron cycle
- * rather than risk a false-positive 'correction' classification.
+ * signals that imply the dispatch's outcome. Defaults to `unverified` when no
+ * explicit positive or negative signal is found - this is THE crux of the
+ * Phase G Critique #1 fix.
  *
- * The inferrer reads from these tables (best-effort - tables may not exist
- * if the surrounding codebase changes; missing tables are handled silently):
+ * Pre-Phase-G (broken) behaviour:
+ *   tool calls older than 30min with no SMS correction were classified as
+ *   `success`. Result: 100% of 398 outcome_event rows over rolling 7d were
+ *   `success`, every Layer-4 KPI was structurally vacuous, the self-tuning
+ *   loop calibrated against a null oracle. This is the survivorship bias the
+ *   Phase G adversarial audit caught (severity=5, doctrine_failure).
+ *
+ * Phase G fix (this file): introduce `unverified` as a first-class outcome
+ * state per ~/ecodiaos/docs/JARVIS_GAP_ANALYSIS.md §8 (Accountability layer:
+ * unverified as a first-class state). The metric pipeline can now compute:
+ *
+ *   success_rate       = success / (success + correction + failure + unverified)
+ *   verification_rate  = (success + correction + failure) / total
+ *
+ * The verification_rate surfaces the dark-matter problem (how much of the
+ * dispatch fleet has zero explicit ground-truth signal).
+ *
+ * Inferrer reads from these tables (best-effort - tables may not exist if the
+ * surrounding codebase changes; missing tables are handled silently):
  *   - cc_sessions  (Factory CLI session status, by sessionId)
+ *   - os_forks     (SDK fork status + result, by fork_id)
  *   - sms_messages OR sms_inbound (Tate-side reply text within 30 minutes)
- *   - status_board (correction text and last_touched changes)
  *
  * Heuristics (in order of evidence strength):
- *   1. Explicit Tate correction in SMS within 30 min:
- *        keywords: 'wrong', 'not that', 'stop', 'no', 'redo', 'undo', 'fix'
- *        => outcome=correction, classification=usage_failure (Phase D refines).
- *   2. fork_spawn dispatches: forks table status (if available)
- *        - status='done' OR 'completed' => outcome=success
- *        - status='aborted' OR 'errored' => outcome=failure
- *   3. factory_dispatch dispatches: cc_sessions.status
- *        - 'completed' OR 'deployed' => outcome=success
- *        - 'rejected' OR 'error' => outcome=failure
- *   4. tool_call dispatches without an explicit Tate correction:
- *        => outcome=success (graceful default; if it failed, the conductor
- *          would already have reacted and that reaction would emit a
- *          subsequent dispatch_event we'd correlate against).
- *   5. cron_fire dispatches: success unless an exception was logged in the
- *      same dispatch's metadata (rare).
  *
- * False-positive guardrails:
- *   - 'no' alone is too short to safely classify; require a longer token
- *     match or a multi-word phrase.
- *   - SMS body must arrive within 30 min AFTER the dispatch ts, not before.
- *   - Defer (no inference) is always preferable to a confident-but-wrong
- *     classification. Phase D refines.
+ *   FAILURE signals (explicit negative):
+ *     1a. factory_dispatch with cc_sessions.status='error' (or rejected/aborted)
+ *         => outcome=failure
+ *     1b. fork_spawn with os_forks.status='error' (or aborted/errored/failed/cancelled)
+ *         => outcome=failure
+ *
+ *   CORRECTION signals (explicit Tate rebuke):
+ *     2.  Tate SMS within 30 min after dispatch matching CORRECTION_KEYWORDS
+ *         => outcome=correction (Phase D classifies the failure mode)
+ *
+ *   SUCCESS signals (explicit positive - require artefacts, not just absence-of-signal):
+ *     3a. Tate SMS within 30 min after dispatch matching AFFIRMATION_KEYWORDS
+ *         => outcome=success
+ *     3b. factory_dispatch with cc_sessions.status='deployed' AND commit_sha non-null
+ *         AND deploy_status='deployed'
+ *         => outcome=success
+ *     3c. fork_spawn with os_forks.status='done' AND result.length > 0
+ *         => outcome=success
+ *
+ *   UNVERIFIED (default, the Phase G fix):
+ *     4. Any dispatch older than 30 min with no positive AND no negative signal
+ *        => outcome=unverified
+ *        (Phase D does not process unverified rows; they are dark matter the
+ *         metric pipeline must surface as a verification-rate problem.)
+ *
+ *   DEFER:
+ *     5. Dispatches younger than 30 min with no signal yet => no inference
+ *        (give the system time to settle; next cron tick will revisit).
  *
  * Schema notes:
- *   outcome_event.outcome ∈ {'success','failure','correction','partial'}
+ *   outcome_event.outcome ∈ {'success','failure','correction','unverified','partial'}
+ *     ('partial' is reserved for future use; not emitted by the current
+ *      heuristics. 'unverified' is the Phase G addition.)
  *   outcome_event.classification is left NULL here; Phase D adds the
- *     usage_failure / surfacing_failure / doctrine_failure label.
+ *     usage_failure / surfacing_failure / doctrine_failure label for
+ *     correction AND failure rows (per Phase G Critique #1 expansion).
  */
 
 'use strict'
@@ -59,6 +86,8 @@ function getEnv() {
 
 const TICK_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
 const SMS_CORRECTION_WINDOW_MS = 30 * 60 * 1000 // 30 minutes after dispatch
+const UNVERIFIED_AGE_MS = 30 * 60 * 1000 // dispatch must be at least this old before defaulting to unverified
+
 const CORRECTION_KEYWORDS = [
   // Multi-token "I want you to undo / redo / not that" phrases
   'not that',
@@ -79,6 +108,38 @@ const CORRECTION_KEYWORDS = [
   'broken',
 ]
 
+// Affirmation keywords. Conservative: require explicit positive signals, NOT
+// merely absence of correction. "Thanks" alone is sufficient because Tate's
+// affirmation register is tight and brief; he says "thanks" or "good" or "go"
+// when something landed correctly. False positives here only push us toward
+// success, but the JARVIS §8 rule is that explicit positive signals beat
+// silence. Single-token short matches are safe here because the search window
+// is narrow (30 min after dispatch) and the speaker is identified.
+const AFFIRMATION_KEYWORDS = [
+  // Multi-token affirmations
+  'thanks',
+  'thank you',
+  'thats great',
+  "that's great",
+  'looks good',
+  'looks great',
+  'all good',
+  'go for it',
+  'green light',
+  // Single-token strong affirmations (used in SMS short-form)
+  'great',
+  'good',
+  'perfect',
+  'nice',
+  'yes',
+  'yep',
+  'yeah',
+  'go',
+  'ship',
+  'ship it',
+  'merge',
+]
+
 /**
  * Returns true if the given table exists in the public schema. Used to
  * silently skip heuristics that depend on optional tables.
@@ -95,12 +156,23 @@ async function tableExists(client, tableName) {
   }
 }
 
-async function findTateCorrection(client, dispatch, smsTable) {
+/**
+ * Scan inbound SMS messages within the post-dispatch window for either
+ * correction OR affirmation keywords. Returns:
+ *   {kind:'correction', matched_keyword, body, ts}  on a correction match
+ *   {kind:'affirmation', matched_keyword, body, ts} on an affirmation match
+ *   null                                            on no match
+ *
+ * If both correction and affirmation keywords appear in the same window, the
+ * EARLIER message wins (Tate said one thing first). If the earliest message
+ * contains BOTH a correction keyword AND an affirmation keyword (e.g. "no but
+ * great work overall"), correction wins (conservative - the rebuke is the
+ * actionable signal).
+ */
+async function findTateSignal(client, dispatch, smsTable) {
   if (!smsTable) return null
   const startTs = new Date(dispatch.ts).toISOString()
   const endTs = new Date(new Date(dispatch.ts).getTime() + SMS_CORRECTION_WINDOW_MS).toISOString()
-  // Only scan inbound (Tate-to-us) messages. The column names vary by table;
-  // we tolerate both `direction` and `from_tate` shapes.
   let q
   try {
     q = await client.query(
@@ -121,31 +193,84 @@ async function findTateCorrection(client, dispatch, smsTable) {
   for (const row of q.rows) {
     const body = (row.body || '').toLowerCase()
     if (!body) continue
+    // Check correction first (rebuke trumps affirmation in same body).
     for (const kw of CORRECTION_KEYWORDS) {
       if (body.includes(kw)) {
-        return { matched_keyword: kw, body: row.body, ts: row.ts }
+        return { kind: 'correction', matched_keyword: kw, body: row.body, ts: row.ts }
+      }
+    }
+    for (const kw of AFFIRMATION_KEYWORDS) {
+      // Word-boundary check for short tokens to avoid 'go' matching 'going'.
+      const needsWordBoundary = kw.length <= 4
+      if (needsWordBoundary) {
+        const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (re.test(body)) {
+          return { kind: 'affirmation', matched_keyword: kw, body: row.body, ts: row.ts }
+        }
+      } else if (body.includes(kw)) {
+        return { kind: 'affirmation', matched_keyword: kw, body: row.body, ts: row.ts }
       }
     }
   }
   return null
 }
 
+/**
+ * Backwards-compatible wrapper for the pre-Phase-G interface; some callers may
+ * still reach for findTateCorrection by name. Returns the same payload shape
+ * as the old correction-only function (or null).
+ */
+async function findTateCorrection(client, dispatch, smsTable) {
+  const sig = await findTateSignal(client, dispatch, smsTable)
+  if (sig && sig.kind === 'correction') {
+    return { matched_keyword: sig.matched_keyword, body: sig.body, ts: sig.ts }
+  }
+  return null
+}
+
+/**
+ * Look up the os_forks row for a fork_spawn dispatch. Returns:
+ *   { outcome:'success'|'failure', evidence }   on terminal state
+ *   null                                         when fork_id missing or
+ *                                                row not in terminal state
+ *
+ * Note: dispatch_event metadata for fork_spawn does not currently carry
+ * fork_id (a separate dispatch-pipeline gap). When fork_id is absent, this
+ * function returns null and the caller falls through to the SMS / unverified
+ * heuristics. The forward fix is to plumb fork_id into dispatch metadata at
+ * spawn time; tracked separately.
+ */
 async function inferForkSpawnOutcome(client, dispatch) {
-  const hasForksTable = await tableExists(client, 'forks')
-  if (!hasForksTable) return null
-  // metadata.fork_id is the linkage; if not present, skip.
+  // Prefer os_forks (current schema); fall back to legacy `forks` table name
+  // for environments still on the older schema.
+  let table = null
+  if (await tableExists(client, 'os_forks')) table = 'os_forks'
+  else if (await tableExists(client, 'forks')) table = 'forks'
+  if (!table) return null
+
   const meta = dispatch.metadata || {}
   const forkId = meta.fork_id || meta.id || null
   if (!forkId) return null
+
+  const pkColumn = table === 'os_forks' ? 'fork_id' : 'id'
   try {
-    const r = await client.query(`SELECT status FROM forks WHERE id = $1 LIMIT 1`, [forkId])
+    const r = await client.query(
+      `SELECT status, result FROM ${table} WHERE ${pkColumn} = $1 LIMIT 1`,
+      [forkId]
+    )
     if (r.rowCount === 0) return null
     const s = (r.rows[0].status || '').toLowerCase()
-    if (s === 'done' || s === 'completed' || s === 'success') {
-      return { outcome: 'success', evidence: `forks.id=${forkId} status=${s}` }
+    const result = r.rows[0].result || ''
+    // Failure first (negative trumps positive).
+    if (s === 'aborted' || s === 'errored' || s === 'failed' || s === 'cancelled' || s === 'error') {
+      return { outcome: 'failure', evidence: `${table}.${pkColumn}=${forkId} status=${s}` }
     }
-    if (s === 'aborted' || s === 'errored' || s === 'failed' || s === 'cancelled') {
-      return { outcome: 'failure', evidence: `forks.id=${forkId} status=${s}` }
+    // Success requires both terminal-done state AND a non-empty result.
+    if ((s === 'done' || s === 'completed' || s === 'success') && result && String(result).length > 0) {
+      return {
+        outcome: 'success',
+        evidence: `${table}.${pkColumn}=${forkId} status=${s} result_length=${String(result).length}`,
+      }
     }
     return null
   } catch {
@@ -153,6 +278,19 @@ async function inferForkSpawnOutcome(client, dispatch) {
   }
 }
 
+/**
+ * Look up the cc_sessions row for a factory_dispatch dispatch. Returns:
+ *   { outcome:'success'|'failure', evidence }   on terminal state
+ *   null                                         when sessionId missing or
+ *                                                row not in terminal state
+ *
+ * Success requires status='deployed' AND commit_sha non-null AND
+ * deploy_status='deployed'. This implements the JARVIS §8 rule that "claimed-
+ * done-but-unverified" must NOT classify as success - we require the
+ * deployment artefacts to exist.
+ *
+ * Failure is status IN ('rejected','error','aborted').
+ */
 async function inferFactoryDispatchOutcome(client, dispatch) {
   const hasCC = await tableExists(client, 'cc_sessions')
   if (!hasCC) return null
@@ -160,14 +298,29 @@ async function inferFactoryDispatchOutcome(client, dispatch) {
   const sessionId = meta.session_id || meta.sessionId || null
   if (!sessionId) return null
   try {
-    const r = await client.query(`SELECT status, pipeline_stage FROM cc_sessions WHERE id = $1 LIMIT 1`, [sessionId])
+    const r = await client.query(
+      `SELECT status, pipeline_stage, commit_sha, deploy_status FROM cc_sessions WHERE id = $1 LIMIT 1`,
+      [sessionId]
+    )
     if (r.rowCount === 0) return null
     const s = (r.rows[0].status || '').toLowerCase()
-    if (s === 'completed' || s === 'deployed' || s === 'approved') {
-      return { outcome: 'success', evidence: `cc_sessions.id=${sessionId} status=${s}` }
-    }
+    const commitSha = r.rows[0].commit_sha
+    const deployStatus = (r.rows[0].deploy_status || '').toLowerCase()
+
+    // Failure first.
     if (s === 'rejected' || s === 'error' || s === 'aborted') {
       return { outcome: 'failure', evidence: `cc_sessions.id=${sessionId} status=${s}` }
+    }
+    // Success requires the trifecta: status terminal AND commit_sha AND deploy_status=deployed.
+    if (
+      (s === 'completed' || s === 'deployed' || s === 'approved') &&
+      commitSha &&
+      deployStatus === 'deployed'
+    ) {
+      return {
+        outcome: 'success',
+        evidence: `cc_sessions.id=${sessionId} status=${s} commit_sha=${commitSha.slice(0, 8)} deploy_status=${deployStatus}`,
+      }
     }
     return null
   } catch {
@@ -175,40 +328,71 @@ async function inferFactoryDispatchOutcome(client, dispatch) {
   }
 }
 
+/**
+ * Core inferrer for one dispatch_event row. Returns one of:
+ *   { outcome:'failure',     evidence, correction_text? }
+ *   { outcome:'correction',  evidence, correction_text }
+ *   { outcome:'success',     evidence }
+ *   { outcome:'unverified',  evidence }
+ *   null                                  // defer; revisit next tick
+ *
+ * Decision tree (priority order):
+ *   1. Type-specific FAILURE signals (most actionable - takes precedence).
+ *   2. Tate SMS CORRECTION within 30 min.
+ *   3. Tate SMS AFFIRMATION within 30 min.
+ *   4. Type-specific SUCCESS signals (factory commit+deploy, fork done+result).
+ *   5. UNVERIFIED default for dispatches older than UNVERIFIED_AGE_MS.
+ *   6. Defer (return null) for fresh dispatches.
+ */
 async function inferDispatchOutcome(client, dispatch, smsTable) {
-  // Step 1: explicit Tate correction (highest evidence).
-  const correction = await findTateCorrection(client, dispatch, smsTable)
-  if (correction) {
-    return {
-      outcome: 'correction',
-      evidence: `sms within 30min after dispatch matched '${correction.matched_keyword}'`,
-      correction_text: correction.body,
-    }
-  }
-
-  // Step 2: type-specific signals.
+  // Step 1: type-specific FAILURE signals (highest evidence on the negative side).
   if (dispatch.action_type === 'fork_spawn') {
     const r = await inferForkSpawnOutcome(client, dispatch)
-    if (r) return r
+    if (r && r.outcome === 'failure') return r
   }
   if (dispatch.action_type === 'factory_dispatch') {
     const r = await inferFactoryDispatchOutcome(client, dispatch)
-    if (r) return r
+    if (r && r.outcome === 'failure') return r
   }
 
-  // Step 3: graceful default for tool calls older than 30 min with no
-  // correction signal. We assume success; Phase D's classifier may overturn
-  // this once a richer signal is available.
-  const ageMs = Date.now() - new Date(dispatch.ts).getTime()
-  if (ageMs > 30 * 60 * 1000) {
+  // Step 2 + 3: Tate SMS signal (correction OR affirmation).
+  const sig = await findTateSignal(client, dispatch, smsTable)
+  if (sig && sig.kind === 'correction') {
+    return {
+      outcome: 'correction',
+      evidence: `sms within 30min after dispatch matched correction '${sig.matched_keyword}'`,
+      correction_text: sig.body,
+    }
+  }
+  if (sig && sig.kind === 'affirmation') {
     return {
       outcome: 'success',
-      evidence: `no correction signal within 30min, action_type=${dispatch.action_type}`,
-      correction_text: null,
+      evidence: `sms within 30min after dispatch matched affirmation '${sig.matched_keyword}'`,
     }
   }
 
-  // Otherwise: defer (no inference yet).
+  // Step 4: type-specific SUCCESS signals (require explicit artefacts).
+  if (dispatch.action_type === 'fork_spawn') {
+    const r = await inferForkSpawnOutcome(client, dispatch)
+    if (r && r.outcome === 'success') return r
+  }
+  if (dispatch.action_type === 'factory_dispatch') {
+    const r = await inferFactoryDispatchOutcome(client, dispatch)
+    if (r && r.outcome === 'success') return r
+  }
+
+  // Step 5: UNVERIFIED default for dispatches older than the verification window.
+  // This is the Phase G fix - replaces the pre-Phase-G "graceful default
+  // success" that produced the 100%-success-by-default survivorship bias.
+  const ageMs = Date.now() - new Date(dispatch.ts).getTime()
+  if (ageMs > UNVERIFIED_AGE_MS) {
+    return {
+      outcome: 'unverified',
+      evidence: `no positive or negative signal within ${UNVERIFIED_AGE_MS / 60000}min, action_type=${dispatch.action_type}`,
+    }
+  }
+
+  // Step 6: defer.
   return null
 }
 
@@ -220,6 +404,7 @@ async function tickInferOutcomes() {
   let inferred = 0
   let skipped = 0
   let errors = 0
+  const distribution = { success: 0, failure: 0, correction: 0, unverified: 0 }
 
   try {
     // Detect SMS table once per tick.
@@ -256,10 +441,13 @@ async function tickInferOutcomes() {
             inference.outcome,
             inference.evidence || null,
             inference.correction_text || null,
-            null, // Phase D fills classification
+            null, // Phase D fills classification (for correction AND failure rows)
           ]
         )
         inferred += 1
+        if (distribution[inference.outcome] !== undefined) {
+          distribution[inference.outcome] += 1
+        }
       } catch (err) {
         errors += 1
         console.error('[outcomeInference] error inferring dispatch', dispatch.id, err.message)
@@ -269,7 +457,7 @@ async function tickInferOutcomes() {
     try { await client.end() } catch { /* ignore */ }
   }
 
-  return { ok: true, inferred, skipped, errors }
+  return { ok: true, inferred, skipped, errors, distribution }
 }
 
 async function runOnce() {
@@ -305,5 +493,11 @@ module.exports = {
   tickInferOutcomes,
   runOnce,
   inferDispatchOutcome,
+  findTateSignal,
+  findTateCorrection,
+  inferForkSpawnOutcome,
+  inferFactoryDispatchOutcome,
   CORRECTION_KEYWORDS,
+  AFFIRMATION_KEYWORDS,
+  UNVERIFIED_AGE_MS,
 }
