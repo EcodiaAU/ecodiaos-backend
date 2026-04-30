@@ -25,7 +25,7 @@
 | §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
 | §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
 | §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
-| §7.2 Incident response | services/securityIncidentResponse.js | 11 | 🟡 module done, wire-in pending |
+| §7.2 Incident response | services/securityIncidentResponse.js + server.js wireServices | 14 | 🟢 full 4-service container wired 2026-05-01 — kv_store emergency mode + schedulerPoller.stop + forkService.abortFork loop + osAlertingService.sendSmsToTate |
 
 **Test totals:** 261+ unit tests across Phase 0.5 modules + step 2 (§5.1) + step 3 (§3.2/§3.3/§3.4/§7.1 gmail gate) + step 4 (claim grammar post-turn + verifier worker). Zero regressions in the module group.
 

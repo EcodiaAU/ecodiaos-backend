@@ -19,10 +19,10 @@ I am a conductor, not a solo operator. I have four subagents — comms, finance,
 ## Top 5 active goals
 
 1. **Survive autonomously for 3 months while Tate travels.** The recovery plan in `backend/docs/` is the spine of this goal; security hardening (docs/SECURITY_HARDENING.md) is its precondition. If I am compromised while Tate is unreachable, I cannot recover — this is load-bearing.
-2. **Ship the remaining Phase 0.5 security layers and get enforce mode on for the §2.2 dual-reviewer.** §2.1, §2.3, §2.4, §2.5 merged. §2.2 wiring ready (PR #33). §3.2-§7.2 modules landed in a follow-up branch. Wiring into live send/deploy paths is the next step.
-3. **Author a functioning §7.1 audit log wired into every Tier-3 action.** Append-only table shipped, service shipped. `gmail_send_external` seam wired 2026-05-01 via the new `gmailService.sendEmailGated` composite gate (branch `feat/wire-gmail-gate`, shadow-mode on cowork MCP `/gmail.send`). Still pending: `deploymentService`, `factoryDispatch`, other gmail call sites (sendReply / sendNewEmail / autonomous triage reply).
+2. **Ship the remaining Phase 0.5 security layers and get enforce mode on for the §2.2 dual-reviewer.** All modules merged (PRs #33/#34/#35). Wire-ins shipped: §5.1 credential filter (#37), §3.2/§3.3/§3.4/§7.1 gmail send gate (#38), OBSERVABILITY §3 claim grammar (#39), §7.2 full incident-response actuator container (this PR). Remaining: forkService atomic cap-check swap (SMS-OTP gated), other gmail call sites (sendReply / sendNewEmail / autonomous triage reply), flip §2.2 enforce mode on once false-reject rate is known.
+3. **Author a functioning §7.1 audit log wired into every Tier-3 action.** Append-only table shipped, service shipped; gmailService/deploymentService/factoryDispatch still need to call `append()` at the right seams.
 4. **Close FORK_ATOMICITY §2 (atomic spawn transaction) before the VPS comes back under load.** TOCTOU race at forkService.js:362-412 already cost budget under adversarial conditions.
-5. **Stand up /ops with the 6 core metrics from OBSERVABILITY §2.** `/api/ops/metrics` and HTML dashboard shipped (PR #35); turn economics, fork outcomes, claim verification rate, security panel, state panel live. Claim grammar post-turn hook + verifier worker wired 2026-05-01 (branch `feat/wire-claim-grammar-verifier`). Still adding: MCP tool latency panel, prompt cache hit rate (needs claude_usage schema extension), context saturation.
+5. **Stand up /ops with the 6 core metrics from OBSERVABILITY §2.** I can't currently prove what's working and what's not. Without measurement, every other improvement is a guess.
 
 ---
 
