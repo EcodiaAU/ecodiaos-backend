@@ -297,6 +297,18 @@ server.listen(env.PORT, async () => {
     }
   }
 
+  // ── Conductor-detach feature flag ─────────────────────────────────
+  // Decision 3993 commit 2/3 (fork_mol0vfnr_78c3e4, 2026-04-30).
+  // Once ecodia-conductor is the active owner of these services,
+  // setting CONDUCTOR_DETACHED=true on ecodia-api stops the api process
+  // from booting them. Default (unset/false) preserves the current
+  // behaviour — backward-compatible. See
+  // docs/architecture/conductor-process-detach-2026-04-30.md
+  const CONDUCTOR_DETACHED = process.env.CONDUCTOR_DETACHED === 'true'
+  if (CONDUCTOR_DETACHED) {
+    logger.info('CONDUCTOR_DETACHED=true - conductor services delegated to ecodia-conductor process')
+  }
+
   // ── Boot: Scheduler Poller ────────────────────────────────────────
   // Re-enabled 2026-04-20 with:
   //   - session-busy gate (checks /api/os-session/status before firing)
@@ -304,32 +316,38 @@ server.listen(env.PORT, async () => {
   //   - critical-energy deferral (non-essential tasks pushed out 1h)
   // The original disable reason (mid-stream interruption) is now covered
   // by the busy gate in schedulerPollerService.isSessionBusy().
-  try {
-    const schedulerPoller = require('./services/schedulerPollerService')
-    schedulerPoller.start()
-  } catch (err) {
-    logger.warn('Scheduler poller failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const schedulerPoller = require('./services/schedulerPollerService')
+      schedulerPoller.start()
+    } catch (err) {
+      logger.warn('Scheduler poller failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: Message Queue Sweep ─────────────────────────────────────
   // Promotes and delivers any messages that have exceeded their max_age_hours.
   // Runs every 30 minutes in-process (backend-internal, does not require OS session).
-  try {
-    const messageQueue = require('./services/messageQueue')
-    messageQueue.startSweepPoller()
-  } catch (err) {
-    logger.warn('Message queue sweep poller failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const messageQueue = require('./services/messageQueue')
+      messageQueue.startSweepPoller()
+    } catch (err) {
+      logger.warn('Message queue sweep poller failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: OS Heartbeat ────────────────────────────────────────────
   // Wakes the OS Session periodically with an open-ended "check in" prompt
   // when Tate isn't messaging. Makes the OS genuinely autonomous during the
   // 3-month Africa trip instead of silent until prompted.
-  try {
-    const osHeartbeat = require('./services/osHeartbeatService')
-    osHeartbeat.start()
-  } catch (err) {
-    logger.warn('OS Heartbeat failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const osHeartbeat = require('./services/osHeartbeatService')
+      osHeartbeat.start()
+    } catch (err) {
+      logger.warn('OS Heartbeat failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: TLS Cert Monitor ────────────────────────────────────────
@@ -346,11 +364,13 @@ server.listen(env.PORT, async () => {
   // ── Boot: Claude Token Refresh ────────────────────────────────────
   // Proactively refreshes OAuth tokens before they expire so the VPS
   // never needs manual `claude /login`. Runs every 30 min.
-  try {
-    const tokenRefresh = require('./services/claudeTokenRefreshService')
-    tokenRefresh.start()
-  } catch (err) {
-    logger.warn('Claude token refresh service failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const tokenRefresh = require('./services/claudeTokenRefreshService')
+      tokenRefresh.start()
+    } catch (err) {
+      logger.warn('Claude token refresh service failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: Rescue Service (api-side subscriber) ────────────────────
@@ -370,11 +390,13 @@ server.listen(env.PORT, async () => {
   // (WS broadcast + [SYSTEM] message posted into the OS inbox so it sees
   // the warning in-turn). If the OS is busy at T-0, waits up to 10 min for
   // idle before force-restarting. Disable with NIGHTLY_RESTART_ENABLED=false.
-  try {
-    const nightlyRestart = require('./services/nightlyRestartService')
-    nightlyRestart.start()
-  } catch (err) {
-    logger.warn('Nightly restart service failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const nightlyRestart = require('./services/nightlyRestartService')
+      nightlyRestart.start()
+    } catch (err) {
+      logger.warn('Nightly restart service failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: Process Restart Alert + Alive Beacon ────────────────────
