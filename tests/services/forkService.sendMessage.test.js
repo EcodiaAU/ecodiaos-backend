@@ -62,6 +62,12 @@ jest.mock('../../src/services/messageQueue', () => ({
   enqueueMessage: jest.fn().mockResolvedValue(undefined),
 }))
 
+jest.mock('../../src/lib/forkCapAtomic', () => ({
+  tryReserveForkSlot: jest.fn().mockImplementation(({ fork_id, brief }) => {
+    return Promise.resolve({ fork_id, brief, status: 'spawning', started_at: new Date().toISOString() })
+  }),
+}))
+
 // ---- module under test ----
 
 const forkService = require('../../src/services/forkService')

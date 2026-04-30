@@ -52,6 +52,22 @@ jest.mock('../../src/websocket/wsManager', () => ({
   resetSessionSeq: jest.fn(),
 }))
 
+let mockAtomicSlotCount = 0
+jest.mock('../../src/lib/forkCapAtomic', () => ({
+  tryReserveForkSlot: jest.fn().mockImplementation(({ fork_id, brief, hard_cap, energy_cap }) => {
+    const cap = Number.isFinite(energy_cap) ? Math.min(hard_cap, energy_cap) : hard_cap
+    if (mockAtomicSlotCount >= cap) {
+      const err = new Error('fork_cap_reached')
+      err.httpStatus = 429
+      err.code = 'fork_cap_reached'
+      err.details = { live_count: mockAtomicSlotCount, hard_cap, energy_cap, effective_cap: cap, cap_hit: 'hard' }
+      return Promise.reject(err)
+    }
+    mockAtomicSlotCount++
+    return Promise.resolve({ fork_id, brief, status: 'spawning', started_at: new Date().toISOString() })
+  }),
+}))
+
 // ---- module under test ----
 
 const fork = require('../../src/services/forkService')
@@ -111,6 +127,7 @@ fork._setQueryForTest(makeFakeQuery())
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAtomicSlotCount = 0
   fork._resetForTest()
 })
 

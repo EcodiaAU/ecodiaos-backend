@@ -49,6 +49,7 @@ const usageEnergy = require('./usageEnergyService')
 const { broadcast } = require('../websocket/wsManager')
 const secretSafety = require('./secretSafetyService')
 const forkFinalizer = require('./forkFinalizer')
+const { tryReserveForkSlot } = require('../lib/forkCapAtomic')
 
 // ── SDK loader (shared shape with osSessionService) ─────────────────────────
 let _query = null
@@ -372,25 +373,19 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     })
   }
 
-  // Cap check: hard cap first (always 3), then energy soft cap.
-  const active = _activeCount()
-  if (active >= HARD_FORK_CAP) {
-    throw Object.assign(new Error('fork_cap_reached'), {
-      httpStatus: 429,
-      code: 'fork_cap_reached',
-      details: { active_forks: listForks(), hard_cap: HARD_FORK_CAP },
-    })
-  }
-  const eCap = await _energyCap()
-  if (active >= eCap) {
-    throw Object.assign(new Error('fork_energy_cap_reached'), {
-      httpStatus: 429,
-      code: 'fork_energy_cap_reached',
-      details: { active_forks: listForks(), energy_cap: eCap },
-    })
-  }
-
+  // Atomic cap check + DB insert via pg_advisory_xact_lock.
+  // Closes the TOCTOU race: count read + insert in one transaction.
   const fork_id = _newForkId()
+  const eCap = await _energyCap()
+  await tryReserveForkSlot({
+    fork_id,
+    brief,
+    context_mode,
+    parent_id: 'main',
+    hard_cap: HARD_FORK_CAP,
+    energy_cap: eCap,
+  })
+
   const cwd = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
   const { provider, env: sessionEnv, model } = _resolveProviderForFork()
   const abort = new AbortController()
@@ -417,16 +412,13 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     ended_at: null,
     abort,
     queryHandle: null,
-    transcript: [],   // collected assistant text fragments - used to extract [FORK_REPORT]
-    // Per-fork message injection queue (populated by sendMessageToFork)
-    pendingMessages:  [],  // messages waiting to be yielded to the SDK
-    pendingResolvers: [],  // resolvers waiting for the next message
+    transcript: [],
+    pendingMessages:  [],
+    pendingResolvers: [],
     input_closed:     false,
   }
   _forks.set(fork_id, state)
   _emitForkEvent('spawned', state)
-  // must await: ensures row exists before run-loop UPDATEs (sibling fix to e4bd2a7)
-  await _dbInsert(state)
 
   // Build SDK options. We deliberately reuse main's pattern (custom systemPrompt
   // string, conductor MCP, agents) so behaviour is symmetrical, then layer on
