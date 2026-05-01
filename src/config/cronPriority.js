@@ -66,14 +66,25 @@ const DIRECT_EXEC_CRONS = new Set([
 // ─── Route 3: HIGH-priority forks (always run, never budget-gated) ──────────
 // These are the watchdogs and ops loops. If they defer because of budget, the
 // system loses its self-healing signal.
+//
+// Tate-comms doctrine (1 May 2026): any cron whose deliverable is an outbound
+// signal to Tate (SMS, email-to-Tate, escalation alert) MUST be HIGH-priority.
+// Silently skipping a comms cron during an autonomous window is exactly the
+// failure that breaks the trust in autonomous-pilot - Tate has no ground-truth
+// signal that the system is alive. Origin: `autonomous-window-evening-sms` and
+// `claude-md-reflection` both silently skipped 1 May 2026 (budget=0 at 15:36
+// AEST, evening crons silently no-op'd, conductor manually recovered at 20:19).
 const HIGH_PRIORITY_FORK_CRONS = new Set([
-  'email-triage',           // Tate's inbox hygiene — visible to him daily.
+  'email-triage',           // Tate's inbox hygiene - visible to him daily.
   'system-health',          // PM2/disk/memory/error-log probe.
   'morning-briefing',       // Daily 09:00 email to Tate.
-  'silent-loop-detector',   // Watch the watchers — must not silently fail.
+  'silent-loop-detector',   // Watch the watchers - must not silently fail.
   'parallel-builder',       // Factory-orchestration cron (queued in design).
-  'tate-blocked-nudge-weekly',  // Sunday SMS — the one signal that flatlined autonomy notices.
+  'tate-blocked-nudge-weekly',  // Sunday SMS - the one signal that flatlined autonomy notices.
   'phase-G-adversarial-audit',  // Daily critic-fork (Layer 8 of decision-quality architecture).
+  'autonomous-window-evening-sms',  // Daily SMS to Tate during autonomous window - mission-critical comms.
+  'claude-md-reflection',   // Doctrine evolution cron - silent skip = no doctrine learning that day.
+  'vercel-deploy-monitor',  // Failed-deploy alerts - silent skip = client-visible breakage missed.
 ])
 
 // ─── Route 4: LOW-priority forks (skipped when budget tight) ────────────────
@@ -88,8 +99,6 @@ const LOW_PRIORITY_FORK_CRONS = new Set([
 
   // Operations (longer cadence, can defer one cycle without harm)
   'weekly-financial-review',
-  'claude-md-reflection',
-  'vercel-deploy-monitor',
 
   // Doctrine / KG maintenance (skip-friendly)
   'daily-codification-scan',
