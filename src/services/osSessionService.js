@@ -2543,7 +2543,11 @@ async function _sendMessageImpl(content, opts = {}) {
         broadcast('os-session:complete', { sessionId: dbSessionId, code: 1 })
       }
       await updateOSSession(dbSessionId, { ccCliSessionId: ccSessionId, status: 'error' })
-      _recordTurnOutcome(false, hangReason)
+      // Only count user-facing failures toward auto-restart. Background failures
+      // (heartbeat, scheduled tasks) can be transient (provider exhaustion, empty
+      // stream) and restarting for those destroys the datapath that would
+      // auto-recover when the provider resets.
+      if (!suppressOutput) _recordTurnOutcome(false, hangReason)
       return { sessionId: dbSessionId, ccCliSessionId: ccSessionId, code: 1, text: `Error: ${hangReason}` }
     }
 
@@ -2583,7 +2587,7 @@ async function _sendMessageImpl(content, opts = {}) {
         broadcast('os-session:complete', { sessionId: dbSessionId, code: 1 })
       }
       await updateOSSession(dbSessionId, { ccCliSessionId: ccSessionId, status: 'error' })
-      _recordTurnOutcome(false, 'empty_sdk_stream')
+      if (!suppressOutput) _recordTurnOutcome(false, 'empty_sdk_stream')
       // Preserve user intent so auto-wake can rehydrate into "you were asked X but the stream died".
       // Without this, an empty_sdk_stream silently vaporises the user's last message and next restart
       // wakes with stale context pointing at whatever exchange succeeded before the failure.
@@ -2784,7 +2788,7 @@ async function _sendMessageImpl(content, opts = {}) {
         broadcast('os-session:complete', { sessionId: dbSessionId, code: 1 })
       }
       await updateOSSession(dbSessionId, { ccCliSessionId: ccSessionId, status: 'error' })
-      _recordTurnOutcome(false, 'max_retry_depth')
+      if (!suppressOutput) _recordTurnOutcome(false, 'max_retry_depth')
       if (!suppressOutput && !content.startsWith('[HEARTBEAT]') && !content.startsWith('[SCHEDULED:')) {
         try {
           const TAIL_CHARS = 600
@@ -2863,7 +2867,7 @@ async function _sendMessageImpl(content, opts = {}) {
     broadcast('os-session:complete', { sessionId: dbSessionId, code: 1 })
 
     await updateOSSession(dbSessionId, { ccCliSessionId: ccSessionId, status: 'error' })
-    _recordTurnOutcome(false, errMsg)
+    if (!suppressOutput) _recordTurnOutcome(false, errMsg)
 
     return {
       sessionId: dbSessionId,

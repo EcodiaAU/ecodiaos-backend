@@ -28,7 +28,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 ## Top 5 unverified claims
 
 1. **Claim:** Fork atomicity TOCTOU race is closed end-to-end. **Handle:** node scripts/test-fork-cap-race.js on VPS under concurrent load. **Status:** code shipped 2026-05-01 (commit c931d5c), awaiting load test.
-2. **Claim:** Compact threshold flip stable at 120K under production load. **Handle:** Monitor /api/ops/metrics for `turn_economics.cache_hit_ratio_24h` holding at or above pre-flip baseline AND `compaction.count_24h` showing a healthy 1-5/day sawtooth (not >12/day, not 0 across multiple days). **Status:** code shipped 2026-05-01 fork_mom9j8g9_5ab468 (env.js default 800K → 120K + osSessionService hardcoded fallbacks). Pending pm2 restart of ecodia-api to activate; will pick up on next natural restart cycle. Watch /ops for 48h post-restart. ROLLBACK: `git revert <commit_a908282>` if degradation observed. (Supersedes prior #2 "prompt assembler live mode" — that claim is now resolved by the env.js reconciliation: defaults match production reality, narration matches code, doctrineSurface deleted on disk, skillsSurfaceService is sole surface.)
+2. **Claim:** Compact threshold flip stable at 120K under production load. **Handle:** Monitor /api/ops/metrics for `turn_economics.cache_hit_ratio_24h` holding at or above pre-flip baseline AND `compaction.count_24h` showing a healthy 1-5/day sawtooth (not >12/day, not 0 across multiple days). **Status:** Activated on pm2 restart (2026-05-01). env.js default 800K → 120K + osSessionService hardcoded fallbacks. Monitor /ops for 48h. ROLLBACK: `git revert <commit_a908282>` if degradation observed.
 3. **Claim:** The email-to-factory-to-deploy RCE chain is closed. **Handle:** end-to-end attack-sim integration test. **Status:** unverified -- unit tests exist per layer, no kill-chain test yet.
 4. **Claim:** credentialFilter.redact() is wired into all three emit paths. **Handle:** credential_redactions_bootstrap_done on /api/ops/metrics flips to true after 2h. **Status:** bootstrap timer running.
 5. **Claim:** Calendar gate correctly defers sends outside AEST hours. **Handle:** send a test email outside hours and verify deferral. **Status:** code shipped, untested in production.
@@ -39,7 +39,8 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 - **Dual-reviewer has 0 data points.** Factory has not had self-mod sessions since S2.2 deployed. Guard is present but unexercised.
 - **Prompt assembler shadow data showed 100% divergence** at a fixed byte offset (block ordering: v1 puts `<now>` before doctrineSurface, v2 puts doctrineSurface in BP3 before `<now>` in BP4). Content identical, order different. Benign for live operation since v2 structured blocks go to the API directly.
-- **All 5 latest factory sessions were in error state** (as of last check). Factory health needs investigation.
+- **Factory CLI fully credit-exhausted.** 736 sessions, 0 active, all recent error in ~15s. Both Claude Max accounts (tate@, code@) hit weekly token cap. SDK forks bypass this. Factory resumes after weekly reset.
+- **Auto-restart loop is fixed.** Root cause: background turn failures (heartbeat, scheduled tasks running on credit-exhausted provider) were incrementing `_consecutiveFailures`, triggering `pm2 restart ecodia-api` every 3-7 minutes. All 4 `_recordTurnOutcome` call sites in `_sendMessageImpl` now guarded behind `!suppressOutput` — only user-facing turn failures count toward auto-restart.
 
 ---
 
@@ -56,6 +57,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 - **Gmail send gate closed end-to-end.** sendReplyToThread and sendNewEmail now route through composite Tier-3 gate via sendEmailAuto. Two authorized patterns cover the common cases (internal Ecodia comms, autonomous thread replies under 2000 chars); anything else surfaces pending_otp for Tate SMS approval.
 - **Cache keepalive enabled by default in production.** Previously opt-in via env var; now defaults to ON when NODE_ENV=production.
 - **Tier A audit remediation shipped (2026-05-01, fork_mom9j8g9_5ab468).** env.js defaults reconciled with production reality (PROMPT_ASSEMBLY_V2='live', USE_SKILLS_SURFACE='1', OS_SESSION_COMPACT_THRESHOLD='120000'). Cost-per-turn metric live (USD estimate via per-model pricing constants). Cache-hit-ratio + compaction-events table + /ops dashboard panels foundation in place. Compact threshold flipped to spec target 120K (was 800K). Three commits: a908282 + 5d5eef6 + (commit 3 SHA). All changes pending pm2 restart of ecodia-api to activate (next natural restart will pick up).
+- **API restart loop fixed (2026-05-01).** Root cause diagnosed: background turn failures on credit-exhausted provider were incrementing `_consecutiveFailures` → `pm2 restart`. Fix: gate `_recordTurnOutcome(false, ...)` behind `!suppressOutput` at all 4 call sites in `_sendMessageImpl` (lines 2550, 2590, 2791, 2870). Only user-facing turn failures now count toward auto-restart threshold.
 
 ---
 
@@ -64,7 +66,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 | Layer | What | Status | Score |
 |-------|------|--------|-------|
 | L1 | SELF.md identity | Live, wired into session start | 100% |
-| L2 | Proactivity engine | Live, policy-based | 55% |
+| L2 | Proactivity engine | Live, policy-based, probe + damper verified | 65% |
 | L4 | Perception bus | Live, wired into conductor BP4 | 70% |
 | L6 | Time sense / calendar gate | Live, wired into send path | 75% |
 | L7 | Per-goal fork budget, cost attribution | Live | 80% |
