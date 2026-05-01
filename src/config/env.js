@@ -240,11 +240,14 @@ const envSchema = z.object({
   // OS Session tuning
   OS_SESSION_MODEL: z.string().default(''),
   OS_SESSION_CWD: z.string().default('/home/tate/ecodiaos'),
-  // Bumped from 250k to 800k (Apr 2026). On Opus 4.7's 1M context, handover
-  // was firing way too early — the SDK's native compaction preserves
-  // continuity far better than our brief→warm-session dance. Only trigger
-  // when we're genuinely approaching the context ceiling.
-  OS_SESSION_COMPACT_THRESHOLD: z.string().default('800000'),
+  // PROMPT_ASSEMBLY_SPEC §3.5 target. Previous default 800K was a workaround
+  // for compaction-firing-too-eager bugs that have since shipped fixes (the
+  // SDK's native compaction now preserves continuity well below the 1M
+  // ceiling). Flip-and-watch via /ops dashboard: cache_hit_ratio should
+  // hold (or improve) and compaction_events should show a healthy sawtooth.
+  // ROLLBACK: bump back to '800000' if /ops shows compaction firing >2x/min
+  // or cache_hit_ratio drops below pre-flip baseline for >2h.
+  OS_SESSION_COMPACT_THRESHOLD: z.string().default('120000'),
   // Automatic Neo4j memory injection into user messages.
   // Semantic-searches Pattern/Decision/Episode nodes and prepends a
   // <relevant_memory> block between <now> and <restart_recovery>.
@@ -278,13 +281,17 @@ const envSchema = z.object({
   //               audit rows for comparison.
   // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
   // clean rows (zero semantic_equivalent=false).
-  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('off'),
+  // Reconciled with .env.production override 2026-05-01: prompt assembler
+  // is live, doctrineSurface deleted, skillsSurfaceService is sole surface.
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('live'),
   // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
   // grep of patterns/*.md) with skillsSurfaceService (description-driven
   // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
   // '1' = skillsSurfaceService populates BP3. Both run when enabled so
   // the 3-day hit-count comparison metric can fire.
-  USE_SKILLS_SURFACE: z.string().default('0'),
+  // Reconciled with .env.production override 2026-05-01: skillsSurfaceService
+  // is the sole BP3 surface (doctrineSurface.js was deleted from disk).
+  USE_SKILLS_SURFACE: z.string().default('1'),
 })
 
 const parsed = envSchema.safeParse(process.env)
