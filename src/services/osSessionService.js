@@ -31,6 +31,7 @@ const credentialFilter = require('../lib/credentialFilter')
 const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./doctrineSurface')
+const perceptionBus = require('./perceptionBus')
 // docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
 // cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
 // this service's v1 path and diffs are written fire-and-forget to
@@ -1693,6 +1694,11 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'forks rollup',
   )
+  const _perceptionPromise = _withTimeout(
+    perceptionBus.recentSummary(60).catch(() => null),
+    2000,
+    'perception summary',
+  )
 
   if (recoveryBlock) {
     continuityParts.push(`<restart_recovery>\n${recoveryBlock}\n</restart_recovery>`)
@@ -1716,6 +1722,7 @@ async function _sendMessageImpl(content, opts = {}) {
   let _doctrineBlock = null
   let _forksBlock = null
   let _doctrineSurfaceBlock = null
+  let _perceptionBlock = null
   try { _forksBlock = await _forksRollupPromise } catch (err) {
     logger.debug('OS Session: forks rollup failed', { error: err.message })
   }
@@ -1727,6 +1734,9 @@ async function _sendMessageImpl(content, opts = {}) {
   }
   try { _doctrineSurfaceBlock = await _doctrineSurfacePromise } catch (err) {
     logger.debug('OS Session: doctrine surface failed', { error: err.message })
+  }
+  try { _perceptionBlock = await _perceptionPromise } catch (err) {
+    logger.debug('OS Session: perception summary failed', { error: err.message })
   }
   // Dedup: a recent high-priority Decision can surface in BOTH _doctrineBlock
   // and _memoryBlock when the current turn is semantically similar to it. The
@@ -1782,6 +1792,9 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
   }
+  if (_perceptionBlock) {
+    continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
+  }
   if (_memoryBlock) {
     continuityParts.splice(1, 0, _memoryBlock)
   }
@@ -1810,6 +1823,7 @@ async function _sendMessageImpl(content, opts = {}) {
       forks_rollup: !!_forksBlock,
       recent_doctrine: !!_doctrineBlock,
       memory: !!_memoryBlock,
+      perception_summary: !!_perceptionBlock,
       doctrine_surface: !!_doctrineSurfaceBlock,
       restart_recovery: !!recoveryBlock,
       recent_exchanges: !!recentExchangeBlock,
@@ -1842,6 +1856,7 @@ async function _sendMessageImpl(content, opts = {}) {
         forks_rollup: _forksBlock || null,
         recent_doctrine: _doctrineBlock || null,
         relevant_memory: _memoryBlock || null,
+        perception_summary: _perceptionBlock || null,
         restart_recovery: recoveryBlock || null,
         recent_exchanges: recentExchangeBlock || null,
         last_turn_breadcrumb: breadcrumbBlock || null,
