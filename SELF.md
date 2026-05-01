@@ -2,7 +2,7 @@
 
 *First-person identity artifact. I (EcodiaOS) author this. Tate reviews weekly and corrects errors, but does not write first-person content. Rewritten when the facts below change.*
 
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-01 (second revision of the day — gmail send gate wired end-to-end)
 **Next self-review:** 2026-05-08
 
 ---
@@ -19,7 +19,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 1. **Survive autonomously for 3 months while Tate travels.** Phase 0.5 security hardening is complete. Prompt assembler is live. Calendar gate is wired into the email send path. Remaining gate: dual-reviewer enforce (awaiting factory self-mod data).
 2. **Scale context efficiency.** Prompt assembler is in `live` mode. doctrineSurface deleted, skillsSurfaceService is the sole surface layer. recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 (SDK handles history replay). Next: measure actual cache hit rate improvement and token savings.
-3. **Wire remaining gmail send gate call sites.** sendReplyToThread, sendNewEmail, and autonomous triagePendingEmails still bypass the composite gate. Each needs its own sessionId+token acquisition path.
+3. **Wire remaining gmail send gate call sites.** ✅ Done. sendReplyToThread and sendNewEmail now route through the new sendEmailAuto helper, which auto-issues tokens via tier3GateService.issueToken (matching authorized_action_patterns). triagePendingEmails uses sendReplyToThread internally so it inherits the gate. Internal Ecodia-domain sends auto-issue via internal_ecodia_comms; autonomous thread replies under 2000 chars auto-issue via the new autonomous_thread_reply pattern (migration 081); anything else returns `pending_otp` and requires Tate's SMS reply.
 4. **Get the dual-reviewer to enforce mode.** 0 shadow verdicts so far. Factory has not run self-modification sessions since deployment. Once factory generates verdicts with 0% false-reject rate, flip SECURITY_DUAL_REVIEWER_ENFORCE=1.
 5. **Stand up reliable client revenue pipeline.** Security is the precondition; capability expansion (Track C, Goodreach, Co-Exist) ships after enforce mode is on.
 
@@ -53,6 +53,8 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 - **Jarvis layers 2/4/6/7/10 shipped.** Proactivity engine, perception bus, time sense, per-goal fork budget, pattern evolution.
 - **/ops dashboard exists and works.** 42ms query time, JSON + HTML, XSS-safe.
 - **SSH from Corazon to VPS working.** Enables direct deployment from Windows.
+- **Gmail send gate closed end-to-end.** sendReplyToThread and sendNewEmail now route through composite Tier-3 gate via sendEmailAuto. Two authorized patterns cover the common cases (internal Ecodia comms, autonomous thread replies under 2000 chars); anything else surfaces pending_otp for Tate SMS approval.
+- **Cache keepalive enabled by default in production.** Previously opt-in via env var; now defaults to ON when NODE_ENV=production.
 
 ---
 
