@@ -575,23 +575,39 @@ async function autoAct(thread, triage) {
 async function sendReplyToThread(thread, body) {
   if (!GMAIL_ENABLED) throw new Error('Gmail disabled (GMAIL_ENABLED=false)')
   const inbox = thread.inbox || (await getInboxes())[0]
-  const gmail = getGmailClient(inbox)
+  const subject = `Re: ${thread.subject || ''}`
 
-  const raw = createRawEmail({
-    to: thread.from_email,
+  // Route through the composite Tier-3 gate per SECURITY_HARDENING §3.2.
+  // This is the autonomous-triage path — the `autonomous_thread_reply`
+  // pattern (migration 081) auto-issues tokens when body_length <= 2000.
+  // Longer bodies or high-risk commitment content fall through to the
+  // SMS-OTP path; the email stays unsent and Tate is paged.
+  const result = await module.exports.sendEmailAuto({
     from: inbox,
-    subject: `Re: ${thread.subject || ''}`,
+    to: thread.from_email,
+    subject,
     body,
-    inReplyTo: thread.gmail_message_ids?.[thread.gmail_message_ids.length - 1],
+    threadId: thread.gmail_thread_id,
+    sessionId: `triage-reply-${thread.id}`,
+    context: { is_thread_reply: true, autonomous: true, source: 'triage-reply' },
   })
 
-  await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: { raw, threadId: thread.gmail_thread_id },
-  })
+  if (result?.pending_otp) {
+    logger.warn('sendReplyToThread: pending OTP — reply NOT sent', {
+      thread_id: thread.id, subject, otp_id: result.otp_id,
+    })
+    return result
+  }
+  if (result?.queued || result?.deferred) {
+    logger.info('sendReplyToThread: queued/deferred by composite gate', {
+      thread_id: thread.id, subject, reason: result.reason || (result.queued ? 'unknown_recipient' : 'calendar'),
+    })
+    return result
+  }
 
   await db`UPDATE email_threads SET status = 'replied', updated_at = now() WHERE id = ${thread.id}`
   logger.info(`Autonomous reply sent from ${inbox} to ${thread.from_email}: ${thread.subject}`)
+  return result
 }
 
 async function silentArchive(thread) {
@@ -784,13 +800,19 @@ function encodeHeaderValue(str) {
   return `=?UTF-8?B?${Buffer.from(str, 'utf-8').toString('base64')}?=`
 }
 
-function createRawEmail({ to, from, subject, body, inReplyTo }) {
+function createRawEmail({ to, from, subject, body, inReplyTo, cc, bcc }) {
   const lines = [
-    `To: ${to}`,
+    `To: ${Array.isArray(to) ? to.join(', ') : to}`,
     `From: ${from}`,
     `Subject: ${encodeHeaderValue(subject)}`,
     'Content-Type: text/plain; charset=utf-8',
   ]
+  if (cc) {
+    lines.splice(1, 0, `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+  }
+  if (bcc) {
+    lines.splice(1, 0, `Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
+  }
   if (inReplyTo) {
     lines.push(`In-Reply-To: ${inReplyTo}`)
     lines.push(`References: ${inReplyTo}`)
@@ -948,15 +970,267 @@ ${thread.full_body || thread.snippet || ''}`
   return { forwarded: true, to: toEmail }
 }
 
-async function sendNewEmail(inbox, to, subject, body) {
+async function sendNewEmail(inbox, to, subject, body, opts = {}) {
   if (!GMAIL_ENABLED) throw new Error('Gmail disabled')
   const fromInbox = inbox || (await getInboxes())[0]
+
+  // Route through the composite Tier-3 gate. For mail to Ecodia domains
+  // (tate@ecodia.au alerts, intra-org messages) the `internal_ecodia_comms`
+  // pattern auto-issues. Anything else requires SMS-OTP — the returned
+  // `pending_otp: true` response tells the caller to surface to Tate.
+  // Legacy callers that don't pass sessionId get a synthetic one tagged
+  // with the source.
+  const result = await module.exports.sendEmailAuto({
+    from: fromInbox,
+    to,
+    subject,
+    body,
+    sessionId: opts.sessionId || `new-email-${opts.source || 'unknown'}-${Date.now()}`,
+    urgency: opts.urgency || 'normal',
+    context: { is_thread_reply: false, autonomous: !!opts.autonomous, source: opts.source || 'sendNewEmail' },
+  })
+
+  if (result?.pending_otp || result?.queued || result?.deferred) {
+    logger.info(`sendNewEmail: held by gate (${result.pending_otp ? 'otp' : result.queued ? 'queued' : 'deferred'})`, {
+      to, subject, source: opts.source,
+    })
+    return result
+  }
+  return result
+}
+
+/**
+ * sendEmail — extended sender supporting cc, bcc, and threadId.
+ * Used by Cowork V2 MCP gmail.send endpoint.
+ */
+async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
+  if (!GMAIL_ENABLED) throw new Error('Gmail disabled')
+  const fromInbox = from || (await getInboxes())[0]
   const gmail = getGmailClient(fromInbox)
 
-  const raw = createRawEmail({ to, from: fromInbox, subject, body })
-  const result = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
-  logger.info(`New email sent from ${fromInbox} to ${to}: ${subject}`)
-  return { sent: true, messageId: result.data?.id, to, subject }
+  const raw = createRawEmail({ to, from: fromInbox, cc, bcc, subject, body })
+  const requestBody = { raw }
+  if (threadId) requestBody.threadId = threadId
+  const result = await gmail.users.messages.send({ userId: 'me', requestBody })
+  logger.info(`Email sent from ${fromInbox} to ${Array.isArray(to) ? to.join(',') : to}: ${subject}`)
+  return {
+    sent: true,
+    message_id: result.data?.id || null,
+    gmail_thread_id: result.data?.threadId || null,
+    from: fromInbox,
+  }
+}
+
+/**
+ * sendEmailGated — Tier-3 gated external-recipient send per
+ * SECURITY_HARDENING.md §3.2/§3.3/§3.4/§7.1.
+ *
+ * Flow (fail-closed on every error path):
+ *   1. commitmentDetector.analyze(body) — if requiresManualTier3(result) is
+ *      true, the caller must have gone through the SMS-OTP path to get a
+ *      token (the pattern-issued token won't verify because the detector
+ *      finding causes verifyAndConsume to fail via mismatched target).
+ *   2. outboundEmailDelayQueue.routeOutbound — if `action === 'queued'`,
+ *      return { queued: true, row } without sending. 24h delay queue is
+ *      the failsafe for unknown recipients.
+ *   3. tier3GateService.verifyAndConsume — if false, throw with
+ *      code 'tier3_gate_denied'. Single-use token is consumed atomically.
+ *   4. Internal sendEmail() — unchanged existing dispatcher.
+ *   5. securityAuditLog.append — records every external send with
+ *      HMAC-signed content hash.
+ *
+ * Token acquisition (caller responsibility, not this function):
+ *   - authorized_action_patterns row match (e.g. `internal_ecodia_comms`
+ *     for to_domain in {ecodia.au, ecodia.com.au}) → synchronous token.
+ *   - Otherwise tier3GateService.issueToken({ ... }) kicks off the SMS-OTP
+ *     challenge; Tate replies, then the token is issued via
+ *     completeOtpChallenge. Callers pass the resulting token here.
+ *
+ * The internal sendEmail(...) export is retained for non-external paths
+ * (thread replies via sendReplyToThread, listeners, etc.); anything that
+ * mails an external recipient MUST migrate to this function.
+ */
+// Single source of truth for the Tier-3 target payload. Issuer and
+// verifier MUST see the same canonical shape or HMAC verification fails.
+// Callers pass `context` to declare thread-reply / autonomous status so
+// the autonomous_thread_reply pattern can match; field omission means
+// "don't assert this property", not "false".
+function _buildSendTarget({ to, subject, body, threadId, context }) {
+  const primaryTo = Array.isArray(to) ? to[0] : to
+  const toStr = String(primaryTo || '')
+  const domain = (toStr.split('@')[1] || '').toLowerCase()
+  const subjectHash = require('crypto')
+    .createHash('sha256')
+    .update(String(subject || ''))
+    .digest('hex')
+  return {
+    to: primaryTo,
+    to_domain: domain,
+    subject_hash: subjectHash,
+    body_length: String(body || '').length,
+    is_thread_reply: !!(threadId || context?.is_thread_reply),
+    autonomous: !!context?.autonomous,
+  }
+}
+
+async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency, context }) {
+  if (!to) throw new Error('sendEmailGated: `to` is required')
+  if (!sessionId) throw new Error('sendEmailGated: `sessionId` is required (for audit log)')
+  if (!gate_token) {
+    const err = new Error('tier3_gate_denied: missing gate_token')
+    err.code = 'tier3_gate_denied'
+    throw err
+  }
+
+  const timeSense = require('./timeSenseService')
+  const calendarResult = await timeSense.calendarGate({ type: 'gmail_send', urgency: urgency || 'normal' })
+  if (!calendarResult.proceed) {
+    logger.info('sendEmailGated: deferred by calendar gate', {
+      to: Array.isArray(to) ? to[0] : to, subject, defer_until: calendarResult.defer_until, reason: calendarResult.reason,
+    })
+    return { deferred: true, defer_until: calendarResult.defer_until, reason: calendarResult.reason }
+  }
+
+  // Require deps at call-time to keep the existing gmailService surface
+  // and test mocks unchanged when sendEmailGated isn't used.
+  const commitmentDetector = require('./commitmentDetector')
+  const outboundEmailDelayQueue = require('./outboundEmailDelayQueue')
+  const tier3GateService = require('./tier3GateService')
+  const securityAuditLog = require('./securityAuditLog')
+
+  const primaryTo = Array.isArray(to) ? to[0] : to
+  const target = _buildSendTarget({ to, subject, body, threadId, context })
+
+  // 1. Commitment detection. High-risk / contains-commitment content must
+  //    go through the manual SMS-OTP path (pattern-match tokens won't
+  //    satisfy verifyAndConsume because this caller shape implies the
+  //    token was OTP-issued; the commitment detector here surfaces the
+  //    classification for audit+logging).
+  const detection = await commitmentDetector.analyze(body || '').catch((err) => {
+    logger.warn('sendEmailGated: commitmentDetector.analyze threw — fail-closed', { error: err.message })
+    throw Object.assign(new Error('tier3_gate_denied: commitment detector unavailable'), {
+      code: 'tier3_gate_denied',
+    })
+  })
+  const manualRequired = commitmentDetector.requiresManualTier3(detection)
+
+  // 2. Delay queue for unknown recipients (routeOutbound also does the
+  //    known-recipient check; it returns { action: 'send' } when known).
+  const route = await outboundEmailDelayQueue.routeOutbound({
+    from, to, cc, bcc, subject, body, threadId, sessionId, commitment: detection,
+  })
+  if (route.action === 'queued') {
+    logger.info('sendEmailGated: queued for 24h delay (unknown recipient)', {
+      to: primaryTo, subject, sessionId, manual_tier3_required: manualRequired,
+    })
+    return { queued: true, row: route.row, manual_tier3_required: manualRequired }
+  }
+
+  // 3. Tier-3 verify. Fails closed on any mismatch (mis-typed target,
+  //    mismatched session, consumed, expired).
+  const verified = await tier3GateService.verifyAndConsume({
+    token: gate_token,
+    action_type: 'gmail_send_external',
+    target,
+    session_id: sessionId,
+  })
+  if (!verified) {
+    const err = new Error('tier3_gate_denied: token failed verifyAndConsume')
+    err.code = 'tier3_gate_denied'
+    throw err
+  }
+
+  // 4. Internal dispatch (unchanged sender). Called via module.exports so
+  //    test suites can stub it without exercising googleapis.
+  const result = await module.exports.sendEmail({ from, to, cc, bcc, subject, body, threadId })
+
+  // 5. Audit log — best-effort, non-blocking. If HMAC signing or the
+  //    INSERT throws, we log but don't reverse the send (email already
+  //    left the building). `.append()` failing is its own incident signal
+  //    that bootstrap monitoring should catch.
+  try {
+    await securityAuditLog.append({
+      action_type: 'gmail_send_external',
+      target: { to: primaryTo, subject },
+      session_id: sessionId,
+      trigger_source: 'gmailService.sendEmailGated',
+      content: body || '',
+    })
+  } catch (err) {
+    logger.error('sendEmailGated: audit append failed AFTER successful send', {
+      error: err.message, sessionId, message_id: result.message_id,
+    })
+  }
+
+  return result
+}
+
+/**
+ * sendEmailAuto — attempts auto-token issuance via tier3GateService
+ * pattern matching, then invokes sendEmailGated. Used by internal paths
+ * (triagePendingEmails, certMonitor, osAlertingService) that have no
+ * upstream human session but still need to go through the composite gate.
+ *
+ * Returns one of:
+ *   { sent: true, ... }        — pattern matched, token consumed, sent.
+ *   { queued: true, row }      — delay queue took it (unknown recipient).
+ *   { deferred: true, ... }    — calendar gate deferred.
+ *   { pending_otp: true, otp_id } — no pattern matched, SMS dispatched to Tate.
+ *                                   Caller records the otp_id and retries
+ *                                   after Tate replies Y <code>.
+ *
+ * Security: the target built here is byte-for-byte identical to the one
+ * sendEmailGated builds internally. HMAC verification depends on that.
+ * If you change the target shape in one place, change _buildSendTarget.
+ */
+async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessionId, urgency, context }) {
+  if (!to) throw new Error('sendEmailAuto: `to` is required')
+  const effectiveSessionId = sessionId || `autonomous-${context?.source || 'gmail'}-${Date.now()}`
+
+  const tier3 = require('./tier3GateService')
+  const target = _buildSendTarget({ to, subject, body, threadId, context })
+
+  const issue = await tier3.issueToken({
+    action_type: 'gmail_send_external',
+    target,
+    session_id: effectiveSessionId,
+  })
+
+  if (issue.status === 'pending_otp') {
+    // No matching authorized_action_patterns row. SMS-OTP challenge is
+    // now pending — caller should surface it to Tate via sms_tate or
+    // similar, then re-invoke with the completed token. We do NOT dispatch
+    // the SMS here (decoupled from twilio per tier3GateService docs).
+    logger.warn('sendEmailAuto: no matching pattern — SMS-OTP challenge pending', {
+      to: Array.isArray(to) ? to[0] : to,
+      subject,
+      otp_id: issue.otp_id,
+      sessionId: effectiveSessionId,
+      context,
+    })
+    return {
+      pending_otp: true,
+      otp_id: issue.otp_id,
+      expires_at: issue.expires_at,
+      target_hash: issue.target_hash,
+    }
+  }
+
+  if (issue.status !== 'issued' || !issue.token) {
+    const err = new Error('sendEmailAuto: tier3 issueToken returned unexpected status')
+    err.code = 'tier3_issue_failed'
+    err.details = { status: issue.status }
+    throw err
+  }
+
+  // Hand off to the composite gate with the freshly-issued token.
+  return module.exports.sendEmailGated({
+    from, to, cc, bcc, subject, body, threadId,
+    sessionId: effectiveSessionId,
+    gate_token: issue.token,
+    urgency,
+    context,
+  })
 }
 
 async function createFollowUpTask(threadId, title, description, priority = 'medium') {
@@ -1065,6 +1339,6 @@ module.exports = {
   // New
   listThreads, searchThreads, batchArchive, batchTrash,
   labelThread, removeLabel, starThread, unstarThread,
-  forwardThread, sendNewEmail, createFollowUpTask, unsubscribe,
+  forwardThread, sendNewEmail, sendEmail, sendEmailGated, sendEmailAuto, sendReplyToThread, createFollowUpTask, unsubscribe,
   getThreadsByClient, getInboxStats, listLabels, saveDraftToGmail,
 }

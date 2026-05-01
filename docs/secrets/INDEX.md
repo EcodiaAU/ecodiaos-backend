@@ -42,6 +42,7 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [coexist-excel-file.md](coexist-excel-file.md) | coexist, excel, excel-sync, sharepoint-file, drive_id, item_id, sheet_name, registration-spreadsheet | programmatic-required | ecodiaos |
 | [coexist-supabase.md](coexist-supabase.md) | coexist, supabase-coexist, coexist-db, anon-key-coexist, service-role-coexist, db_password-coexist | programmatic-required | ecodiaos |
 | [chambers-supabase.md](chambers-supabase.md) | chambers, chambers-supabase, federation, multi-tenant-chambers, anon-key-chambers, service-role-chambers | programmatic-required | ecodiaos |
+| [github-pat.md](github-pat.md) | github, gh, gh-cli, github-token, github-pat, GITHUB_TOKEN, ghp_, github_pat_, github api, git push github, EcodiaTate, ecodiaos-backend, factory-dispatch-github-auth | programmatic-required | tate |
 | [resend.md](resend.md) | resend, transactional-email, smtp, email-api, re_, dkim, coexist-resend | programmatic-required | ecodiaos |
 | [canva-connect-api.md](canva-connect-api.md) | canva, canva-connect, design-automation, oauth-canva, client_id-canva, canva-api | programmatic-required | ecodiaos |
 | [canva-mfa-backup-codes.md](canva-mfa-backup-codes.md) | canva, canva-2fa, mfa-backup-codes, canva-login, backup-codes, recovery-codes | gui-macro-replaces | tate |
@@ -94,6 +95,12 @@ How this fits with the rest of the EcodiaOS knowledge surface:
 
 **Transient artefact:**
 - `creds.apple_2fa_code` - 6-digit code that expired ~30 seconds after capture. Cleanup recommended.
+
+**Propagation gap (1 May 2026 audit):**
+- `creds.github_pat` rotated 30 Apr 2026 22:43 AEST. `kv_store` and `~/ecodiaos/.env` propagated. **ecodia-api PM2 process env still holds stale `ghp_IQqe...` (classic 40-char PAT)** because pm2 restart was deferred (kv_store row's `consumer_surfaces` field explicitly notes "pending pm2 restart"). Effect: `gh auth status` from any shell inheriting from ecodia-api fails 401. Tracked in status_board P2 row "GitHub PAT rotation - ecodia-api PM2 env still stale, pm2 restart deferred". Full detail in [github-pat.md](github-pat.md) "Drift summary" section.
+
+**Stale registry omission (pre-existing):**
+- `google-workspace-code.md` exists on disk in this directory but is NOT listed in the Provisioned-credentials table above. NEEDS-FOLLOW-UP-FORK (out of scope for github-pat audit fork).
 
 ## Migration policy
 

@@ -78,6 +78,7 @@ async function _checkDrift() {
       _alertedIds.add(rowId)
       _lastTouched.set(rowId, String(row.last_touched))
 
+      try { require('../perceptionBus').publish({ source: 'status_board', kind: 'drift_detected', data: { id: rowId, name: row.name, priority: row.priority, last_touched: row.last_touched }, confidence: 0.8 }) } catch {}
       logger.info('statusBoardDrift: drifted row detected', {
         rowId,
         name: row.name,

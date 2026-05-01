@@ -32,6 +32,18 @@ module.exports = {
     // ecodia-api is wedged. Always running but idle until a message is
     // sent via the rescue bridge. See src/rescue/rescueRunner.js.
     { ...COMMON, name: 'ecodia-rescue', script: 'src/rescue/rescueRunner.js', max_memory_restart: '1G', max_restarts: 50, restart_delay: 3000, env: { ...COMMON.env, RESCUE_REPO_PATH: '/home/tate/ecodiaos' } },
+    // Conductor — owns the Claude Agent SDK stream + cron poller +
+    // os-session message queue + OS heartbeat + Claude token refresh +
+    // nightly restart. Detached from ecodia-api so api hot-reloads
+    // (max_memory_restart, deploys, nightly restart) no longer kill
+    // the in-flight conductor session.
+    //
+    // Decision 3993 commit 2/3 (fork_mol0vfnr_78c3e4, 2026-04-30).
+    // See docs/architecture/conductor-process-detach-2026-04-30.md
+    // for the multi-phase activation plan. The CONDUCTOR_DETACHED env
+    // var on ecodia-api flips conductor service boot OFF in api once
+    // ecodia-conductor is taking over.
+    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 — OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.

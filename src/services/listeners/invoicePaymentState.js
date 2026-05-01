@@ -155,6 +155,7 @@ module.exports = {
         return
       }
 
+      try { require('../perceptionBus').publish({ source: 'bookkeeper', kind: 'invoice_payment_match', data: { transaction_id: transactionId, invoice_number: invoice.invoice_number, client_name: invoice.client_name, confidence, amount_cents: row.amount_cents }, confidence: confidence === 'high' ? 1.0 : 0.7 }) } catch {}
       logger.info('invoicePaymentState: payment match detected', {
         transactionId,
         invoiceNumber: invoice.invoice_number,

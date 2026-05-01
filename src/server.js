@@ -69,6 +69,21 @@ async function gracefulShutdown(signal) {
     tokenRefresh.stop()
   } catch {}
 
+  try {
+    const claimVerifier = require('./workers/claimVerifierWorker')
+    claimVerifier.stop()
+  } catch {}
+
+  try {
+    const proactivityEngine = require('./services/proactivityEngine')
+    proactivityEngine.stop()
+  } catch {}
+
+  try {
+    const patternEvolution = require('./services/patternEvolution')
+    patternEvolution.stop()
+  } catch {}
+
   // Force-destroy open connections (especially WebSockets) so server.close()
   // doesn't hang waiting for them to end. Without this, PM2 SIGKILLs the
   // process at kill_timeout and sessions that weren't yet marked in DB become orphans.
@@ -147,6 +162,24 @@ server.listen(env.PORT, async () => {
     await validateSchemaConstraints(db)
   } catch (err) {
     logger.warn('Schema constraint validation failed (non-fatal)', { error: err.message })
+  }
+
+  // ── Boot: Recover stale forks from prior api process ──────────────
+  // PM2 max_memory_restart SIGTERMs ecodia-api roughly every 6 minutes at
+  // peak load. Without recovery, all in-flight forks just vanish — main
+  // never sees [FORK_REPORT], the 5/5 slot count is wrong, and the
+  // continuation-aware redispatch path can't fire. recoverStaleForks
+  // flips non-terminal os_forks rows to 'crashed' and enqueues a
+  // [SYSTEM: fork_crashed] message per fork onto main's durable queue.
+  // Idempotent, never throws. (fork-persistence Option A, fork_mokpm24w_4daefb)
+  try {
+    const forkService = require('./services/forkService')
+    const recovery = await forkService.recoverStaleForks()
+    if (recovery && recovery.recovered > 0) {
+      logger.warn('Recovered stale forks at boot', recovery)
+    }
+  } catch (err) {
+    logger.warn('Fork recovery at boot failed (non-fatal)', { error: err.message })
   }
 
   // ── Boot: Factory Bridge ──────────────────────────────────────────
@@ -266,6 +299,22 @@ server.listen(env.PORT, async () => {
     // { name: 'kgEmbeddingWorker',           path: './workers/kgEmbeddingWorker' },
     // { name: 'kgConsolidationWorker',       path: './workers/kgConsolidationWorker' },
     // { name: 'financePoller',               path: './workers/financePoller' },
+    // docs/PROMPT_ASSEMBLY_SPEC.md §4.3 — Anthropic prompt-cache TTL refresh
+    // worker. Default ON in production, off in local dev (NODE_ENV !==
+    // 'production'). Explicit override via CACHE_KEEPALIVE_ENABLED=true|false.
+    // Cost is ~100 input tokens per 45-min fire during work hours
+    // (6am-10pm AEST), savings ~15K tokens per prevented cache miss.
+    // See docs/ANTHROPIC_NATIVE_LEVERAGE.md §4.
+    {
+      name: 'cacheKeepaliveWorker',
+      path: './workers/cacheKeepaliveWorker',
+      start: (() => {
+        const flag = process.env.CACHE_KEEPALIVE_ENABLED
+        if (flag === 'true') return true
+        if (flag === 'false') return false
+        return process.env.NODE_ENV === 'production'
+      })(),
+    },
   ]
 
   for (const w of inlineWorkers) {
@@ -279,6 +328,18 @@ server.listen(env.PORT, async () => {
     }
   }
 
+  // ── Conductor-detach feature flag ─────────────────────────────────
+  // Decision 3993 commit 2/3 (fork_mol0vfnr_78c3e4, 2026-04-30).
+  // Once ecodia-conductor is the active owner of these services,
+  // setting CONDUCTOR_DETACHED=true on ecodia-api stops the api process
+  // from booting them. Default (unset/false) preserves the current
+  // behaviour — backward-compatible. See
+  // docs/architecture/conductor-process-detach-2026-04-30.md
+  const CONDUCTOR_DETACHED = process.env.CONDUCTOR_DETACHED === 'true'
+  if (CONDUCTOR_DETACHED) {
+    logger.info('CONDUCTOR_DETACHED=true - conductor services delegated to ecodia-conductor process')
+  }
+
   // ── Boot: Scheduler Poller ────────────────────────────────────────
   // Re-enabled 2026-04-20 with:
   //   - session-busy gate (checks /api/os-session/status before firing)
@@ -286,32 +347,52 @@ server.listen(env.PORT, async () => {
   //   - critical-energy deferral (non-essential tasks pushed out 1h)
   // The original disable reason (mid-stream interruption) is now covered
   // by the busy gate in schedulerPollerService.isSessionBusy().
-  try {
-    const schedulerPoller = require('./services/schedulerPollerService')
-    schedulerPoller.start()
-  } catch (err) {
-    logger.warn('Scheduler poller failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const schedulerPoller = require('./services/schedulerPollerService')
+      schedulerPoller.start()
+    } catch (err) {
+      logger.warn('Scheduler poller failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: Message Queue Sweep ─────────────────────────────────────
   // Promotes and delivers any messages that have exceeded their max_age_hours.
   // Runs every 30 minutes in-process (backend-internal, does not require OS session).
-  try {
-    const messageQueue = require('./services/messageQueue')
-    messageQueue.startSweepPoller()
-  } catch (err) {
-    logger.warn('Message queue sweep poller failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const messageQueue = require('./services/messageQueue')
+      messageQueue.startSweepPoller()
+    } catch (err) {
+      logger.warn('Message queue sweep poller failed to start', { error: err.message })
+    }
+  }
+
+  // ── Boot: Claim Verifier Worker (OBSERVABILITY_SPEC §3) ───────────
+  // Every 30s, sweeps conductor_claims.pending rows claimed in the last
+  // 5 minutes and dispatches per-action verifiers (git rev-parse for
+  // deployed/committed, email/scheduled/fork table lookups otherwise).
+  // Self-guards against overlap via an _inFlight flag.
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const claimVerifier = require('./workers/claimVerifierWorker')
+      claimVerifier.start()
+    } catch (err) {
+      logger.warn('Claim verifier worker failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: OS Heartbeat ────────────────────────────────────────────
   // Wakes the OS Session periodically with an open-ended "check in" prompt
   // when Tate isn't messaging. Makes the OS genuinely autonomous during the
   // 3-month Africa trip instead of silent until prompted.
-  try {
-    const osHeartbeat = require('./services/osHeartbeatService')
-    osHeartbeat.start()
-  } catch (err) {
-    logger.warn('OS Heartbeat failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const osHeartbeat = require('./services/osHeartbeatService')
+      osHeartbeat.start()
+    } catch (err) {
+      logger.warn('OS Heartbeat failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: TLS Cert Monitor ────────────────────────────────────────
@@ -325,14 +406,94 @@ server.listen(env.PORT, async () => {
     logger.warn('TLS cert monitor failed to start', { error: err.message })
   }
 
+  // ── Boot: Credential Redaction Monitor (§5.1 + §7.2) ──────────────
+  // Polls credentialFilter counters every 30s. During the 2h bootstrap
+  // window, increments are observed but don't fire. After bootstrap, any
+  // increment fires credential_redaction_burst via securityIncidentResponse.
+  try {
+    const credRedactMonitor = require('./lib/credentialRedactionMonitor')
+    const incidentResponse = require('./services/securityIncidentResponse')
+    credRedactMonitor.start({
+      fireIncident: (args) => incidentResponse.fireIncident(args),
+    })
+  } catch (err) {
+    logger.warn('credentialRedactionMonitor failed to start', { error: err.message })
+  }
+
   // ── Boot: Claude Token Refresh ────────────────────────────────────
   // Proactively refreshes OAuth tokens before they expire so the VPS
   // never needs manual `claude /login`. Runs every 30 min.
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const tokenRefresh = require('./services/claudeTokenRefreshService')
+      tokenRefresh.start()
+    } catch (err) {
+      logger.warn('Claude token refresh service failed to start', { error: err.message })
+    }
+  }
+
+  // ── Boot: Security Incident Response wiring (§7.2) ────────────────
+  // Injects the four actuator closures the securityIncidentResponse
+  // module needs to carry out kill-switch duties:
+  //   setEmergencyMode — writes kv_store.system.emergency_mode JSON,
+  //     which tier3GateService reads to revoke pending Tier-3 tokens.
+  //   pauseCrons       — stops the scheduler poller (manual restart to
+  //     resume — this is the intended one-way door).
+  //   haltForks        — iterates forkService.listForks() and calls
+  //     abortFork(id, reason) on each in-flight fork. Uses only the
+  //     already-exported public API; does not modify forkService.
+  //   smsTate          — osAlertingService.sendSmsToTate, Twilio SMS
+  //     bypassing the alert-cooldown table (incidents are not rate-limited).
+  //
+  // All closures are defensive: any one throwing must not take down the
+  // incident response chain. The module itself wraps each in its own
+  // Promise.allSettled; here we just need to not throw synchronously.
   try {
-    const tokenRefresh = require('./services/claudeTokenRefreshService')
-    tokenRefresh.start()
+    const ir = require('./services/securityIncidentResponse')
+    const schedulerPoller = require('./services/schedulerPollerService')
+    const forkService = require('./services/forkService')
+    const alerting = require('./services/osAlertingService')
+
+    ir.wireServices({
+      setEmergencyMode: async (flag, reason) => {
+        try {
+          await db`
+            INSERT INTO kv_store (key, value)
+            VALUES (
+              'system.emergency_mode',
+              ${JSON.stringify({ active: !!flag, reason: reason || null, at: new Date().toISOString() })}
+            )
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+          `
+        } catch (err) {
+          logger.error('setEmergencyMode: kv_store upsert failed', { error: err.message, flag, reason })
+        }
+      },
+      pauseCrons: () => {
+        try { schedulerPoller.stop() } catch (err) {
+          logger.error('pauseCrons: schedulerPoller.stop threw', { error: err.message })
+        }
+      },
+      haltForks: async (reason) => {
+        try {
+          const live = forkService.listForks()
+          for (const f of live) {
+            if (['done', 'aborted', 'error'].includes(f.status)) continue
+            try { await forkService.abortFork(f.fork_id, reason || 'security_incident') }
+            catch (err) { logger.warn('haltForks: abortFork failed', { fork_id: f.fork_id, error: err.message }) }
+          }
+        } catch (err) {
+          logger.error('haltForks: listForks threw', { error: err.message })
+        }
+      },
+      smsTate: async (msg) => {
+        try { await alerting.sendSmsToTate(msg) } catch (err) {
+          logger.error('smsTate: sendSmsToTate threw', { error: err.message })
+        }
+      },
+    })
   } catch (err) {
-    logger.warn('Claude token refresh service failed to start', { error: err.message })
+    logger.warn('securityIncidentResponse.wireServices failed to boot', { error: err.message })
   }
 
   // ── Boot: Rescue Service (api-side subscriber) ────────────────────
@@ -352,11 +513,13 @@ server.listen(env.PORT, async () => {
   // (WS broadcast + [SYSTEM] message posted into the OS inbox so it sees
   // the warning in-turn). If the OS is busy at T-0, waits up to 10 min for
   // idle before force-restarting. Disable with NIGHTLY_RESTART_ENABLED=false.
-  try {
-    const nightlyRestart = require('./services/nightlyRestartService')
-    nightlyRestart.start()
-  } catch (err) {
-    logger.warn('Nightly restart service failed to start', { error: err.message })
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const nightlyRestart = require('./services/nightlyRestartService')
+      nightlyRestart.start()
+    } catch (err) {
+      logger.warn('Nightly restart service failed to start', { error: err.message })
+    }
   }
 
   // ── Boot: Process Restart Alert + Alive Beacon ────────────────────
@@ -440,6 +603,24 @@ server.listen(env.PORT, async () => {
     })
   } catch (err) {
     logger.warn('Listener subsystem failed to start', { error: err.message })
+  }
+
+  // ── Boot: Proactivity Engine (Layer 2) ───────────────────────────
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const proactivityEngine = require('./services/proactivityEngine')
+      proactivityEngine.start()
+    } catch (err) {
+      logger.warn('Proactivity engine failed to start (non-fatal)', { error: err.message })
+    }
+  }
+
+  // ── Boot: Pattern Evolution (Layer 10) ───────────────────────────
+  try {
+    const patternEvolution = require('./services/patternEvolution')
+    patternEvolution.start()
+  } catch (err) {
+    logger.warn('Pattern evolution failed to start (non-fatal)', { error: err.message })
   }
 })
 

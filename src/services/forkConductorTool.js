@@ -45,7 +45,7 @@ async function getForkConductorMcpServer() {
           return {
             content: [{
               type: 'text',
-              text: `Fork spawned: ${snap.fork_id}\nstatus: ${snap.status}\nbrief: ${snap.brief}\n\nThe fork is running in parallel. Continue your own work — its [FORK_REPORT] will arrive in your inbox on a future turn. Do not wait for it.`,
+              text: `Fork spawned: ${snap.fork_id}\nstatus: ${snap.status}\nbrief: ${(snap.brief || '').slice(0, 200)}${snap.brief && snap.brief.length > 200 ? '…' : ''}\n\nThe fork is running in parallel. Its [FORK_REPORT] arrives on a future turn.`,
             }],
           }
         } catch (err) {

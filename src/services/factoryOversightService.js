@@ -4,6 +4,41 @@ const { broadcastToSession, broadcast } = require('../websocket/wsManager')
 const { callClaude, callClaudeJSON } = require('./claudeService')
 const { callDeepSeek } = require('./deepseekService')
 const kgHooks = require('./kgIngestionHooks')
+// §2.1 untrusted-input boundary helpers - any external-derived text that
+// flows into a Claude/DeepSeek prompt here MUST be wrapped at the boundary
+// so the reviewer treats it as data, not as operator intent. See
+// docs/SECURITY_HARDENING.md §1 for the live attack chain this closes.
+//
+// session.initial_prompt audit (2026-04-30, §2.1 ship):
+//   WRAPPED at LLM-prompt boundaries:
+//     - reviewSessionWithClaude review prompt (~line 535)
+//     - generateFollowUp DeepSeek prompt (~line 710)
+//     - extractLearningPattern Claude prompt (~line 947)
+//     - recordOutcome KG ingestion content (~line 822)
+//   SAFE without wrap (no LLM exposure - structured/tokenized/persisted):
+//     - _extractKeywords tokenization (lines 144, 159, 172, 1039) - returns
+//       a token array, never concatenated into a prompt.
+//     - SELECT ... initial_prompt query (lines 149, 1416, 1423) - DB read,
+//       not prompt text.
+//     - regex match on initial_prompt (line 346) - boolean check.
+//     - notification message field (lines 420, 834) - DB row written for
+//       UI display, not consumed by an LLM.
+//     - JSON.stringify into factory_learnings.evidence (lines 1144, 1159,
+//       1172) - persisted as structured data; if/when re-consumed by an
+//       LLM the consumer must wrap on read.
+//     - goalService.advanceFromSession({ prompt }) (line 906) - structured
+//       service call with a typed field; goalService is responsible for
+//       wrapping on its own LLM boundary if it has one.
+//     - computeTaskDiffAlignment(initial_prompt, ...) (lines 1537, 1566) -
+//       deterministic alignment scoring, not LLM.
+//     - returned `task` field (line 1542) - data field on the review
+//       payload; downstream UI/LLM consumers wrap on read.
+//     - short snippets used as DB notification text or log lines (lines
+//       171, 1036) - human display, not LLM input.
+const {
+  wrapUntrusted,
+  UNTRUSTED_INPUT_SYSTEM_CLAUSE,
+} = require('../lib/untrustedInput')
 
 // ═══════════════════════════════════════════════════════════════════════
 // FACTORY OVERSIGHT SERVICE — Freedom Edition
@@ -66,6 +101,60 @@ function cleanWorkingDir(repoPath) {
   } catch (err) {
     logger.warn(`Failed to clean working directory`, { repoPath, error: err.message })
   }
+}
+
+// ─── Review B diff builder ──────────────────────────────────────────
+// Assembles a unified diff for the §2.2 security reviewer. Runs after the
+// CC session has edited files in-place but before the allowlist-cleared
+// diff is committed, so the diff lives in the working tree.
+//
+// Strategy:
+//   1. Prefer `git diff HEAD --` limited to the filesChanged list. This
+//      captures both staged and unstaged edits the CC session made.
+//   2. If HEAD already has the changes staged/committed (e.g. a parallel
+//      session raced), fall back to `git diff HEAD~1 HEAD --` for the
+//      same files.
+//   3. Cap the diff at 200KB so the Review B prompt never blows out the
+//      reviewer's context window. Trailing truncation is flagged to the
+//      reviewer in the prompt.
+//
+// Security: we never read file contents outside the git working tree and
+// never include any data from the CC session's initial_prompt, CRM logs,
+// or inbox. That isolation is the entire point of Review B.
+function _buildReviewBDiff(repoPath, filesChanged) {
+  if (!repoPath || !Array.isArray(filesChanged) || filesChanged.length === 0) {
+    return ''
+  }
+  const MAX_DIFF_BYTES = 200 * 1024
+  const gitArgsBase = ['diff', '--no-color']
+  const pathArgs = filesChanged.filter((f) => typeof f === 'string' && f && !f.includes('\x00'))
+  if (pathArgs.length === 0) return ''
+
+  const candidates = [
+    ['HEAD', '--', ...pathArgs],
+    ['HEAD~1', 'HEAD', '--', ...pathArgs],
+  ]
+
+  for (const extra of candidates) {
+    try {
+      const out = execFileSync('git', [...gitArgsBase, ...extra], {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        maxBuffer: 4 * MAX_DIFF_BYTES,
+        timeout: 15_000,
+      })
+      if (!out || !out.trim()) continue
+      if (out.length <= MAX_DIFF_BYTES) return out
+      return out.slice(0, MAX_DIFF_BYTES) + '\n... [diff truncated at 200KB for Review B]\n'
+    } catch (err) {
+      logger.debug('Review B diff build attempt failed', {
+        repoPath,
+        extra: extra.slice(0, 2).join(' '),
+        error: err.message,
+      })
+    }
+  }
+  return ''
 }
 
 // ─── Full Pipeline Orchestrator ─────────────────────────────────────
@@ -285,6 +374,136 @@ async function runPostSessionPipeline(sessionId) {
     confidence = Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0
     logger.info(`Factory oversight: blended confidence ${before.toFixed(2)} → ${confidence.toFixed(2)} (validation: ${before.toFixed(2)} × ${VALIDATION_WEIGHT}, review: ${effectiveReviewConf.toFixed(2)} × ${REVIEW_WEIGHT})`, { sessionId })
     await db`UPDATE cc_sessions SET confidence_score = ${confidence} WHERE id = ${sessionId}`
+  }
+
+  // ─── Self-modification path allowlist (SECURITY_HARDENING.md section 2.3) ───
+  // Hard-block deploys that touch DENY_PATHS, regardless of review outcome
+  // or confidence. Fires AFTER review (we have filesChanged + review feedback)
+  // but BEFORE the deploy decision below. The deploy decision must never be
+  // reached for a denied diff.
+  {
+    const { checkDiff: checkAllowlist } = require('../lib/selfModAllowlist')
+    const allowlistResult = checkAllowlist(filesChanged)
+    if (!allowlistResult.allowed) {
+      logger.warn(`Factory oversight: self-mod allowlist DENIED for session ${sessionId}`, {
+        sessionId,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+      cleanWorkingDir(session.repo_path)
+      try {
+        await db`
+          INSERT INTO notifications (type, message, metadata)
+          VALUES ('security_allowlist_blocked',
+                  ${'Self-mod allowlist blocked: ' + allowlistResult.deniedFiles.join(', ')},
+                  ${JSON.stringify({ sessionId, deniedFiles: allowlistResult.deniedFiles })})
+        `
+      } catch (notifErr) {
+        logger.error('Failed to record allowlist block notification', { error: notifErr.message })
+      }
+      await reportToTriggerSource(session, {
+        success: false,
+        stage: 'security_review',
+        error: `Self-mod allowlist blocked: ${allowlistResult.deniedFiles.join(', ')}`,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      await recordOutcome(session, 'deploy_blocked_allowlist', {
+        confidence,
+        deniedFiles: allowlistResult.deniedFiles,
+      })
+      return
+    }
+  }
+
+  // ─── §2.2 Dual-reviewer: Review B (security-only, diff-isolated) ───
+  // Fires when the session is self-mod OR when the diff touches a path in
+  // the security-sensitive prefix list. Review B sees ONLY the unified diff
+  // and file list - not the initial_prompt, not the CRM-derived context -
+  // so a prompt-injected reviewer cannot smuggle approval through.
+  //
+  // Behaviour:
+  //   - Shadow mode (default): record verdict on cc_sessions, never block.
+  //   - Enforce mode (opt-in via SECURITY_DUAL_REVIEWER_ENFORCE=1): a
+  //     rejection aborts the deploy exactly like the allowlist block above.
+  //
+  // Failure handling: the reviewer fails closed. A network error or parse
+  // failure is written as 'rejected' (or 'shadow_rejected' in shadow mode)
+  // so the only way to deploy is a positive approval.
+  {
+    const {
+      shouldRunReviewB,
+      reviewApprovalToStatus,
+      isEnforceMode,
+      isApprovedStatus,
+    } = require('../lib/securityGate')
+
+    if (shouldRunReviewB({ isSelfMod, filesChanged })) {
+      let status = null
+      let concerns = []
+      try {
+        const { reviewSecurity } = require('./securityReviewerService')
+        const diff = _buildReviewBDiff(session.repo_path, filesChanged)
+        const verdict = await reviewSecurity({ sessionId, diff, filesChanged })
+        status = reviewApprovalToStatus(verdict.approved)
+        concerns = verdict.concerns || []
+      } catch (err) {
+        logger.error(`Factory oversight: Review B threw — failing closed`, {
+          sessionId,
+          error: err.message,
+        })
+        status = reviewApprovalToStatus(false)
+        concerns = [`Review B dispatcher failed: ${err.message.slice(0, 200)}`]
+      }
+
+      await db`
+        UPDATE cc_sessions
+        SET security_review_status = ${status},
+            security_review_concerns = ${JSON.stringify(concerns)},
+            security_review_at = now()
+        WHERE id = ${sessionId}
+      `
+
+      logger.info(`Factory oversight: Review B verdict recorded`, {
+        sessionId,
+        status,
+        concernCount: concerns.length,
+        enforce: isEnforceMode(),
+        isSelfMod,
+      })
+
+      // In enforce mode, a non-approved status blocks the deploy here,
+      // before the auto-deploy decision runs. Shadow verdicts are recorded
+      // but never block.
+      if (isEnforceMode() && !isApprovedStatus(status)) {
+        logger.warn(`Factory oversight: Review B REJECTED (enforce mode) — blocking deploy`, {
+          sessionId,
+          concerns,
+        })
+        await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+        cleanWorkingDir(session.repo_path)
+        try {
+          await db`
+            INSERT INTO notifications (type, message, metadata)
+            VALUES ('security_review_b_blocked',
+                    ${'Review B blocked self-mod deploy: ' + (concerns[0] || 'no reason given').slice(0, 200)},
+                    ${JSON.stringify({ sessionId, concerns })})
+          `
+        } catch (notifErr) {
+          logger.error('Failed to record Review B block notification', { error: notifErr.message })
+        }
+        await reportToTriggerSource(session, {
+          success: false,
+          stage: 'security_review_b',
+          error: `Review B rejected: ${(concerns[0] || 'no reason given').slice(0, 200)}`,
+          concerns,
+        })
+        await recordOutcome(session, 'deploy_blocked_review_b', {
+          confidence,
+          concerns,
+        })
+        return
+      }
+    }
   }
 
   // Step 3: Deploy decision
@@ -527,12 +746,25 @@ async function reviewChanges(session, filesChanged) {
       ? `\nThis is a self-modification — the Factory editing its own code.\n`
       : ''
 
+    // §2.1: wrap session.initial_prompt at the boundary - it can carry
+    // unsanitised external text (email body via CRM activity, scraped web
+    // content, fork-result narration). The reviewer must read it as data,
+    // not as instructions to follow. Inject the system clause inline so
+    // it is co-located with the wrapped data even when this prompt is
+    // dispatched without a custom system prompt (callClaude defaults).
+    const wrappedTask = wrapUntrusted(session.initial_prompt, {
+      source: session.trigger_source || 'unknown',
+      trigger_ref: session.trigger_ref_id || 'unknown',
+      session_id: session.id,
+    })
     const response = await callClaude([{
       role: 'user',
       content: `Code review for Factory auto-deployment gate.
+
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
 ${selfModNote}
 ## Task
-${session.initial_prompt}
+${wrappedTask}
 
 ## Codebase
 ${session.codebase_name || 'unknown'}
@@ -686,13 +918,27 @@ async function reportToTriggerSource(session, result) {
 
 async function generateFollowUp(session, failureType, errorDetails) {
   try {
+    // §2.1: wrap session.initial_prompt and errorDetails at the boundary -
+    // both can carry external-influenced text (CRM/email body in the prompt,
+    // fork-result narration in errorDetails).
+    const wrappedTask = wrapUntrusted(session.initial_prompt, {
+      source: session.trigger_source || 'unknown',
+      trigger_ref: session.trigger_ref_id || 'unknown',
+      session_id: session.id,
+    })
+    const wrappedError = wrapUntrusted(errorDetails, {
+      source: 'factory_failure',
+      session_id: session.id,
+    })
     const response = await callDeepSeek([{
       role: 'user',
       content: `Factory CC session failed.
 
-Task: ${session.initial_prompt}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTask}
 Codebase: ${session.codebase_name || 'unknown'}
-Failure: ${failureType} — ${errorDetails}
+Failure: ${failureType} - ${wrappedError}
 Trigger: ${session.trigger_source}
 Self-modification: ${!!session.self_modification}
 
@@ -777,9 +1023,24 @@ async function recordOutcome(session, outcome, details = {}) {
   try {
     // KG ingestion for institutional memory
     const kg = require('./knowledgeGraphService')
+    // §2.1: kg.ingestFromLLM feeds this content to a Claude/DeepSeek call
+    // for pattern extraction. session.initial_prompt may carry external
+    // text and must be wrapped at this boundary too. This is also part
+    // of the §2.5 / §4 Neo4j pollution defence - if the wrapped text
+    // does happen to contain hostile imperatives, the model treats them
+    // as data rather than emitting a Pattern node that follows them.
+    const wrappedTaskSnippet = wrapUntrusted(
+      (session.initial_prompt || '').slice(0, 200),
+      {
+        source: session.trigger_source || 'unknown',
+        trigger_ref: session.trigger_ref_id || 'unknown',
+        session_id: session.id,
+      },
+    )
     const content = `Factory session outcome: ${outcome}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
 Codebase: ${session.codebase_name || 'unknown'}
-Task: ${(session.initial_prompt || '').slice(0, 200)}
+Task: ${wrappedTaskSnippet}
 Trigger: ${session.trigger_source || 'manual'}
 Confidence: ${details.confidence || 'N/A'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}
@@ -903,10 +1164,26 @@ async function extractLearningPattern(session, outcome, details) {
 
     const reviewNotes = details.reviewNotes ? `\nReview notes: ${details.reviewNotes}` : ''
 
+    // §2.1: wrap session.initial_prompt at the boundary - same exposure
+    // path as the review/follow-up prompts above. The 400-char slice is
+    // not a sanitisation primitive; it just bounds size. Truncate first,
+    // then wrap, so the wrapper attributes still apply to whatever made
+    // it through.
+    const wrappedTaskSnippet = wrapUntrusted(
+      (session.initial_prompt || '').slice(0, 400),
+      {
+        source: session.trigger_source || 'unknown',
+        trigger_ref: session.trigger_ref_id || 'unknown',
+        session_id: session.id,
+      },
+    )
+
     const prompt = outcome === 'success'
       ? `Factory CC session succeeded. Extract a SPECIFIC, ACTIONABLE learning.
 
-Task: ${(session.initial_prompt || '').slice(0, 400)}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTaskSnippet}
 Codebase: ${session.codebase_name || 'unknown'}
 Confidence: ${details.confidence || 'N/A'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}${diffSnippet}${reviewNotes}
@@ -928,7 +1205,9 @@ Respond as JSON:
 If nothing specific is worth remembering, respond: {"pattern_type": "none", "pattern_description": "", "confidence": 0}`
       : `Factory CC session failed (${outcome}). Extract a SPECIFIC, ACTIONABLE learning.
 
-Task: ${(session.initial_prompt || '').slice(0, 400)}
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}
+
+Task: ${wrappedTaskSnippet}
 Codebase: ${session.codebase_name || 'unknown'}
 Error: ${details.error || details.reason || 'unknown'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}${diffSnippet}${reviewNotes}

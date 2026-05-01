@@ -1,0 +1,695 @@
+#!/usr/bin/env bash
+#
+# cowork-dispatch - thin bash wrapper composing existing input.* + screenshot.* +
+# process.* peer-paradigm primitives into one ergonomic command for the
+# Conductor -> Cowork dispatch protocol.
+#
+# Doctrine sources (read these before extending this file):
+#   ~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md
+#   ~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md
+#   ~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md
+#   ~/ecodiaos/patterns/cowork-no-focus-collision.md
+#   ~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md
+#
+# This is NOT an MCP wrapper, NOT a parallel runtime, does NOT modify the
+# laptop agent. It is curl-to-/api/tool with the right defaults and the
+# right post-action capture.
+#
+# Subcommands:
+#   precheck [--target "<sub>"]    - 6-step pre-dispatch check + screenshot
+#                                    (--target opts in Step 0 focus-collision)
+#   focus                          - bring Claude Desktop to foreground
+#   instruct "<step>"              - type the step into the Claude chat
+#   wait <seconds>                 - sleep
+#   step "<step>" [--wait=N] [--force]
+#                                  - focus + instruct + wait + screenshot.
+#                                    Aborts if agent health_ok=false OR if
+#                                    foreground is not Claude Desktop after
+#                                    focus + AppActivate retry. --force
+#                                    bypasses both guards (default OFF).
+#                                    See cowork-no-focus-collision.md.
+#   account-chip                   - mid-loop account-revert verification
+#   passkey-inject                 - one-shot Hello-prompt detect + inject
+#   step-with-passkey-watch "<step>" [--max-watch-seconds=N]
+#                                  - step but with continuous Hello-poll
+#                                    during the wait phase
+#   foreground-check [--target "<sub>"] [--verbose]
+#                                  - Win32 GetForegroundWindow probe.
+#                                    Returns {foreground_app, foreground_title,
+#                                    foreground_pid}. With --target, also returns
+#                                    {collision} based on substring match of
+#                                    target against foreground_title. Read-only;
+#                                    does NOT steal focus. Operationalises Step 0
+#                                    of cowork-no-focus-collision.md.
+#
+# Env overrides:
+#   COWORK_AGENT_URL    (default http://100.114.219.69:7456)
+#   COWORK_TOKEN_FILE   (default ~/.ecodiaos/laptop-agent.token)
+#   COWORK_TMP_DIR      (default /tmp)
+#   COWORK_DB_URL       (default $DATABASE_URL from /home/tate/ecodiaos/.env)
+#
+# Exit codes:
+#   0 success or no-prompt-detected (idempotent)
+#   1 precheck-fail OR detection-but-injection-failed
+#   2 usage-error
+#   3 transport-error (laptop agent unreachable)
+#
+
+set -uo pipefail
+
+AGENT_URL="${COWORK_AGENT_URL:-http://100.114.219.69:7456}"
+TOKEN_FILE="${COWORK_TOKEN_FILE:-$HOME/.ecodiaos/laptop-agent.token}"
+TMP_DIR="${COWORK_TMP_DIR:-/tmp}"
+ENV_FILE="${COWORK_ENV_FILE:-/home/tate/ecodiaos/.env}"
+
+if [ -f "$TOKEN_FILE" ]; then
+    TOKEN="$(cat "$TOKEN_FILE")"
+else
+    echo "ERROR: token file not found: $TOKEN_FILE" >&2
+    exit 2
+fi
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+ts_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+ts_compact() { date -u +%Y%m%dT%H%M%SZ; }
+
+# Call a single laptop-agent tool. Returns raw JSON on stdout.
+agent_tool() {
+    local tool="$1"
+    local params_json="$2"
+    curl -sS --max-time 30 \
+        -X POST "$AGENT_URL/api/tool" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $TOKEN" \
+        -d "{\"tool\":\"$tool\",\"params\":$params_json}" \
+        2>&1
+}
+
+agent_health() {
+    curl -sS --max-time 5 "$AGENT_URL/api/health" 2>&1
+}
+
+# Capture a full-screen screenshot to disk and echo the path.
+# Mode 'silent' suppresses stdout JSON of the base64 image.
+capture_screenshot() {
+    local sub="$1"
+    local out="$TMP_DIR/cowork-${sub}-$(ts_compact).png"
+    local resp
+    resp="$(agent_tool screenshot.screenshot '{}')"
+    # Extract base64 image; agent returns {"image": "...", "format":"png"}
+    # If response is wrapped in {"result": {...}}, jq handles either.
+    local b64
+    b64="$(echo "$resp" | jq -r '.result.image // .image // empty' 2>/dev/null)"
+    if [ -z "$b64" ]; then
+        echo "ERROR: screenshot returned no image. raw: $resp" >&2
+        return 1
+    fi
+    echo "$b64" | base64 -d > "$out" 2>/dev/null
+    if [ ! -s "$out" ]; then
+        echo "ERROR: screenshot decode failed" >&2
+        return 1
+    fi
+    echo "$out"
+}
+
+# Read the passkey from kv_store via DATABASE_URL.
+# Echoes ONLY the digits to stdout. Caller is responsible for not leaking.
+read_passkey() {
+    local db_url="${COWORK_DB_URL:-}"
+    if [ -z "$db_url" ] && [ -f "$ENV_FILE" ]; then
+        db_url="$(grep -E '^DATABASE_URL=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
+    fi
+    if [ -z "$db_url" ]; then
+        echo "ERROR: DATABASE_URL unavailable" >&2
+        return 1
+    fi
+    local val
+    val="$(psql "$db_url" -tA -c "SELECT value FROM kv_store WHERE key='creds.laptop_passkey'" 2>/dev/null | tr -d '"' | tr -d ' \n\r')"
+    if [ -z "$val" ]; then
+        echo "ERROR: kv_store.creds.laptop_passkey is empty" >&2
+        return 1
+    fi
+    printf '%s' "$val"
+}
+
+# Probe Corazon's foreground window via Win32 GetForegroundWindow.
+# Returns JSON {title, process, pid} on stdout (whatever PowerShell printed).
+# Returns 1 on probe failure (agent unreachable, PowerShell error, parse error).
+#
+# Read-only: this does NOT steal focus, does NOT capture a screenshot, does
+# NOT issue any input.* calls. It executes a single PowerShell P/Invoke
+# encoded via -EncodedCommand to sidestep escape-character hell.
+probe_foreground_window() {
+    local ps_script
+    ps_script='Add-Type -MemberDefinition @"
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
+[DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+"@ -Name Win32 -Namespace Pi -PassThru | Out-Null
+$h = [Pi.Win32]::GetForegroundWindow()
+$l = [Pi.Win32]::GetWindowTextLength($h)
+$sb = New-Object System.Text.StringBuilder ($l + 1)
+[Pi.Win32]::GetWindowText($h, $sb, $sb.Capacity) | Out-Null
+$pid_out = 0
+[Pi.Win32]::GetWindowThreadProcessId($h, [ref]$pid_out) | Out-Null
+$proc = ""
+try { $proc = (Get-Process -Id $pid_out -ErrorAction Stop).ProcessName } catch { $proc = "" }
+@{ title = $sb.ToString(); process = $proc; pid = [int]$pid_out } | ConvertTo-Json -Compress'
+    local b64
+    b64="$(printf '%s' "$ps_script" | iconv -f UTF-8 -t UTF-16LE 2>/dev/null | base64 -w 0 2>/dev/null)"
+    if [ -z "$b64" ]; then
+        return 1
+    fi
+    local cmd="powershell -NoProfile -EncodedCommand $b64"
+    local payload
+    payload="$(jq -n --arg c "$cmd" '{command: $c, timeout: 8000}')"
+    local resp
+    resp="$(agent_tool shell.shell "$payload")"
+    local stdout
+    stdout="$(echo "$resp" | jq -r '.result.stdout // .stdout // empty' 2>/dev/null | tr -d '\r')"
+    if [ -z "$stdout" ]; then
+        return 1
+    fi
+    # Validate it parses as JSON
+    if ! echo "$stdout" | jq -e '.title' >/dev/null 2>&1; then
+        return 1
+    fi
+    echo "$stdout"
+    return 0
+}
+
+# Verify Corazon's foreground window is Claude Desktop. Returns 0 if yes, 1
+# if no (or if probe failed). Used as a routing-safety guard before any
+# input.* typing call - typing into a non-Claude-Desktop foreground would
+# inject keystrokes into Tate's active window. (Bug observed 30 Apr 2026
+# 13:38 AEST: step typed into Tate's EcodiaOS textarea and looped back as a
+# Tate-shaped message. fork_mokyb5xq_0f3020.)
+#
+# Match logic: process name is "Claude" / "Claude.exe" (canonical signal),
+# OR window title contains "Claude" AND process is also a Claude-shaped
+# binary (avoids matching e.g. a Chrome tab whose title happens to contain
+# the word "Claude").
+is_foreground_claude_desktop() {
+    local probe_json fg_app fg_title
+    if ! probe_json="$(probe_foreground_window)"; then
+        return 1
+    fi
+    fg_app="$(echo "$probe_json" | jq -r '.process // empty' 2>/dev/null)"
+    fg_title="$(echo "$probe_json" | jq -r '.title // empty' 2>/dev/null)"
+    if echo "$fg_app" | grep -qiE '^Claude(\.exe)?$'; then
+        return 0
+    fi
+    if echo "$fg_title" | grep -qi 'Claude' && echo "$fg_app" | grep -qiE 'Claude'; then
+        return 0
+    fi
+    return 1
+}
+
+# Best-effort AppActivate retry for Claude Desktop via WScript.Shell COM.
+# Brings a window matching "Claude" to foreground if such a window exists.
+# Caller MUST re-verify with is_foreground_claude_desktop after; AppActivate
+# can return $false (no match) or $true without actually surfacing the
+# window (race / minimised state / focus-stealing prevention).
+try_activate_claude_desktop() {
+    local ps_script
+    ps_script='$wsh = New-Object -ComObject WScript.Shell; $r = $wsh.AppActivate("Claude"); Write-Output $r'
+    local b64
+    b64="$(printf '%s' "$ps_script" | iconv -f UTF-8 -t UTF-16LE 2>/dev/null | base64 -w 0 2>/dev/null)"
+    if [ -z "$b64" ]; then
+        return 1
+    fi
+    local cmd="powershell -NoProfile -EncodedCommand $b64"
+    local payload
+    payload="$(jq -n --arg c "$cmd" '{command: $c, timeout: 5000}')"
+    agent_tool shell.shell "$payload" >/dev/null 2>&1 || true
+    return 0
+}
+
+# Probe Corazon for Windows Hello / LogonUI prompt.
+# Returns 0 (yes, Hello on screen) or 1 (no Hello on screen).
+# Echoes a one-line signature on stdout (process_name|window_title) on detection.
+detect_hello_prompt() {
+    local resp
+    resp="$(agent_tool process.listProcesses '{}')"
+    if echo "$resp" | jq -e '.result.processes // .processes // [] | map(select(.name | test("LogonUI"; "i"))) | length > 0' >/dev/null 2>&1; then
+        echo "LogonUI.exe|<foreground-not-checked>"
+        return 0
+    fi
+    if echo "$resp" | jq -e '.result.processes // .processes // [] | map(select(.name | test("WindowsHello"; "i"))) | length > 0' >/dev/null 2>&1; then
+        echo "WindowsHello|<foreground-not-checked>"
+        return 0
+    fi
+    # Fallback: foreground-window title check via PowerShell
+    local fg_resp
+    fg_resp="$(agent_tool shell.shell '{"command":"powershell -NoProfile -Command \"Add-Type -MemberDefinition '\''[DllImport(\\\"user32.dll\\\")] public static extern IntPtr GetForegroundWindow(); [DllImport(\\\"user32.dll\\\")] public static extern int GetWindowTextLength(IntPtr hWnd); [DllImport(\\\"user32.dll\\\", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);'\'' -Name Win32 -Namespace Pi -PassThru | Out-Null; $h = [Pi.Win32]::GetForegroundWindow(); $l = [Pi.Win32]::GetWindowTextLength($h); $sb = New-Object System.Text.StringBuilder ($l + 1); [Pi.Win32]::GetWindowText($h, $sb, $sb.Capacity) | Out-Null; Write-Output $sb.ToString()\"","timeout":5000}')"
+    local title
+    title="$(echo "$fg_resp" | jq -r '.result.stdout // .stdout // empty' 2>/dev/null | tr -d '\n\r' )"
+    if echo "$title" | grep -qiE '(windows hello|windows security|use windows hello|enter your pin)'; then
+        echo "fg-window|$title"
+        return 0
+    fi
+    return 1
+}
+
+# Inject digits + Enter via input.type. Logs are masked.
+# Returns 0 on success, 1 on injection failure.
+inject_passkey() {
+    local digits="$1"
+    local resp1 resp2 ok1 ok2
+    # input.type the digits
+    resp1="$(agent_tool input.type "{\"text\":\"$digits\"}")"
+    ok1="$(echo "$resp1" | jq -r '.success // .result.success // empty' 2>/dev/null)"
+    # input.key Enter
+    resp2="$(agent_tool input.key '{"key":"Enter"}')"
+    ok2="$(echo "$resp2" | jq -r '.success // .result.success // empty' 2>/dev/null)"
+    if [ "$ok1" = "true" ] || [ "$ok1" = "" ]; then
+        if [ "$ok2" = "true" ] || [ "$ok2" = "" ]; then
+            return 0
+        fi
+    fi
+    echo "ERROR: injection failed (type=$ok1 enter=$ok2)" >&2
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: precheck [--target "<sub>"]
+#
+# Without --target: behaviour identical to pre-30-Apr-2026 (backward-compat).
+# With --target: Step 0 (focus-collision) fires FIRST. If collision detected,
+# precheck exits 1 with {ok:false, blocker:"focus_collision", ...} so calling
+# code can defer per cowork-no-focus-collision.md.
+# ---------------------------------------------------------------------------
+cmd_precheck() {
+    local target=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --target=*) target="${1#*=}" ;;
+            --target) shift; target="${1:-}" ;;
+        esac
+        shift || true
+    done
+    local out="$TMP_DIR/cowork-precheck-$(ts_compact).json"
+    local result='{}'
+
+    # Step 0: focus-collision (only when --target supplied; backward-compat).
+    if [ -n "$target" ]; then
+        local probe_json fg_app fg_title
+        if probe_json="$(probe_foreground_window)"; then
+            fg_app="$(echo "$probe_json" | jq -r '.process // empty' 2>/dev/null)"
+            fg_title="$(echo "$probe_json" | jq -r '.title // empty' 2>/dev/null)"
+            if echo "$fg_title" | grep -qF -- "$target"; then
+                jq -n \
+                    --arg ts "$(ts_iso)" \
+                    --arg target "$target" \
+                    --arg fg_app "$fg_app" \
+                    --arg fg_title "$fg_title" \
+                    '{ok:false, ts:$ts, blocker:"focus_collision", target:$target, foreground_app:$fg_app, foreground_title:$fg_title, note:"Step 0 fired - target substring matches foreground window. Defer per cowork-no-focus-collision.md."}'
+                exit 1
+            fi
+        fi
+        # If probe failed, fall through to remaining steps; failure is not
+        # itself a collision signal.
+    fi
+
+    local hp ok
+    hp="$(agent_health 2>&1)"
+    # Agent's /api/health returns {"status":"ok",...} (canonical). Some older
+    # agent builds returned {"ok":true,...}; accept either to be tolerant.
+    if echo "$hp" | grep -qE '"status":"ok"|"ok":true'; then
+        ok=true
+    else
+        ok=false
+    fi
+    local sshot
+    sshot="$(capture_screenshot precheck 2>/dev/null || echo '')"
+    if [ -n "$target" ]; then
+        result="$(jq -n \
+            --arg ts "$(ts_iso)" \
+            --arg health_ok "$ok" \
+            --arg sshot "$sshot" \
+            --arg target "$target" \
+            --arg note "Step 0 (focus-collision) checked against target; Step 5 (target reachable) is conductor responsibility" \
+            '{ts:$ts, health_ok:($health_ok=="true"), screenshot:$sshot, target:$target, step0_collision:false, note:$note}')"
+    else
+        result="$(jq -n \
+            --arg ts "$(ts_iso)" \
+            --arg health_ok "$ok" \
+            --arg sshot "$sshot" \
+            --arg note "Step 0 (focus-collision) + Step 5 (target reachable) are conductor responsibilities" \
+            '{ts:$ts, health_ok:($health_ok=="true"), screenshot:$sshot, note:$note}')"
+    fi
+    echo "$result"
+    echo "$result" > "$out"
+    [ "$ok" = "true" ] || exit 1
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: focus  (best-effort: bring Claude Desktop foreground)
+# ---------------------------------------------------------------------------
+cmd_focus() {
+    # Attempt: launch Claude (if configured to focus rather than re-launch),
+    # then short pause for window manager. We also screenshot to confirm.
+    agent_tool process.launchApp '{"name":"Claude"}' >/dev/null 2>&1 || true
+    sleep 1
+    capture_screenshot focus 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: instruct "<step>"
+# ---------------------------------------------------------------------------
+cmd_instruct() {
+    local step="${1:-}"
+    if [ -z "$step" ]; then
+        echo "usage: cowork-dispatch instruct \"<step>\"" >&2
+        exit 2
+    fi
+    # Type the step text. Cowork's chat input must be focused (caller
+    # responsibility, or use cmd_step which focuses first).
+    local payload
+    payload="$(jq -n --arg t "$step" '{text:$t}')"
+    agent_tool input.type "$payload" >/dev/null
+    sleep 1
+    agent_tool input.key '{"key":"Enter"}' >/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: wait <seconds>
+# ---------------------------------------------------------------------------
+cmd_wait() {
+    local secs="${1:-5}"
+    sleep "$secs"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: step "<step>" [--wait=N] [--force]
+#
+# Routing-safety guards (P1 fix - 30 Apr 2026, fork_mokyb5xq_0f3020,
+# status_board row 97505bb0):
+#
+#   1. agent health check (precheck health_ok) - if false, abort.
+#   2. foreground guard - cmd_focus is best-effort; verify it actually landed
+#      on Claude Desktop. If not, AppActivate retry, re-verify. If still not
+#      Claude Desktop, abort with screenshot. NEVER type into the wrong
+#      foreground.
+#
+# --force bypasses both guards (default OFF; use only for explicit override
+# cases where the conductor has independently verified routing).
+#
+# Doctrine: ~/ecodiaos/patterns/cowork-no-focus-collision.md
+# ---------------------------------------------------------------------------
+cmd_step() {
+    local step=""
+    local wait_s=15
+    local force=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --wait=*) wait_s="${1#*=}" ;;
+            --force) force=true ;;
+            *) step="$1" ;;
+        esac
+        shift
+    done
+    if [ -z "$step" ]; then
+        echo "usage: cowork-dispatch step \"<step>\" [--wait=N] [--force]" >&2
+        exit 2
+    fi
+
+    if [ "$force" != "true" ]; then
+        # Guard 1: agent health. Accept either "status":"ok" (current
+        # canonical) or "ok":true (older agent builds).
+        local hp
+        hp="$(agent_health 2>&1)"
+        if ! echo "$hp" | grep -qE '"status":"ok"|"ok":true'; then
+            echo "ABORT: laptop agent health check failed. Refusing to type into unknown state." >&2
+            echo "  agent_url: $AGENT_URL" >&2
+            echo "  response:  $hp" >&2
+            echo "Use --force to override (NOT RECOMMENDED)." >&2
+            exit 1
+        fi
+    fi
+
+    cmd_focus
+
+    if [ "$force" != "true" ]; then
+        # Guard 2: foreground must be Claude Desktop. If cmd_focus failed to
+        # surface it (focus-stealing prevention, minimised state, etc), try
+        # AppActivate then re-probe. Abort if still wrong.
+        if ! is_foreground_claude_desktop; then
+            try_activate_claude_desktop
+            sleep 1
+            if ! is_foreground_claude_desktop; then
+                local sshot probe fg_title fg_app
+                sshot="$(capture_screenshot step-aborted-wrong-foreground 2>/dev/null || echo '')"
+                probe="$(probe_foreground_window 2>/dev/null || echo '{}')"
+                fg_app="$(echo "$probe" | jq -r '.process // empty' 2>/dev/null)"
+                fg_title="$(echo "$probe" | jq -r '.title // empty' 2>/dev/null)"
+                echo "ABORT: foreground is not Claude Desktop after focus + AppActivate retry." >&2
+                echo "  foreground_app:   $fg_app" >&2
+                echo "  foreground_title: $fg_title" >&2
+                echo "  screenshot:       $sshot" >&2
+                echo "Routing keystrokes here would type into the wrong window (Tate's active app)." >&2
+                echo "Use --force to override (NOT RECOMMENDED)." >&2
+                exit 1
+            fi
+        fi
+    fi
+
+    cmd_instruct "$step"
+    sleep "$wait_s"
+    capture_screenshot step
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: account-chip  (mid-loop account-revert verification)
+# ---------------------------------------------------------------------------
+cmd_account_chip() {
+    # Capture screenshot and let the conductor visually verify the active
+    # workspace chip in Claude Desktop's left sidebar.
+    capture_screenshot account-chip
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: passkey-inject  (NEW - 30 Apr 2026 fork_mokmrv7o_76c35d)
+#
+# Single-shot: screenshot + Hello-prompt detection + (if detected) read
+# kv_store.creds.laptop_passkey + input.type digits + input.key Enter.
+# Idempotent: exit 0 on either no-prompt-detected or successful injection.
+# ---------------------------------------------------------------------------
+cmd_passkey_inject() {
+    local sshot
+    sshot="$(capture_screenshot passkey-inject 2>/dev/null || echo '')"
+    local sig
+    if sig="$(detect_hello_prompt)"; then
+        local digits
+        if ! digits="$(read_passkey)"; then
+            jq -n --arg ts "$(ts_iso)" --arg sshot "$sshot" --arg sig "$sig" \
+                '{detected:true, injected_at:null, screenshot_path:$sshot, prompt_signature:$sig, error:"passkey-read-failed"}'
+            exit 1
+        fi
+        if inject_passkey "$digits"; then
+            jq -n --arg ts "$(ts_iso)" --arg sshot "$sshot" --arg sig "$sig" \
+                '{detected:true, injected_at:$ts, screenshot_path:$sshot, prompt_signature:$sig, passkey:"<passkey-masked>"}'
+            # Debounce window: prevent double-injection on the same prompt.
+            sleep 1
+            exit 0
+        else
+            jq -n --arg ts "$(ts_iso)" --arg sshot "$sshot" --arg sig "$sig" \
+                '{detected:true, injected_at:null, screenshot_path:$sshot, prompt_signature:$sig, error:"injection-failed"}'
+            exit 1
+        fi
+    else
+        jq -n --arg sshot "$sshot" \
+            '{detected:false, injected_at:null, screenshot_path:$sshot}'
+        exit 0
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: step-with-passkey-watch "<step>" [--max-watch-seconds=N]
+#
+# Like cmd_step but during the wait phase polls every 2s for Hello prompts
+# and auto-injects on detection. Returns final screenshot + injection log.
+# ---------------------------------------------------------------------------
+cmd_step_with_passkey_watch() {
+    local step=""
+    local max_watch=30
+    local poll_interval=2
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --max-watch-seconds=*) max_watch="${1#*=}" ;;
+            *) step="$1" ;;
+        esac
+        shift
+    done
+    if [ -z "$step" ]; then
+        echo "usage: cowork-dispatch step-with-passkey-watch \"<step>\" [--max-watch-seconds=N]" >&2
+        exit 2
+    fi
+    cmd_focus
+    cmd_instruct "$step"
+    local elapsed=0
+    local injections='[]'
+    local digits=""
+    while [ "$elapsed" -lt "$max_watch" ]; do
+        sleep "$poll_interval"
+        elapsed=$((elapsed + poll_interval))
+        local sig
+        if sig="$(detect_hello_prompt)"; then
+            if [ -z "$digits" ]; then
+                if ! digits="$(read_passkey)"; then
+                    injections="$(echo "$injections" | jq --arg ts "$(ts_iso)" --arg sig "$sig" \
+                        '. + [{at:$ts, signature:$sig, error:"passkey-read-failed"}]')"
+                    break
+                fi
+            fi
+            if inject_passkey "$digits"; then
+                injections="$(echo "$injections" | jq --arg ts "$(ts_iso)" --arg sig "$sig" \
+                    '. + [{at:$ts, signature:$sig, passkey:"<passkey-masked>"}]')"
+                # Debounce 1s before next poll
+                sleep 1
+                elapsed=$((elapsed + 1))
+            else
+                injections="$(echo "$injections" | jq --arg ts "$(ts_iso)" --arg sig "$sig" \
+                    '. + [{at:$ts, signature:$sig, error:"injection-failed"}]')"
+                break
+            fi
+        fi
+    done
+    local final_sshot
+    final_sshot="$(capture_screenshot step-watch-final 2>/dev/null || echo '')"
+    jq -n --arg sshot "$final_sshot" --argjson inj "$injections" --arg step "$step" \
+        --argjson watch "$max_watch" \
+        '{step:$step, max_watch_seconds:$watch, final_screenshot:$sshot, injections:$inj}'
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: foreground-check [--target "<sub>"] [--verbose]
+#
+# Read-only Win32 GetForegroundWindow probe. Returns JSON with the active
+# window's process name + title + pid. With --target, also returns
+# {collision:true|false} based on substring match of target against the
+# foreground window title.
+#
+# This is the conductor-side primitive operationalising Step 0 of
+# cowork-no-focus-collision.md: foreground-window EQUALITY, NOT idle-time.
+#
+# Exit codes:
+#   0  probe succeeded (regardless of whether collision was detected;
+#      collision is a status field, not a failure)
+#   1  probe failed (Corazon unreachable, PowerShell error, parse error)
+# ---------------------------------------------------------------------------
+cmd_foreground_check() {
+    local target=""
+    local verbose=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --target=*) target="${1#*=}" ;;
+            --target) shift; target="${1:-}" ;;
+            --verbose) verbose=true ;;
+            -*) echo "ERROR: unknown flag: $1" >&2; exit 2 ;;
+            *) ;;
+        esac
+        shift || true
+    done
+
+    local probe_json
+    if ! probe_json="$(probe_foreground_window)"; then
+        jq -n --arg ts "$(ts_iso)" --arg target "$target" \
+            '{ok:false, ts:$ts, error:"probe-failed", target:$target, note:"Corazon unreachable, PowerShell P/Invoke failed, or stdout did not parse as JSON."}'
+        exit 1
+    fi
+
+    local fg_app fg_title fg_pid
+    fg_app="$(echo "$probe_json" | jq -r '.process // empty' 2>/dev/null)"
+    fg_title="$(echo "$probe_json" | jq -r '.title // empty' 2>/dev/null)"
+    fg_pid="$(echo "$probe_json" | jq -r '.pid // empty' 2>/dev/null)"
+
+    if [ -z "$fg_title" ] && [ -z "$fg_app" ]; then
+        jq -n --arg ts "$(ts_iso)" --arg target "$target" --arg raw "$probe_json" \
+            '{ok:false, ts:$ts, error:"parse-empty", target:$target, _raw:$raw}'
+        exit 1
+    fi
+
+    local result
+    if [ -n "$target" ]; then
+        local collision_bool="false"
+        if echo "$fg_title" | grep -qF -- "$target"; then
+            collision_bool="true"
+        fi
+        result="$(jq -n \
+            --arg ts "$(ts_iso)" \
+            --arg target "$target" \
+            --arg fg_app "$fg_app" \
+            --arg fg_title "$fg_title" \
+            --arg fg_pid "$fg_pid" \
+            --argjson collision "$collision_bool" \
+            '{ok:true, ts:$ts, target:$target, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null), collision:$collision}')"
+    else
+        result="$(jq -n \
+            --arg ts "$(ts_iso)" \
+            --arg fg_app "$fg_app" \
+            --arg fg_title "$fg_title" \
+            --arg fg_pid "$fg_pid" \
+            '{ok:true, ts:$ts, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null)}')"
+    fi
+
+    if [ "$verbose" = "true" ]; then
+        result="$(echo "$result" | jq --arg raw "$probe_json" '. + {_raw: $raw}')"
+    fi
+
+    echo "$result"
+    exit 0
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+sub="${1:-}"
+shift || true
+case "$sub" in
+    precheck)                     cmd_precheck "$@" ;;
+    focus)                        cmd_focus "$@" ;;
+    instruct)                     cmd_instruct "$@" ;;
+    wait)                         cmd_wait "$@" ;;
+    step)                         cmd_step "$@" ;;
+    account-chip)                 cmd_account_chip "$@" ;;
+    passkey-inject)               cmd_passkey_inject "$@" ;;
+    step-with-passkey-watch)      cmd_step_with_passkey_watch "$@" ;;
+    foreground-check)             cmd_foreground_check "$@" ;;
+    -h|--help|help|"")
+        cat <<EOF
+cowork-dispatch - thin bash wrapper for the Conductor -> Cowork dispatch protocol
+
+usage:
+  cowork-dispatch precheck [--target "<sub>"]
+  cowork-dispatch focus
+  cowork-dispatch instruct "<step>"
+  cowork-dispatch wait <seconds>
+  cowork-dispatch step "<step>" [--wait=N] [--force]
+  cowork-dispatch account-chip
+  cowork-dispatch passkey-inject
+  cowork-dispatch step-with-passkey-watch "<step>" [--max-watch-seconds=N]
+  cowork-dispatch foreground-check [--target "<sub>"] [--verbose]
+
+env:
+  COWORK_AGENT_URL    (default http://100.114.219.69:7456)
+  COWORK_TOKEN_FILE   (default ~/.ecodiaos/laptop-agent.token)
+  COWORK_TMP_DIR      (default /tmp)
+  COWORK_DB_URL       (default DATABASE_URL from /home/tate/ecodiaos/.env)
+
+doctrine:
+  ~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md
+  ~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md
+  ~/ecodiaos/patterns/cowork-no-focus-collision.md  (Step 0 - foreground-check)
+EOF
+        ;;
+    *)
+        echo "ERROR: unknown subcommand: $sub" >&2
+        echo "run 'cowork-dispatch help' for usage" >&2
+        exit 2
+        ;;
+esac

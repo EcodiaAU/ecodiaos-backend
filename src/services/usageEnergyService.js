@@ -359,20 +359,29 @@ function _accountHealth(account) {
 
   // Rejected = completely unusable UNLESS the reset time has passed.
   // Without this, once we mark an account rejected we stay on Bedrock forever.
-  // When weeklyResetsAt is in the past, clear rejection and treat as unknown
-  // (next quota-check will re-probe and update with real headers).
+  // Check BOTH weekly reset AND 5-hour session reset — if either has passed,
+  // the account is usable again. The quota-check will re-probe and update
+  // with real headers.
   if (state.rateLimitStatus === 'rejected') {
     const nowSec = Date.now() / 1000
-    const resetPassed = state.weeklyResetsAt && state.weeklyResetsAt < nowSec
-    if (resetPassed) {
-      logger.info('Account rejection auto-cleared: reset time passed', { account, weeklyResetsAt: state.weeklyResetsAt })
+    const weeklyResetPassed = state.weeklyResetsAt && state.weeklyResetsAt < nowSec
+    const sessionResetPassed = state.sessionResetsAt && state.sessionResetsAt < nowSec
+    if (weeklyResetPassed || sessionResetPassed) {
+      const resetType = weeklyResetPassed ? 'weekly' : '5h-session'
+      logger.info('Account rejection auto-cleared: reset time passed', {
+        account,
+        resetType,
+        weeklyResetsAt: state.weeklyResetsAt,
+        sessionResetsAt: state.sessionResetsAt,
+      })
       state.rateLimitStatus = 'allowed'
       state.rateLimitType = null
       state.weeklyUtilization = null  // force re-probe
+      state.sessionUtilization = null // clear 5h session too
       state.rejectionClearedAt = Date.now()  // debounce markAccountRejected for 5 min
       // Fire a fresh quota-check in the background (don't await — decision needs a value now)
       refreshQuotaCheck(account).catch(() => {})
-      return { score: 30, reason: 'reset_just_passed_reprobing' }
+      return { score: 30, reason: `reset_just_passed_reprobing (${resetType})` }
     }
     return { score: -10, reason: `rejected (${state.rateLimitType || 'unknown'})` }
   }
@@ -416,11 +425,13 @@ function _accountHealth(account) {
   return { score: Math.round(score), reason: 'healthy' }
 }
 
-// ─── Pick the best provider ─────────────────────────────────────────────────
-// Returns { provider, reason, isBedrockFallback } for the caller to use.
+// ─── Pick the best provider ────────────────────────────────────────────────
+// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } for the caller to use.
+// Priority: claude_max → claude_max_2 → deepseek (if enabled) → bedrock → best-effort
 function getBestProvider() {
-  const hasAccount2 = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
-  const hasBedrock  = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+  const hasAccount2   = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
+  const hasBedrock    = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+  const hasDeepseek   = process.env.DEEPSEEK_FALLBACK_ENABLED === 'true' && !!process.env.DEEPSEEK_API_KEY
 
   const health1 = _accountHealth('claude_max')
   const health2 = hasAccount2 ? _accountHealth('claude_max_2') : { score: -100, reason: 'not_configured' }
@@ -429,27 +440,35 @@ function getBestProvider() {
     acct1: { score: health1.score, reason: health1.reason },
     acct2: { score: health2.score, reason: health2.reason },
     hasBedrock,
+    hasDeepseek,
   })
 
   // Both usable — pick the healthier one
   if (health1.score > 0 && health2.score > 0) {
     if (health1.score >= health2.score) {
-      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isBedrockFallback: false }
+      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isBedrockFallback: false, isDeepseekFallback: false }
     }
-    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isBedrockFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
 
   // One usable — use it
   if (health1.score > 0) {
-    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isBedrockFallback: false }
+    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
   if (health2.score > 0) {
-    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isBedrockFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
 
-  // Both down — try Bedrock
+  const bothDownReason = `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`
+
+  // Both down — try DeepSeek before Bedrock
+  if (hasDeepseek) {
+    return { provider: 'deepseek', reason: `${bothDownReason} — using DeepSeek V4 Pro`, isBedrockFallback: false, isDeepseekFallback: true }
+  }
+
+  // DeepSeek not available — try Bedrock
   if (hasBedrock) {
-    return { provider: 'bedrock', reason: `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`, isBedrockFallback: true }
+    return { provider: 'bedrock', reason: bothDownReason, isBedrockFallback: true, isDeepseekFallback: false }
   }
 
   // Nothing available — return whichever is least bad
@@ -458,6 +477,7 @@ function getBestProvider() {
     provider: best,
     reason: `all providers exhausted — using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
     isBedrockFallback: false,
+    isDeepseekFallback: false,
   }
 }
 
@@ -566,6 +586,7 @@ async function getEnergy() {
     recommendedProvider: best.provider,
     providerReason: best.reason,
     isBedrockFallback: best.isBedrockFallback,
+    isDeepseekFallback: best.isDeepseekFallback,
     // ─── Self-tracked activity
     turnsThisWeek: selfTracked.turns,
     // ─── Token auth health
@@ -631,12 +652,53 @@ function _buildSummary({ acct1, acct2, active, hasRealData, turns, best }) {
 }
 
 // ─── Log a turn to our DB (for activity tracking / history) ──────────────────
-async function logUsage({ sessionId = null, source = 'os_session', provider = 'claude_max', model = null, inputTokens = 0, outputTokens = 0 }) {
+// Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): now also persists cache
+// tokens + estimated cost_usd so the /ops dashboard can surface
+// cache_hit_ratio + cost_per_turn_usd panels. Migration 082 added the
+// two cache columns; cost_usd column already existed but was never populated.
+// All new params optional — callers that don't pass them get the old shape.
+async function logUsage({
+  sessionId = null,
+  source = 'os_session',
+  provider = 'claude_max',
+  model = null,
+  inputTokens = 0,
+  outputTokens = 0,
+  cacheCreationTokens = 0,
+  cacheReadTokens = 0,
+  clientId = null,
+  projectId = null,
+} = {}) {
   try {
     const weekStart = _getWeekStart()
+    let costUsd = null
+    try {
+      const { estimateCostUsd } = require('../config/anthropicPricing')
+      costUsd = estimateCostUsd({
+        model,
+        inputTokens,
+        outputTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
+      })
+    } catch (priceErr) {
+      // Pricing module is additive; if anything goes wrong, persist null cost
+      // and continue. Never break logUsage on cost-estimation errors.
+      logger.debug('estimateCostUsd unavailable', { error: priceErr.message })
+    }
     await db`
-      INSERT INTO claude_usage (session_id, source, provider, model, input_tokens, output_tokens, week_start)
-      VALUES (${sessionId}, ${source}, ${provider}, ${model}, ${inputTokens}, ${outputTokens}, ${weekStart})
+      INSERT INTO claude_usage (
+        session_id, source, provider, model,
+        input_tokens, output_tokens,
+        cache_creation_input_tokens, cache_read_input_tokens,
+        cost_usd, week_start, client_id, project_id
+      )
+      VALUES (
+        ${sessionId}, ${source}, ${provider}, ${model},
+        ${inputTokens}, ${outputTokens},
+        ${cacheCreationTokens}, ${cacheReadTokens},
+        ${costUsd}, ${weekStart}, ${clientId}, ${projectId}
+      )
     `
     _cache = null
     _cacheAt = 0

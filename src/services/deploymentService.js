@@ -93,6 +93,66 @@ async function deploySession(sessionId) {
       }
     }
 
+    // ─── Self-modification path allowlist (SECURITY_HARDENING.md section 2.3) ───
+    // Hard-block before commit/push if any modified file matches DENY_PATHS,
+    // regardless of review outcome. Last line of defense against the
+    // prompt-injection self-RCE chain. Fires AFTER the no-changes early
+    // return (we have real changes to commit) but BEFORE git add.
+    {
+      const { checkDiff } = require('../lib/selfModAllowlist')
+      const filesChanged = session.files_changed || []
+      const allowlistResult = checkDiff(filesChanged)
+      if (!allowlistResult.allowed) {
+        const denied = allowlistResult.deniedFiles
+        logger.warn('Self-mod allowlist denied deploy', { sessionId, deniedFiles: denied })
+        await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+        try {
+          await db`
+            INSERT INTO notifications (type, message, metadata)
+            VALUES ('security_allowlist_blocked',
+                    ${'Self-mod allowlist blocked deploy: ' + denied.join(', ')},
+                    ${JSON.stringify({ sessionId, deniedFiles: denied })})
+          `
+        } catch (notifErr) {
+          logger.error('Failed to record allowlist block notification', { error: notifErr.message })
+        }
+        throw new Error(`Self-mod allowlist denied: ${denied.join(', ')}`)
+      }
+    }
+
+    // ─── §2.2 Dual-reviewer deploy-time gate ─────────────────────────
+    // Defense in depth against Review B bypass: even if factoryOversight
+    // decided to auto-deploy, this refuses to push self-mod code unless
+    // Review B explicitly approved. Shadow-mode verdicts ('shadow_*') do
+    // NOT gate here - the enforce decision lives in securityGate so both
+    // services agree on when to block. A null security_review_status on a
+    // self-mod session in enforce mode is treated as "gate never ran",
+    // which fails closed.
+    {
+      const isSelfMod = !!(session.self_modification || session.context_bundle?.selfModification)
+      if (isSelfMod) {
+        const { isEnforceMode, isApprovedStatus } = require('../lib/securityGate')
+        if (isEnforceMode() && !isApprovedStatus(session.security_review_status)) {
+          logger.warn('Self-mod deploy blocked at deploymentService: Review B not approved', {
+            sessionId,
+            status: session.security_review_status,
+          })
+          await db`UPDATE cc_sessions SET pipeline_stage = 'failed', deploy_status = 'failed' WHERE id = ${sessionId}`
+          try {
+            await db`
+              INSERT INTO notifications (type, message, metadata)
+              VALUES ('security_review_b_blocked',
+                      ${'Deploy refused: security_review_status = ' + (session.security_review_status || 'null')},
+                      ${JSON.stringify({ sessionId, status: session.security_review_status })})
+            `
+          } catch (notifErr) {
+            logger.error('Failed to record deploy-time Review B block', { error: notifErr.message })
+          }
+          throw new Error(`Self-mod deploy denied: Review B status = ${session.security_review_status || 'null'}`)
+        }
+      }
+    }
+
     git(['add', '-A'], repoPath)
     const commitMsg = [
       `Factory: ${session.initial_prompt.slice(0, 100)}`,
