@@ -343,14 +343,12 @@ function _resolveProviderForFork() {
 
   if (best.isDeepseekFallback) {
     provider = 'deepseek'
-    // Proxy strips thinking blocks — V4 Pro thinking signatures cause 400 on replay.
-    const deepseekProxy = require('./deepseekProxyService')
-    sessionEnv.ANTHROPIC_BASE_URL = deepseekProxy.getBaseUrl()
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
-    model = 'deepseek-v4-pro'
+    model = 'deepseek-v4-flash'
   } else if (best.isBedrockFallback) {
     provider = 'bedrock'
     if (env.AWS_ACCESS_KEY_ID) sessionEnv.AWS_ACCESS_KEY_ID = env.AWS_ACCESS_KEY_ID
