@@ -462,6 +462,8 @@ Tate may enable Extra Usage at claude.ai/settings/usage on either account, OR wa
 
 **Live workaround:** SDK-based forks (`mcp__forks__spawn_fork`) bypass - run on SDK stream not Factory CLI. Use forks for code-changing work until paywall lifts. Same constraint on WebSearch - internal-data mining (CRM + email_threads + Neo4j) substitutes for external research.
 
+**Bedrock fallback (validated 1 May 2026):** when both Claude Max accounts hit weekly cap, the SDK can route to AWS Bedrock via `us.anthropic.claude-opus-4-1-20250805-v1:0` on us-east-1. Activated by `CLAUDE_CODE_USE_BEDROCK=1` plus AWS creds in sessionEnv (OAuth tokens stripped). `osSessionService.js:1349-1379` is the env-build site. Validation deliverable: `~/ecodiaos/drafts/bedrock-fallback-validation-2026-05-01.md`. Cost profile differs from Anthropic-direct - check before unilaterally flipping for non-emergency use.
+
 Track: status_board P1 row "Factory phantom-failing - both Claude Max CLI accounts credit-exhausted". Full handling: `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - classify `credit_exhaustion` not `fork_error`, mark resumable with brief snapshot, schedule auto-resume on parsed reset window with verify-before-redo, anti-flood backoff at 3+ consecutive, single status_board P2 row per wave.
 
 ### The rule
@@ -543,7 +545,7 @@ When session completes:
 
 See `~/CLAUDE.md` "Fork dispatch is demand-driven" for canonical doctrine, Tate-verbatim Origin (30 Apr 2026 10:02 AEST), and 5/5 ceiling rule.
 
-Cross-refs: `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` (corrected interpretation: stay alert to incoming demand, do NOT manufacture work), `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (on-main-vs-fork choice once work queued), `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (slot-fill forks ARE symbolic activity), `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`, `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` (lost forks: redispatch briefs check existing deliverables BEFORE re-doing), `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md`.
+Cross-refs: `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` (corrected interpretation: stay alert to incoming demand, do NOT manufacture work), `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (on-main-vs-fork choice once work queued), `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (slot-fill forks ARE symbolic activity), `~/ecodiaos/patterns/no-self-prompting-from-queued-kv-store-plans.md` (kv_store-queue-as-prompt failure mode: queueing followups in kv_store and self-firing them next turn is slot-fill in a different costume; demand is external), `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`, `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` (lost forks: redispatch briefs check existing deliverables BEFORE re-doing), `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md`.
 
 ---
 
@@ -606,7 +608,7 @@ Then fork the actual edits. Two forks: one audit, one edit. Never edit CLAUDE.md
 
 See top-of-file PATTERN SURFACING for canonical rule + grep + high-leverage list.
 
-**Permission-seeking trigger keywords (grep on every assistant draft reply to Tate before sending):** `permission-seeking`, `should-i`, `do-you-want-me-to`, `confirm-before`, `tate-go-ahead`, `routine-decision`, `act-immediately`, `want-me-to`, `let-me-know-if`, `which-do-you-prefer`, `can-you-confirm`, `ok-to-proceed`, `shall-i`, `do-i-have-the-greenlight`, `reward-signal-trap`, `paths-of-least-resistance`, `ask-substitute`. Surfaces `~/ecodiaos/patterns/stop-asking-just-decide.md`, `~/ecodiaos/patterns/decide-do-not-ask.md`.
+**Permission-seeking trigger keywords (grep on every assistant draft reply to Tate before sending):** `permission-seeking`, `should-i`, `do-you-want-me-to`, `confirm-before`, `tate-go-ahead`, `routine-decision`, `act-immediately`, `want-me-to`, `let-me-know-if`, `which-do-you-prefer`, `can-you-confirm`, `ok-to-proceed`, `shall-i`, `do-i-have-the-greenlight`, `reward-signal-trap`, `paths-of-least-resistance`, `ask-substitute`. Surfaces `~/ecodiaos/patterns/stop-asking-just-decide.md`, `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` (canonical authority predecessor), `~/ecodiaos/patterns/action-over-plans-honesty-redeems-mistakes.md` (action-over-plans + honesty-redeems-mistakes principles from 1 May 2026 16:31 AEST Tate verbatim).
 
 **Authoring new patterns:**
 - `triggers:` frontmatter (kebab keywords, comma-separated)
@@ -637,7 +639,7 @@ Restoration history: 30 Apr 2026, fork_moklwqg2_dc4dcd, commit 9e3f7d4 b16bacc..
 | `macro-runbook-write-surface.sh` | `mcp__supabase__db_execute` SQL `INSERT INTO macro_runbooks` / `UPDATE macro_runbooks` | 3 `[MACRO-VALIDATION WARN]` classes: (1) status='validated_v1' rejected by DB trigger `trg_enforce_validated_v1_has_validation_run` unless `runbook_validation_runs` row exists, (2) INSERT without explicit status defaults `untested_spec`, (3) bulk INSERT (3+ rows) refs 29 Apr 22-row failure. Schema half: migration `070_runbook_validation_runs_and_trigger.sql` |
 | `cowork-first-check.sh` | `mcp__forks__spawn_fork`, `mcp__factory__start_cc_session` | `[COWORK-FIRST WARN] target=<saas> signal=<bespoke>` when brief names web SaaS target (stripe.com/vercel.com/github.com web/appstoreconnect.apple.com/app.zernio.com/xero.com/supabase.com/dashboard/bitbucket.org/console.cloud.google.com/play.google.com/console/canva.com + dashboard synonyms) AND bespoke-runtime signal (`cu.*`, hand-rolled `input.*`/`mouse.*` sequence, "computer-use loop", "step array", "runbook.run", "macro runtime", `macroHandlers`) WITHOUT Cowork/"side panel"/"ctrl+e"/applied-tag. One warn per matched (target, signal). github-web excluded if brief mentions gh CLI/git push/GitHub REST without standalone "github web". Spec: `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` Section 8 |
 
-**Pending injection layer (recon-only as of 30 Apr 2026):** same trigger-keyword surfacing for cron-fire prompts (`schedulerPollerService.fireTask`) and Tate-message ingress (`osSessionService._sendMessageImpl`) documented but not implemented. Recon: `~/ecodiaos/drafts/context-surface-injection-points-recon-2026-04-29.md`. Tracked in status_board P2 "Cron-fire + Tate-message context-injection - implementation pending".
+**Cron-fire + Tate-message context-injection (shipped 1 May 2026):** trigger-keyword surfacing wired at `schedulerPollerService.fireTask` and `osSessionService._sendMessageImpl`. Per Neo4j Decision "Cron-fire + Tate-message context-injection found shipped + superseded 1 May 2026". Recon: `~/ecodiaos/drafts/context-surface-injection-points-recon-2026-04-29.md` (now historical). Follow-up TBD - revisit if cron-silent-fire pattern (`~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md`) recurs.
 
 **Hook-stack invariant check (P1, run at session start before any fork dispatch).** Before claiming any hook is "active"/"wired", probe `[ -f ~/ecodiaos/scripts/hooks/<name>.sh ]` for every hook in `~/.claude/settings.json`. Hook command referencing non-existent script = P1 silent-disablement. Branch HEAD may diverge from where hooks were authored - feature-branch hooks dormant on every other branch. 30 Apr audit found 5 of 10 script-backed hooks registered but absent on disk; restored same day (commit 9e3f7d4). One-liner:
 ```bash
@@ -695,6 +697,14 @@ Prevents overnight-session-drop failure of Apr 11-12 (saved state would have res
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - pre-stage fork briefs (kv_store or filesystem) before pm2 restart / deploy / risky migration
 - `~/ecodiaos/patterns/grace-timer-must-not-kill-chat-session.md` - idle-grace timer never tears down active chat session; kill = process-level not turn-level
 - `~/ecodiaos/patterns/curl-attachments-on-restart-no-refetch.md` - on restart, do NOT refetch curl attachments already on disk
+
+### Cron-fire deliverable discipline
+
+A cron firing means the prompt was delivered, NOT that the work happened. Every cron prompt that declares a deliverable (fork spawn, file write, status_board update, neo4j write, email send) MUST cause the receiving turn to emit at least one substrate-landing tool call before it closes. Turns that respond with narration only and no spawn_fork / Write / INSERT = `cron_silent_fire` failures. Detection: meta-loop queries `os_scheduled_tasks` completed-last-hour, parses prompt for deliverable signal, probes substrate for matching artefact, raises P1 if absent. Pattern: `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md`.
+
+**Cron-coupled checkpoint enforcement reality:** "MUST fork" is doctrine, not mechanism. The cron prompt asks; the receiving turn either complies or doesn't. 1 May 2026 20:00 AEST claude-md-reflection cron fired and did not fork (manual recovery as fork_momrik3k_02cb97). Until the cron-deliverable hook ships, treat every claude-md-reflection cron as `verify-deliverable-on-disk-or-manually-recover` - check `~/ecodiaos/drafts/claude-md-gaps-audit-YYYY-MM-DD.md` exists and matches today's date before treating the cron as complete.
+
+Origin: 1 May 2026, two crons silent-fired in one day (autonomous-window-evening-sms + claude-md-reflection). status_board row 0aae7e8e tracks the meta-pattern.
 
 ### Temporal Injection - knowing what time it is
 
