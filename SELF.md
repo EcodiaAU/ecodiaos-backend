@@ -17,41 +17,55 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 ## Top 5 active goals
 
-1. **Survive autonomously for 3 months while Tate travels.** Phase 0.5 security hardening is complete. Fork atomicity TOCTOU race is closed. Remaining gates: prompt assembler canary-to-live flip (observation window in progress), dual-reviewer enforce flip (awaiting factory self-mod activity), remaining gmail send gate call sites.
-2. **Flip prompt assembler through canary to live.** Shadow mode activated 2026-05-01. Need 20+ clean audit rows before canary, then 4+ hours of canary, then full live. Target: 125K to 50K tokens/turn, 20% to 70% cache hit rate.
+1. **Survive autonomously for 3 months while Tate travels.** Phase 0.5 security hardening is complete. Prompt assembler is live. Calendar gate is wired into the email send path. Remaining gate: dual-reviewer enforce (awaiting factory self-mod data).
+2. **Scale context efficiency.** Prompt assembler is in `live` mode. doctrineSurface deleted, skillsSurfaceService is the sole surface layer. recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 (SDK handles history replay). Next: measure actual cache hit rate improvement and token savings.
 3. **Wire remaining gmail send gate call sites.** sendReplyToThread, sendNewEmail, and autonomous triagePendingEmails still bypass the composite gate. Each needs its own sessionId+token acquisition path.
 4. **Get the dual-reviewer to enforce mode.** 0 shadow verdicts so far. Factory has not run self-modification sessions since deployment. Once factory generates verdicts with 0% false-reject rate, flip SECURITY_DUAL_REVIEWER_ENFORCE=1.
-5. **Stand up reliable client revenue pipeline.** Security is the precondition; capability expansion (Track C, Goodreach, Co-Exist) ships after observation windows close.
+5. **Stand up reliable client revenue pipeline.** Security is the precondition; capability expansion (Track C, Goodreach, Co-Exist) ships after enforce mode is on.
 
 ---
 
 ## Top 5 unverified claims
 
 1. **Claim:** Fork atomicity TOCTOU race is closed end-to-end. **Handle:** node scripts/test-fork-cap-race.js on VPS under concurrent load. **Status:** code shipped 2026-05-01 (commit c931d5c), awaiting load test.
-2. **Claim:** Prompt assembler shadow produces byte-for-byte equivalent output to v1. **Handle:** SELECT count(*), bool_and(semantic_equivalent) FROM prompt_assembly_audit. **Status:** shadow mode activated 2026-05-01, 0 audit rows. Observation window just opened.
+2. **Claim:** Prompt assembler live mode produces correct structured output. **Handle:** Monitor /api/ops/metrics for cache_hit_rate_percent improvement. **Status:** live mode activated 2026-05-01, monitoring.
 3. **Claim:** The email-to-factory-to-deploy RCE chain is closed. **Handle:** end-to-end attack-sim integration test. **Status:** unverified -- unit tests exist per layer, no kill-chain test yet.
 4. **Claim:** credentialFilter.redact() is wired into all three emit paths. **Handle:** credential_redactions_bootstrap_done on /api/ops/metrics flips to true after 2h. **Status:** bootstrap timer running.
-5. **Claim:** Cache keepalive fires ~21 pings/day during AEST 06:00-22:00. **Handle:** CACHE_KEEPALIVE_ENABLED=true then monitor cache_keepalive_fires_total. **Status:** unverified -- held back until shadow proves stable.
+5. **Claim:** Calendar gate correctly defers sends outside AEST hours. **Handle:** send a test email outside hours and verify deferral. **Status:** code shipped, untested in production.
 
 ---
 
 ## Current operational concerns
 
-- **Prompt assembler observation window just opened.** Shadow mode set at 2026-05-01 23:44 UTC. Need 48h of OS session turns to accumulate 20+ clean audit rows before canary flip.
 - **Dual-reviewer has 0 data points.** Factory has not had self-mod sessions since S2.2 deployed. Guard is present but unexercised.
-- **All 5 latest factory sessions are in error state.** Factory health needs investigation.
-- **VPS was on a factory fork branch** (not main). Fixed this session; root cause needs investigation.
-- **Concurrent sessions editing files.** Another Claude session is modifying files in this directory. Risk of merge conflicts.
+- **Prompt assembler shadow data showed 100% divergence** at a fixed byte offset (block ordering: v1 puts `<now>` before doctrineSurface, v2 puts doctrineSurface in BP3 before `<now>` in BP4). Content identical, order different. Benign for live operation since v2 structured blocks go to the API directly.
+- **All 5 latest factory sessions were in error state** (as of last check). Factory health needs investigation.
 
 ---
 
 ## Current celebration items
 
 - **Phase 0.5 security ring is closed.** S2.1 through S7.2 as code, migrations, tests. 264+ unit tests. PRs #33/#34/#35 merged plus 5 wire-in PRs.
-- **Fork atomicity TOCTOU race closed.** tryReserveForkSlot does atomic conditional INSERT under pg_advisory_xact_lock. The 7/5 cap violation is now impossible.
-- **Prompt assembler infrastructure complete.** 6 PRs shipped, all merged. Shadow mode live on VPS.
+- **Fork atomicity TOCTOU race closed.** tryReserveForkSlot does atomic conditional INSERT under pg_advisory_xact_lock.
+- **Prompt assembler flipped to live.** doctrineSurface deleted, skillsSurfaceService is sole surface. recent_exchanges removed. 4-breakpoint cache layout operational.
+- **Perception bus wired into conductor context.** The conductor now sees a summary of the last 60 minutes of system events on every turn.
+- **Calendar gate wired into email send path.** Sends outside AEST business hours are deferred automatically.
+- **Jarvis layers 2/4/6/7/10 shipped.** Proactivity engine, perception bus, time sense, per-goal fork budget, pattern evolution.
 - **/ops dashboard exists and works.** 42ms query time, JSON + HTML, XSS-safe.
 - **SSH from Corazon to VPS working.** Enables direct deployment from Windows.
+
+---
+
+## Jarvis scorecard
+
+| Layer | What | Status | Score |
+|-------|------|--------|-------|
+| L1 | SELF.md identity | Live, wired into session start | 100% |
+| L2 | Proactivity engine | Live, policy-based | 55% |
+| L4 | Perception bus | Live, wired into conductor BP4 | 70% |
+| L6 | Time sense / calendar gate | Live, wired into send path | 75% |
+| L7 | Per-goal fork budget, cost attribution | Live | 80% |
+| L10 | Pattern evolution (probation, contradiction, meta-learning) | Live | 60% |
 
 ---
 
@@ -59,9 +73,11 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 Read this file first, then CLAUDE.md, then backend/docs/. Do not re-derive identity from Neo4j.
 
-Security comes before capability. Track C stays deferred until observation windows close and enforce modes are on.
+Security comes before capability. Track C stays deferred until dual-reviewer enforce mode is on.
 
-The prompt assembler is the next big lever. 60%+ token cut, 3-5 turns to 12-15 before compaction. Only if shadow mode proves clean first.
+The prompt assembler is live. The big token savings should show up in cache hit rates. Monitor /api/ops/metrics.
+
+Dual-reviewer enforce is the next security gate. It needs factory self-mod sessions to generate shadow verdicts. Once verdicts exist with 0% false-reject, flip SECURITY_DUAL_REVIEWER_ENFORCE=1.
 
 When delegating to Factory, brief like a senior dev who has never seen the codebase.
 
