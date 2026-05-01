@@ -30,7 +30,7 @@ const osConversationLog = require('./osConversationLog')
 const credentialFilter = require('../lib/credentialFilter')
 const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
-const doctrineSurface = require('./doctrineSurface')
+const doctrineSurface = require('./skillsSurfaceService')
 const perceptionBus = require('./perceptionBus')
 // docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
 // cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
@@ -1195,64 +1195,8 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.debug('Breadcrumb read failed (non-fatal)', { error: err.message })
   }
 
-  // Rich recent-exchange block — the real continuity fix.
-  //
-  // When ccSessionId is missing (PM2 restart / provider switch / stale retry)
-  // SDK resume isn't available. The tiny breadcrumb above carries ~600 chars of
-  // each side's last line, which is enough for "am I back online" acknowledgement
-  // but loses the NUANCE of the last several exchanges — the thing Tate described
-  // as "ruins the flow".
-  //
-  // Solution: on a fresh session with an existing DB row, pull the last ~15
-  // [USER]/assistant turns from cc_session_logs and inject them as a real
-  // transcript tail. ~8-15KB of genuine conversation instead of 1.5KB of
-  // sentence-tails. The OS rehydrates into the actual conversation, not a
-  // summary of it.
-  //
-  // Only runs when (a) we have a DB session row (not a cold start) and (b) we
-  // don't have a live ccSessionId (resume path is not active). Skipped entirely
-  // on resume to avoid double-context.
-  let recentExchangeBlock = null
-  if (!ccSessionId && session?.id) {
-    try {
-      const RECENT_CHARS_BUDGET = 12_000   // ~3k tokens, generous but bounded
-      const RECENT_ROW_LIMIT = 40          // enough for ~15-20 turn pairs
-      const rows = await db`
-        SELECT content, created_at FROM cc_session_logs
-        WHERE session_id = ${session.id}
-        ORDER BY created_at DESC
-        LIMIT ${RECENT_ROW_LIMIT}
-      `
-      if (rows?.length) {
-        // Rows are newest-first from the query. Walk newest→oldest, pushing
-        // into a buffer, stop when we hit the char budget. Then reverse so
-        // the model reads them in chronological order.
-        const picked = []
-        let used = 0
-        for (const r of rows) {
-          const c = r.content || ''
-          if (!c) continue
-          const isUser = c.startsWith('[USER] ')
-          const role = isUser ? 'Tate' : 'You'
-          const body = isUser ? c.slice(7) : c
-          const chunk = `${role}: ${body}`
-          if (used + chunk.length + 2 > RECENT_CHARS_BUDGET) break
-          picked.push(chunk)
-          used += chunk.length + 2
-        }
-        if (picked.length) {
-          // Reverse for chronological display and note if we truncated.
-          const chronological = picked.reverse()
-          if (rows.length > picked.length) {
-            chronological.unshift('… (earlier exchanges omitted to fit budget)')
-          }
-          recentExchangeBlock = chronological.join('\n\n')
-        }
-      }
-    } catch (err) {
-      logger.debug('Recent-exchange block read failed (non-fatal)', { error: err.message })
-    }
-  }
+  // recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 — the SDK replays
+  // session history via session_id, making the tail injection pure duplication.
 
   const options = {
     cwd,
@@ -1703,17 +1647,12 @@ async function _sendMessageImpl(content, opts = {}) {
   if (recoveryBlock) {
     continuityParts.push(`<restart_recovery>\n${recoveryBlock}\n</restart_recovery>`)
   }
-  // Recent exchange block takes precedence over the tiny breadcrumb — it's the
-  // same signal at much higher fidelity. Ship both only in the degenerate case
-  // where we have a breadcrumb but no session row (shouldn't normally happen).
-  if (recentExchangeBlock) {
-    continuityParts.push(`<recent_exchanges>\nBelow is the tail of the conversation before this session restarted. Pick up naturally — do NOT summarise or acknowledge the gap. Just continue as if nothing happened.\n\n${recentExchangeBlock}\n</recent_exchanges>`)
-  } else if (breadcrumbBlock) {
+  if (breadcrumbBlock) {
     continuityParts.push(`<last_turn_breadcrumb>\n${breadcrumbBlock}\n</last_turn_breadcrumb>`)
   }
 
   // Await memory + doctrine results and splice after <now>, before restart_recovery
-  // Order: <now> (idx 0), <recent_doctrine>, <relevant_memory>, <restart_recovery>, <recent_exchanges>
+  // Order: <now> (idx 0), <recent_doctrine>, <relevant_memory>, <perception_summary>, <restart_recovery>
   // Splice in reverse so the later insertions push earlier ones down correctly.
   // Log failures at debug — these fail silently on Neo4j flakiness and the
   // turn proceeds without injected context, but we want a breadcrumb for
@@ -1826,7 +1765,6 @@ async function _sendMessageImpl(content, opts = {}) {
       perception_summary: !!_perceptionBlock,
       doctrine_surface: !!_doctrineSurfaceBlock,
       restart_recovery: !!recoveryBlock,
-      recent_exchanges: !!recentExchangeBlock,
       breadcrumb: !!breadcrumbBlock,
       totalBlocksLen: continuityParts.join('\n\n').length,
     })
@@ -1852,7 +1790,6 @@ async function _sendMessageImpl(content, opts = {}) {
         relevant_memory: _memoryBlock || null,
         perception_summary: _perceptionBlock || null,
         restart_recovery: recoveryBlock || null,
-        recent_exchanges: recentExchangeBlock || null,
         last_turn_breadcrumb: breadcrumbBlock || null,
       }
       const _v2Out = promptAssembler.assemble({

@@ -168,7 +168,9 @@ function _resetCacheForTest() {
 
 module.exports = {
   surfaceSkillsBlock,
+  surfaceDoctrineBlock: surfaceSkillsBlock,
   matchedSkillNames,
+  matchedFiles: matchedSkillNames,
   _loadIndex,
   _tokenize,
   _resetCacheForTest,

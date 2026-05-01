@@ -34,8 +34,11 @@ jest.mock('../../config/logger', () => ({
   debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
 }))
 
-jest.mock('../doctrineSurface', () => ({
+jest.mock('../skillsSurfaceService', () => ({
   surfaceDoctrineBlock: jest.fn().mockReturnValue(''),
+  surfaceSkillsBlock: jest.fn().mockReturnValue(''),
+  matchedSkillNames: jest.fn().mockReturnValue([]),
+  matchedFiles: jest.fn().mockReturnValue([]),
 }))
 
 // Mock the audit module so we can inspect dispatch calls without touching DB.

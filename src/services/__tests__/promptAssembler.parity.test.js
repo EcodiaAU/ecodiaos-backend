@@ -83,8 +83,11 @@ jest.mock('../neo4jRetrieval', () => ({
   fusedSearch: jest.fn().mockResolvedValue([]),
   getRecentHighPriorityNodes: jest.fn().mockResolvedValue([]),
 }))
-jest.mock('../doctrineSurface', () => ({
-  surface: jest.fn().mockResolvedValue(''),
+jest.mock('../skillsSurfaceService', () => ({
+  surfaceSkillsBlock: jest.fn().mockReturnValue(''),
+  surfaceDoctrineBlock: jest.fn().mockReturnValue(''),
+  matchedSkillNames: jest.fn().mockReturnValue([]),
+  matchedFiles: jest.fn().mockReturnValue([]),
 }))
 
 // ─── Modules under test ───────────────────────────────────────────────────────
