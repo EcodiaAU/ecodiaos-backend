@@ -1312,6 +1312,9 @@ async function _sendMessageImpl(content, opts = {}) {
     options.model = 'deepseek-v4-flash'
     delete options.thinking
     delete options.resume
+    // Hard cap on tool-call turns: DeepSeek is pay-per-token so runaway agentic
+    // loops are expensive. 10 turns is enough for a real task; infinite loops get cut.
+    options.maxTurns = 10
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
   } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
