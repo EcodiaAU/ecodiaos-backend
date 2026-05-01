@@ -1310,16 +1310,14 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
     // Must pass the explicit model name — DeepSeek maps any unknown model string to
-    // deepseek-v4-flash (not v4-pro). Also strip the [1m] suffix we add for Claude Max:
-    // DeepSeek ignores anthropic-beta headers so the suffix just confuses the SDK.
-    options.model = 'deepseek-v4-pro'
-    // DeepSeek returns thinking blocks with Anthropic-signed signatures that are
-    // invalid when replayed in subsequent turns — causes 400 "Invalid signature".
-    // V4 Pro activates its own native thinking automatically; don't ask the SDK
-    // to manage thinking blocks at all.
+    // Use flash not pro: V4 Pro always activates thinking mode which produces
+    // Anthropic-format signatures that DeepSeek itself rejects when the SDK echoes
+    // them back in the next turn — 400 "Invalid signature in thinking block".
+    // Flash has no thinking mode, same 1M context / 384K output, no signature issue.
+    options.model = 'deepseek-v4-flash'
     delete options.thinking
     delete options.resume
-    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
+    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
   } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
     // Alert ONLY if a Max account was genuinely near cap — otherwise this is
