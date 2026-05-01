@@ -2021,7 +2021,7 @@ async function _sendMessageImpl(content, opts = {}) {
               // if the broadcast fails.
               if (!suppressOutput) {
                 try {
-                  const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '800000', 10)
+                  const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
                   const total = sessionTokenUsage.input + sessionTokenUsage.output
                   // Also surface the "context size" signal — for resumed sessions the
                   // SDK's per-turn input_tokens is roughly how much context we're
@@ -2503,7 +2503,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // Threshold signal: use last turn's input_tokens (= resumed context
     // size being sent each turn), NOT sessionTokenUsage.input+output
     // which is smaller because it accumulates only output across turns.
-    const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '800000', 10)
+    const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
     const contextFill = _lastTurnInputTokens || 0
     const shouldHandover = contextFill > handoverThreshold && !suppressOutput
     if (shouldHandover) {
