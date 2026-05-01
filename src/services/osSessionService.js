@@ -1832,18 +1832,12 @@ async function _sendMessageImpl(content, opts = {}) {
     })
   }
 
-  // ─── PROMPT_ASSEMBLY_V2 shadow dispatch ─────────────────────────────────
-  // docs/PROMPT_ASSEMBLY_SPEC.md §7. Under 'shadow' mode, run the assembler
-  // against the same turn_context this service just built, diff its output
-  // against v1, and write the audit row fire-and-forget. Under 'canary' a
-  // 20% bucket (deterministic sha256(session_id)) would route v2 to the
-  // model; default is 'off' so canary code never runs in prod until the
-  // flag is flipped. Under 'off' this whole block no-ops.
-  //
-  // CRITICAL: this is fire-and-forget. The assembler call is synchronous
-  // (pure string building) so it adds < 5ms; the audit insert runs on a
-  // microtask and is awaited nowhere. Losing an audit row is cheap;
-  // delaying a turn is expensive.
+  // ─── PROMPT_ASSEMBLY_V2 dispatch ────────────────────────────────────────
+  // docs/PROMPT_ASSEMBLY_SPEC.md §7. Modes: off|shadow|canary|live.
+  // shadow: v1 drives model, v2 runs alongside for audit comparison.
+  // canary: 20% bucket gets v2, rest v1, all audited.
+  // live: 100% v2, audit continues.
+  // off: no assembler work at all.
   try {
     const _mode = promptAssembler.resolveMode(env.PROMPT_ASSEMBLY_V2, dbSessionId)
     if (_mode.audit) {
