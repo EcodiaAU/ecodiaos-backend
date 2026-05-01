@@ -107,7 +107,11 @@ function _loadIndex(dir) {
  */
 function surfaceSkillsBlock(turnContent, options = {}) {
   const dir = options.dir || DEFAULT_SKILLS_DIR
-  const topK = options.topK || 5
+  // Hard cap: brief fork_momarm6e_60920d trimmed topK from 5 to 3 to drop
+  // per-turn injection cost. Skills beyond the top 3 collapse into a
+  // "+ N more not surfaced" tail rather than full text expansion. The full
+  // ranked list is still returned by matchedSkillNames() for telemetry.
+  const topK = options.topK || 3
 
   const contentTokens = new Set(_tokenize(turnContent))
   if (contentTokens.size === 0) return ''
@@ -115,7 +119,7 @@ function surfaceSkillsBlock(turnContent, options = {}) {
   const index = _loadIndex(dir)
   if (index.length === 0) return ''
 
-  const scored = index
+  const allScored = index
     .map(skill => {
       let score = 0
       for (const tok of skill.tokens) {
@@ -125,11 +129,16 @@ function surfaceSkillsBlock(turnContent, options = {}) {
     })
     .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, topK)
 
-  if (scored.length === 0) return ''
+  if (allScored.length === 0) return ''
 
-  const lines = scored.map((s, i) => `${i + 1}. [skill] ${s.skill.name}: ${s.skill.description}`)
+  const top = allScored.slice(0, topK)
+  const overflow = allScored.length - top.length
+
+  const lines = top.map((s, i) => `${i + 1}. [skill] ${s.skill.name}: ${s.skill.description}`)
+  if (overflow > 0) {
+    lines.push(`+ ${overflow} more not surfaced (run \`Grep "triggers:" ~/ecodiaos/patterns/\` if you need the rest)`)
+  }
   return `<skills_surface>\n${lines.join('\n')}\n</skills_surface>`
 }
 
