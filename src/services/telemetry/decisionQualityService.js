@@ -24,6 +24,22 @@
 
 const { Client } = require('pg')
 
+/**
+ * Minimum age (in days) before a pattern file is eligible to be flagged as a
+ * dormant_pattern_candidate. The dormant signal asks "no surface_event in 90
+ * days?" - a file younger than this window cannot satisfy that lookback by
+ * construction, so flagging it is a structural false positive.
+ *
+ * Set to 14 days (conservative floor) per drift-check post-processor audit
+ * 1 May 2026 (drafts/drift-check-1-may-2026-1940-aest.md): 86 of 86 dormant
+ * flags emitted that run were against patterns authored <2 days prior.
+ *
+ * Future tightening: gate this to >= surface lookback (currently 90d) instead
+ * of a flat 14d. Held off pending decision on whether the lookback itself
+ * should shorten.
+ */
+const DORMANT_PATTERN_MIN_AGE_DAYS = 14
+
 let _env = null
 function getEnv() {
   if (_env) return _env
@@ -246,8 +262,22 @@ async function computeDriftSignals() {
     `)
     const surfacedSet = new Set(surfaced.rows.map(r => r.pattern_path))
 
+    const dormantMinAgeMs = DORMANT_PATTERN_MIN_AGE_DAYS * 24 * 60 * 60 * 1000
+    const now = Date.now()
+
     for (const f of allPatternFiles) {
       if (!surfacedSet.has(f)) {
+        // Filter newly-authored patterns. A file created less than
+        // DORMANT_PATTERN_MIN_AGE_DAYS ago cannot have 90 days of surface
+        // history; flagging it as dormant is a structural false positive.
+        // Origin: drift-check post-processor audit 1 May 2026.
+        let ageMs = Infinity
+        try {
+          const stat = fs.statSync(f)
+          ageMs = now - stat.mtimeMs
+        } catch { /* file disappeared between readdir and stat - treat as old */ }
+        if (ageMs < dormantMinAgeMs) continue
+
         flags.push({
           flag_type: 'dormant_pattern_candidate',
           name: `Dormant pattern: ${path.basename(f)}`,
