@@ -280,8 +280,8 @@ function isInCanaryBucket(sessionId) {
 
 // ─── Mode resolution ─────────────────────────────────────────────────────────
 // Returns the effective path (v1|v2) and whether the audit writer should log
-// this turn. PR 2 ships all three modes infra-complete; spec §7 gates the
-// flip from shadow→canary→full on 48h of clean audit rows.
+// this turn. Modes: off → shadow → canary → live. 'live' routes 100% through
+// v2 with continued auditing.
 
 function resolveMode(modeEnv, sessionId) {
   const mode = (modeEnv || 'off').toLowerCase()
@@ -291,6 +291,7 @@ function resolveMode(modeEnv, sessionId) {
     const v2 = isInCanaryBucket(sessionId)
     return { mode: 'canary', path: v2 ? 'v2' : 'v1', audit: true }
   }
+  if (mode === 'live') return { mode: 'live', path: 'v2', audit: true }
   logger.warn('promptAssembler: unknown PROMPT_ASSEMBLY_V2 value, defaulting to off', { modeEnv })
   return { mode: 'off', path: 'v1', audit: false }
 }
