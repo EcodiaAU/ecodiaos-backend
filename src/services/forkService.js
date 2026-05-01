@@ -391,7 +391,7 @@ function _resolveProviderForFork() {
       sessionEnv.CLAUDE_CONFIG_DIR = env.CLAUDE_CONFIG_DIR_1
     }
   }
-  return { provider, env: sessionEnv, model }
+  return { provider, env: sessionEnv, model, isDeepseek: best.isDeepseekFallback }
 }
 
 // ── Core: spawn one fork ────────────────────────────────────────────────────
@@ -419,7 +419,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
   })
 
   const cwd = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
-  const { provider, env: sessionEnv, model } = _resolveProviderForFork()
+  const { provider, env: sessionEnv, model, isDeepseek } = _resolveProviderForFork()
   const abort = new AbortController()
   const startedAt = Date.now()
 
@@ -466,7 +466,9 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     includePartialMessages: true,
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
-    thinking: { type: 'enabled', budget_tokens: 1500 },
+    // DeepSeek thinking blocks carry Anthropic-signed signatures invalid on replay — omit.
+    // V4 Pro activates its own native thinking automatically without the SDK option.
+    ...(!isDeepseek && { thinking: { type: 'enabled', budget_tokens: 1500 } }),
     mcpServers,
     allowedTools: [
       ...Object.keys(mcpServers).map(n => `mcp__${n}__*`),
