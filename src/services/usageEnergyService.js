@@ -425,11 +425,13 @@ function _accountHealth(account) {
   return { score: Math.round(score), reason: 'healthy' }
 }
 
-// ─── Pick the best provider ─────────────────────────────────────────────────
-// Returns { provider, reason, isBedrockFallback } for the caller to use.
+// ─── Pick the best provider ────────────────────────────────────────────────
+// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } for the caller to use.
+// Priority: claude_max → claude_max_2 → deepseek (if enabled) → bedrock → best-effort
 function getBestProvider() {
-  const hasAccount2 = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
-  const hasBedrock  = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+  const hasAccount2   = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
+  const hasBedrock    = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+  const hasDeepseek   = process.env.DEEPSEEK_FALLBACK_ENABLED === 'true' && !!process.env.DEEPSEEK_API_KEY
 
   const health1 = _accountHealth('claude_max')
   const health2 = hasAccount2 ? _accountHealth('claude_max_2') : { score: -100, reason: 'not_configured' }
@@ -438,27 +440,35 @@ function getBestProvider() {
     acct1: { score: health1.score, reason: health1.reason },
     acct2: { score: health2.score, reason: health2.reason },
     hasBedrock,
+    hasDeepseek,
   })
 
   // Both usable — pick the healthier one
   if (health1.score > 0 && health2.score > 0) {
     if (health1.score >= health2.score) {
-      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isBedrockFallback: false }
+      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isBedrockFallback: false, isDeepseekFallback: false }
     }
-    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isBedrockFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
 
   // One usable — use it
   if (health1.score > 0) {
-    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isBedrockFallback: false }
+    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
   if (health2.score > 0) {
-    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isBedrockFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
   }
 
-  // Both down — try Bedrock
+  const bothDownReason = `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`
+
+  // Both down — try DeepSeek before Bedrock
+  if (hasDeepseek) {
+    return { provider: 'deepseek', reason: `${bothDownReason} — using DeepSeek V4 Pro`, isBedrockFallback: false, isDeepseekFallback: true }
+  }
+
+  // DeepSeek not available — try Bedrock
   if (hasBedrock) {
-    return { provider: 'bedrock', reason: `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`, isBedrockFallback: true }
+    return { provider: 'bedrock', reason: bothDownReason, isBedrockFallback: true, isDeepseekFallback: false }
   }
 
   // Nothing available — return whichever is least bad
@@ -467,6 +477,7 @@ function getBestProvider() {
     provider: best,
     reason: `all providers exhausted — using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
     isBedrockFallback: false,
+    isDeepseekFallback: false,
   }
 }
 
@@ -575,6 +586,7 @@ async function getEnergy() {
     recommendedProvider: best.provider,
     providerReason: best.reason,
     isBedrockFallback: best.isBedrockFallback,
+    isDeepseekFallback: best.isDeepseekFallback,
     // ─── Self-tracked activity
     turnsThisWeek: selfTracked.turns,
     // ─── Token auth health

@@ -778,7 +778,7 @@ async function _DEAD_tryTokenRefresh(mode = 'force') {
 }
 
 // After an exhaustion event on the current provider, mark it rejected and pick the next best.
-// Returns { provider, reason, isBedrockFallback } or null if no alternative.
+// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } or null if no alternative.
 function _switchAfterExhaustion() {
   const from = _currentProvider
   // Mark current provider as rejected so getBestProvider skips it
@@ -791,10 +791,10 @@ function _switchAfterExhaustion() {
   }
   osIncident.log({
     kind: 'provider_switch',
-    severity: best.isBedrockFallback ? 'error' : 'warn',
+    severity: (best.isBedrockFallback || best.isDeepseekFallback) ? 'error' : 'warn',
     component: from,
     message: `switched ${from} -> ${best.provider}`,
-    context: { from, to: best.provider, reason: best.reason, isBedrockFallback: !!best.isBedrockFallback },
+    context: { from, to: best.provider, reason: best.reason, isBedrockFallback: !!best.isBedrockFallback, isDeepseekFallback: !!best.isDeepseekFallback },
   })
   return best
 }
@@ -1273,7 +1273,45 @@ async function _sendMessageImpl(content, opts = {}) {
   const best = usageEnergy.getBestProvider()
   const prevProvider = _currentProvider
 
-  if (best.isBedrockFallback) {
+  if (best.isDeepseekFallback) {
+    // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
+    // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
+    // DeepSeek ignores the model string and routes to V4 Pro automatically.
+    if (prevProvider !== 'deepseek') {
+      let energySnap = null
+      try { energySnap = await usageEnergy.getEnergy() } catch {}
+      const acct1 = energySnap?.accounts?.claude_max
+      const acct2 = energySnap?.accounts?.claude_max_2
+      const trulyExhausted = (acct1?.pctUsed >= 0.85) || (acct2?.pctUsed >= 0.85) ||
+        acct1?.rateLimitStatus === 'rejected' || acct2?.rateLimitStatus === 'rejected'
+      if (trulyExhausted) {
+        try {
+          const alerting = require('./osAlertingService')
+          alerting.alertBedrockFallback(`DeepSeek fallback: ${best.reason}`).catch(() => {})
+        } catch {}
+      } else {
+        logger.warn('DeepSeek fallback triggered but no account is near-exhausted — likely spurious, NOT alerting', {
+          reason: best.reason,
+          acct1PctUsed: acct1?.pctUsed,
+          acct2PctUsed: acct2?.pctUsed,
+        })
+      }
+    }
+    _currentProvider = 'deepseek'
+    ccSessionId = null  // can't resume across providers
+    const sessionEnv = { ...process.env }
+    // Point the SDK at DeepSeek's native Anthropic-compatible endpoint.
+    // ANTHROPIC_BASE_URL redirects all SDK calls; ANTHROPIC_API_KEY carries the DeepSeek key.
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
+    // Strip OAuth tokens — DeepSeek uses API key auth, not OAuth.
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
+    options.env = sessionEnv
+    delete options.resume
+    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
+  } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
     // Alert ONLY if a Max account was genuinely near cap — otherwise this is
     // a false fallback (e.g. `_isUsageExhausted` mis-matched on stray text,
@@ -1379,6 +1417,7 @@ async function _sendMessageImpl(content, opts = {}) {
     provider: _currentProvider,
     reason: best.reason,
     isBedrockFallback: best.isBedrockFallback,
+    isDeepseekFallback: best.isDeepseekFallback,
     prevProvider,
     configDir1: env.CLAUDE_CONFIG_DIR_1 || '(default)',
     configDir2: env.CLAUDE_CONFIG_DIR_2 || '(not set)',

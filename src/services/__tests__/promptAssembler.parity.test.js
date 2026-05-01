@@ -65,7 +65,7 @@ jest.mock('../usageEnergyService', () => ({
     accounts: { claude_max: {}, claude_max_2: {} },
   }),
   getBestProvider: jest.fn().mockReturnValue({
-    provider: 'claude_max', isBedrockFallback: false, reason: 'healthy',
+    provider: 'claude_max', isBedrockFallback: false, isDeepseekFallback: false, reason: 'healthy',
   }),
   setProvider: jest.fn(),
 }))
