@@ -1276,7 +1276,7 @@ async function _sendMessageImpl(content, opts = {}) {
   if (best.isDeepseekFallback) {
     // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
     // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
-    // DeepSeek ignores the model string and routes to V4 Pro automatically.
+    // Model must be set explicitly: unknown names silently map to deepseek-v4-flash.
     if (prevProvider !== 'deepseek') {
       let energySnap = null
       try { energySnap = await usageEnergy.getEnergy() } catch {}
@@ -1309,6 +1309,10 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
+    // Must pass the explicit model name — DeepSeek maps any unknown model string to
+    // deepseek-v4-flash (not v4-pro). Also strip the [1m] suffix we add for Claude Max:
+    // DeepSeek ignores anthropic-beta headers so the suffix just confuses the SDK.
+    options.model = 'deepseek-v4-pro'
     delete options.resume
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
   } else if (best.isBedrockFallback) {
