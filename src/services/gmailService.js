@@ -1016,13 +1016,22 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
  * (thread replies via sendReplyToThread, listeners, etc.); anything that
  * mails an external recipient MUST migrate to this function.
  */
-async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token }) {
+async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency }) {
   if (!to) throw new Error('sendEmailGated: `to` is required')
   if (!sessionId) throw new Error('sendEmailGated: `sessionId` is required (for audit log)')
   if (!gate_token) {
     const err = new Error('tier3_gate_denied: missing gate_token')
     err.code = 'tier3_gate_denied'
     throw err
+  }
+
+  const timeSense = require('./timeSenseService')
+  const calendarResult = await timeSense.calendarGate({ type: 'gmail_send', urgency: urgency || 'normal' })
+  if (!calendarResult.proceed) {
+    logger.info('sendEmailGated: deferred by calendar gate', {
+      to: Array.isArray(to) ? to[0] : to, subject, defer_until: calendarResult.defer_until, reason: calendarResult.reason,
+    })
+    return { deferred: true, defer_until: calendarResult.defer_until, reason: calendarResult.reason }
   }
 
   // Require deps at call-time to keep the existing gmailService surface
