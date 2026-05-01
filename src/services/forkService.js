@@ -42,6 +42,8 @@
 const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
+const { execFile } = require('child_process')
+const { promisify } = require('util')
 const db = require('../config/db')
 const env = require('../config/env')
 const logger = require('../config/logger')
@@ -50,6 +52,8 @@ const { broadcast } = require('../websocket/wsManager')
 const secretSafety = require('./secretSafetyService')
 const forkFinalizer = require('./forkFinalizer')
 const { tryReserveForkSlot } = require('../lib/forkCapAtomic')
+
+const execFileAsync = promisify(execFile)
 
 // ── SDK loader (shared shape with osSessionService) ─────────────────────────
 let _query = null
@@ -65,6 +69,12 @@ async function getQuery() {
 // parallelism / lifecycle can be verified without burning real Anthropic
 // tokens. NEVER set this in production code paths.
 let _queryOverride = null
+
+// Test seams for the recoverStaleForks deliverable-probe path. Lets unit tests
+// inject fake git output and a fake messageQueue without ever shelling out or
+// hitting the durable inbox. NEVER set these in production code paths.
+let _execGitOverride = null            // (args:string[], cwd:string) => Promise<{stdout, stderr}>
+let _messageQueueOverride = null       // { enqueueMessage: (...) => Promise<void> }
 
 // ── Caps (raised 2026-04-27 — Tate's directive: conductor self-spawns up to 5) ─
 // Hard cap is the absolute concurrency ceiling. Energy soft caps step down
@@ -772,88 +782,403 @@ async function forksRollup({ includeRecentDone = true } = {}) {
 }
 
 // ── Startup recovery (fork-persistence Option A, fork_mokpm24w_4daefb) ──────
-// On api startup, the in-memory _forks Map is empty but os_forks may contain
-// rows in non-terminal states ('spawning'/'running'/'reporting') from a prior
-// process that was SIGTERMed (PM2 max_memory_restart hits ecodia-api every
-// ~6min at the time of writing). Without recovery, those forks just vanish:
-// main never sees a [FORK_REPORT], the slot looks free but the work is dead,
-// and continuation-aware redispatch (per ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md)
-// never gets a chance to fire because main has no signal.
+// Refactored 2026-05-01 (fork_mom8e913_73a492) to probe disk for fork
+// deliverables BEFORE classifying status. The pre-refactor recoverStaleForks
+// blanket-flipped every stale row to status='crashed' regardless of whether
+// the fork's edits had survived the SIGTERM, were committed, or had been
+// pushed. Real-world failing case: fork_mom80wlq_8709d4 was killed mid-flight
+// by PM2 max_memory_restart; its work was committed as 1db0c0f and pushed to
+// origin/main, but os_forks still showed status='crashed' result=NULL with no
+// surfaced commit info. The conductor's <forks_rollup> read "[crashed]" and
+// hid the fact that the deliverable shipped.
 //
-// This function:
-//  1. Queries os_forks for non-terminal rows older than 5min (fork-id has
-//     a stale last_heartbeat → safe to declare dead).
-//  2. Flips them to status='crashed' with abort_reason='api_memory_restart'
-//     and ended_at=NOW().
-//  3. Enqueues a [SYSTEM: fork_crashed] recovery message to main's
-//     durable messageQueue per crashed fork, so main sees them on next turn
-//     and can route a continuation-aware redispatch.
+// New behavior — probeForkDeliverables() runs per-row BEFORE the UPDATE:
+//   1. git log --all --grep="<fork_id>" since started_at-1min — finds commits
+//      that name the fork in a Co-Authored-By or body line.
+//   2. For each commit, check origin/main containment via `git branch -r --contains`.
+//      If the local main is fast-forward of origin/main, attempt `git push`.
+//   3. git status --porcelain — captures dirty working tree.
+//
+// Then per-row terminal classification:
+//   - commits found, all on origin           → status='done', result names SHAs.
+//   - commits found, some local-only         → push attempted (FF-only, abort
+//                                               on divergence); status='done'
+//                                               with push outcome in result.
+//   - working tree dirty, no commits         → status='crashed', result names
+//                                               dirty files, next_step recommends
+//                                               diff review.
+//   - clean tree, no commits                 → status='crashed' with redispatch
+//                                               recommendation per
+//                                               ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md
+//
+// Probe failures (git command errors) NEVER block the recovery UPDATE — they
+// are captured in result.errors[] and the row falls back to the conservative
+// 'crashed' classification. See also
+// ~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
+// (the meta-rule this fix bakes into the recovery code path).
+//
+// IMPORTANT: this function only processes rows in non-terminal states
+// (spawning/running/reporting). Historical rows already at status='crashed'
+// are NOT backfilled — that's a separate one-shot script if the conductor
+// wants to reconcile pre-refactor state.
 //
 // Idempotent. Safe to call on every startup. Logs and never throws.
-async function recoverStaleForks() {
-  let crashed = []
+
+const REPO_ROOT_FOR_PROBE = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
+
+// Shell out to git defensively. Args go through execFile (no shell), forkId
+// is sanitised via _isSafeForkIdToken below before it's ever interpolated as
+// a --grep value. Returns {stdout, stderr, error?} — never throws.
+async function _runGit(args, cwd = REPO_ROOT_FOR_PROBE) {
+  if (_execGitOverride) {
+    try { return await _execGitOverride(args, cwd) }
+    catch (err) { return { stdout: '', stderr: err.message, error: err.message } }
+  }
   try {
-    crashed = await db`
-      UPDATE os_forks
-      SET status = 'crashed',
-          abort_reason = COALESCE(abort_reason, 'api_memory_restart'),
-          ended_at = COALESCE(ended_at, now()),
-          position = COALESCE(position, '') || ' :: killed mid-flight at api restart (recovered)'
+    const { stdout, stderr } = await execFileAsync('git', args, {
+      cwd,
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: 15_000,
+    })
+    return { stdout: stdout || '', stderr: stderr || '' }
+  } catch (err) {
+    return {
+      stdout: err.stdout || '',
+      stderr: err.stderr || err.message,
+      error: err.message,
+    }
+  }
+}
+
+// Defence: the fork_id is read from the DB but a malformed value should never
+// reach `git --grep` as anything other than a literal token. Our generator
+// (_newForkId) produces fork_<base36>_<hex> which is safe; this guard rejects
+// anything else to keep the regex tight.
+function _isSafeForkIdToken(forkId) {
+  return typeof forkId === 'string' && /^fork_[a-z0-9_-]{4,80}$/i.test(forkId)
+}
+
+/**
+ * probeForkDeliverables(forkId, startedAt) → {
+ *   commits: [{ sha, subject, pushed }],
+ *   dirtyFiles: string[],
+ *   pushAttempted: boolean,
+ *   pushSucceeded: boolean,
+ *   pushNote: string|null,
+ *   errors: string[],
+ * }
+ *
+ * Probe-only — never throws, captures all errors in `errors[]`. Test seam:
+ * inject a fake git via _setExecGitForTest.
+ */
+async function probeForkDeliverables(forkId, startedAt) {
+  const out = {
+    commits: [],
+    dirtyFiles: [],
+    pushAttempted: false,
+    pushSucceeded: false,
+    pushNote: null,
+    errors: [],
+  }
+
+  if (!_isSafeForkIdToken(forkId)) {
+    out.errors.push(`unsafe-fork-id-token:${String(forkId).slice(0, 32)}`)
+    return out
+  }
+
+  // Resolve a "since" floor: 60s before startedAt, ISO. Fallback to 7d if the
+  // timestamp is missing/malformed so we still get *some* signal.
+  let sinceIso
+  try {
+    const t = startedAt ? new Date(startedAt).getTime() - 60_000 : Date.now() - 7 * 86400_000
+    sinceIso = new Date(t).toISOString()
+  } catch {
+    sinceIso = new Date(Date.now() - 7 * 86400_000).toISOString()
+  }
+
+  // 1. Find candidate commits whose body grep-matches the fork id.
+  const logRes = await _runGit([
+    'log', '--all', `--grep=${forkId}`, `--since=${sinceIso}`, '--format=%H%x09%s',
+  ])
+  if (logRes.error) out.errors.push(`git-log:${logRes.error}`)
+
+  const candidateLines = (logRes.stdout || '').split('\n').filter(Boolean)
+  const candidates = candidateLines.map(line => {
+    const tab = line.indexOf('\t')
+    if (tab < 0) return { sha: line.trim(), subject: '' }
+    return { sha: line.slice(0, tab).trim(), subject: line.slice(tab + 1).trim() }
+  }).filter(c => /^[0-9a-f]{7,40}$/i.test(c.sha))
+
+  // 2. Defence vs grep regex mishaps: confirm forkId actually appears in the
+  //    commit body before treating it as ours.
+  for (const c of candidates) {
+    const bodyRes = await _runGit(['log', '--format=%B', '-n', '1', c.sha])
+    if (bodyRes.error) {
+      out.errors.push(`git-body:${c.sha}:${bodyRes.error}`)
+      continue
+    }
+    if (!bodyRes.stdout || !bodyRes.stdout.includes(forkId)) continue
+
+    // 3. Check origin/main containment.
+    const containsRes = await _runGit(['branch', '-r', '--contains', c.sha])
+    if (containsRes.error) out.errors.push(`git-contains:${c.sha}:${containsRes.error}`)
+    const pushed = (containsRes.stdout || '')
+      .split('\n').map(s => s.trim()).filter(Boolean)
+      .some(line => line === 'origin/main' || line === 'origin/HEAD' || line.endsWith(' -> origin/main'))
+
+    out.commits.push({ sha: c.sha, subject: c.subject, pushed })
+  }
+
+  // 4. Working tree dirty?
+  const statusRes = await _runGit(['status', '--porcelain'])
+  if (statusRes.error) out.errors.push(`git-status:${statusRes.error}`)
+  out.dirtyFiles = (statusRes.stdout || '')
+    .split('\n').map(s => s.trim()).filter(Boolean)
+
+  // 5. If we have unpushed commits, attempt a fast-forward push of main.
+  const hasUnpushed = out.commits.some(c => !c.pushed)
+  if (hasUnpushed) {
+    out.pushAttempted = true
+
+    // Are we ahead of origin/main with no divergence?
+    const aheadRes = await _runGit(['rev-list', '--count', 'origin/main..main'])
+    const behindRes = await _runGit(['rev-list', '--count', 'main..origin/main'])
+    const ahead = parseInt((aheadRes.stdout || '0').trim(), 10) || 0
+    const behind = parseInt((behindRes.stdout || '0').trim(), 10) || 0
+    if (aheadRes.error) out.errors.push(`git-ahead:${aheadRes.error}`)
+    if (behindRes.error) out.errors.push(`git-behind:${behindRes.error}`)
+
+    if (ahead > 0 && behind === 0) {
+      const pushRes = await _runGit(['push', 'origin', 'main'])
+      if (pushRes.error) {
+        out.pushSucceeded = false
+        out.pushNote = `push-failed: ${pushRes.error.slice(0, 200)}`
+        out.errors.push(`git-push:${pushRes.error}`)
+      } else {
+        out.pushSucceeded = true
+        out.pushNote = 'pushed: yes (fork-recovery)'
+        // Re-check containment so result accurately reflects post-push state.
+        for (const commit of out.commits) {
+          if (commit.pushed) continue
+          const recheck = await _runGit(['branch', '-r', '--contains', commit.sha])
+          if (recheck.error) continue
+          if ((recheck.stdout || '').split('\n').some(l => l.trim() === 'origin/main')) {
+            commit.pushed = true
+          }
+        }
+      }
+    } else if (behind > 0) {
+      out.pushSucceeded = false
+      out.pushNote = `pushed: NO (local main diverged from origin/main, behind=${behind} ahead=${ahead}, manual reconcile needed)`
+    } else {
+      // ahead=0 — commits exist somewhere but not on local main; can't push.
+      out.pushSucceeded = false
+      out.pushNote = `pushed: NO (commits not on local main; ahead=${ahead} behind=${behind})`
+    }
+  }
+
+  return out
+}
+
+// Build the per-row terminal classification {status, result, next_step, body}
+// from the probe outcome.
+function _classifyFromProbe(row, probe) {
+  const forkId = row.fork_id
+  const tokens = `tokens=in:${row.tokens_input || 0}/out:${row.tokens_output || 0}/tools:${row.tool_calls || 0}`
+  const startedIso = row.started_at?.toISOString?.() || row.started_at || 'unknown'
+  const heartbeatIso = row.last_heartbeat?.toISOString?.() || row.last_heartbeat || 'null'
+
+  const commitCount = probe.commits.length
+  const allPushed = commitCount > 0 && probe.commits.every(c => c.pushed)
+  const someUnpushed = commitCount > 0 && !allPushed
+  const dirtyCount = probe.dirtyFiles.length
+  const dirtyHead = probe.dirtyFiles.slice(0, 10)
+
+  if (commitCount > 0 && allPushed) {
+    const shas = probe.commits.map(c => c.sha.slice(0, 12)).join(',')
+    const subjects = probe.commits.map(c => c.subject.slice(0, 80)).join(' | ')
+    let result = `Fork crashed mid-flight but work shipped: ${commitCount} commit(s), all on origin/main. SHAs: ${shas}. Subjects: ${subjects}. ${tokens}.`
+    if (probe.pushAttempted) result += ` ${probe.pushNote || ''}`.trim()
+    if (dirtyCount > 0) {
+      result += ` Note: working tree still dirty with ${dirtyCount} uncommitted file(s): ${dirtyHead.join(', ')}. Conductor should review.`
+    }
+    if (probe.errors.length) result += ` (probe-errors: ${probe.errors.slice(0, 3).join('; ')})`
+    const body = [
+      `[SYSTEM: fork_done ${forkId}]`,
+      `Brief: ${(row.brief || '').slice(0, 240)}`,
+      `Outcome: fork was killed mid-flight but work shipped. ${commitCount} commit(s) on origin/main.`,
+      `SHAs: ${shas}`,
+      `Subjects: ${subjects}`,
+      `Started: ${startedIso}, last_heartbeat: ${heartbeatIso}, ${tokens}`,
+      '',
+      'No action needed. Verified per ~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md.',
+    ].join('\n')
+    return { status: 'done', result, next_step: null, body }
+  }
+
+  if (commitCount > 0 && someUnpushed) {
+    const shas = probe.commits.map(c => `${c.sha.slice(0, 12)}${c.pushed ? '' : '*'}`).join(',')
+    const subjects = probe.commits.map(c => c.subject.slice(0, 80)).join(' | ')
+    let result = `Fork crashed mid-flight, work committed locally: ${commitCount} commit(s) (* = local-only). SHAs: ${shas}. Subjects: ${subjects}. ${tokens}.`
+    if (probe.pushNote) result += ` ${probe.pushNote}`
+    if (dirtyCount > 0) {
+      result += ` Note: working tree still dirty with ${dirtyCount} uncommitted file(s): ${dirtyHead.join(', ')}. Conductor should review.`
+    }
+    if (probe.errors.length) result += ` (probe-errors: ${probe.errors.slice(0, 3).join('; ')})`
+
+    // If push failed for divergence reason, give the conductor a real next_step.
+    let next_step = null
+    if (probe.pushAttempted && !probe.pushSucceeded) {
+      next_step = 'Conductor must reconcile main vs origin/main before fork commits land remotely.'
+    }
+    const body = [
+      `[SYSTEM: fork_done ${forkId}]`,
+      `Brief: ${(row.brief || '').slice(0, 240)}`,
+      `Outcome: fork was killed mid-flight; ${commitCount} commit(s) committed locally.`,
+      `SHAs: ${shas}`,
+      `Subjects: ${subjects}`,
+      `Push: ${probe.pushNote || 'not attempted'}`,
+      `Started: ${startedIso}, last_heartbeat: ${heartbeatIso}, ${tokens}`,
+      '',
+      next_step
+        ? `Next: ${next_step}`
+        : 'No further action required if push succeeded; verify per ~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md.',
+    ].join('\n')
+    return { status: 'done', result, next_step, body }
+  }
+
+  // No commits attributable to this fork.
+  if (dirtyCount > 0) {
+    const result = `Fork crashed before commit. Working tree dirty with ${dirtyCount} file(s): ${dirtyHead.join(', ')}${dirtyCount > 10 ? ' (+ more)' : ''}. ${tokens}. Recommend \`git diff\` review then commit-or-discard.${probe.errors.length ? ` (probe-errors: ${probe.errors.slice(0, 3).join('; ')})` : ''}`
+    const next_step = 'Review fork worktree changes; commit if intent matches brief, else discard.'
+    const body = [
+      `[SYSTEM: fork_crashed ${forkId}]`,
+      `Brief: ${(row.brief || '').slice(0, 240)}`,
+      `Outcome: SIGTERMed before commit. Working tree dirty with ${dirtyCount} file(s).`,
+      `Files: ${dirtyHead.join(', ')}${dirtyCount > 10 ? ' (+ more)' : ''}`,
+      `Started: ${startedIso}, last_heartbeat: ${heartbeatIso}, ${tokens}`,
+      '',
+      `Next: ${next_step}`,
+    ].join('\n')
+    return { status: 'crashed', result, next_step, body }
+  }
+
+  const result = `Fork crashed before producing any disk artefact. ${tokens}, last_heartbeat=${heartbeatIso}. Safe to redispatch.${probe.errors.length ? ` (probe-errors: ${probe.errors.slice(0, 3).join('; ')})` : ''}`
+  const next_step = 'Continuation-aware redispatch per ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md (probe 5 substrates first; if all-clean, full work).'
+  const body = [
+    `[SYSTEM: fork_crashed ${forkId}]`,
+    `Brief: ${(row.brief || '').slice(0, 240)}`,
+    `Outcome: SIGTERMed before any commit or disk artefact.`,
+    `Started: ${startedIso}, last_heartbeat: ${heartbeatIso}, ${tokens}`,
+    '',
+    `Next: ${next_step}`,
+  ].join('\n')
+  return { status: 'crashed', result, next_step, body }
+}
+
+async function recoverStaleForks() {
+  // 1. Find stale candidates WITHOUT mutating yet — we need to probe per-row
+  //    before deciding the terminal status.
+  let candidates = []
+  try {
+    candidates = await db`
+      SELECT fork_id, brief, position, started_at, last_heartbeat,
+             tokens_input, tokens_output, tool_calls
+      FROM os_forks
       WHERE status IN ('spawning', 'running', 'reporting')
         AND COALESCE(last_heartbeat, started_at) < now() - interval '2 minutes'
-      RETURNING fork_id, brief, position, started_at, last_heartbeat, tokens_input, tokens_output, tool_calls
+      ORDER BY started_at ASC
+      LIMIT 100
     `
   } catch (err) {
-    logger.warn('forkService.recoverStaleForks: query failed (non-fatal)', { error: err.message })
+    logger.warn('forkService.recoverStaleForks: candidate query failed (non-fatal)', { error: err.message })
     return { recovered: 0, error: err.message }
   }
 
-  if (!crashed.length) {
+  if (!candidates.length) {
     logger.info('forkService.recoverStaleForks: no stale forks to recover')
     return { recovered: 0 }
   }
 
-  // Enqueue one [SYSTEM: fork_crashed] message per crashed fork so main can
-  // see and route. messageQueue is durable (DB-backed), so even if THIS api
-  // process dies again before main consumes them, they survive.
-  let mq = null
-  try { mq = require('./messageQueue') } catch (err) {
-    logger.warn('forkService.recoverStaleForks: messageQueue unavailable, skipping enqueue', { error: err.message })
-  }
-
-  let enqueued = 0
-  for (const row of crashed) {
-    if (!mq) break
-    try {
-      const body = [
-        `[SYSTEM: fork_crashed ${row.fork_id}]`,
-        `Brief: ${(row.brief || '').slice(0, 240)}`,
-        `Last position: ${(row.position || '').slice(0, 240)}`,
-        `Tokens: in=${row.tokens_input || 0}, out=${row.tokens_output || 0}, tool_calls=${row.tool_calls || 0}`,
-        `Started: ${row.started_at?.toISOString?.() || row.started_at}, last_heartbeat: ${row.last_heartbeat?.toISOString?.() || row.last_heartbeat || 'null'}`,
-        '',
-        'Cause: ecodia-api SIGTERM mid-flight (likely PM2 max_memory_restart). Per ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md, before redispatching check the 5 substrates (filesystem mtime, kv_store, status_board, git commits, Neo4j) for partial deliverables. all-present → verify+exit; partial → complete missing pieces only; none → full work.',
-      ].join('\n')
-      await mq.enqueueMessage({ body, source: `fork_recovery:${row.fork_id}`, mode: 'queue' })
-      enqueued++
-    } catch (err) {
-      logger.warn('forkService.recoverStaleForks: enqueue failed (non-fatal)', { fork_id: row.fork_id, error: err.message })
+  // 2. Lazy-load messageQueue once (override in tests).
+  let mq = _messageQueueOverride
+  if (!mq) {
+    try { mq = require('./messageQueue') }
+    catch (err) {
+      logger.warn('forkService.recoverStaleForks: messageQueue unavailable, skipping enqueue', { error: err.message })
+      mq = null
     }
   }
 
-  logger.warn('forkService.recoverStaleForks: recovered stale forks', {
-    recovered: crashed.length,
+  // 3. Probe + classify + UPDATE per row.
+  const results = []
+  let enqueued = 0
+  for (const row of candidates) {
+    let probe
+    try {
+      probe = await probeForkDeliverables(row.fork_id, row.started_at)
+    } catch (err) {
+      // Defensive — probeForkDeliverables shouldn't throw, but if it does, fall
+      // back to the legacy crashed classification with the error in result.
+      logger.warn('forkService.recoverStaleForks: probe threw (non-fatal)', { fork_id: row.fork_id, error: err.message })
+      probe = { commits: [], dirtyFiles: [], pushAttempted: false, pushSucceeded: false, pushNote: null, errors: [`probe-threw:${err.message}`] }
+    }
+
+    const cls = _classifyFromProbe(row, probe)
+
+    try {
+      await db`
+        UPDATE os_forks
+        SET status        = ${cls.status},
+            result        = COALESCE(result, '') || ${cls.result},
+            next_step     = ${cls.next_step},
+            abort_reason  = COALESCE(abort_reason, ${cls.status === 'done' ? 'api_memory_restart_work_shipped' : 'api_memory_restart'}),
+            ended_at      = COALESCE(ended_at, now()),
+            position      = COALESCE(position, '') || ${' :: recovered ' + cls.status + ' (probe-then-flip)'}
+        WHERE fork_id = ${row.fork_id}
+          AND status IN ('spawning', 'running', 'reporting')
+      `
+    } catch (err) {
+      logger.warn('forkService.recoverStaleForks: per-row UPDATE failed (non-fatal)', { fork_id: row.fork_id, error: err.message })
+    }
+
+    if (mq) {
+      try {
+        await mq.enqueueMessage({ body: cls.body, source: `fork_recovery:${row.fork_id}`, mode: 'queue' })
+        enqueued++
+      } catch (err) {
+        logger.warn('forkService.recoverStaleForks: enqueue failed (non-fatal)', { fork_id: row.fork_id, error: err.message })
+      }
+    }
+
+    results.push({ fork_id: row.fork_id, status: cls.status, commits: probe.commits.length, dirty: probe.dirtyFiles.length, pushed: probe.pushAttempted ? probe.pushSucceeded : null, errors: probe.errors.length })
+  }
+
+  logger.warn('forkService.recoverStaleForks: recovered stale forks (probe-then-flip)', {
+    recovered: results.length,
     enqueued,
-    fork_ids: crashed.map(r => r.fork_id),
+    by_status: results.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc }, {}),
+    fork_ids: results.map(r => r.fork_id),
   })
 
-  return { recovered: crashed.length, enqueued, fork_ids: crashed.map(r => r.fork_id) }
+  return {
+    recovered: results.length,
+    enqueued,
+    fork_ids: results.map(r => r.fork_id),
+    results,
+  }
 }
 
 // ── Test hooks ──────────────────────────────────────────────────────────────
-function _resetForTest() { _forks.clear() }
+function _resetForTest() {
+  _forks.clear()
+  _execGitOverride = null
+  _messageQueueOverride = null
+}
 function _getForkMapForTest() { return _forks }
 function _setQueryForTest(fn) { _queryOverride = fn }
+function _setExecGitForTest(fn) { _execGitOverride = fn }
+function _setMessageQueueForTest(mq) { _messageQueueOverride = mq }
 
 module.exports = {
   spawnFork,
@@ -863,9 +1188,12 @@ module.exports = {
   getFork,
   forksRollup,
   recoverStaleForks,
+  probeForkDeliverables,
   HARD_FORK_CAP,
   ENERGY_FORK_CAPS,
   _resetForTest,
   _getForkMapForTest,
   _setQueryForTest,
+  _setExecGitForTest,
+  _setMessageQueueForTest,
 }
