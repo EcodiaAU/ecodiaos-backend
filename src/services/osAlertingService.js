@@ -113,8 +113,14 @@ const SMS_ALERT_TYPES = new Set(['consecutive_failures', 'process_restart', 'bed
 async function _send(subject, body) {
   try {
     const gmail = require('./gmailService')
-    // sendNewEmail signature: (inbox, to, subject, body). Send FROM code@ (OS inbox) TO tate@.
-    await gmail.sendNewEmail('code@ecodia.au', ALERT_TO, `[EcodiaOS] ${subject}`, body)
+    // Send FROM code@ (OS inbox) TO tate@. Tagged autonomous + internal-alert
+    // so the Tier-3 gate picks up the internal_ecodia_comms pattern without
+    // SMS-OTP. Critical urgency bypasses calendar deferrals.
+    await gmail.sendNewEmail('code@ecodia.au', ALERT_TO, `[EcodiaOS] ${subject}`, body, {
+      source: 'osAlerting',
+      autonomous: true,
+      urgency: 'critical',
+    })
     logger.info('Alert sent', { subject, to: ALERT_TO })
     return true
   } catch (err) {

@@ -127,7 +127,11 @@ async function _alert({ subject, body }) {
   try {
     const gmail = require('./gmailService')
     const to = process.env.ALERT_EMAIL_TO || 'code@ecodia.au'
-    await gmail.sendNewEmail(null, to, `[EcodiaOS] ${subject}`, body)
+    await gmail.sendNewEmail(null, to, `[EcodiaOS] ${subject}`, body, {
+      source: 'certMonitor',
+      autonomous: true,
+      urgency: 'high',
+    })
     logger.info('cert monitor: alert sent', { subject, to })
   } catch (err) {
     logger.error('cert monitor: alert send failed', { error: err.message })

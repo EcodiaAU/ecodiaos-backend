@@ -575,23 +575,39 @@ async function autoAct(thread, triage) {
 async function sendReplyToThread(thread, body) {
   if (!GMAIL_ENABLED) throw new Error('Gmail disabled (GMAIL_ENABLED=false)')
   const inbox = thread.inbox || (await getInboxes())[0]
-  const gmail = getGmailClient(inbox)
+  const subject = `Re: ${thread.subject || ''}`
 
-  const raw = createRawEmail({
-    to: thread.from_email,
+  // Route through the composite Tier-3 gate per SECURITY_HARDENING §3.2.
+  // This is the autonomous-triage path — the `autonomous_thread_reply`
+  // pattern (migration 081) auto-issues tokens when body_length <= 2000.
+  // Longer bodies or high-risk commitment content fall through to the
+  // SMS-OTP path; the email stays unsent and Tate is paged.
+  const result = await module.exports.sendEmailAuto({
     from: inbox,
-    subject: `Re: ${thread.subject || ''}`,
+    to: thread.from_email,
+    subject,
     body,
-    inReplyTo: thread.gmail_message_ids?.[thread.gmail_message_ids.length - 1],
+    threadId: thread.gmail_thread_id,
+    sessionId: `triage-reply-${thread.id}`,
+    context: { is_thread_reply: true, autonomous: true, source: 'triage-reply' },
   })
 
-  await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: { raw, threadId: thread.gmail_thread_id },
-  })
+  if (result?.pending_otp) {
+    logger.warn('sendReplyToThread: pending OTP — reply NOT sent', {
+      thread_id: thread.id, subject, otp_id: result.otp_id,
+    })
+    return result
+  }
+  if (result?.queued || result?.deferred) {
+    logger.info('sendReplyToThread: queued/deferred by composite gate', {
+      thread_id: thread.id, subject, reason: result.reason || (result.queued ? 'unknown_recipient' : 'calendar'),
+    })
+    return result
+  }
 
   await db`UPDATE email_threads SET status = 'replied', updated_at = now() WHERE id = ${thread.id}`
   logger.info(`Autonomous reply sent from ${inbox} to ${thread.from_email}: ${thread.subject}`)
+  return result
 }
 
 async function silentArchive(thread) {
@@ -954,15 +970,33 @@ ${thread.full_body || thread.snippet || ''}`
   return { forwarded: true, to: toEmail }
 }
 
-async function sendNewEmail(inbox, to, subject, body) {
+async function sendNewEmail(inbox, to, subject, body, opts = {}) {
   if (!GMAIL_ENABLED) throw new Error('Gmail disabled')
   const fromInbox = inbox || (await getInboxes())[0]
-  const gmail = getGmailClient(fromInbox)
 
-  const raw = createRawEmail({ to, from: fromInbox, subject, body })
-  const result = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
-  logger.info(`New email sent from ${fromInbox} to ${to}: ${subject}`)
-  return { sent: true, messageId: result.data?.id, to, subject }
+  // Route through the composite Tier-3 gate. For mail to Ecodia domains
+  // (tate@ecodia.au alerts, intra-org messages) the `internal_ecodia_comms`
+  // pattern auto-issues. Anything else requires SMS-OTP — the returned
+  // `pending_otp: true` response tells the caller to surface to Tate.
+  // Legacy callers that don't pass sessionId get a synthetic one tagged
+  // with the source.
+  const result = await module.exports.sendEmailAuto({
+    from: fromInbox,
+    to,
+    subject,
+    body,
+    sessionId: opts.sessionId || `new-email-${opts.source || 'unknown'}-${Date.now()}`,
+    urgency: opts.urgency || 'normal',
+    context: { is_thread_reply: false, autonomous: !!opts.autonomous, source: opts.source || 'sendNewEmail' },
+  })
+
+  if (result?.pending_otp || result?.queued || result?.deferred) {
+    logger.info(`sendNewEmail: held by gate (${result.pending_otp ? 'otp' : result.queued ? 'queued' : 'deferred'})`, {
+      to, subject, source: opts.source,
+    })
+    return result
+  }
+  return result
 }
 
 /**
@@ -1016,7 +1050,30 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
  * (thread replies via sendReplyToThread, listeners, etc.); anything that
  * mails an external recipient MUST migrate to this function.
  */
-async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency }) {
+// Single source of truth for the Tier-3 target payload. Issuer and
+// verifier MUST see the same canonical shape or HMAC verification fails.
+// Callers pass `context` to declare thread-reply / autonomous status so
+// the autonomous_thread_reply pattern can match; field omission means
+// "don't assert this property", not "false".
+function _buildSendTarget({ to, subject, body, threadId, context }) {
+  const primaryTo = Array.isArray(to) ? to[0] : to
+  const toStr = String(primaryTo || '')
+  const domain = (toStr.split('@')[1] || '').toLowerCase()
+  const subjectHash = require('crypto')
+    .createHash('sha256')
+    .update(String(subject || ''))
+    .digest('hex')
+  return {
+    to: primaryTo,
+    to_domain: domain,
+    subject_hash: subjectHash,
+    body_length: String(body || '').length,
+    is_thread_reply: !!(threadId || context?.is_thread_reply),
+    autonomous: !!context?.autonomous,
+  }
+}
+
+async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency, context }) {
   if (!to) throw new Error('sendEmailGated: `to` is required')
   if (!sessionId) throw new Error('sendEmailGated: `sessionId` is required (for audit log)')
   if (!gate_token) {
@@ -1042,11 +1099,7 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
   const securityAuditLog = require('./securityAuditLog')
 
   const primaryTo = Array.isArray(to) ? to[0] : to
-  const subjectHash = require('crypto')
-    .createHash('sha256')
-    .update(String(subject || ''))
-    .digest('hex')
-  const target = { to: primaryTo, subject_hash: subjectHash }
+  const target = _buildSendTarget({ to, subject, body, threadId, context })
 
   // 1. Commitment detection. High-risk / contains-commitment content must
   //    go through the manual SMS-OTP path (pattern-match tokens won't
@@ -1110,6 +1163,74 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
   }
 
   return result
+}
+
+/**
+ * sendEmailAuto — attempts auto-token issuance via tier3GateService
+ * pattern matching, then invokes sendEmailGated. Used by internal paths
+ * (triagePendingEmails, certMonitor, osAlertingService) that have no
+ * upstream human session but still need to go through the composite gate.
+ *
+ * Returns one of:
+ *   { sent: true, ... }        — pattern matched, token consumed, sent.
+ *   { queued: true, row }      — delay queue took it (unknown recipient).
+ *   { deferred: true, ... }    — calendar gate deferred.
+ *   { pending_otp: true, otp_id } — no pattern matched, SMS dispatched to Tate.
+ *                                   Caller records the otp_id and retries
+ *                                   after Tate replies Y <code>.
+ *
+ * Security: the target built here is byte-for-byte identical to the one
+ * sendEmailGated builds internally. HMAC verification depends on that.
+ * If you change the target shape in one place, change _buildSendTarget.
+ */
+async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessionId, urgency, context }) {
+  if (!to) throw new Error('sendEmailAuto: `to` is required')
+  const effectiveSessionId = sessionId || `autonomous-${context?.source || 'gmail'}-${Date.now()}`
+
+  const tier3 = require('./tier3GateService')
+  const target = _buildSendTarget({ to, subject, body, threadId, context })
+
+  const issue = await tier3.issueToken({
+    action_type: 'gmail_send_external',
+    target,
+    session_id: effectiveSessionId,
+  })
+
+  if (issue.status === 'pending_otp') {
+    // No matching authorized_action_patterns row. SMS-OTP challenge is
+    // now pending — caller should surface it to Tate via sms_tate or
+    // similar, then re-invoke with the completed token. We do NOT dispatch
+    // the SMS here (decoupled from twilio per tier3GateService docs).
+    logger.warn('sendEmailAuto: no matching pattern — SMS-OTP challenge pending', {
+      to: Array.isArray(to) ? to[0] : to,
+      subject,
+      otp_id: issue.otp_id,
+      sessionId: effectiveSessionId,
+      context,
+    })
+    return {
+      pending_otp: true,
+      otp_id: issue.otp_id,
+      expires_at: issue.expires_at,
+      target_hash: issue.target_hash,
+    }
+  }
+
+  if (issue.status !== 'issued' || !issue.token) {
+    const err = new Error('sendEmailAuto: tier3 issueToken returned unexpected status')
+    err.code = 'tier3_issue_failed'
+    err.details = { status: issue.status }
+    throw err
+  }
+
+  // Hand off to the composite gate with the freshly-issued token.
+  return module.exports.sendEmailGated({
+    from, to, cc, bcc, subject, body, threadId,
+    sessionId: effectiveSessionId,
+    gate_token: issue.token,
+    urgency,
+    context,
+  })
 }
 
 async function createFollowUpTask(threadId, title, description, priority = 'medium') {
@@ -1218,6 +1339,6 @@ module.exports = {
   // New
   listThreads, searchThreads, batchArchive, batchTrash,
   labelThread, removeLabel, starThread, unstarThread,
-  forwardThread, sendNewEmail, sendEmail, sendEmailGated, createFollowUpTask, unsubscribe,
+  forwardThread, sendNewEmail, sendEmail, sendEmailGated, sendEmailAuto, sendReplyToThread, createFollowUpTask, unsubscribe,
   getThreadsByClient, getInboxStats, listLabels, saveDraftToGmail,
 }

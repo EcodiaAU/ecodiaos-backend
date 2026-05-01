@@ -300,14 +300,20 @@ server.listen(env.PORT, async () => {
     // { name: 'kgConsolidationWorker',       path: './workers/kgConsolidationWorker' },
     // { name: 'financePoller',               path: './workers/financePoller' },
     // docs/PROMPT_ASSEMBLY_SPEC.md §4.3 — Anthropic prompt-cache TTL refresh
-    // worker. Opt-in via CACHE_KEEPALIVE_ENABLED=true so it doesn't start
-    // accidentally in local dev. Cost is ~100 input tokens per 45-min fire
-    // during work hours (6am-10pm AEST), savings ~15K tokens per prevented
-    // cache miss. See docs/ANTHROPIC_NATIVE_LEVERAGE.md §4.
+    // worker. Default ON in production, off in local dev (NODE_ENV !==
+    // 'production'). Explicit override via CACHE_KEEPALIVE_ENABLED=true|false.
+    // Cost is ~100 input tokens per 45-min fire during work hours
+    // (6am-10pm AEST), savings ~15K tokens per prevented cache miss.
+    // See docs/ANTHROPIC_NATIVE_LEVERAGE.md §4.
     {
       name: 'cacheKeepaliveWorker',
       path: './workers/cacheKeepaliveWorker',
-      start: process.env.CACHE_KEEPALIVE_ENABLED === 'true',
+      start: (() => {
+        const flag = process.env.CACHE_KEEPALIVE_ENABLED
+        if (flag === 'true') return true
+        if (flag === 'false') return false
+        return process.env.NODE_ENV === 'production'
+      })(),
     },
   ]
 
