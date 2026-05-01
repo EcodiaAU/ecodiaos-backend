@@ -180,8 +180,8 @@ function _buildBp3(turn_context) {
   let skillsBlock = ''
 
   try {
-    const doctrineSurface = require('./doctrineSurface')
-    const block = doctrineSurface.surfaceDoctrineBlock(userContent)
+    const skillsSurface = require('./skillsSurfaceService')
+    const block = skillsSurface.surfaceDoctrineBlock(userContent)
     doctrineBlock = typeof block === 'string' ? block : ''
   } catch (err) {
     logger.debug('promptAssembler: doctrineSurface shim failed', { error: err.message })
@@ -228,10 +228,6 @@ function _extractDoctrineMatches(doctrineBlock) {
 }
 
 // ─── BP4 — per-turn dynamic blocks ───────────────────────────────────────────
-// TODO(post-flip): drop recent_exchanges per PROMPT_ASSEMBLY §5 — the SDK
-// already replays session history when session_id is passed, so tailing it
-// again is pure duplication. Left as passthrough in PR 2 to keep shadow
-// semantic_equivalent=true; deletion is a separate PR after PR 6 flip.
 
 function _buildBp4(turn_context) {
   if (!turn_context) return ''
@@ -243,22 +239,16 @@ function _buildBp4(turn_context) {
     relevant_memory,
     perception_summary,
     restart_recovery,
-    recent_exchanges,
     last_turn_breadcrumb,
   } = turn_context
 
-  // Order mirrors osSessionService.js:1762-1781 splice order after reconstruction:
-  //   <now>, <doctrine_surface>, <forks_rollup>, <recent_doctrine>, <relevant_memory>, <perception_summary>, <restart_recovery>, <recent_exchanges|breadcrumb>
-  // BP3 (doctrine_surface) is separate, not in BP4; everything else lands here.
   if (now) parts.push(`<now>${now}</now>`)
   if (forks_rollup) parts.push(forks_rollup)
   if (recent_doctrine) parts.push(recent_doctrine)
   if (relevant_memory) parts.push(relevant_memory)
   if (perception_summary) parts.push(`<perception_summary>\n${perception_summary}\n</perception_summary>`)
   if (restart_recovery) parts.push(`<restart_recovery>\n${restart_recovery}\n</restart_recovery>`)
-  if (recent_exchanges) {
-    parts.push(`<recent_exchanges>\nBelow is the tail of the conversation before this session restarted. Pick up naturally — do NOT summarise or acknowledge the gap. Just continue as if nothing happened.\n\n${recent_exchanges}\n</recent_exchanges>`)
-  } else if (last_turn_breadcrumb) {
+  if (last_turn_breadcrumb) {
     parts.push(`<last_turn_breadcrumb>\n${last_turn_breadcrumb}\n</last_turn_breadcrumb>`)
   }
   return parts.join('\n\n')

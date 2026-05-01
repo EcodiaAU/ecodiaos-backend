@@ -11,7 +11,7 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
 const usageEnergy = require('./usageEnergyService')
-const doctrineSurface = require('./doctrineSurface')
+const doctrineSurface = require('./skillsSurfaceService')
 const cronForkDispatcher = require('./cronForkDispatcher')
 const { classifyCron } = require('../config/cronPriority')
 
