@@ -1401,6 +1401,8 @@ async function _sendMessageImpl(content, opts = {}) {
   let _turnModel = null                // model from system.init, for turn_complete telemetry
   let _lastTurnInputTokens = 0         // set from result.usage.input_tokens; used for compact threshold
   let _compactBoundaryTimer = null     // 60s safety timeout for stuck compact_boundary start
+  let _compactionEventOpenId = null    // compaction_events row id awaiting end-marker (audit Tier A 2026-05-01)
+  let _compactionEventStartedAt = null // wallclock ms when compact_boundary 'start' fired
 
   // ─── Per-tool watchdog ─────────────────────────────────────────────────
   // An MCP server can crash mid-tool-call (stdio pipe breaks, process dies,
@@ -2013,7 +2015,20 @@ async function _sendMessageImpl(content, opts = {}) {
                 const provider = _currentProvider
                 const model    = env.OS_SESSION_MODEL || null
                 // Log for history/turns-this-week count (non-blocking)
-                usageEnergy.logUsage({ sessionId: dbSessionId, source: 'os_session', provider, model, inputTokens: turnInput, outputTokens: turnOutput }).catch(() => {})
+                usageEnergy.logUsage({
+                  sessionId: dbSessionId,
+                  source: 'os_session',
+                  provider,
+                  model,
+                  inputTokens: turnInput,
+                  outputTokens: turnOutput,
+                  // Audit Tier A 2026-05-01: persist cache tokens for cache_hit_ratio
+                  // panel + per-turn cost estimation. Anthropic SDK puts these on
+                  // msg.usage; mutually exclusive slices of the input total so the
+                  // pricing helper subtracts them when computing residual non-cached input.
+                  cacheCreationTokens: msg.usage?.cache_creation_input_tokens ?? 0,
+                  cacheReadTokens: msg.usage?.cache_read_input_tokens ?? 0,
+                }).catch(() => {})
               }
               // Live token usage broadcast — surfaces context-fill progress in the UI
               // so Tate can see the session approaching the compact threshold rather
@@ -2267,6 +2282,30 @@ async function _sendMessageImpl(content, opts = {}) {
                   broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'end' } })
                 }
               }
+              // Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): close the open
+              // compaction_events row for this session, if any. Fire-and-forget;
+              // on table-not-exists we silently skip per the migration's
+              // graceful-degradation contract.
+              if (_compactionEventOpenId) {
+                const closingId = _compactionEventOpenId
+                _compactionEventOpenId = null
+                const startedAt = _compactionEventStartedAt
+                _compactionEventStartedAt = null
+                ;(async () => {
+                  try {
+                    const dbModule = require('../config/db')
+                    const durationMs = startedAt ? (Date.now() - startedAt) : null
+                    await dbModule`
+                      UPDATE compaction_events
+                      SET ended_at = NOW(),
+                          duration_ms = ${durationMs}
+                      WHERE id = ${closingId}
+                    `
+                  } catch (closeErr) {
+                    logger.debug('compaction_events close failed', { error: closeErr.message })
+                  }
+                })()
+              }
             } else {
               // start or unknown single marker - begin compacting
               if (!isCompacting) {
@@ -2275,6 +2314,32 @@ async function _sendMessageImpl(content, opts = {}) {
                   emitStatus('compacting', { sessionId: dbSessionId })
                   broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'start' } })
                 }
+                // Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): record the
+                // compaction event for /ops dashboard time-series. Captures the
+                // threshold env value + last turn's input tokens (the prefix
+                // size that tripped compaction) + reason. Fire-and-forget; we
+                // stash the inserted id on outer-scope vars so the matching
+                // 'end' branch can close it. On table-not-exists or any other
+                // failure we just drop the row — observability is best-effort.
+                ;(async () => {
+                  try {
+                    const dbModule = require('../config/db')
+                    const threshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+                    const prefixTokens = _lastTurnInputTokens || null
+                    const [row] = await dbModule`
+                      INSERT INTO compaction_events (
+                        cc_session_id, threshold, prefix_tokens_at_fire, reason
+                      ) VALUES (
+                        ${dbSessionId}, ${threshold}, ${prefixTokens}, ${'sdk_boundary'}
+                      )
+                      RETURNING id
+                    `
+                    _compactionEventOpenId = row?.id || null
+                    _compactionEventStartedAt = Date.now()
+                  } catch (insErr) {
+                    logger.debug('compaction_events insert failed', { error: insErr.message })
+                  }
+                })()
                 // Pinnacle P1: 60s safety timeout - if compact_boundary end never arrives,
                 // emit a synthetic end so the frontend doesn't stay stuck in compacting state.
                 if (_compactBoundaryTimer) clearTimeout(_compactBoundaryTimer)
@@ -2286,6 +2351,26 @@ async function _sendMessageImpl(content, opts = {}) {
                     if (!suppressOutput) {
                       emitStatus('streaming', { sessionId: dbSessionId })
                       broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'end', synthetic: true } })
+                    }
+                    // Mark the open compaction_events row as synthetic-ended.
+                    if (_compactionEventOpenId) {
+                      const synthId = _compactionEventOpenId
+                      _compactionEventOpenId = null
+                      const startedAt = _compactionEventStartedAt
+                      _compactionEventStartedAt = null
+                      ;(async () => {
+                        try {
+                          const dbModule = require('../config/db')
+                          const durationMs = startedAt ? (Date.now() - startedAt) : null
+                          await dbModule`
+                            UPDATE compaction_events
+                            SET ended_at = NOW(),
+                                duration_ms = ${durationMs},
+                                reason = ${'synthetic_end_timeout'}
+                            WHERE id = ${synthId}
+                          `
+                        } catch {}
+                      })()
                     }
                   }
                 }, 60_000)

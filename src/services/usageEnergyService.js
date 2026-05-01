@@ -640,12 +640,53 @@ function _buildSummary({ acct1, acct2, active, hasRealData, turns, best }) {
 }
 
 // ─── Log a turn to our DB (for activity tracking / history) ──────────────────
-async function logUsage({ sessionId = null, source = 'os_session', provider = 'claude_max', model = null, inputTokens = 0, outputTokens = 0, clientId = null, projectId = null }) {
+// Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): now also persists cache
+// tokens + estimated cost_usd so the /ops dashboard can surface
+// cache_hit_ratio + cost_per_turn_usd panels. Migration 082 added the
+// two cache columns; cost_usd column already existed but was never populated.
+// All new params optional — callers that don't pass them get the old shape.
+async function logUsage({
+  sessionId = null,
+  source = 'os_session',
+  provider = 'claude_max',
+  model = null,
+  inputTokens = 0,
+  outputTokens = 0,
+  cacheCreationTokens = 0,
+  cacheReadTokens = 0,
+  clientId = null,
+  projectId = null,
+} = {}) {
   try {
     const weekStart = _getWeekStart()
+    let costUsd = null
+    try {
+      const { estimateCostUsd } = require('../config/anthropicPricing')
+      costUsd = estimateCostUsd({
+        model,
+        inputTokens,
+        outputTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
+      })
+    } catch (priceErr) {
+      // Pricing module is additive; if anything goes wrong, persist null cost
+      // and continue. Never break logUsage on cost-estimation errors.
+      logger.debug('estimateCostUsd unavailable', { error: priceErr.message })
+    }
     await db`
-      INSERT INTO claude_usage (session_id, source, provider, model, input_tokens, output_tokens, week_start, client_id, project_id)
-      VALUES (${sessionId}, ${source}, ${provider}, ${model}, ${inputTokens}, ${outputTokens}, ${weekStart}, ${clientId}, ${projectId})
+      INSERT INTO claude_usage (
+        session_id, source, provider, model,
+        input_tokens, output_tokens,
+        cache_creation_input_tokens, cache_read_input_tokens,
+        cost_usd, week_start, client_id, project_id
+      )
+      VALUES (
+        ${sessionId}, ${source}, ${provider}, ${model},
+        ${inputTokens}, ${outputTokens},
+        ${cacheCreationTokens}, ${cacheReadTokens},
+        ${costUsd}, ${weekStart}, ${clientId}, ${projectId}
+      )
     `
     _cache = null
     _cacheAt = 0
