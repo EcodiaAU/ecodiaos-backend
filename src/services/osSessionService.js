@@ -1299,6 +1299,11 @@ async function _sendMessageImpl(content, opts = {}) {
     }
     _currentProvider = 'deepseek'
     ccSessionId = null  // can't resume across providers
+    // Clear the DB session ID so the next turn doesn't read the old Claude
+    // cc_cli_session_id back and try to resume a session that has thinking blocks.
+    if (dbSessionId) {
+      db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+    }
     const sessionEnv = { ...process.env }
     // V4 Pro always activates thinking mode. DeepSeek requires thinking blocks
     // echoed back, but they carry Anthropic-format signatures DeepSeek rejects.
@@ -1312,9 +1317,6 @@ async function _sendMessageImpl(content, opts = {}) {
     options.model = 'deepseek-v4-flash'
     delete options.thinking
     delete options.resume
-    // Hard cap on tool-call turns: DeepSeek is pay-per-token so runaway agentic
-    // loops are expensive. 10 turns is enough for a real task; infinite loops get cut.
-    options.maxTurns = 10
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
   } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
@@ -1346,6 +1348,9 @@ async function _sendMessageImpl(content, opts = {}) {
     }
     _currentProvider = 'bedrock'
     ccSessionId = null  // can't resume across providers
+    if (dbSessionId) {
+      db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+    }
     const sessionEnv = { ...process.env }
     // For Bedrock via CC Agent SDK: set model to bedrock-prefixed model
     // and provide AWS credentials in the environment
