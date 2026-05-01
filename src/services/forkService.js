@@ -341,7 +341,14 @@ function _resolveProviderForFork() {
   let provider = 'claude_max'
   let model
 
-  if (best.isBedrockFallback) {
+  if (best.isDeepseekFallback) {
+    provider = 'deepseek'
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
+  } else if (best.isBedrockFallback) {
     provider = 'bedrock'
     if (env.AWS_ACCESS_KEY_ID) sessionEnv.AWS_ACCESS_KEY_ID = env.AWS_ACCESS_KEY_ID
     if (env.AWS_SECRET_ACCESS_KEY) sessionEnv.AWS_SECRET_ACCESS_KEY = env.AWS_SECRET_ACCESS_KEY

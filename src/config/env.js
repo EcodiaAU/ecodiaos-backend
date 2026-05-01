@@ -231,6 +231,10 @@ const envSchema = z.object({
   // TODO: confirm real Bedrock ids for Sonnet 4.5/4.6 and Haiku 4.5 against AWS docs
   // before switching tier. Validated downstream in osSessionService/forkService.
   BEDROCK_MODEL: z.string().default('us.anthropic.claude-opus-4-1-20250805-v1:0'),
+  // DeepSeek V4 Pro fallback — sits between Max exhaustion and Bedrock.
+  // Uses native Anthropic-compatible endpoint; no SDK changes required.
+  DEEPSEEK_FALLBACK_ENABLED: z.string().default('false'),
+  DEEPSEEK_FALLBACK_BASE_URL: z.string().default('https://api.deepseek.com/anthropic'),
   // Supabase Storage
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),
