@@ -94,7 +94,7 @@ async function _probeClaudeEnergy() {
   try {
     const energy = await _withTimeout(usageEnergy.getEnergy(), PROBE_TIMEOUT_MS, null)
     if (!energy) return { ok: false, detail: { error: 'timeout' } }
-    const ok = !energy.isBedrockFallback && (energy.level !== 'critical')
+    const ok = !energy.isBedrockFallback && !energy.isDeepseekFallback && (energy.level !== 'critical')
     return {
       ok,
       detail: {
