@@ -343,14 +343,14 @@ function _resolveProviderForFork() {
 
   if (best.isDeepseekFallback) {
     provider = 'deepseek'
-    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    // Proxy strips thinking blocks — V4 Pro thinking signatures cause 400 on replay.
+    const deepseekProxy = require('./deepseekProxyService')
+    sessionEnv.ANTHROPIC_BASE_URL = deepseekProxy.getBaseUrl()
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
-    // Explicit model required — unknown names silently fall back to deepseek-v4-flash.
-    // [1m] suffix stripped: DeepSeek ignores anthropic-beta headers so it's meaningless here.
-    model = 'deepseek-v4-flash'
+    model = 'deepseek-v4-pro'
   } else if (best.isBedrockFallback) {
     provider = 'bedrock'
     if (env.AWS_ACCESS_KEY_ID) sessionEnv.AWS_ACCESS_KEY_ID = env.AWS_ACCESS_KEY_ID

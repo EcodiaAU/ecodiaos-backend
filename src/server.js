@@ -14,6 +14,13 @@ try {
   logger.error('Capability registry failed to boot - actions will not work', { error: err.message })
 }
 
+// Start DeepSeek proxy (strips thinking blocks so V4 Pro works in multi-turn)
+try {
+  require('./services/deepseekProxyService').start()
+} catch (err) {
+  logger.error('DeepSeek proxy failed to start', { error: err.message })
+}
+
 const server = createServer(app)
 initWS(app, server)
 

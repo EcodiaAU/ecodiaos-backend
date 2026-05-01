@@ -1300,24 +1300,22 @@ async function _sendMessageImpl(content, opts = {}) {
     _currentProvider = 'deepseek'
     ccSessionId = null  // can't resume across providers
     const sessionEnv = { ...process.env }
-    // Point the SDK at DeepSeek's native Anthropic-compatible endpoint.
-    // ANTHROPIC_BASE_URL redirects all SDK calls; ANTHROPIC_API_KEY carries the DeepSeek key.
-    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    // Route through local proxy — strips thinking blocks from V4 Pro responses.
+    // V4 Pro returns Anthropic-format thinking signatures the SDK echoes back,
+    // causing 400 "Invalid signature in thinking block" on the second turn.
+    // Proxy forwards to DeepSeek and drops thinking blocks transparently.
+    const deepseekProxy = require('./deepseekProxyService')
+    sessionEnv.ANTHROPIC_BASE_URL = deepseekProxy.getBaseUrl()
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     // Strip OAuth tokens — DeepSeek uses API key auth, not OAuth.
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
-    // Must pass the explicit model name — DeepSeek maps any unknown model string to
-    // Use flash not pro: V4 Pro always activates thinking mode which produces
-    // Anthropic-format signatures that DeepSeek itself rejects when the SDK echoes
-    // them back in the next turn — 400 "Invalid signature in thinking block".
-    // Flash has no thinking mode, same 1M context / 384K output, no signature issue.
-    options.model = 'deepseek-v4-flash'
+    options.model = 'deepseek-v4-pro'
     delete options.thinking
     delete options.resume
-    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
+    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
   } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
     // Alert ONLY if a Max account was genuinely near cap — otherwise this is
