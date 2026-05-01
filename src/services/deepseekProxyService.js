@@ -84,11 +84,12 @@ function start() {
   if (_server) return
 
   _server = http.createServer((req, res) => {
-    // Rewrite path: /anthropic/... → /anthropic/...  (pass through as-is)
+    // SDK sends /v1/messages; DeepSeek Anthropic-compat lives at /anthropic/v1/messages.
+    const upstreamPath = req.url.startsWith('/anthropic') ? req.url : `/anthropic${req.url}`
     const options = {
       hostname: TARGET_HOST,
       port: TARGET_PORT,
-      path: req.url,
+      path: upstreamPath,
       method: req.method,
       headers: {
         ...req.headers,
