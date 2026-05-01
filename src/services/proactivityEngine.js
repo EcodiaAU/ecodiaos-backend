@@ -253,6 +253,38 @@ async function nextAction(state) {
 
 // ─── Polling loop ───────────────────────────────────────────────────────────
 
+// Pre-execution probes for cheap action classes. Returns:
+//   { proceed: true }                   — enqueue as planned
+//   { proceed: false, reason: <str> }   — record no-value, skip enqueue
+//
+// The damper consumes "no-value" signals to pause repeated useless fires
+// (3 consecutive → 24h pause). Without a probe the damper never engages
+// for `check_email`, because "successfully enqueued" was being conflated
+// with "produced value" — see Tate-flagged spam at 11:12 AEST 1 May 2026.
+async function _probeAction(action) {
+  if (action.action_class === 'check_email') {
+    try {
+      const gmailService = require('./gmailService')
+      const { total, perInbox, gmailDisabled } = await gmailService.countUnread()
+      if (gmailDisabled) {
+        return { proceed: false, reason: 'gmail_disabled' }
+      }
+      if (total === 0) {
+        return { proceed: false, reason: 'no_unread_in_any_inbox', perInbox }
+      }
+      // Annotate the action so the conductor's prompt explains what's there.
+      action.reason = `Proactive inbox check — ${total} unread (${perInbox.map(p => `${p.inbox}:${p.unread}`).join(', ')})`
+      return { proceed: true, unreadCount: total }
+    } catch (err) {
+      // API failure → conservative: skip enqueue (don't spam) but DON'T damp
+      // (we have no signal about real inbox state). Treat as transient.
+      logger.warn('proactivityEngine: check_email probe failed', { error: err.message })
+      return { proceed: false, reason: 'probe_error', transient: true }
+    }
+  }
+  return { proceed: true }
+}
+
 async function _tick() {
   if (_running) return
   _running = true
@@ -262,10 +294,28 @@ async function _tick() {
     const action = await nextAction(state)
 
     if (action) {
+      // Pre-execution probe: cheap action classes (currently check_email)
+      // verify there's actual work to do BEFORE enqueueing. This is what
+      // feeds the damper a real "no-value" signal.
+      const probe = await _probeAction(action)
+      if (!probe.proceed) {
+        logger.debug('proactivityEngine: action skipped by probe', {
+          action_class: action.action_class,
+          reason: probe.reason,
+          ...(probe.perInbox ? { perInbox: probe.perInbox } : {}),
+        })
+        // Only damp on confirmed no-value (not transient errors).
+        if (!probe.transient) {
+          _recordFire(action.action_class, false)
+        }
+        return
+      }
+
       logger.info('proactivityEngine: action selected', {
         action_class: action.action_class,
         action: action.action,
         reason: action.reason,
+        ...(probe.unreadCount !== undefined ? { unread_count: probe.unreadCount } : {}),
       })
 
       // Enqueue to OS Session message queue for conductor
@@ -323,4 +373,6 @@ module.exports = {
   _recordFire,
   _isDamped,
   _actionHistory,
+  _probeAction,
+  _tick,
 }
