@@ -223,7 +223,18 @@ const envSchema = z.object({
   AWS_ACCESS_KEY_ID: z.string().default(''),
   AWS_SECRET_ACCESS_KEY: z.string().default(''),
   AWS_REGION: z.string().default('us-east-1'),
-  BEDROCK_MODEL: z.string().default('us.anthropic.claude-sonnet-4-6'),  // Bedrock fallback: Sonnet 4.6 cross-region inference profile (no date suffix — dated form doesn't exist)
+  // Bedrock fallback model id. MUST be a real Bedrock cross-region inference
+  // profile id (e.g. us.anthropic.claude-opus-4-1-20250805-v1:0) — Anthropic
+  // OAuth ids like `claude-opus-4-7` are REJECTED by the Bedrock SDK with
+  // "invalid model identifier" errors. Default below is the Opus 4.1 profile
+  // verified by the Bedrock SDK error message (30 Apr 2026 23:24 AEST incident).
+  // TODO: confirm real Bedrock ids for Sonnet 4.5/4.6 and Haiku 4.5 against AWS docs
+  // before switching tier. Validated downstream in osSessionService/forkService.
+  BEDROCK_MODEL: z.string().default('us.anthropic.claude-opus-4-1-20250805-v1:0'),
+  // DeepSeek V4 Pro fallback — sits between Max exhaustion and Bedrock.
+  // Uses native Anthropic-compatible endpoint; no SDK changes required.
+  DEEPSEEK_FALLBACK_ENABLED: z.string().default('false'),
+  DEEPSEEK_FALLBACK_BASE_URL: z.string().default('https://api.deepseek.com/anthropic'),
   // Supabase Storage
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),
@@ -233,11 +244,14 @@ const envSchema = z.object({
   // OS Session tuning
   OS_SESSION_MODEL: z.string().default(''),
   OS_SESSION_CWD: z.string().default('/home/tate/ecodiaos'),
-  // Bumped from 250k to 800k (Apr 2026). On Opus 4.7's 1M context, handover
-  // was firing way too early — the SDK's native compaction preserves
-  // continuity far better than our brief→warm-session dance. Only trigger
-  // when we're genuinely approaching the context ceiling.
-  OS_SESSION_COMPACT_THRESHOLD: z.string().default('800000'),
+  // PROMPT_ASSEMBLY_SPEC §3.5 target. Previous default 800K was a workaround
+  // for compaction-firing-too-eager bugs that have since shipped fixes (the
+  // SDK's native compaction now preserves continuity well below the 1M
+  // ceiling). Flip-and-watch via /ops dashboard: cache_hit_ratio should
+  // hold (or improve) and compaction_events should show a healthy sawtooth.
+  // ROLLBACK: bump back to '800000' if /ops shows compaction firing >2x/min
+  // or cache_hit_ratio drops below pre-flip baseline for >2h.
+  OS_SESSION_COMPACT_THRESHOLD: z.string().default('120000'),
   // Automatic Neo4j memory injection into user messages.
   // Semantic-searches Pattern/Decision/Episode nodes and prepends a
   // <relevant_memory> block between <now> and <restart_recovery>.
@@ -246,6 +260,42 @@ const envSchema = z.object({
   // When true, each semantic hit is expanded by 1 hop to show relationship context.
   // Set to 'false' to revert to point-only (no neighbourhood query).
   OS_MEMORY_NEIGHBORHOOD_ENABLED: z.string().default('true'),
+  // §2.2 Dual-reviewer feature flags. Gate runs whenever enabled; enforce
+  // decides whether a rejection blocks deploy or only shadow-records the
+  // verdict. Ship as shadow (enforce=0) first, flip to enforce=1 after
+  // 24-48h of clean verdicts. See docs/SECURITY_HARDENING.md §2.2.
+  SECURITY_DUAL_REVIEWER: z.string().default('1'),
+  SECURITY_DUAL_REVIEWER_ENFORCE: z.string().default('0'),
+  // §7.1 Signed audit log HMAC key. Must be a high-entropy secret, rotated
+  // per VPS. When unset, audit log writes proceed with hmac=null and a
+  // warning is logged - this is a dev convenience only; production MUST
+  // set a real value.
+  AUDIT_LOG_HMAC_KEY: z.string().default(''),
+  // §3.2 Tier-3 token HMAC key. Same shape as audit log key; used to sign
+  // action-specific grant tokens that replace the old tateGoaheadRef
+  // freetext lie.
+  TIER3_TOKEN_HMAC_KEY: z.string().default(''),
+  // docs/PROMPT_ASSEMBLY_SPEC.md §7 rollout flag for the promptAssembler
+  // migration. Three values:
+  //   'off'     - v1 only. buildCustomSystemPrompt is the sole path. Default.
+  //   'shadow'  - v1 ships to the model; v2 runs in parallel; output diff is
+  //               written to prompt_assembly_audit fire-and-forget.
+  //   'canary'  - 20% of sessions (deterministic sha256(session_id) bucket)
+  //               route v2 to the model; remainder stay on v1. Still writes
+  //               audit rows for comparison.
+  // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
+  // clean rows (zero semantic_equivalent=false).
+  // Reconciled with .env.production override 2026-05-01: prompt assembler
+  // is live, doctrineSurface deleted, skillsSurfaceService is sole surface.
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('live'),
+  // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
+  // grep of patterns/*.md) with skillsSurfaceService (description-driven
+  // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
+  // '1' = skillsSurfaceService populates BP3. Both run when enabled so
+  // the 3-day hit-count comparison metric can fire.
+  // Reconciled with .env.production override 2026-05-01: skillsSurfaceService
+  // is the sole BP3 surface (doctrineSurface.js was deleted from disk).
+  USE_SKILLS_SURFACE: z.string().default('1'),
 })
 
 const parsed = envSchema.safeParse(process.env)

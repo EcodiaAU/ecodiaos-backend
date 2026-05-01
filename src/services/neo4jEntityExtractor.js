@@ -13,6 +13,9 @@ const env = require('../config/env')
 const logger = require('../config/logger')
 const db = require('../config/db')
 const neo4j = require('neo4j-driver')
+// §2.4 - validate every interpolated rel-type against the strict shape
+// regex BEFORE it lands in a Cypher string.
+const { assertAllowedRelType, coerceRelType } = require('../lib/cypher/labelAllowlist')
 
 // Write-mode confidence gate. Extractor internally keeps candidates at >=0.78,
 // but only edges at >=WRITE_CONFIDENCE_THRESHOLD are materialised when writing.
@@ -373,8 +376,14 @@ async function writeExtractedEdges(extraction, opts = {}) {
       continue
     }
     try {
-      // Sanitise relType to uppercase alpha+underscore only
-      const relType = String(edge.relType || 'MENTIONS').replace(/[^A-Z_]/g, '') || 'MENTIONS'
+      // §2.4: validate the LLM-emitted rel-type against the strict
+      // shape regex (uppercase alphanumeric + underscore, length-bound)
+      // BEFORE interpolation. Coerce on best-effort, fall back to
+      // MENTIONS if the input cannot be coerced cleanly. The previous
+      // regex strip (`[^A-Z_]/g`) could produce empty / pathological
+      // strings under adversarial input.
+      const coerced = coerceRelType(edge.relType) || 'MENTIONS'
+      const relType = assertAllowedRelType(coerced)
       const cypher = `
         MATCH (src) WHERE elementId(src) = $srcId
         MATCH (tgt) WHERE elementId(tgt) = $tgtId

@@ -85,6 +85,28 @@ The 7-layer architecture closes all three loops mechanically. The system observe
 
 ### Layer 5 - Outcome correlation (SHIPPED - Phase D, 30 Apr 2026)
 
+**Layer-4 outcome model (Phase G Critique #1 fix - 30 Apr 2026):** the inferrer at `~/ecodiaos/src/services/telemetry/outcomeInference.js` produces FOUR outcome states, not three. Silence is NOT a positive signal:
+
+- `success` - explicit POSITIVE evidence: Tate affirmation SMS within 30min (`thanks`/`great`/`good`/`go`/`ship`/etc), OR factory_dispatch with `cc_sessions.status='deployed'` AND `commit_sha` non-null AND `deploy_status='deployed'` (the artefact-trifecta), OR fork_spawn with `os_forks.status='done'` AND `result.length > 0`.
+- `correction` - Tate SMS rebuke within 30min matching `CORRECTION_KEYWORDS`. Phase D classifies the failure mode.
+- `failure` - explicit terminal-error from the underlying system: `cc_sessions.status='error'` for factory_dispatch, `os_forks.status='error'` (or aborted/errored/failed/cancelled) for fork_spawn. Phase D classifies these too (Critique #1 expansion).
+- `unverified` (NEW, the Phase G fix) - default for any dispatch older than 30min with no positive AND no negative signal. Replaces the pre-Phase-G "graceful default success" that produced the 100%-success-by-default survivorship bias. Unverified rows are dark matter; Phase D does NOT classify them.
+
+**Layer-4 metrics (computed from the 4-state model):**
+
+- `success_rate = success / (success + correction + failure + unverified)` - the headline metric, but ONLY meaningful in conjunction with...
+- `verification_rate = (success + correction + failure) / total` - the dark-matter metric. A high success_rate with a low verification_rate means the architecture is operating blind. Surface verification_rate < 0.30 as a status_board P3 `low_verification_rate` signal.
+
+**Priority order in the inferrer (highest evidence wins):**
+1. Type-specific failure (cc_sessions.status=error, os_forks.status=error) - most actionable on the negative side
+2. SMS correction within 30min - explicit Tate rebuke
+3. SMS affirmation within 30min - explicit Tate green-light
+4. Type-specific success (factory artefact-trifecta, fork done+result) - requires artefacts not just status
+5. UNVERIFIED default for dispatches older than 30min
+6. Defer (no inference) for dispatches younger than 30min
+
+Doctrine: `~/ecodiaos/patterns/outcome-classification-must-distinguish-unverified-from-success.md` (the rule).
+
 **What:** every `outcome_event` is classified into one of three failure modes:
 
 - **Usage failure:** the relevant pattern surfaced AND was acknowledged-as-applied AND the outcome was still a correction. The doctrine was right, the application was wrong (or the doctrine was right but incomplete). Flag the pattern for refinement, not retirement.

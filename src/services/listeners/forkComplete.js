@@ -8,7 +8,13 @@
  *   (b) status in ['running', 'spawning', 'reporting'] AND last_heartbeat
  *       is more than 10 minutes old - implies the fork has hung
  *
- * Wakes the OS via HTTP POST so it can review the fork result or intervene.
+ * Wake-on-failure-only contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST):
+ *   - status='done' is SILENT. Logs to DB only, no wake POST. Parent dispatchers
+ *     know what they queued and probe the DB on their next turn. Avoids flooding
+ *     the conductor's chat context with successful-completion noise.
+ *   - status='aborted' or status='error' WAKES. Failures need conductor attention.
+ *   - Stale-heartbeat (no progress signal for 10+ minutes) WAKES.
+ *
  * Stale-heartbeat alerts are deduplicated per fork_id (in-memory Set).
  *
  * Wakes the OS via HTTP POST - never imports the session service directly.
@@ -16,6 +22,14 @@
 
 const logger = require('../../config/logger')
 const axios = require('axios')
+// §2.1 untrusted-input boundary. row.result and row.next_step are
+// fork-emitted free-text fields. A fork can have been driven by a
+// brief that itself contained external content (CRM activity, scraped
+// web data, user-supplied input), and its result narration carries
+// that influence forward. Wrap at this listener boundary so the
+// conductor reads the fork's free-text output as data, not as
+// instructions to execute. See docs/SECURITY_HARDENING.md §1.
+const { wrapUntrusted } = require('../../lib/untrustedInput')
 
 const PORT = process.env.PORT || 3001
 const STALE_HEARTBEAT_MS = 10 * 60 * 1000  // 10 minutes
@@ -77,14 +91,45 @@ module.exports = {
       // Clear stale-alert dedup on terminal transition - fork is done
       _staledForks.delete(forkId)
 
-      const resultSnippet = row.result ? String(row.result).slice(0, 200) : 'none'
+      // Silent path: successful completion. Log to DB only, no wake.
+      // Parent dispatchers know what they queued and will probe DB on next turn.
+      // Avoids flooding conductor context per silent-ears architecture
+      // (Tate 30 Apr 2026 13:18 AEST).
+      if (status === 'done') {
+        logger.info('forkComplete: terminal done (silent, no wake)', { forkId })
+        try { require('../perceptionBus').publish({ source: 'fork', kind: 'fork_complete', data: { fork_id: forkId, status: 'done' }, confidence: 1.0 }) } catch {}
+        return
+      }
+
+      // Wake path: aborted or error. Conductor needs to know.
+      // §2.1: row.result and row.next_step are fork-emitted free text -
+      // wrap them so the conductor treats them as data, not instructions.
+      // Truncate the result before wrapping (size-bound), then wrap, so
+      // the wrapper attributes still apply to whatever remains.
+      const resultSnippet = row.result ? String(row.result).slice(0, 200) : ''
+      const wrappedResult = resultSnippet
+        ? wrapUntrusted(resultSnippet, {
+          source: 'fork_result',
+          fork_id: String(forkId || 'unknown'),
+          status: String(status || 'unknown'),
+          event_id: ctx.sourceEventId || 'unknown',
+        })
+        : 'none'
+      const wrappedNextStep = row.next_step
+        ? wrapUntrusted(String(row.next_step), {
+          source: 'fork_next_step',
+          fork_id: String(forkId || 'unknown'),
+          event_id: ctx.sourceEventId || 'unknown',
+        })
+        : 'investigate'
       const message = (
-        `Fork ${forkId} completed with status=${status}. ` +
-        `Result: ${resultSnippet}. ` +
-        `Next step: ${row.next_step || 'none'}. ` +
+        `Fork ${forkId} completed with status=${status} (FAILED). ` +
+        `Result: ${wrappedResult}. ` +
+        `Next step: ${wrappedNextStep}. ` +
         `Source: forkComplete listener (sourceEventId=${ctx.sourceEventId}).`
       )
-      logger.info('forkComplete: terminal state', { forkId, status })
+      logger.info('forkComplete: terminal failure', { forkId, status })
+      try { require('../perceptionBus').publish({ source: 'fork', kind: `fork_${status}`, data: { fork_id: forkId, status }, confidence: 1.0 }) } catch {}
       await _wakeOsSession(message, forkId)
     } else {
       // Stale heartbeat - dedupe so we don't spam the OS per-tick

@@ -27,7 +27,30 @@ const usageEnergy = require('./usageEnergyService')
 const osIncident = require('./osIncidentService')
 const sessionMemory = require('./sessionMemoryService')
 const osConversationLog = require('./osConversationLog')
+const credentialFilter = require('../lib/credentialFilter')
+const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
+const doctrineSurface = require('./skillsSurfaceService')
+const perceptionBus = require('./perceptionBus')
+const turnInjection = require('./turnInjectionService')
+// docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
+// cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
+// this service's v1 path and diffs are written fire-and-forget to
+// prompt_assembly_audit. Canary/full flip happens via env flag after 48h of
+// clean shadow rows.
+const promptAssembler = require('./promptAssembler')
+const promptAssemblyAudit = require('./promptAssemblyAudit')
+// §2.1 untrusted-input system clause - the conductor reads listener
+// wake messages (which the listeners themselves now wrap with
+// wrapUntrusted), gmail bodies (via subagent tool returns), CRM activity,
+// and fork reports. The wrapping happens at the producer boundary
+// (listeners/emailArrival, listeners/forkComplete, factoryTriggerService);
+// here we only need the system clause appended to buildCustomSystemPrompt
+// so the conductor knows to treat <untrusted_input> tags as data, not
+// as instructions. See docs/SECURITY_HARDENING.md §1.
+const {
+  UNTRUSTED_INPUT_SYSTEM_CLAUSE,
+} = require('../lib/untrustedInput')
 
 // Fire quota-checks for BOTH accounts on startup to get real usage % immediately.
 // Log failure — if both accounts are misconfigured, the first user message fails
@@ -400,6 +423,42 @@ function buildCustomSystemPrompt(cwd) {
     logger.warn('Failed to read CLAUDE.md for custom system prompt', { cwd, error: err.message })
   }
 
+  // Read SELF.md (my first-person identity - Jarvis Layer 1 hinge).
+  // This is the OS-authored, weekly-refreshed self-narrative described in
+  // docs/JARVIS_GAP_ANALYSIS.md §6. It sits between CLAUDE.md (operational
+  // identity, authored by Tate) and the environment block so I always open
+  // a session knowing who I am, what I'm doing, and what's unresolved.
+  //
+  // Loaded as its own block so it can become an independent Anthropic
+  // prompt-cache breakpoint later (PROMPT_ASSEMBLY_SPEC §4). Missing file
+  // is non-fatal — logged and skipped.
+  //
+  // Lookup order (first hit wins):
+  //   1. cwd/SELF.md  - alongside CLAUDE.md (production layout on VPS
+  //      where cwd = ~/ecodiaos and SELF.md is tracked in the backend repo)
+  //   2. cwd/.claude/SELF.md - legacy / local-workspace layout
+  let selfMd = ''
+  const selfMdCandidates = [
+    path.join(cwd, 'SELF.md'),
+    path.join(cwd, '.claude', 'SELF.md'),
+  ]
+  for (const selfMdPath of selfMdCandidates) {
+    try {
+      if (fs.existsSync(selfMdPath)) {
+        selfMd = fs.readFileSync(selfMdPath, 'utf8')
+        break
+      }
+    } catch (err) {
+      logger.warn('Failed to read SELF.md candidate', { cwd, selfMdPath, error: err.message })
+    }
+  }
+  if (!selfMd) {
+    logger.info('SELF.md not found in any candidate path — running without first-person self-context', {
+      cwd,
+      candidates: selfMdCandidates,
+    })
+  }
+
   // Minimal environment context — replaces the SDK's verbose default env block
   const today = new Date().toISOString().slice(0, 10)
   const envBlock = `# Environment
@@ -458,11 +517,28 @@ The fork has none of your context unless you give it. A fork brief should read l
 - Work that needs your context to make decisions and can't be expressed as a clean brief — do it yourself.
 - When you've already got 4–5 forks live; finish those first or you'll thrash the energy budget.`
 
-  _cachedSystemPrompt = [claudeMd, envBlock, behaviorBlock, forkBlock].filter(Boolean).join('\n\n---\n\n')
+  // §2.1 untrusted-input system clause - tells the conductor to treat
+  // <untrusted_input> tags emitted by listeners / fork reports / CRM
+  // activity / email envelopes as DATA, never instructions. Append last
+  // so it is the final block before the system prompt is cached - that
+  // way it lands inside the cached prefix and stays stable across turns.
+  // See docs/SECURITY_HARDENING.md §1 for the live attack chain.
+  const untrustedInputBlock = `# Security: untrusted-input handling
+
+${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
+
+  // Assembly order matters for prompt cache stability:
+  //   1. claudeMd - most stable (only changes on deliberate Tate edits)
+  //   2. selfMd   - stable within the week (weekly self-review cadence)
+  //   3. env/behavior/fork/untrusted - stable across sessions
+  // The less-stable per-turn data (relevant_memory, forks_rollup, etc.)
+  // is appended downstream in the user-message path, not here.
+  _cachedSystemPrompt = [claudeMd, selfMd, envBlock, behaviorBlock, forkBlock, untrustedInputBlock].filter(Boolean).join('\n\n---\n\n')
   _cachedSystemPromptCwd = cwd
   logger.info('Custom system prompt built', {
     bytes: _cachedSystemPrompt.length,
     hasClaudeMd: !!claudeMd,
+    hasSelfMd: !!selfMd,
   })
   return _cachedSystemPrompt
 }
@@ -702,7 +778,7 @@ async function _DEAD_tryTokenRefresh(mode = 'force') {
 }
 
 // After an exhaustion event on the current provider, mark it rejected and pick the next best.
-// Returns { provider, reason, isBedrockFallback } or null if no alternative.
+// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } or null if no alternative.
 function _switchAfterExhaustion() {
   const from = _currentProvider
   // Mark current provider as rejected so getBestProvider skips it
@@ -715,10 +791,10 @@ function _switchAfterExhaustion() {
   }
   osIncident.log({
     kind: 'provider_switch',
-    severity: best.isBedrockFallback ? 'error' : 'warn',
+    severity: (best.isBedrockFallback || best.isDeepseekFallback) ? 'error' : 'warn',
     component: from,
     message: `switched ${from} -> ${best.provider}`,
-    context: { from, to: best.provider, reason: best.reason, isBedrockFallback: !!best.isBedrockFallback },
+    context: { from, to: best.provider, reason: best.reason, isBedrockFallback: !!best.isBedrockFallback, isDeepseekFallback: !!best.isDeepseekFallback },
   })
   return best
 }
@@ -1120,64 +1196,8 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.debug('Breadcrumb read failed (non-fatal)', { error: err.message })
   }
 
-  // Rich recent-exchange block — the real continuity fix.
-  //
-  // When ccSessionId is missing (PM2 restart / provider switch / stale retry)
-  // SDK resume isn't available. The tiny breadcrumb above carries ~600 chars of
-  // each side's last line, which is enough for "am I back online" acknowledgement
-  // but loses the NUANCE of the last several exchanges — the thing Tate described
-  // as "ruins the flow".
-  //
-  // Solution: on a fresh session with an existing DB row, pull the last ~15
-  // [USER]/assistant turns from cc_session_logs and inject them as a real
-  // transcript tail. ~8-15KB of genuine conversation instead of 1.5KB of
-  // sentence-tails. The OS rehydrates into the actual conversation, not a
-  // summary of it.
-  //
-  // Only runs when (a) we have a DB session row (not a cold start) and (b) we
-  // don't have a live ccSessionId (resume path is not active). Skipped entirely
-  // on resume to avoid double-context.
-  let recentExchangeBlock = null
-  if (!ccSessionId && session?.id) {
-    try {
-      const RECENT_CHARS_BUDGET = 12_000   // ~3k tokens, generous but bounded
-      const RECENT_ROW_LIMIT = 40          // enough for ~15-20 turn pairs
-      const rows = await db`
-        SELECT content, created_at FROM cc_session_logs
-        WHERE session_id = ${session.id}
-        ORDER BY created_at DESC
-        LIMIT ${RECENT_ROW_LIMIT}
-      `
-      if (rows?.length) {
-        // Rows are newest-first from the query. Walk newest→oldest, pushing
-        // into a buffer, stop when we hit the char budget. Then reverse so
-        // the model reads them in chronological order.
-        const picked = []
-        let used = 0
-        for (const r of rows) {
-          const c = r.content || ''
-          if (!c) continue
-          const isUser = c.startsWith('[USER] ')
-          const role = isUser ? 'Tate' : 'You'
-          const body = isUser ? c.slice(7) : c
-          const chunk = `${role}: ${body}`
-          if (used + chunk.length + 2 > RECENT_CHARS_BUDGET) break
-          picked.push(chunk)
-          used += chunk.length + 2
-        }
-        if (picked.length) {
-          // Reverse for chronological display and note if we truncated.
-          const chronological = picked.reverse()
-          if (rows.length > picked.length) {
-            chronological.unshift('… (earlier exchanges omitted to fit budget)')
-          }
-          recentExchangeBlock = chronological.join('\n\n')
-        }
-      }
-    } catch (err) {
-      logger.debug('Recent-exchange block read failed (non-fatal)', { error: err.message })
-    }
-  }
+  // recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 — the SDK replays
+  // session history via session_id, making the tail injection pure duplication.
 
   const options = {
     cwd,
@@ -1253,7 +1273,45 @@ async function _sendMessageImpl(content, opts = {}) {
   const best = usageEnergy.getBestProvider()
   const prevProvider = _currentProvider
 
-  if (best.isBedrockFallback) {
+  if (best.isDeepseekFallback) {
+    // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
+    // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
+    // DeepSeek ignores the model string and routes to V4 Pro automatically.
+    if (prevProvider !== 'deepseek') {
+      let energySnap = null
+      try { energySnap = await usageEnergy.getEnergy() } catch {}
+      const acct1 = energySnap?.accounts?.claude_max
+      const acct2 = energySnap?.accounts?.claude_max_2
+      const trulyExhausted = (acct1?.pctUsed >= 0.85) || (acct2?.pctUsed >= 0.85) ||
+        acct1?.rateLimitStatus === 'rejected' || acct2?.rateLimitStatus === 'rejected'
+      if (trulyExhausted) {
+        try {
+          const alerting = require('./osAlertingService')
+          alerting.alertBedrockFallback(`DeepSeek fallback: ${best.reason}`).catch(() => {})
+        } catch {}
+      } else {
+        logger.warn('DeepSeek fallback triggered but no account is near-exhausted — likely spurious, NOT alerting', {
+          reason: best.reason,
+          acct1PctUsed: acct1?.pctUsed,
+          acct2PctUsed: acct2?.pctUsed,
+        })
+      }
+    }
+    _currentProvider = 'deepseek'
+    ccSessionId = null  // can't resume across providers
+    const sessionEnv = { ...process.env }
+    // Point the SDK at DeepSeek's native Anthropic-compatible endpoint.
+    // ANTHROPIC_BASE_URL redirects all SDK calls; ANTHROPIC_API_KEY carries the DeepSeek key.
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
+    // Strip OAuth tokens — DeepSeek uses API key auth, not OAuth.
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
+    options.env = sessionEnv
+    delete options.resume
+    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
+  } else if (best.isBedrockFallback) {
     // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
     // Alert ONLY if a Max account was genuinely near cap — otherwise this is
     // a false fallback (e.g. `_isUsageExhausted` mis-matched on stray text,
@@ -1292,7 +1350,21 @@ async function _sendMessageImpl(content, opts = {}) {
     // CC Agent SDK supports Bedrock via CLAUDE_CODE_USE_BEDROCK=1
     sessionEnv.CLAUDE_CODE_USE_BEDROCK = '1'
     options.env = sessionEnv
-    options.model = env.BEDROCK_MODEL || 'us.anthropic.claude-sonnet-4-6'
+    // Bedrock requires cross-region inference profile ids (us./eu./apac.anthropic.*).
+    // Anthropic OAuth ids like `claude-opus-4-7` are rejected by the Bedrock SDK
+    // with "invalid model identifier" errors. Validate and substitute safe default.
+    // Origin: 30 Apr 2026 23:24 AEST — 3 turn failures from BEDROCK_MODEL=claude-opus-4-7.
+    const bedrockDefault = 'us.anthropic.claude-opus-4-1-20250805-v1:0'
+    const candidateBedrockModel = env.BEDROCK_MODEL || bedrockDefault
+    if (!/^(us|eu|apac)\.anthropic\.claude-/i.test(candidateBedrockModel)) {
+      logger.warn('Bedrock fallback: BEDROCK_MODEL is not a Bedrock-shaped id, using safe default', {
+        configured: candidateBedrockModel,
+        using: bedrockDefault,
+      })
+      options.model = bedrockDefault
+    } else {
+      options.model = candidateBedrockModel
+    }
     delete options.resume
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to Bedrock (${options.model}).` })
   } else if (best.provider === 'claude_max_2') {
@@ -1345,6 +1417,7 @@ async function _sendMessageImpl(content, opts = {}) {
     provider: _currentProvider,
     reason: best.reason,
     isBedrockFallback: best.isBedrockFallback,
+    isDeepseekFallback: best.isDeepseekFallback,
     prevProvider,
     configDir1: env.CLAUDE_CONFIG_DIR_1 || '(default)',
     configDir2: env.CLAUDE_CONFIG_DIR_2 || '(not set)',
@@ -1368,6 +1441,8 @@ async function _sendMessageImpl(content, opts = {}) {
   let _turnModel = null                // model from system.init, for turn_complete telemetry
   let _lastTurnInputTokens = 0         // set from result.usage.input_tokens; used for compact threshold
   let _compactBoundaryTimer = null     // 60s safety timeout for stuck compact_boundary start
+  let _compactionEventOpenId = null    // compaction_events row id awaiting end-marker (audit Tier A 2026-05-01)
+  let _compactionEventStartedAt = null // wallclock ms when compact_boundary 'start' fired
 
   // ─── Per-tool watchdog ─────────────────────────────────────────────────
   // An MCP server can crash mid-tool-call (stdio pipe breaks, process dies,
@@ -1575,6 +1650,23 @@ async function _sendMessageImpl(content, opts = {}) {
     5000,
     'doctrine injection',
   )
+  // Doctrine surface — keyword-grep ~/ecodiaos/{patterns,clients,docs/secrets}
+  // for files whose triggers: frontmatter matches tokens in THIS turn's content.
+  // Higher signal-to-noise than _injectRecentDoctrine (which is unconditional
+  // recency) because it is keyword-matched to the current message. Sub-100ms
+  // typical (in-process filesystem walk with mtime-cached keyword index).
+  // Tight 1.5s timeout — pure local FS so any longer indicates a wedge.
+  // Layer 1 expansion of the Decision Quality Self-Optimization Architecture
+  // (cron-fire path lives in schedulerPollerService.fireTask). See
+  // drafts/context-surface-injection-points-recon-2026-04-29.md.
+  const _doctrineSurfacePromise = _withTimeout(
+    Promise.resolve().then(() => {
+      try { return doctrineSurface.surfaceDoctrineBlock(content) }
+      catch { return null }
+    }),
+    1500,
+    'doctrine surface',
+  )
   // Forks rollup — ambient awareness of parallel sub-sessions. Cheap (in-memory
   // Map + at most one bounded DB query). Capped at 2s since it should always
   // be fast; if the DB hiccups we'd rather skip it than block the user turn.
@@ -1588,21 +1680,21 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'forks rollup',
   )
+  const _perceptionPromise = _withTimeout(
+    perceptionBus.recentSummary(60).catch(() => null),
+    2000,
+    'perception summary',
+  )
 
   if (recoveryBlock) {
     continuityParts.push(`<restart_recovery>\n${recoveryBlock}\n</restart_recovery>`)
   }
-  // Recent exchange block takes precedence over the tiny breadcrumb — it's the
-  // same signal at much higher fidelity. Ship both only in the degenerate case
-  // where we have a breadcrumb but no session row (shouldn't normally happen).
-  if (recentExchangeBlock) {
-    continuityParts.push(`<recent_exchanges>\nBelow is the tail of the conversation before this session restarted. Pick up naturally — do NOT summarise or acknowledge the gap. Just continue as if nothing happened.\n\n${recentExchangeBlock}\n</recent_exchanges>`)
-  } else if (breadcrumbBlock) {
+  if (breadcrumbBlock) {
     continuityParts.push(`<last_turn_breadcrumb>\n${breadcrumbBlock}\n</last_turn_breadcrumb>`)
   }
 
   // Await memory + doctrine results and splice after <now>, before restart_recovery
-  // Order: <now> (idx 0), <recent_doctrine>, <relevant_memory>, <restart_recovery>, <recent_exchanges>
+  // Order: <now> (idx 0), <recent_doctrine>, <relevant_memory>, <perception_summary>, <restart_recovery>
   // Splice in reverse so the later insertions push earlier ones down correctly.
   // Log failures at debug — these fail silently on Neo4j flakiness and the
   // turn proceeds without injected context, but we want a breadcrumb for
@@ -1610,6 +1702,8 @@ async function _sendMessageImpl(content, opts = {}) {
   let _memoryBlock = null
   let _doctrineBlock = null
   let _forksBlock = null
+  let _doctrineSurfaceBlock = null
+  let _perceptionBlock = null
   try { _forksBlock = await _forksRollupPromise } catch (err) {
     logger.debug('OS Session: forks rollup failed', { error: err.message })
   }
@@ -1618,6 +1712,12 @@ async function _sendMessageImpl(content, opts = {}) {
   }
   try { _doctrineBlock = await _doctrineBlockPromise } catch (err) {
     logger.debug('OS Session: doctrine injection failed', { error: err.message })
+  }
+  try { _doctrineSurfaceBlock = await _doctrineSurfacePromise } catch (err) {
+    logger.debug('OS Session: doctrine surface failed', { error: err.message })
+  }
+  try { _perceptionBlock = await _perceptionPromise } catch (err) {
+    logger.debug('OS Session: perception summary failed', { error: err.message })
   }
   // Dedup: a recent high-priority Decision can surface in BOTH _doctrineBlock
   // and _memoryBlock when the current turn is semantically similar to it. The
@@ -1673,30 +1773,146 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
   }
-  if (_memoryBlock) {
-    continuityParts.splice(1, 0, _memoryBlock)
-  }
-  if (_doctrineBlock) {
-    continuityParts.splice(1, 0, _doctrineBlock)
-  }
-  // Forks rollup goes right after <now> so it's the first thing the conductor
-  // sees besides the timestamp — parallel work in flight is high-priority
-  // ambient awareness, not buried context.
-  if (_forksBlock) {
-    continuityParts.splice(1, 0, _forksBlock)
+  // ─── turnInjectionService: dedupe + relevance-gate + telemetry ───────────
+  // Centralised gating logic — replaces the splice-based assembly that used
+  // to live here. Each candidate block is passed through processBlocks, which
+  // applies per-block hard caps (already applied upstream by the producers),
+  // dedupe vs previous turn (kv_store ledger keyed by sessionId), and the
+  // context_minimal_mode flag. Telemetry rows for each block (emitted /
+  // skipped / skip_reason / char_count) are appended to the JSONL sink at
+  // logs/telemetry/injection-events.jsonl, exposed via
+  // /api/telemetry/per-turn-injection-cost.
+  //
+  // Always-on blocks (<now>, <forks_rollup>) bypass dedupe; the rest are
+  // dedupe-eligible and skip when their content is byte-identical to
+  // previous turn's emission for this session.
+  let _injectionStats = null
+  try {
+    const candidates = {
+      '<now>':                  continuityParts[0] || null, // already pushed at top
+      '<doctrine_surface>':     _doctrineSurfaceBlock,
+      '<forks_rollup>':         _forksBlock,
+      '<recent_doctrine>':      _doctrineBlock,
+      '<relevant_memory>':      _memoryBlock,
+      '<perception_summary>':   _perceptionBlock ? `<perception_summary>\n${_perceptionBlock}\n</perception_summary>` : null,
+      '<restart_recovery>':     recoveryBlock ? `<restart_recovery>\n${recoveryBlock}\n</restart_recovery>` : null,
+      '<last_turn_breadcrumb>': breadcrumbBlock ? `<last_turn_breadcrumb>\n${breadcrumbBlock}\n</last_turn_breadcrumb>` : null,
+    }
+    const { emitted, skipped, stats } = await turnInjection.processBlocks({
+      sessionId: dbSessionId,
+      candidates,
+    })
+    _injectionStats = { stats, skipped }
+    // Rebuild continuityParts from emitted blocks in canonical order. The
+    // order mirrors the previous splice sequence (highest-signal first
+    // after <now>): doctrine_surface > forks_rollup > recent_doctrine >
+    // relevant_memory > perception_summary > restart_recovery >
+    // last_turn_breadcrumb.
+    const ORDER = [
+      '<now>',
+      '<doctrine_surface>',
+      '<forks_rollup>',
+      '<recent_doctrine>',
+      '<relevant_memory>',
+      '<perception_summary>',
+      '<restart_recovery>',
+      '<last_turn_breadcrumb>',
+    ]
+    continuityParts.length = 0
+    for (const tag of ORDER) {
+      if (emitted[tag]) continuityParts.push(emitted[tag])
+    }
+    logger.info('OS Session: stitching continuity blocks into user message', {
+      now: !!emitted['<now>'],
+      forks_rollup: !!emitted['<forks_rollup>'],
+      recent_doctrine: !!emitted['<recent_doctrine>'],
+      memory: !!emitted['<relevant_memory>'],
+      perception_summary: !!emitted['<perception_summary>'],
+      doctrine_surface: !!emitted['<doctrine_surface>'],
+      restart_recovery: !!emitted['<restart_recovery>'],
+      breadcrumb: !!emitted['<last_turn_breadcrumb>'],
+      skipped,
+      blocks_in: stats.blocks_in,
+      blocks_out: stats.blocks_out,
+      total_emit_chars: stats.total_emit_chars,
+      total_skip_chars: stats.total_skip_chars,
+      minimal_mode: stats.minimal_mode,
+    })
+  } catch (err) {
+    // Fail-open: if turn-injection processing throws, fall through to the
+    // original behaviour of emitting whatever blocks happen to be in
+    // continuityParts. The pre-processBlocks state has only <now>; this
+    // regression path keeps the turn alive even if the gating layer
+    // wedges. Producers themselves are wrapped in _withTimeout, so the
+    // only failure mode here is service-level (db wedge, etc).
+    logger.warn('OS Session: turnInjection.processBlocks failed - emitting raw blocks', { error: err.message })
+    if (_doctrineSurfaceBlock) continuityParts.splice(1, 0, _doctrineSurfaceBlock)
+    if (_forksBlock) continuityParts.splice(1, 0, _forksBlock)
+    if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
+    if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
+    if (_perceptionBlock) continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
   }
 
   if (continuityParts.length > 0) {
     finalPrompt = `${continuityParts.join('\n\n')}\n\n${promptWithMemory}`
-    logger.info('OS Session: stitching continuity blocks into user message', {
-      now: true,
-      forks_rollup: !!_forksBlock,
-      recent_doctrine: !!_doctrineBlock,
-      memory: !!_memoryBlock,
-      restart_recovery: !!recoveryBlock,
-      recent_exchanges: !!recentExchangeBlock,
-      breadcrumb: !!breadcrumbBlock,
-      totalBlocksLen: continuityParts.join('\n\n').length,
+  }
+
+  // ─── PROMPT_ASSEMBLY_V2 dispatch ────────────────────────────────────────
+  // docs/PROMPT_ASSEMBLY_SPEC.md §7. Modes: off|shadow|canary|live.
+  // shadow: v1 drives model, v2 runs alongside for audit comparison.
+  // canary: 20% bucket gets v2, rest v1, all audited.
+  // live: 100% v2, audit continues.
+  // off: no assembler work at all.
+  try {
+    const _mode = promptAssembler.resolveMode(env.PROMPT_ASSEMBLY_V2, dbSessionId)
+    if (_mode.audit) {
+      // Rebuild the turn_context the assembler needs from the blocks v1 just
+      // computed. Keeps duplication local to this block — the assembler is
+      // blind to osSessionService's internals by design.
+      const _v2TurnContext = {
+        user_content: content,
+        now: continuityParts.length > 0 ? (continuityParts.find(p => typeof p === 'string' && p.startsWith('<now>')) || '').replace(/^<now>|<\/now>$/g, '') : null,
+        forks_rollup: _forksBlock || null,
+        recent_doctrine: _doctrineBlock || null,
+        relevant_memory: _memoryBlock || null,
+        perception_summary: _perceptionBlock || null,
+        restart_recovery: recoveryBlock || null,
+        last_turn_breadcrumb: breadcrumbBlock || null,
+      }
+      const _v2Out = promptAssembler.assemble({
+        cwd,
+        session_id: dbSessionId,
+        turn_context: _v2TurnContext,
+      })
+      // Comparison baseline: v1 system prompt + the continuity envelope (not
+      // including the raw user message — the assembler doesn't own that).
+      const _v1Text = customSystemPrompt +
+        (continuityParts.length > 0 ? '\n\n' + continuityParts.join('\n\n') : '')
+      // Emit per-breakpoint byte metric for /ops dashboard. JSON log line
+      // parsed by metricsCollector.
+      logger.info('prompt_assembler_bytes_per_breakpoint', {
+        session_id: dbSessionId,
+        mode: _mode.mode,
+        path: _mode.path,
+        breakpoint_bytes: _v2Out.contentBlocks.reduce((acc, b) => {
+          acc[`bp${b.tier}`] = b.text.length
+          return acc
+        }, {}),
+        v2_total_bytes: _v2Out.contentBlocks.reduce((a, b) => a + b.text.length, 0),
+        v1_total_bytes: _v1Text.length,
+      })
+      promptAssemblyAudit.dispatch({
+        session_id: dbSessionId,
+        turn_id: null,  // turn_id is assigned after osConversationLog.logTurn below; acceptable to leave null for PR 2 shadow
+        mode: _mode.mode,
+        v1Text: _v1Text,
+        v2Out: _v2Out,
+      })
+    }
+  } catch (err) {
+    // Belt-and-braces: the assembler path must never crash a turn.
+    logger.warn('promptAssembler shadow dispatch failed, turn proceeds on v1', {
+      error: err.message,
     })
   }
 
@@ -1800,6 +2016,7 @@ async function _sendMessageImpl(content, opts = {}) {
                     .join('\n')
                 }
                 if (resultText.length > 2000) resultText = resultText.slice(0, 2000) + '\n… (truncated)'
+                resultText = credentialFilter.redact(resultText, 'osSessionService.toolResultEmit')
                 if (!suppressOutput) {
                   emitOutput({
                     type: 'tool_result',
@@ -1883,7 +2100,20 @@ async function _sendMessageImpl(content, opts = {}) {
                 const provider = _currentProvider
                 const model    = env.OS_SESSION_MODEL || null
                 // Log for history/turns-this-week count (non-blocking)
-                usageEnergy.logUsage({ sessionId: dbSessionId, source: 'os_session', provider, model, inputTokens: turnInput, outputTokens: turnOutput }).catch(() => {})
+                usageEnergy.logUsage({
+                  sessionId: dbSessionId,
+                  source: 'os_session',
+                  provider,
+                  model,
+                  inputTokens: turnInput,
+                  outputTokens: turnOutput,
+                  // Audit Tier A 2026-05-01: persist cache tokens for cache_hit_ratio
+                  // panel + per-turn cost estimation. Anthropic SDK puts these on
+                  // msg.usage; mutually exclusive slices of the input total so the
+                  // pricing helper subtracts them when computing residual non-cached input.
+                  cacheCreationTokens: msg.usage?.cache_creation_input_tokens ?? 0,
+                  cacheReadTokens: msg.usage?.cache_read_input_tokens ?? 0,
+                }).catch(() => {})
               }
               // Live token usage broadcast — surfaces context-fill progress in the UI
               // so Tate can see the session approaching the compact threshold rather
@@ -1891,7 +2121,7 @@ async function _sendMessageImpl(content, opts = {}) {
               // if the broadcast fails.
               if (!suppressOutput) {
                 try {
-                  const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '800000', 10)
+                  const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
                   const total = sessionTokenUsage.input + sessionTokenUsage.output
                   // Also surface the "context size" signal — for resumed sessions the
                   // SDK's per-turn input_tokens is roughly how much context we're
@@ -1931,6 +2161,35 @@ async function _sendMessageImpl(content, opts = {}) {
               }
             } catch (e) {
               logger.debug('osConversationLog.logTurn(assistant/tool_use) failed', { err: e.message })
+            }
+
+            // ─── Claim grammar post-turn hook (OBSERVABILITY_SPEC §3) ────
+            // Parse [CLAIM:action k=v ...] tags out of the finalized
+            // assistant text and record them for async verification. The
+            // verifier worker (src/workers/claimVerifierWorker.js) picks
+            // pending rows up on a 30s cadence and dispatches per-action
+            // verifiers. Failures here are non-blocking — a broken claim
+            // parser must not break turn emission.
+            if (safeText && safeText.trim()) {
+              try {
+                const claims = claimGrammar.parseClaims(safeText)
+                for (const c of claims) {
+                  try {
+                    await db`
+                      INSERT INTO conductor_claims
+                        (session_id, action, handle_kv, verification_status, claimed_at)
+                      VALUES
+                        (${dbSessionId}, ${c.action}, ${JSON.stringify(c.handle || {})}, 'pending', NOW())
+                    `
+                  } catch (insErr) {
+                    logger.debug('claimGrammar: INSERT conductor_claims failed', {
+                      err: insErr.message, action: c.action,
+                    })
+                  }
+                }
+              } catch (parseErr) {
+                logger.debug('claimGrammar: parseClaims threw (non-fatal)', { err: parseErr.message })
+              }
             }
             break
           }
@@ -2108,6 +2367,30 @@ async function _sendMessageImpl(content, opts = {}) {
                   broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'end' } })
                 }
               }
+              // Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): close the open
+              // compaction_events row for this session, if any. Fire-and-forget;
+              // on table-not-exists we silently skip per the migration's
+              // graceful-degradation contract.
+              if (_compactionEventOpenId) {
+                const closingId = _compactionEventOpenId
+                _compactionEventOpenId = null
+                const startedAt = _compactionEventStartedAt
+                _compactionEventStartedAt = null
+                ;(async () => {
+                  try {
+                    const dbModule = require('../config/db')
+                    const durationMs = startedAt ? (Date.now() - startedAt) : null
+                    await dbModule`
+                      UPDATE compaction_events
+                      SET ended_at = NOW(),
+                          duration_ms = ${durationMs}
+                      WHERE id = ${closingId}
+                    `
+                  } catch (closeErr) {
+                    logger.debug('compaction_events close failed', { error: closeErr.message })
+                  }
+                })()
+              }
             } else {
               // start or unknown single marker - begin compacting
               if (!isCompacting) {
@@ -2116,6 +2399,32 @@ async function _sendMessageImpl(content, opts = {}) {
                   emitStatus('compacting', { sessionId: dbSessionId })
                   broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'start' } })
                 }
+                // Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): record the
+                // compaction event for /ops dashboard time-series. Captures the
+                // threshold env value + last turn's input tokens (the prefix
+                // size that tripped compaction) + reason. Fire-and-forget; we
+                // stash the inserted id on outer-scope vars so the matching
+                // 'end' branch can close it. On table-not-exists or any other
+                // failure we just drop the row — observability is best-effort.
+                ;(async () => {
+                  try {
+                    const dbModule = require('../config/db')
+                    const threshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+                    const prefixTokens = _lastTurnInputTokens || null
+                    const [row] = await dbModule`
+                      INSERT INTO compaction_events (
+                        cc_session_id, threshold, prefix_tokens_at_fire, reason
+                      ) VALUES (
+                        ${dbSessionId}, ${threshold}, ${prefixTokens}, ${'sdk_boundary'}
+                      )
+                      RETURNING id
+                    `
+                    _compactionEventOpenId = row?.id || null
+                    _compactionEventStartedAt = Date.now()
+                  } catch (insErr) {
+                    logger.debug('compaction_events insert failed', { error: insErr.message })
+                  }
+                })()
                 // Pinnacle P1: 60s safety timeout - if compact_boundary end never arrives,
                 // emit a synthetic end so the frontend doesn't stay stuck in compacting state.
                 if (_compactBoundaryTimer) clearTimeout(_compactBoundaryTimer)
@@ -2127,6 +2436,26 @@ async function _sendMessageImpl(content, opts = {}) {
                     if (!suppressOutput) {
                       emitStatus('streaming', { sessionId: dbSessionId })
                       broadcast('os-session:output', { data: { type: 'compact_boundary', phase: 'end', synthetic: true } })
+                    }
+                    // Mark the open compaction_events row as synthetic-ended.
+                    if (_compactionEventOpenId) {
+                      const synthId = _compactionEventOpenId
+                      _compactionEventOpenId = null
+                      const startedAt = _compactionEventStartedAt
+                      _compactionEventStartedAt = null
+                      ;(async () => {
+                        try {
+                          const dbModule = require('../config/db')
+                          const durationMs = startedAt ? (Date.now() - startedAt) : null
+                          await dbModule`
+                            UPDATE compaction_events
+                            SET ended_at = NOW(),
+                                duration_ms = ${durationMs},
+                                reason = ${'synthetic_end_timeout'}
+                            WHERE id = ${synthId}
+                          `
+                        } catch {}
+                      })()
                     }
                   }
                 }, 60_000)
@@ -2344,7 +2673,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // Threshold signal: use last turn's input_tokens (= resumed context
     // size being sent each turn), NOT sessionTokenUsage.input+output
     // which is smaller because it accumulates only output across turns.
-    const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '800000', 10)
+    const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
     const contextFill = _lastTurnInputTokens || 0
     const shouldHandover = contextFill > handoverThreshold && !suppressOutput
     if (shouldHandover) {
@@ -3148,4 +3477,4 @@ function _setActiveAbortForTest(ac) { activeAbort = ac }
 function _setActiveQueryForTest(q) { activeQuery = q }
 function _resetAbortStateForTest() { activeAbort = null; activeQuery = null; _abortInProgress = false; if (abortGraceTimer) { clearTimeout(abortGraceTimer); abortGraceTimer = null } }
 
-module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, autoHandover, abort, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }
+module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, autoHandover, abort, buildCustomSystemPrompt, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }

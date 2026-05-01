@@ -68,6 +68,7 @@ module.exports = {
       `Source: ccSessionsFailure listener (sourceEventId=${ctx.sourceEventId}).`
     )
     logger.info('ccSessionsFailure: handle invoked', { sessionId: row.id, status: row.status, stage: row.pipeline_stage })
+    try { require('../perceptionBus').publish({ source: 'factory', kind: 'session_failure', data: { session_id: row.id, status: row.status, pipeline_stage: row.pipeline_stage }, confidence: 1.0 }) } catch {}
     await _wakeOsSession(message, row.id)
   },
 
