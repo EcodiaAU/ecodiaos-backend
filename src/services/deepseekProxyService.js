@@ -86,15 +86,18 @@ function start() {
   _server = http.createServer((req, res) => {
     // SDK sends /v1/messages; DeepSeek Anthropic-compat lives at /anthropic/v1/messages.
     const upstreamPath = req.url.startsWith('/anthropic') ? req.url : `/anthropic${req.url}`
+    // Strip accept-encoding so DeepSeek sends gzip/identity — Node's https
+    // handles those natively. Brotli is not supported by the built-in http module
+    // and causes BrotliDecompressionError in the CC SDK.
+    const upstreamHeaders = { ...req.headers, host: TARGET_HOST }
+    delete upstreamHeaders['accept-encoding']
+
     const options = {
       hostname: TARGET_HOST,
       port: TARGET_PORT,
       path: upstreamPath,
       method: req.method,
-      headers: {
-        ...req.headers,
-        host: TARGET_HOST,
-      },
+      headers: upstreamHeaders,
     }
 
     const chunks = []
@@ -106,7 +109,11 @@ function start() {
       const proxyReq = https.request(options, proxyRes => {
         const isStream = (proxyRes.headers['content-type'] || '').includes('text/event-stream')
 
-        res.writeHead(proxyRes.statusCode, proxyRes.headers)
+        // Forward response headers but strip content-encoding — we're passing
+        // the decompressed (or never-compressed) body straight through.
+        const responseHeaders = { ...proxyRes.headers }
+        delete responseHeaders['content-encoding']
+        res.writeHead(proxyRes.statusCode, responseHeaders)
 
         if (isStream) {
           const state = { thinkingIndices: new Set() }
