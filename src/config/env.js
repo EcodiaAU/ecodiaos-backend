@@ -278,7 +278,7 @@ const envSchema = z.object({
   //               audit rows for comparison.
   // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
   // clean rows (zero semantic_equivalent=false).
-  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary']).default('off'),
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('off'),
   // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
   // grep of patterns/*.md) with skillsSurfaceService (description-driven
   // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
