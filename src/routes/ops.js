@@ -40,26 +40,99 @@ async function _turnEconomics() {
   try {
     // claude_usage table has week-bucketed usage. For 1h view we need
     // finer granularity - fall back to last-hour aggregate over all sources.
+    // Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): also surface
+    // cost_usd + cache hit ratio (cache_read_input_tokens / input_tokens)
+    // both as week aggregate AND a 24h trailing window. Migration 082
+    // added the cache columns; rows before the migration have NULL/0 for
+    // them, so 24h figures will be empty until traffic flows.
     const [row] = await db`
       SELECT
-        COALESCE(SUM(input_tokens)::bigint, 0) AS input_tokens,
-        COALESCE(SUM(output_tokens)::bigint, 0) AS output_tokens,
-        COUNT(*)::int AS turns
+        COALESCE(SUM(input_tokens)::bigint, 0)                   AS input_tokens,
+        COALESCE(SUM(output_tokens)::bigint, 0)                  AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens)::bigint, 0)    AS cache_write_tokens,
+        COALESCE(SUM(cache_read_input_tokens)::bigint, 0)        AS cache_read_tokens,
+        COALESCE(SUM(cost_usd)::numeric, 0)                      AS cost_usd_total,
+        COUNT(*)::int                                            AS turns,
+        COUNT(*) FILTER (WHERE cost_usd IS NOT NULL)::int        AS cost_turns
       FROM claude_usage
       WHERE week_start >= date_trunc('week', NOW())
+    `
+    const [row24h] = await db`
+      SELECT
+        COALESCE(SUM(input_tokens)::bigint, 0)                   AS input_tokens,
+        COALESCE(SUM(output_tokens)::bigint, 0)                  AS output_tokens,
+        COALESCE(SUM(cache_read_input_tokens)::bigint, 0)        AS cache_read_tokens,
+        COALESCE(SUM(cost_usd)::numeric, 0)                      AS cost_usd_total,
+        COUNT(*)::int                                            AS turns,
+        COUNT(*) FILTER (WHERE cost_usd IS NOT NULL)::int        AS cost_turns
+      FROM claude_usage
+      WHERE created_at >= NOW() - INTERVAL '24 hours'
     `
     const turns = row?.turns || 0
     const tokensPerTurn = turns > 0
       ? Math.round((Number(row.input_tokens) + Number(row.output_tokens)) / turns)
       : 0
+    // cache_hit_ratio: cache_read / (input_tokens). Input tokens already
+    // include the cached portion per Anthropic's accounting, so this is
+    // the fraction of input that hit cache (not new).
+    const inputWeek = Number(row?.input_tokens || 0)
+    const cacheHitWeek = inputWeek > 0 ? Number(row?.cache_read_tokens || 0) / inputWeek : null
+    const input24h = Number(row24h?.input_tokens || 0)
+    const cacheHit24h = input24h > 0 ? Number(row24h?.cache_read_tokens || 0) / input24h : null
+    const costTurnsWeek = row?.cost_turns || 0
+    const costPerTurnWeek = costTurnsWeek > 0
+      ? Number(row.cost_usd_total) / costTurnsWeek
+      : null
+    const costTurns24h = row24h?.cost_turns || 0
+    const costPerTurn24h = costTurns24h > 0
+      ? Number(row24h.cost_usd_total) / costTurns24h
+      : null
     return {
       tokens_per_turn_avg: tokensPerTurn,
       turns_this_week: turns,
-      input_tokens_this_week: Number(row?.input_tokens || 0),
+      input_tokens_this_week: inputWeek,
       output_tokens_this_week: Number(row?.output_tokens || 0),
+      // Audit Tier A additions:
+      cache_write_tokens_this_week: Number(row?.cache_write_tokens || 0),
+      cache_read_tokens_this_week: Number(row?.cache_read_tokens || 0),
+      cache_hit_ratio_this_week: cacheHitWeek,
+      cache_hit_ratio_24h: cacheHit24h,
+      cost_usd_this_week: Number(row?.cost_usd_total || 0),
+      cost_usd_24h: Number(row24h?.cost_usd_total || 0),
+      cost_per_turn_usd_this_week: costPerTurnWeek,
+      cost_per_turn_usd_24h: costPerTurn24h,
+      turns_24h: row24h?.turns || 0,
     }
   } catch (err) {
     logger.debug('/ops: turnEconomics unavailable', { error: err.message })
+    return null
+  }
+}
+
+// Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): compaction_events panel.
+// Returns last-24h count + last-fire timestamp + avg prefix-tokens-at-fire.
+// Returns null cleanly if migration 082 hasn't run yet.
+async function _compactionMetrics() {
+  try {
+    const [row] = await db`
+      SELECT
+        COUNT(*)::int AS count_24h,
+        MAX(fired_at) AS last_fire_at,
+        AVG(prefix_tokens_at_fire)::int AS avg_prefix_tokens,
+        AVG(duration_ms)::int AS avg_duration_ms,
+        COUNT(*) FILTER (WHERE reason = 'synthetic_end_timeout')::int AS synthetic_ends_24h
+      FROM compaction_events
+      WHERE fired_at >= NOW() - INTERVAL '24 hours'
+    `
+    return {
+      count_24h: row?.count_24h || 0,
+      last_fire_at: row?.last_fire_at ? new Date(row.last_fire_at).toISOString() : null,
+      avg_prefix_tokens_at_fire: row?.avg_prefix_tokens || null,
+      avg_duration_ms: row?.avg_duration_ms || null,
+      synthetic_ends_24h: row?.synthetic_ends_24h || 0,
+    }
+  } catch (err) {
+    logger.debug('/ops: compactionMetrics unavailable', { error: err.message })
     return null
   }
 }
@@ -163,12 +236,13 @@ function _state() {
 
 router.get('/metrics', async (_req, res) => {
   const started = Date.now()
-  const [state, turnEconomics, forks, claims, security] = await Promise.all([
+  const [state, turnEconomics, forks, claims, security, compaction] = await Promise.all([
     Promise.resolve(_state()),
     _turnEconomics(),
     _forkMetrics(),
     _claimMetrics(),
     _securityMetrics(),
+    _compactionMetrics(),
   ])
   const durationMs = Date.now() - started
   res.json({
@@ -180,6 +254,7 @@ router.get('/metrics', async (_req, res) => {
     forks,
     claims,
     security,
+    compaction,
   })
 })
 
@@ -268,6 +343,66 @@ function renderTurns(d) {
   ])
 }
 
+// Audit Tier A 2026-05-01 (fork_mom9j8g9_5ab468): cache_hit_ratio panel.
+// 24h trailing window is the primary signal because the compact-threshold
+// flip (Commit 1 of this fork) is supposed to LIFT the cache hit rate by
+// keeping more of the prompt prefix stable across turns. Watch the 24h
+// figure; the week aggregate is shown for trend context.
+function fmtPct(v) {
+  if (v === null || v === undefined) return null
+  return Math.round(v * 1000) / 10 + '%'
+}
+function fmtUsd(v) {
+  if (v === null || v === undefined) return null
+  // 4 decimal places for per-turn (sub-cent matters); 2 for totals.
+  return '$' + (v < 1 ? v.toFixed(4) : v.toFixed(2))
+}
+function renderCacheHit(d) {
+  if (!d.turn_economics) return panel('cache hit ratio', null)
+  const t = d.turn_economics
+  const r24 = t.cache_hit_ratio_24h
+  const rwk = t.cache_hit_ratio_this_week
+  // Cache hit ratio threshold for color: <30% is cold (warn), 30-60% is
+  // ok, >60% is good. These are heuristics — adjust as we learn the actual
+  // distribution post-flip.
+  const cls24 = r24 === null ? '' : (r24 > 0.6 ? 'ok' : r24 > 0.3 ? 'warn' : 'err')
+  return panel('cache hit ratio', [
+    kv('hit ratio (24h)', fmtPct(r24), cls24),
+    kv('hit ratio (week)', fmtPct(rwk)),
+    kv('cache reads (week)', t.cache_read_tokens_this_week),
+    kv('cache writes (week)', t.cache_write_tokens_this_week),
+  ])
+}
+function renderCost(d) {
+  if (!d.turn_economics) return panel('cost (USD estimate)', null)
+  const t = d.turn_economics
+  return panel('cost (USD estimate)', [
+    kv('per-turn (24h)', fmtUsd(t.cost_per_turn_usd_24h)),
+    kv('per-turn (week)', fmtUsd(t.cost_per_turn_usd_this_week)),
+    kv('total (24h)', fmtUsd(t.cost_usd_24h)),
+    kv('total (week)', fmtUsd(t.cost_usd_this_week)),
+    kv('turns (24h)', t.turns_24h),
+  ])
+}
+function renderCompaction(d) {
+  if (!d.compaction) return panel('compaction (24h)', null)
+  const c = d.compaction
+  // Sawtooth health: 1-5 fires/24h is healthy steady-state. >12 (>1/2h)
+  // suggests threshold too low. 0 over multiple days suggests sessions
+  // aren't running long enough to compact (or threshold too high).
+  const cls = c.count_24h > 12 ? 'warn' : c.count_24h > 0 ? 'ok' : ''
+  const lastFireRel = c.last_fire_at
+    ? Math.round((Date.now() - new Date(c.last_fire_at).getTime()) / 60000) + 'm ago'
+    : 'none'
+  return panel('compaction (24h)', [
+    kv('count (24h)', c.count_24h, cls),
+    kv('last fire', lastFireRel),
+    kv('avg prefix tokens', c.avg_prefix_tokens_at_fire),
+    kv('avg duration (ms)', c.avg_duration_ms),
+    kv('synthetic ends (24h)', c.synthetic_ends_24h, c.synthetic_ends_24h > 0 ? 'warn' : ''),
+  ])
+}
+
 function renderForks(d) {
   if (!d.forks) return panel('forks', null)
   const f = d.forks
@@ -326,6 +461,9 @@ async function load() {
     const frag = document.createDocumentFragment()
     frag.appendChild(renderState(d))
     frag.appendChild(renderTurns(d))
+    frag.appendChild(renderCacheHit(d))
+    frag.appendChild(renderCost(d))
+    frag.appendChild(renderCompaction(d))
     frag.appendChild(renderForks(d))
     frag.appendChild(renderClaims(d))
     frag.appendChild(renderSecurity(d))
