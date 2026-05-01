@@ -281,8 +281,8 @@ async function _tick() {
     // 3. Energy gate — skip entirely on Bedrock (cost) or critical (pure conservation).
     let energy = null
     try { energy = await usageEnergy.getEnergy() } catch {}
-    if (energy?.isBedrockFallback) {
-      logger.info('Heartbeat: on Bedrock fallback, skipping to avoid AWS burn')
+    if (energy?.isBedrockFallback || energy?.isDeepseekFallback) {
+      logger.info(`Heartbeat: on ${energy?.isDeepseekFallback ? 'DeepSeek' : 'Bedrock'} fallback, skipping to avoid cost burn`)
       return
     }
     if (energy?.level === 'critical') {

@@ -225,10 +225,22 @@ async function pollOnce() {
     // (or high-priority). Below critical, run everything. We keep this permissive
     // for low/conserve because the scheduleMultiplier already spaces out polls.
     let energyLevel = 'healthy'
+    let isPayAsYouGoProvider = false
     try {
       const energy = await usageEnergy.getEnergy()
       energyLevel = energy?.level || 'healthy'
+      // DeepSeek and Bedrock are pay-per-token — halt all autonomous cron work
+      // to avoid runaway spend. Max is a flat subscription so cron cost is free.
+      isPayAsYouGoProvider = !!(energy?.isDeepseekFallback || energy?.isBedrockFallback)
     } catch {}
+
+    if (isPayAsYouGoProvider) {
+      logger.info('Scheduler: on pay-as-you-go provider (DeepSeek/Bedrock), halting all cron tasks to avoid spend', {
+        due: due.length,
+        provider: 'deepseek/bedrock',
+      })
+      return
+    }
 
     if (energyLevel === 'critical') {
       // Critical: defer all non-essential crons by 1h. Only run tasks whose
