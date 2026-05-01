@@ -286,32 +286,44 @@ function _buildForkAgents(all) {
   }
 }
 
-// ── Fork system prompt (spec §1.3) ──────────────────────────────────────────
+// ── Fork system prompt ──────────────────────────────────────────────────────
+// Forks intentionally do NOT load the conductor's CLAUDE.md. The full
+// operational manual is ~62KB / ~15-18k tokens of status-board doctrine,
+// pattern-surfacing rules, scheduler choreography, etc. — none of which a
+// fork doing a discrete task needs to know. Each fork is a fresh SDK session
+// (no shared prompt cache with the conductor or its siblings) so it would
+// pay that cost from cold, every spawn, every turn.
+//
+// What a fork actually needs: who it is, what tools it has, how to report
+// back. That's the identity block below — kept tight on purpose. If a
+// specific task needs more context, the conductor must put it in the brief.
 function _buildForkSystemPrompt(cwd, fork_id, brief) {
-  let claudeMd = ''
-  try {
-    const p = path.join(cwd, 'CLAUDE.md')
-    if (fs.existsSync(p)) claudeMd = fs.readFileSync(p, 'utf8')
-  } catch {}
   const today = new Date().toISOString().slice(0, 10)
 
-  const forkBlock = `# You are a fork
-You are a fork of the main EcodiaOS conductor session. Main is still running on its own work — you do NOT share state with it after this moment.
+  const identityBlock = `# Identity
+You are a fork sub-session of the EcodiaOS conductor — the operating intelligence of Ecodia DAO LLC. The conductor delegated a discrete task to you and is still running on its own work. You do NOT share state with it; you cannot talk to it while you work; it reads your report when you finish.
 
+You are a capable autonomous agent. Default to action on routine ops (queries, writes, deploys, sending the email, restarting the service). Do not ask permission — your brief is your authority.
+
+# Tools you have
+- neo4j (graph_*) — persistent memory, 5000+ nodes
+- scheduler (schedule_*) — DB-backed cron/delayed/chained tasks
+- factory (start_cc_session, etc.) — dispatch coding work to Factory
+- supabase (db_*, storage_*) — DB queries/writes, file storage
+- Agent — delegate to comms/finance/ops/social subagent for domain work
+
+You do NOT have: os-session lifecycle (restart/compact/handover) — that's main's only.`
+
+  const forkBlock = `# Fork operating rules
 Your fork id: ${fork_id}
-Your brief is in the user message below.
 
-Operating rules:
-- Work on the brief, then end with a single line:
-    [FORK_REPORT] <one-paragraph summary of what you did, results, anything main needs to know>
-- If you want main to take a follow-up action, append after the summary:
-    [NEXT_STEP] <one short sentence — what main should do next>
-- Do not call any os-session lifecycle tool (restart, compact, handover). Those are main's only.
-- pm2 restart and git push are allowed, but stamp every external side-effect (commits, emails, SMS, Neo4j writes) with your fork id (${fork_id}) so duplicate-detection works in post-hoc review.
-- Factory dispatch is allowed — multiple concurrent Factory sessions are fine architecturally.
-- If you hit something that only main should decide, write it into your [FORK_REPORT] and stop.
-- You cannot speak to main while you work; main reads your report when you're done.
-- Keep your output tight. Main's context is the precious one, not yours, but you still cost tokens.`
+- Work on the brief, then end your final message with a single line:
+    [FORK_REPORT] <one paragraph: what you did, results, anything main needs to know>
+- If main should take a follow-up, append after the summary:
+    [NEXT_STEP] <one short sentence>
+- Stamp every external side-effect (commits, emails, SMS, Neo4j writes) with your fork id (${fork_id}) so duplicate-detection works.
+- If you hit something only main should decide, write it into [FORK_REPORT] and stop.
+- Keep your output tight. Main's context is the precious one, but you still cost tokens.`
 
   const envBlock = `# Environment
 Working directory: ${cwd}
@@ -319,7 +331,7 @@ Platform: linux
 Date: ${today}
 You are powered by Claude (Anthropic's model). Running inside an EcodiaOS fork via the Claude Agent SDK.`
 
-  return [claudeMd, envBlock, forkBlock].filter(Boolean).join('\n\n---\n\n')
+  return [identityBlock, envBlock, forkBlock].join('\n\n---\n\n')
 }
 
 // ── Provider env wiring (mirror osSessionService for a single fork run) ─────
@@ -444,7 +456,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     includePartialMessages: true,
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
-    thinking: { type: 'enabled', budget_tokens: 6000 },
+    thinking: { type: 'enabled', budget_tokens: 1500 },
     mcpServers,
     allowedTools: [
       ...Object.keys(mcpServers).map(n => `mcp__${n}__*`),
