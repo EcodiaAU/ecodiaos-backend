@@ -27,7 +27,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 ## Top 5 unverified claims
 
-1. **Claim:** Fork atomicity TOCTOU race is closed end-to-end. **Handle:** node scripts/test-fork-cap-race.js on VPS under concurrent load. **Status:** code shipped 2026-05-01 (commit c931d5c), awaiting load test.
+1. **Claim:** Fork atomicity TOCTOU race is closed end-to-end. **Handle:** node scripts/test-fork-cap-race.js on VPS under concurrent load. **Status:** verified PASS by fork_momlilgp_34d36f on 2026-05-01. Three back-to-back runs at concurrency=50 (150 total concurrent reservations), zero cap-violations sampled at 100ms cadence, all rejections correctly classified `fork_cap_reached`. Deliverable: ~/ecodiaos/drafts/fork-cap-load-test-2026-05-01.md.
 2. **Claim:** Compact threshold flip stable at 120K under production load. **Handle:** Monitor /api/ops/metrics for `turn_economics.cache_hit_ratio_24h` holding at or above pre-flip baseline AND `compaction.count_24h` showing a healthy 1-5/day sawtooth (not >12/day, not 0 across multiple days). **Status:** Activated on pm2 restart (2026-05-01). env.js default 800K → 120K + osSessionService hardcoded fallbacks. Monitor /ops for 48h. ROLLBACK: `git revert <commit_a908282>` if degradation observed.
 3. **Claim:** The email-to-factory-to-deploy RCE chain is closed. **Handle:** end-to-end attack-sim integration test. **Status:** unverified -- unit tests exist per layer, no kill-chain test yet.
 4. **Claim:** credentialFilter.redact() is wired into all three emit paths. **Handle:** credential_redactions_bootstrap_done on /api/ops/metrics flips to true after 2h. **Status:** bootstrap timer running.
@@ -46,6 +46,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 ## Current celebration items
 
+- **Bedrock fallback path validated end-to-end (1 May 2026).** `us.anthropic.claude-opus-4-1-20250805-v1:0` on us-east-1 returned clean completion via the production sessionEnv shape (CLAUDE_CODE_USE_BEDROCK=1, AWS creds, OAuth tokens stripped). Both Claude Max accounts → Bedrock route operational. Deliverable: `~/ecodiaos/drafts/bedrock-fallback-validation-2026-05-01.md`.
 - **Phase 0.5 security ring is closed.** S2.1 through S7.2 as code, migrations, tests. 264+ unit tests. PRs #33/#34/#35 merged plus 5 wire-in PRs.
 - **Fork atomicity TOCTOU race closed.** tryReserveForkSlot does atomic conditional INSERT under pg_advisory_xact_lock.
 - **Prompt assembler flipped to live.** doctrineSurface deleted, skillsSurfaceService is sole surface. recent_exchanges removed. 4-breakpoint cache layout operational.
