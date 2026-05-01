@@ -1313,6 +1313,11 @@ async function _sendMessageImpl(content, opts = {}) {
     // deepseek-v4-flash (not v4-pro). Also strip the [1m] suffix we add for Claude Max:
     // DeepSeek ignores anthropic-beta headers so the suffix just confuses the SDK.
     options.model = 'deepseek-v4-pro'
+    // DeepSeek returns thinking blocks with Anthropic-signed signatures that are
+    // invalid when replayed in subsequent turns — causes 400 "Invalid signature".
+    // V4 Pro activates its own native thinking automatically; don't ask the SDK
+    // to manage thinking blocks at all.
+    delete options.thinking
     delete options.resume
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
   } else if (best.isBedrockFallback) {
