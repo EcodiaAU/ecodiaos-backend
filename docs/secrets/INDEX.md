@@ -48,13 +48,13 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [canva-mfa-backup-codes.md](canva-mfa-backup-codes.md) | canva, canva-2fa, mfa-backup-codes, canva-login, backup-codes, recovery-codes | gui-macro-replaces | tate |
 | [xero-code-login.md](xero-code-login.md) | xero, bookkeeping, xero-login, xero-gui, xero-dashboard, ecodia-xero | gui-macro-replaces | ecodiaos |
 | [coexist-app-test.md](coexist-app-test.md) | coexist, coexist-app, coexist-test, smoke-test, visual-verify, puppeteer-coexist | gui-macro-replaces | ecodiaos |
+| [android-keystores.md](android-keystores.md) | android, keystore, jks, play console, fastlane, android-signing, coexist-android, roam-android, android-release, aab, upload-key, .jks, keystore_b64, keystore_password | programmatic-required | ecodiaos |
 | [conventions.md](conventions.md) | creds-conventions, kv_store-conventions, secrets-conventions, naming-conventions-creds, misclassified | programmatic-required | ecodiaos |
 
 ## Pending (referenced by code/docs, NOT in kv_store yet)
 
 | File | Triggers | Status |
 |---|---|---|
-| [_pending-android-keystores.md](_pending-android-keystores.md) | android, keystore, jks, play console, fastlane, coexist-android, roam-android, .jks, keystore_b64 | NEEDS-TATE - back up keystores from 1Password |
 | [_pending-google-play-service-account.md](_pending-google-play-service-account.md) | google-play, play console, service-account, fastlane, supply, programmatic-android-upload | DEMOTED to fallback - macro path is primary; provision only if true headless cron required |
 | [_pending-revenuecat.md](_pending-revenuecat.md) | revenuecat, iap, in-app-purchase, roam-iap, subscriptions, paywall, revenuecat_ios_public_key | NEEDS-TATE - Roam IAP submission blocker |
 
