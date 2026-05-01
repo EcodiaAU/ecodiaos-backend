@@ -26,6 +26,9 @@ const decisionQualityService = require('../services/telemetry/decisionQualitySer
 const dispatchEventConsumer = require('../services/telemetry/dispatchEventConsumer')
 const outcomeInference = require('../services/telemetry/outcomeInference')
 const episodeResurface = require('../services/episodeResurface')
+const turnInjection = require('../services/turnInjectionService')
+const fs = require('fs')
+const readline = require('readline')
 
 router.use(auth)
 
@@ -140,6 +143,126 @@ router.post('/episode-resurface/:id/repeated-failure', async (req, res, next) =>
     const repeated = req.body && req.body.repeated === true
     const result = await episodeResurface.markRepeatedFailure({ id, repeated })
     res.json(result)
+  } catch (err) { next(err) }
+})
+
+// ─── Per-turn injection cost telemetry ──────────────────────────────────────
+
+// GET /api/telemetry/per-turn-injection-cost?days=1&session_id=...
+//
+// Reads the JSONL append log emitted by turnInjectionService.processBlocks
+// (logs/telemetry/injection-events.jsonl). Each row is one block-emission
+// decision { ts, session_id, turn_idx, block_name, char_count, emitted,
+// skip_reason, hash_prefix, minimal_mode }.
+//
+// Aggregates returned: per-block emit/skip counts, average char_count,
+// dedupe hit rate, skip-by-reason breakdown, plus the most recent N raw
+// rows for spot-checking. The per-row reads are O(file size) so callers
+// should pass session_id to scope the result when possible.
+router.get('/per-turn-injection-cost', async (req, res, next) => {
+  try {
+    const days = Math.max(1, Math.min(30, parseInt(req.query.days, 10) || 1))
+    const sessionFilter = (req.query.session_id || '').trim() || null
+    const sampleLimit = Math.max(0, Math.min(500, parseInt(req.query.sample, 10) || 50))
+
+    const file = turnInjection._TELEMETRY_FILE
+    if (!fs.existsSync(file)) {
+      return res.json({
+        window_days: days,
+        session_id: sessionFilter,
+        total_rows: 0,
+        per_block: {},
+        sample: [],
+        notice: 'no telemetry file yet (no turns processed since service shipped)',
+      })
+    }
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+
+    const stream = fs.createReadStream(file, { encoding: 'utf8' })
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
+
+    const perBlock = {}      // tag -> { emit, skip, skip_reasons, total_chars_emit, total_chars_skip }
+    const sample = []
+    let totalRows = 0
+
+    for await (const line of rl) {
+      if (!line.trim()) continue
+      let row
+      try { row = JSON.parse(line) } catch { continue }
+      if (!row || !row.ts) continue
+      const ts = Date.parse(row.ts)
+      if (!Number.isFinite(ts) || ts < cutoff) continue
+      if (sessionFilter && row.session_id !== sessionFilter) continue
+
+      totalRows += 1
+      const tag = row.block_name || '<unknown>'
+      const bucket = perBlock[tag] || (perBlock[tag] = {
+        emit: 0,
+        skip: 0,
+        skip_reasons: {},
+        total_chars_emit: 0,
+        total_chars_skip: 0,
+      })
+      if (row.emitted) {
+        bucket.emit += 1
+        bucket.total_chars_emit += Number(row.char_count) || 0
+      } else {
+        bucket.skip += 1
+        bucket.total_chars_skip += Number(row.char_count) || 0
+        const reason = row.skip_reason || 'unknown'
+        bucket.skip_reasons[reason] = (bucket.skip_reasons[reason] || 0) + 1
+      }
+
+      if (sample.length < sampleLimit) sample.push(row)
+    }
+
+    // Compute per-block averages + dedupe hit rate
+    for (const [tag, b] of Object.entries(perBlock)) {
+      const total = b.emit + b.skip
+      b.total = total
+      b.emit_rate = total > 0 ? b.emit / total : 0
+      b.skip_rate = total > 0 ? b.skip / total : 0
+      b.dedupe_rate = total > 0 ? (b.skip_reasons.dedupe || 0) / total : 0
+      b.avg_chars_emit = b.emit > 0 ? Math.round(b.total_chars_emit / b.emit) : 0
+      b.avg_chars_skip = b.skip > 0 ? Math.round(b.total_chars_skip / b.skip) : 0
+    }
+
+    // Aggregate roll-up for at-a-glance read
+    const rollup = {
+      total_rows: totalRows,
+      total_chars_emit: Object.values(perBlock).reduce((a, b) => a + b.total_chars_emit, 0),
+      total_chars_skipped: Object.values(perBlock).reduce((a, b) => a + b.total_chars_skip, 0),
+    }
+    rollup.cost_savings_pct = (rollup.total_chars_emit + rollup.total_chars_skipped) > 0
+      ? rollup.total_chars_skipped / (rollup.total_chars_emit + rollup.total_chars_skipped)
+      : 0
+
+    res.json({
+      window_days: days,
+      session_id: sessionFilter,
+      rollup,
+      per_block: perBlock,
+      sample,
+    })
+  } catch (err) { next(err) }
+})
+
+// GET /api/telemetry/per-turn-injection-cost/minimal-mode
+// Reads the kv_store flag.
+router.get('/per-turn-injection-cost/minimal-mode', async (_req, res, next) => {
+  try {
+    const enabled = await turnInjection.getMinimalMode()
+    res.json({ enabled })
+  } catch (err) { next(err) }
+})
+
+// POST /api/telemetry/per-turn-injection-cost/minimal-mode
+// Body: { enabled: boolean }. Flips the flag.
+router.post('/per-turn-injection-cost/minimal-mode', async (req, res, next) => {
+  try {
+    const enabled = !!(req.body && req.body.enabled)
+    await turnInjection.setMinimalMode(enabled)
+    res.json({ enabled })
   } catch (err) { next(err) }
 })
 

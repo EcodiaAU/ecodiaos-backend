@@ -32,6 +32,7 @@ const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const doctrineSurface = require('./skillsSurfaceService')
 const perceptionBus = require('./perceptionBus')
+const turnInjection = require('./turnInjectionService')
 // docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
 // cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
 // this service's v1 path and diffs are written fire-and-forget to
@@ -1733,43 +1734,88 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
   }
-  if (_perceptionBlock) {
-    continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
-  }
-  if (_memoryBlock) {
-    continuityParts.splice(1, 0, _memoryBlock)
-  }
-  if (_doctrineBlock) {
-    continuityParts.splice(1, 0, _doctrineBlock)
-  }
-  // Forks rollup goes right after <now> so it's the first thing the conductor
-  // sees besides the timestamp — parallel work in flight is high-priority
-  // ambient awareness, not buried context.
-  if (_forksBlock) {
-    continuityParts.splice(1, 0, _forksBlock)
-  }
-  // Doctrine surface (keyword-matched files for THIS turn) goes right after
-  // <now> as well — splice last so it sits ABOVE forks/doctrine/memory and
-  // is the first content the conductor reads after the timestamp. The
-  // keyword match is the highest-signal block in the stack: it names which
-  // doctrine files apply to the literal text of the current message.
-  if (_doctrineSurfaceBlock) {
-    continuityParts.splice(1, 0, _doctrineSurfaceBlock)
+  // ─── turnInjectionService: dedupe + relevance-gate + telemetry ───────────
+  // Centralised gating logic — replaces the splice-based assembly that used
+  // to live here. Each candidate block is passed through processBlocks, which
+  // applies per-block hard caps (already applied upstream by the producers),
+  // dedupe vs previous turn (kv_store ledger keyed by sessionId), and the
+  // context_minimal_mode flag. Telemetry rows for each block (emitted /
+  // skipped / skip_reason / char_count) are appended to the JSONL sink at
+  // logs/telemetry/injection-events.jsonl, exposed via
+  // /api/telemetry/per-turn-injection-cost.
+  //
+  // Always-on blocks (<now>, <forks_rollup>) bypass dedupe; the rest are
+  // dedupe-eligible and skip when their content is byte-identical to
+  // previous turn's emission for this session.
+  let _injectionStats = null
+  try {
+    const candidates = {
+      '<now>':                  continuityParts[0] || null, // already pushed at top
+      '<doctrine_surface>':     _doctrineSurfaceBlock,
+      '<forks_rollup>':         _forksBlock,
+      '<recent_doctrine>':      _doctrineBlock,
+      '<relevant_memory>':      _memoryBlock,
+      '<perception_summary>':   _perceptionBlock ? `<perception_summary>\n${_perceptionBlock}\n</perception_summary>` : null,
+      '<restart_recovery>':     recoveryBlock ? `<restart_recovery>\n${recoveryBlock}\n</restart_recovery>` : null,
+      '<last_turn_breadcrumb>': breadcrumbBlock ? `<last_turn_breadcrumb>\n${breadcrumbBlock}\n</last_turn_breadcrumb>` : null,
+    }
+    const { emitted, skipped, stats } = await turnInjection.processBlocks({
+      sessionId: dbSessionId,
+      candidates,
+    })
+    _injectionStats = { stats, skipped }
+    // Rebuild continuityParts from emitted blocks in canonical order. The
+    // order mirrors the previous splice sequence (highest-signal first
+    // after <now>): doctrine_surface > forks_rollup > recent_doctrine >
+    // relevant_memory > perception_summary > restart_recovery >
+    // last_turn_breadcrumb.
+    const ORDER = [
+      '<now>',
+      '<doctrine_surface>',
+      '<forks_rollup>',
+      '<recent_doctrine>',
+      '<relevant_memory>',
+      '<perception_summary>',
+      '<restart_recovery>',
+      '<last_turn_breadcrumb>',
+    ]
+    continuityParts.length = 0
+    for (const tag of ORDER) {
+      if (emitted[tag]) continuityParts.push(emitted[tag])
+    }
+    logger.info('OS Session: stitching continuity blocks into user message', {
+      now: !!emitted['<now>'],
+      forks_rollup: !!emitted['<forks_rollup>'],
+      recent_doctrine: !!emitted['<recent_doctrine>'],
+      memory: !!emitted['<relevant_memory>'],
+      perception_summary: !!emitted['<perception_summary>'],
+      doctrine_surface: !!emitted['<doctrine_surface>'],
+      restart_recovery: !!emitted['<restart_recovery>'],
+      breadcrumb: !!emitted['<last_turn_breadcrumb>'],
+      skipped,
+      blocks_in: stats.blocks_in,
+      blocks_out: stats.blocks_out,
+      total_emit_chars: stats.total_emit_chars,
+      total_skip_chars: stats.total_skip_chars,
+      minimal_mode: stats.minimal_mode,
+    })
+  } catch (err) {
+    // Fail-open: if turn-injection processing throws, fall through to the
+    // original behaviour of emitting whatever blocks happen to be in
+    // continuityParts. The pre-processBlocks state has only <now>; this
+    // regression path keeps the turn alive even if the gating layer
+    // wedges. Producers themselves are wrapped in _withTimeout, so the
+    // only failure mode here is service-level (db wedge, etc).
+    logger.warn('OS Session: turnInjection.processBlocks failed - emitting raw blocks', { error: err.message })
+    if (_doctrineSurfaceBlock) continuityParts.splice(1, 0, _doctrineSurfaceBlock)
+    if (_forksBlock) continuityParts.splice(1, 0, _forksBlock)
+    if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
+    if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
+    if (_perceptionBlock) continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
   }
 
   if (continuityParts.length > 0) {
     finalPrompt = `${continuityParts.join('\n\n')}\n\n${promptWithMemory}`
-    logger.info('OS Session: stitching continuity blocks into user message', {
-      now: true,
-      forks_rollup: !!_forksBlock,
-      recent_doctrine: !!_doctrineBlock,
-      memory: !!_memoryBlock,
-      perception_summary: !!_perceptionBlock,
-      doctrine_surface: !!_doctrineSurfaceBlock,
-      restart_recovery: !!recoveryBlock,
-      breadcrumb: !!breadcrumbBlock,
-      totalBlocksLen: continuityParts.join('\n\n').length,
-    })
   }
 
   // ─── PROMPT_ASSEMBLY_V2 dispatch ────────────────────────────────────────
