@@ -435,6 +435,13 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     cc_session_id: null,
     tokens_input: 0,
     tokens_output: 0,
+    // Cache-token visibility (in-memory only — no DB column, surfaces in
+    // fork-complete log + per-turn metrics). Forks share BP1+BP2 system-prompt
+    // structure with main when systemPrompt is large enough to auto-cache;
+    // tracking here lets us see fork-side cache hit ratio rather than
+    // pretending it's silently zero.
+    tokens_cache_read: 0,
+    tokens_cache_creation: 0,
     tool_calls: 0,
     current_tool: null,
     last_heartbeat: startedAt,
@@ -572,9 +579,29 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
               })
               _emitForkEvent('position', state)
             }
-            if (msg.message?.usage) {
-              state.tokens_input  += msg.message.usage.input_tokens  || 0
-              state.tokens_output += msg.message.usage.output_tokens || 0
+            // Defensive both-paths read (mirrors af5d01f / fork_monowdwc_b13eda
+             // applied to osSessionService 2 May 2026). The SDK normalises
+             // usage onto msg.message.usage on assistant events, but newer
+             // shapes occasionally surface usage on msg.usage even within
+             // assistant blocks, and cache_creation may nest under
+             // cache_creation.ephemeral_5m_input_tokens (or future ephemeral_1h).
+             // Reading all paths means a fork's token + cache telemetry stays
+             // populated regardless of which shape this turn emitted on,
+             // rather than silently going to zero on the next SDK pivot.
+             const _u = msg.message?.usage ?? msg.usage
+             if (_u) {
+              state.tokens_input  += _u.input_tokens  || 0
+              state.tokens_output += _u.output_tokens || 0
+              state.tokens_cache_read += (
+                _u.cache_read_input_tokens
+                ?? _u.cache_read?.ephemeral_5m_input_tokens
+                ?? _u.cache_read?.ephemeral_1h_input_tokens
+              ) || 0
+              state.tokens_cache_creation += (
+                _u.cache_creation_input_tokens
+                ?? _u.cache_creation?.ephemeral_5m_input_tokens
+                ?? _u.cache_creation?.ephemeral_1h_input_tokens
+              ) || 0
             }
             break
           }
@@ -649,6 +676,16 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
         duration_ms: state.ended_at - state.started_at,
         tokens_input: state.tokens_input,
         tokens_output: state.tokens_output,
+        // Cache-token visibility for fork-side cache hit ratio analysis.
+        // Wave 3 Fork H reported main hit_ratio_50turn=0 post-082; if forks
+        // are also at 0 the cache breakpoint structure isn't reaching the
+        // SDK; if forks hit but main doesn't, the divergence localises the
+        // issue to assembler vs queryFn wiring.
+        tokens_cache_read: state.tokens_cache_read,
+        tokens_cache_creation: state.tokens_cache_creation,
+        cache_hit_ratio: (state.tokens_input > 0)
+          ? Number((state.tokens_cache_read / state.tokens_input).toFixed(3))
+          : null,
         tool_calls: state.tool_calls,
         had_report: !!report,
         had_next_step: !!nextStep,
