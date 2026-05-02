@@ -652,7 +652,23 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       const report = reportMatch ? reportMatch[1].trim() : null
       const nextStep = nextMatch ? nextMatch[1].trim() : null
 
-      state.result = report || (fullText.length > 600 ? fullText.slice(-600) : fullText) || '(no output)'
+      // If fork emitted [FORK_REPORT], use the captured report verbatim. Otherwise
+      // fall back to the tail of the transcript. PRE-2026-05-02 the fallback was
+      // `slice(-600)` with no marker — that produced 455/555 historical results
+      // clustered at exactly 600 chars that the conductor mis-classified as
+      // "phantom shipping". The fork was usually doing real work but ran out of
+      // budget before emitting the closing tag. Mark fallback explicitly so the
+      // conductor can tell `[FORK_REPORT] missing` apart from `report content was
+      // 600 chars`. Origin: fork_moo6esm9_565a0e debunk-or-confirm investigation.
+      // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+      if (report) {
+        state.result = report
+      } else if (fullText.length > 0) {
+        const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
+        state.result = `(no [FORK_REPORT] emitted; last ${tail.length} chars of transcript follow)\n\n${tail}`
+      } else {
+        state.result = '(no output)'
+      }
       state.next_step = nextStep
       state.status = 'done'
       state.ended_at = Date.now()
