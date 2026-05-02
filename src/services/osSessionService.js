@@ -2092,11 +2092,22 @@ async function _sendMessageImpl(content, opts = {}) {
                   inputTokens: turnInput,
                   outputTokens: turnOutput,
                   // Audit Tier A 2026-05-01: persist cache tokens for cache_hit_ratio
-                  // panel + per-turn cost estimation. Anthropic SDK puts these on
-                  // msg.usage; mutually exclusive slices of the input total so the
-                  // pricing helper subtracts them when computing residual non-cached input.
-                  cacheCreationTokens: msg.usage?.cache_creation_input_tokens ?? 0,
-                  cacheReadTokens: msg.usage?.cache_read_input_tokens ?? 0,
+                  // panel + per-turn cost estimation. Defensive both-paths read
+                  // (fork_monowdwc_b13eda, 2 May 2026): assistant-event normalises
+                  // usage onto msg.message.usage, result-event normalises onto
+                  // msg.usage, and newer SDK shapes nest under cache_creation
+                  // .ephemeral_5m_input_tokens. Read all paths so the metric
+                  // populates regardless of which SDK shape this turn emitted on.
+                  cacheCreationTokens: (
+                    msg.message?.usage?.cache_creation_input_tokens
+                    ?? msg.usage?.cache_creation_input_tokens
+                    ?? msg.message?.usage?.cache_creation?.ephemeral_5m_input_tokens
+                    ?? msg.usage?.cache_creation?.ephemeral_5m_input_tokens
+                  ) ?? 0,
+                  cacheReadTokens: (
+                    msg.message?.usage?.cache_read_input_tokens
+                    ?? msg.usage?.cache_read_input_tokens
+                  ) ?? 0,
                 }).catch(() => {})
               }
               // Live token usage broadcast — surfaces context-fill progress in the UI
@@ -2321,8 +2332,20 @@ async function _sendMessageImpl(content, opts = {}) {
                   type: 'turn_complete',
                   input_tokens: msg.usage?.input_tokens ?? sessionTokenUsage.input,
                   output_tokens: msg.usage?.output_tokens ?? sessionTokenUsage.output,
-                  cache_read_tokens: msg.usage?.cache_read_input_tokens ?? 0,
-                  cache_write_tokens: msg.usage?.cache_creation_input_tokens ?? 0,
+                  // Defensive both-paths read (fork_monowdwc_b13eda, 2 May 2026):
+                  // assistant-event SDK shape normalises usage onto msg.message.usage,
+                  // result-event onto msg.usage, newer SDK shapes nest under
+                  // cache_creation.ephemeral_5m_input_tokens. Read all paths.
+                  cache_read_tokens: (
+                    msg.message?.usage?.cache_read_input_tokens
+                    ?? msg.usage?.cache_read_input_tokens
+                  ) ?? 0,
+                  cache_write_tokens: (
+                    msg.message?.usage?.cache_creation_input_tokens
+                    ?? msg.usage?.cache_creation_input_tokens
+                    ?? msg.message?.usage?.cache_creation?.ephemeral_5m_input_tokens
+                    ?? msg.usage?.cache_creation?.ephemeral_5m_input_tokens
+                  ) ?? 0,
                   model: _turnModel || env.OS_SESSION_MODEL || 'unknown',
                   stop_reason: msg.stop_reason || null,
                   duration_ms: Date.now() - _turnStartedAt,
