@@ -839,4 +839,5 @@ module.exports = {
   getGraphStats,
   ensureVectorIndex,
   healthCheck,
+  getEmbedding,
 }
