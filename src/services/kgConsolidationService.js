@@ -442,24 +442,65 @@ Respond as JSON:
       if (!parsed.theme_name) continue
 
       const kg = require('./knowledgeGraphService')
-      await kg.ensureNode({
-        label: parsed.theme_label || 'Pattern',
-        name: parsed.theme_name,
-        properties: {
-          description: parsed.description,
-          causal_insight: parsed.causal_insight,
-          confidence: parsed.confidence,
-          source_hub: hubName,
-          source_pattern: relType,
-          synthesized_at: new Date().toISOString(),
-          is_synthesized: true,
-        },
-        sourceModule: 'consolidation',
-      })
+      const synthLabel = parsed.theme_label || 'Pattern'
+
+      // Pre-INSERT semantic dedup gate: query the vector index with the
+      // candidate's embedding text. If an existing same-label node scores
+      // >= SYNTH_DEDUP_THRESHOLD cosine similarity, skip the INSERT and
+      // link ABSTRACTED_FROM at the existing canonical instead. Prevents
+      // the recurring LLM-paraphrase duplicate-Pattern flood (Decision
+      // "Pattern node consolidation Phase 1 shipped 2 May 2026", fork
+      // fork_momxiynq_21b057). Origin: 1057 Pattern nodes pre-merge,
+      // 145 pairs at >=0.92, ~13% of corpus was duplicates.
+      const SYNTH_DEDUP_THRESHOLD = parseFloat(env.KG_SYNTH_DEDUP_THRESHOLD || '0.85')
+      let canonicalName = parsed.theme_name
+      let dedupSkipped = false
+
+      if (env.OPENAI_API_KEY) {
+        try {
+          const candidateText = `[${synthLabel}] ${parsed.theme_name}${parsed.description ? ' — ' + parsed.description : ''}`
+          const candidateEmbedding = await kg.getEmbedding(candidateText)
+          if (candidateEmbedding) {
+            const matches = await runQuery(
+              `CALL db.index.vector.queryNodes('node_embeddings', 3, $embedding)
+               YIELD node, score
+               WHERE $synthLabel IN labels(node) AND score >= $threshold
+               RETURN node.name AS name, score
+               ORDER BY score DESC LIMIT 1`,
+              { embedding: candidateEmbedding, synthLabel, threshold: SYNTH_DEDUP_THRESHOLD }
+            ).catch(() => [])
+            if (matches.length > 0 && matches[0].get) {
+              canonicalName = matches[0].get('name')
+              const matchScore = matches[0].get('score')
+              dedupSkipped = true
+              logger.info(`KG synthesis dedup hit: "${parsed.theme_name}" -> "${canonicalName}" (score ${matchScore.toFixed(3)} >= ${SYNTH_DEDUP_THRESHOLD})`)
+            }
+          }
+        } catch (err) {
+          logger.debug(`KG synthesis dedup check failed, falling through to INSERT`, { error: err.message })
+        }
+      }
+
+      if (!dedupSkipped) {
+        await kg.ensureNode({
+          label: synthLabel,
+          name: parsed.theme_name,
+          properties: {
+            description: parsed.description,
+            causal_insight: parsed.causal_insight,
+            confidence: parsed.confidence,
+            source_hub: hubName,
+            source_pattern: relType,
+            synthesized_at: new Date().toISOString(),
+            is_synthesized: true,
+          },
+          sourceModule: 'consolidation',
+        })
+      }
 
       await kg.ensureRelationship({
-        fromLabel: 'Pattern',
-        fromName: parsed.theme_name,
+        fromLabel: synthLabel,
+        fromName: canonicalName,
         toLabel: (record.get('hubLabels') || ['Entity'])[0],
         toName: hubName,
         relType: 'ABSTRACTED_FROM',
@@ -470,10 +511,19 @@ Respond as JSON:
       await runWrite(`
         MATCH (n {name: $name})
         SET n.consolidated_pattern = $theme, n.consolidated_at = datetime()
-      `, { name: hubName, theme: parsed.theme_name })
+      `, { name: hubName, theme: canonicalName })
 
-      synthesized.push({ action: 'synthesized', hub: hubName, theme: parsed.theme_name })
-      logger.info(`KG consolidation: synthesized pattern "${parsed.theme_name}" from "${hubName}"`)
+      synthesized.push({
+        action: dedupSkipped ? 'dedup_linked' : 'synthesized',
+        hub: hubName,
+        theme: canonicalName,
+        candidate_name: parsed.theme_name,
+      })
+      if (dedupSkipped) {
+        logger.info(`KG consolidation: dedup-linked hub "${hubName}" -> existing pattern "${canonicalName}" (would have been "${parsed.theme_name}")`)
+      } else {
+        logger.info(`KG consolidation: synthesized pattern "${parsed.theme_name}" from "${hubName}"`)
+      }
     } catch (err) {
       logger.warn(`KG synthesis failed for hub "${hubName}"`, { error: err.message })
     }
