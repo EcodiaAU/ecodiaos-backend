@@ -646,6 +646,223 @@ cmd_foreground_check() {
 }
 
 # ---------------------------------------------------------------------------
+# Wave 3 V2 subcommands - hit /api/mcp/cowork/tools/call on api.admin.ecodia.au
+#
+# These wrap the Cowork V2 MCP substrate's gmail.send, sms.tate, and scheduler
+# trio (cron/delayed/chain) tools as one-liners for fork briefs and ad-hoc
+# conductor use. Each supports --dry-run to print the JSON-RPC envelope
+# without dispatching.
+#
+# Bearer: env COWORK_BEARER overrides; otherwise falls back to TOKEN_FILE
+# (default ~/.ecodiaos/laptop-agent.token).
+# Base URL: $COWORK_API_BASE (default https://api.admin.ecodia.au).
+#
+# Doctrine:
+#   ~/ecodiaos/patterns/sms-segment-economics.md  (1 GSM segment <=160 chars)
+#   ~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md  (V2 substrate)
+#   ~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md
+# ---------------------------------------------------------------------------
+
+COWORK_API_BASE="${COWORK_API_BASE:-https://api.admin.ecodia.au}"
+
+# Resolve V2 MCP bearer: env COWORK_BEARER override > TOKEN file fallback.
+cowork_mcp_bearer() {
+    if [ -n "${COWORK_BEARER:-}" ]; then
+        printf '%s' "$COWORK_BEARER"
+        return 0
+    fi
+    if [ -n "${TOKEN:-}" ]; then
+        printf '%s' "$TOKEN"
+        return 0
+    fi
+    return 1
+}
+
+# Build a JSON-RPC 2.0 envelope for tools/call against the V2 MCP substrate.
+#   $1 - tool name (e.g. "gmail.send")
+#   $2 - arguments JSON object (already encoded)
+build_jsonrpc_envelope() {
+    local tool="$1"
+    local args="$2"
+    local id
+    id="jsonrpc-$(ts_compact)-$$"
+    jq -n \
+        --arg id "$id" \
+        --arg name "$tool" \
+        --argjson args "$args" \
+        '{jsonrpc:"2.0", id:$id, method:"tools/call", params:{name:$name, arguments:$args}}'
+}
+
+# Dispatch a JSON-RPC envelope to /api/mcp/cowork/tools/call, or print on dry-run.
+mcp_dispatch() {
+    local envelope="$1"
+    local dry_run="$2"
+    if [ "$dry_run" = "true" ]; then
+        echo "$envelope"
+        return 0
+    fi
+    local bearer
+    if ! bearer="$(cowork_mcp_bearer)"; then
+        echo "ERROR: no bearer available (COWORK_BEARER unset and TOKEN_FILE empty)" >&2
+        return 3
+    fi
+    curl -sS --max-time 30 \
+        -X POST "$COWORK_API_BASE/api/mcp/cowork/tools/call" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $bearer" \
+        -d "$envelope"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: v2-gmail-send --to=<addr> --subject=<s> --body-file=<path> [--dry-run]
+# ---------------------------------------------------------------------------
+cmd_v2_gmail_send() {
+    local to="" subject="" body_file=""
+    local dry_run=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --to=*)        to="${1#*=}" ;;
+            --to)          shift; to="${1:-}" ;;
+            --subject=*)   subject="${1#*=}" ;;
+            --subject)     shift; subject="${1:-}" ;;
+            --body-file=*) body_file="${1#*=}" ;;
+            --body-file)   shift; body_file="${1:-}" ;;
+            --dry-run)     dry_run=true ;;
+            *)             echo "ERROR: unknown flag: $1" >&2; exit 2 ;;
+        esac
+        shift || true
+    done
+    if [ -z "$to" ] || [ -z "$subject" ] || [ -z "$body_file" ]; then
+        echo "usage: cowork-dispatch v2-gmail-send --to=<addr> --subject=<s> --body-file=<path> [--dry-run]" >&2
+        exit 2
+    fi
+    local body=""
+    if [ -f "$body_file" ]; then
+        body="$(cat "$body_file")"
+    elif [ "$dry_run" = "true" ]; then
+        body="[dry-run: body-file $body_file not read]"
+    else
+        echo "ERROR: body-file not found: $body_file" >&2
+        exit 2
+    fi
+    local args
+    args="$(jq -n --arg to "$to" --arg subject "$subject" --arg body "$body" \
+        '{to:$to, subject:$subject, body:$body}')"
+    local envelope
+    envelope="$(build_jsonrpc_envelope "gmail.send" "$args")"
+    mcp_dispatch "$envelope" "$dry_run"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: v2-sms-tate --message=<m> [--dry-run]
+#
+# SMS segment economics (~/ecodiaos/patterns/sms-segment-economics.md):
+# 1 GSM segment <=160 chars. Reject longer messages so callers strip filler.
+# ---------------------------------------------------------------------------
+cmd_v2_sms_tate() {
+    local message=""
+    local dry_run=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --message=*) message="${1#*=}" ;;
+            --message)   shift; message="${1:-}" ;;
+            --dry-run)   dry_run=true ;;
+            *)           echo "ERROR: unknown flag: $1" >&2; exit 2 ;;
+        esac
+        shift || true
+    done
+    if [ -z "$message" ]; then
+        echo "usage: cowork-dispatch v2-sms-tate --message=<m> [--dry-run]" >&2
+        exit 2
+    fi
+    if [ ${#message} -gt 160 ]; then
+        echo "ERROR: message is ${#message} chars; exceeds 160-char GSM segment limit." >&2
+        echo "See ~/ecodiaos/patterns/sms-segment-economics.md - drop greetings/signoffs/filler before retrying." >&2
+        exit 2
+    fi
+    local args
+    args="$(jq -n --arg m "$message" '{message:$m}')"
+    local envelope
+    envelope="$(build_jsonrpc_envelope "sms.tate" "$args")"
+    mcp_dispatch "$envelope" "$dry_run"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommand: v2-scheduler {cron|delayed|chain} [...] [--dry-run]
+#
+# cron:    --name=<n> --cron-expr=<expr> --prompt=<p>
+# delayed: --name=<n> --delay=<seconds-or-iso> --prompt=<p>
+# chain:   --after-task-id=<id> --name=<n> --prompt=<p>
+# ---------------------------------------------------------------------------
+cmd_v2_scheduler() {
+    local action="${1:-}"
+    if [ -z "$action" ]; then
+        echo "usage: cowork-dispatch v2-scheduler {cron|delayed|chain} [...] [--dry-run]" >&2
+        exit 2
+    fi
+    shift || true
+
+    local name="" prompt=""
+    local cron_expr="" delay="" after_task_id=""
+    local dry_run=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --name=*)            name="${1#*=}" ;;
+            --name)              shift; name="${1:-}" ;;
+            --prompt=*)          prompt="${1#*=}" ;;
+            --prompt)            shift; prompt="${1:-}" ;;
+            --cron-expr=*)       cron_expr="${1#*=}" ;;
+            --cron-expr)         shift; cron_expr="${1:-}" ;;
+            --delay=*)           delay="${1#*=}" ;;
+            --delay)             shift; delay="${1:-}" ;;
+            --after-task-id=*)   after_task_id="${1#*=}" ;;
+            --after-task-id)     shift; after_task_id="${1:-}" ;;
+            --dry-run)           dry_run=true ;;
+            *)                   echo "ERROR: unknown flag: $1" >&2; exit 2 ;;
+        esac
+        shift || true
+    done
+
+    local tool="" args=""
+    case "$action" in
+        cron)
+            if [ -z "$name" ] || [ -z "$cron_expr" ] || [ -z "$prompt" ]; then
+                echo "usage: cowork-dispatch v2-scheduler cron --name=<n> --cron-expr=<expr> --prompt=<p> [--dry-run]" >&2
+                exit 2
+            fi
+            tool="scheduler.cron"
+            args="$(jq -n --arg name "$name" --arg cron "$cron_expr" --arg prompt "$prompt" \
+                '{name:$name, cron_expression:$cron, prompt:$prompt}')"
+            ;;
+        delayed)
+            if [ -z "$name" ] || [ -z "$delay" ] || [ -z "$prompt" ]; then
+                echo "usage: cowork-dispatch v2-scheduler delayed --name=<n> --delay=<seconds-or-iso> --prompt=<p> [--dry-run]" >&2
+                exit 2
+            fi
+            tool="scheduler.delayed"
+            args="$(jq -n --arg name "$name" --arg delay "$delay" --arg prompt "$prompt" \
+                '{name:$name, delay:$delay, prompt:$prompt}')"
+            ;;
+        chain)
+            if [ -z "$after_task_id" ] || [ -z "$name" ] || [ -z "$prompt" ]; then
+                echo "usage: cowork-dispatch v2-scheduler chain --after-task-id=<id> --name=<n> --prompt=<p> [--dry-run]" >&2
+                exit 2
+            fi
+            tool="scheduler.chain"
+            args="$(jq -n --arg after "$after_task_id" --arg name "$name" --arg prompt "$prompt" \
+                '{after_task_id:$after, name:$name, prompt:$prompt}')"
+            ;;
+        *)
+            echo "ERROR: unknown scheduler action: $action (expected cron|delayed|chain)" >&2
+            exit 2
+            ;;
+    esac
+    local envelope
+    envelope="$(build_jsonrpc_envelope "$tool" "$args")"
+    mcp_dispatch "$envelope" "$dry_run"
+}
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 sub="${1:-}"
@@ -660,6 +877,9 @@ case "$sub" in
     passkey-inject)               cmd_passkey_inject "$@" ;;
     step-with-passkey-watch)      cmd_step_with_passkey_watch "$@" ;;
     foreground-check)             cmd_foreground_check "$@" ;;
+    v2-gmail-send)                cmd_v2_gmail_send "$@" ;;
+    v2-sms-tate)                  cmd_v2_sms_tate "$@" ;;
+    v2-scheduler)                 cmd_v2_scheduler "$@" ;;
     -h|--help|help|"")
         cat <<EOF
 cowork-dispatch - thin bash wrapper for the Conductor -> Cowork dispatch protocol
@@ -674,17 +894,24 @@ usage:
   cowork-dispatch passkey-inject
   cowork-dispatch step-with-passkey-watch "<step>" [--max-watch-seconds=N]
   cowork-dispatch foreground-check [--target "<sub>"] [--verbose]
+  cowork-dispatch v2-gmail-send --to=<addr> --subject=<s> --body-file=<path> [--dry-run]
+  cowork-dispatch v2-sms-tate --message=<m> [--dry-run]
+  cowork-dispatch v2-scheduler {cron|delayed|chain} [...] [--dry-run]
 
 env:
   COWORK_AGENT_URL    (default http://100.114.219.69:7456)
   COWORK_TOKEN_FILE   (default ~/.ecodiaos/laptop-agent.token)
   COWORK_TMP_DIR      (default /tmp)
   COWORK_DB_URL       (default DATABASE_URL from /home/tate/ecodiaos/.env)
+  COWORK_API_BASE     (default https://api.admin.ecodia.au; v2-* subcommands)
+  COWORK_BEARER       (override TOKEN_FILE for v2-* subcommands)
 
 doctrine:
   ~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md
   ~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md
   ~/ecodiaos/patterns/cowork-no-focus-collision.md  (Step 0 - foreground-check)
+  ~/ecodiaos/patterns/sms-segment-economics.md      (v2-sms-tate 160-char limit)
+  ~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md
 EOF
         ;;
     *)
