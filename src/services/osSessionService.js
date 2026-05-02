@@ -30,7 +30,6 @@ const osConversationLog = require('./osConversationLog')
 const credentialFilter = require('../lib/credentialFilter')
 const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
-const doctrineSurface = require('./skillsSurfaceService')
 const perceptionBus = require('./perceptionBus')
 const turnInjection = require('./turnInjectionService')
 // docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
@@ -1660,23 +1659,6 @@ async function _sendMessageImpl(content, opts = {}) {
     5000,
     'doctrine injection',
   )
-  // Doctrine surface — keyword-grep ~/ecodiaos/{patterns,clients,docs/secrets}
-  // for files whose triggers: frontmatter matches tokens in THIS turn's content.
-  // Higher signal-to-noise than _injectRecentDoctrine (which is unconditional
-  // recency) because it is keyword-matched to the current message. Sub-100ms
-  // typical (in-process filesystem walk with mtime-cached keyword index).
-  // Tight 1.5s timeout — pure local FS so any longer indicates a wedge.
-  // Layer 1 expansion of the Decision Quality Self-Optimization Architecture
-  // (cron-fire path lives in schedulerPollerService.fireTask). See
-  // drafts/context-surface-injection-points-recon-2026-04-29.md.
-  const _doctrineSurfacePromise = _withTimeout(
-    Promise.resolve().then(() => {
-      try { return doctrineSurface.surfaceDoctrineBlock(content) }
-      catch { return null }
-    }),
-    1500,
-    'doctrine surface',
-  )
   // Forks rollup — ambient awareness of parallel sub-sessions. Cheap (in-memory
   // Map + at most one bounded DB query). Capped at 2s since it should always
   // be fast; if the DB hiccups we'd rather skip it than block the user turn.
@@ -1712,7 +1694,6 @@ async function _sendMessageImpl(content, opts = {}) {
   let _memoryBlock = null
   let _doctrineBlock = null
   let _forksBlock = null
-  let _doctrineSurfaceBlock = null
   let _perceptionBlock = null
   try { _forksBlock = await _forksRollupPromise } catch (err) {
     logger.debug('OS Session: forks rollup failed', { error: err.message })
@@ -1722,9 +1703,6 @@ async function _sendMessageImpl(content, opts = {}) {
   }
   try { _doctrineBlock = await _doctrineBlockPromise } catch (err) {
     logger.debug('OS Session: doctrine injection failed', { error: err.message })
-  }
-  try { _doctrineSurfaceBlock = await _doctrineSurfacePromise } catch (err) {
-    logger.debug('OS Session: doctrine surface failed', { error: err.message })
   }
   try { _perceptionBlock = await _perceptionPromise } catch (err) {
     logger.debug('OS Session: perception summary failed', { error: err.message })
@@ -1800,7 +1778,6 @@ async function _sendMessageImpl(content, opts = {}) {
   try {
     const candidates = {
       '<now>':                  continuityParts[0] || null, // already pushed at top
-      '<doctrine_surface>':     _doctrineSurfaceBlock,
       '<forks_rollup>':         _forksBlock,
       '<recent_doctrine>':      _doctrineBlock,
       '<relevant_memory>':      _memoryBlock,
@@ -1815,12 +1792,11 @@ async function _sendMessageImpl(content, opts = {}) {
     _injectionStats = { stats, skipped }
     // Rebuild continuityParts from emitted blocks in canonical order. The
     // order mirrors the previous splice sequence (highest-signal first
-    // after <now>): doctrine_surface > forks_rollup > recent_doctrine >
+    // after <now>): forks_rollup > recent_doctrine >
     // relevant_memory > perception_summary > restart_recovery >
     // last_turn_breadcrumb.
     const ORDER = [
       '<now>',
-      '<doctrine_surface>',
       '<forks_rollup>',
       '<recent_doctrine>',
       '<relevant_memory>',
@@ -1838,7 +1814,6 @@ async function _sendMessageImpl(content, opts = {}) {
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
-      doctrine_surface: !!emitted['<doctrine_surface>'],
       restart_recovery: !!emitted['<restart_recovery>'],
       breadcrumb: !!emitted['<last_turn_breadcrumb>'],
       skipped,
@@ -1856,7 +1831,6 @@ async function _sendMessageImpl(content, opts = {}) {
     // wedges. Producers themselves are wrapped in _withTimeout, so the
     // only failure mode here is service-level (db wedge, etc).
     logger.warn('OS Session: turnInjection.processBlocks failed - emitting raw blocks', { error: err.message })
-    if (_doctrineSurfaceBlock) continuityParts.splice(1, 0, _doctrineSurfaceBlock)
     if (_forksBlock) continuityParts.splice(1, 0, _forksBlock)
     if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
     if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
