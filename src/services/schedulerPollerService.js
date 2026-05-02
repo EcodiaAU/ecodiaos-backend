@@ -215,11 +215,10 @@ async function pollOnce() {
     `
     if (due.length === 0) return
 
-    const busy = await isSessionBusy()
-    if (busy) {
-      logger.debug('Scheduler: session busy, skipping poll', { dueTasks: due.length })
-      return
-    }
+    // No pre-gate. Trust /api/os-session/message with source:'scheduler' to queue
+    // behind in-flight turns or initialise an idle session. See
+    // patterns/scheduler-no-pregate-trust-os-message-queue.md.
+    // (isSessionBusy() retained above for diagnostic / potential future use.)
 
     // Energy-aware gating: at critical level, only fire tasks flagged as critical
     // (or high-priority). Below critical, run everything. We keep this permissive
