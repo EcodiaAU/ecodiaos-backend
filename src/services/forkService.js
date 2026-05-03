@@ -89,6 +89,19 @@ const ENERGY_FORK_CAPS = {
   critical: 0,
 }
 
+// ── Phantom-bail signal (per fork-result-fallback-must-be-marked.md) ────────
+// When a fork transcript ends without a [FORK_REPORT] tag, state.result is
+// written with this prefix (see line ~668). The conductor's rollup MUST treat
+// this prefix as the canonical phantom-bail signal — not the pre-2026-05-02
+// 600-char length heuristic, which conflated real-but-short reports with
+// silent fallback. Single source of truth so the writer (state.result) and
+// the readers (forksRollup, future classifiers) stay in sync.
+const FALLBACK_MARKER = '(no [FORK_REPORT] emitted'
+
+function _isPhantomBail(result) {
+  return typeof result === 'string' && result.startsWith(FALLBACK_MARKER)
+}
+
 // Conductor & subagent MCP groups — duplicated from osSessionService so a
 // refactor there doesn't silently change fork behaviour. Kept narrow on
 // purpose: forks should match the conductor's tool surface (minus session
@@ -665,7 +678,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
         state.result = report
       } else if (fullText.length > 0) {
         const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
-        state.result = `(no [FORK_REPORT] emitted; last ${tail.length} chars of transcript follow)\n\n${tail}`
+        state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
       } else {
         state.result = '(no output)'
       }
@@ -843,7 +856,15 @@ async function forksRollup({ includeRecentDone = true } = {}) {
     } catch { recent = [] }
     if (!recent.length) return null
     const lines = recent.map(r => {
-      const head = `${r.fork_id} [${r.status}] brief="${(r.brief || '').slice(0, 60)}"`
+      // Phantom-bail flag: result starts with FALLBACK_MARKER when the fork's
+      // transcript closed without a [FORK_REPORT] tag and state.result fell
+      // back to the transcript tail. Surface this so the conductor can treat
+      // the fork as needing a probe-then-trust cycle (verify-deployed-state-
+      // against-narrated-state) rather than assuming the work didn't happen
+      // OR assuming the result is a real report.
+      // See ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md.
+      const flag = _isPhantomBail(r.result) ? ' phantom_bail' : ''
+      const head = `${r.fork_id} [${r.status}${flag}] brief="${(r.brief || '').slice(0, 60)}"`
       const tail = r.next_step ? `  next_step: ${r.next_step}` : ''
       return `- ${head}${tail ? '\n' + tail : ''}`
     })
@@ -1266,6 +1287,8 @@ module.exports = {
   probeForkDeliverables,
   HARD_FORK_CAP,
   ENERGY_FORK_CAPS,
+  FALLBACK_MARKER,
+  _isPhantomBail,
   _resetForTest,
   _getForkMapForTest,
   _setQueryForTest,
