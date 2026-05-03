@@ -61,6 +61,7 @@ function getEnv() {
 
 const TELEMETRY_DIR = process.env.ECODIAOS_TELEMETRY_DIR || '/home/tate/ecodiaos/logs/telemetry'
 const TELEMETRY_FILE = process.env.ECODIAOS_TELEMETRY_FILE || path.join(TELEMETRY_DIR, 'dispatch-events.jsonl')
+const APPLICATION_EVENT_FILE = process.env.ECODIAOS_APPLICATION_EVENT_FILE || path.join(TELEMETRY_DIR, 'application-events.jsonl')
 const PROCESSED_DIR = path.join(TELEMETRY_DIR, 'processed')
 const RETENTION_DAYS = 7
 const TICK_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
@@ -188,6 +189,104 @@ async function consumeFile(filePath, client) {
   return { processed: lines.length, dispatchInserts, surfaceInserts, lineErrors }
 }
 
+/**
+ * Drain application-events.jsonl into application_event Postgres rows.
+ *
+ * Each JSONL line carries:
+ *   { ts, matched_dispatch_ts, tool_name, pattern_path, trigger_keyword,
+ *     source_layer, applied (true|false|null), tagged_silent, reason, hook_name }
+ *
+ * The dispatch_event_id is resolved by looking up dispatch_event WHERE
+ * ts = matched_dispatch_ts::timestamptz AND tool_name matches. If no exact
+ * match found, fall back to nearest within +/- 5 minutes for the same tool.
+ * If still no match, the line is skipped (orphan) and counted as lineErrors.
+ *
+ * Layer 4 of the Decision Quality Self-Optimization Architecture, second-half
+ * (the dispatch-event drainage is the first-half). See Phase C ship spec on
+ * status_board row 4c9d8b96.
+ */
+async function consumeApplicationEventFile(filePath, client) {
+  const stats = await fs.promises.stat(filePath).catch(() => null)
+  if (!stats) {
+    return { processed: 0, applicationInserts: 0, orphanSkips: 0, lineErrors: 0 }
+  }
+
+  const content = await fs.promises.readFile(filePath, 'utf8')
+  const lines = content.split('\n').filter(l => l.trim().length > 0)
+
+  let applicationInserts = 0
+  let orphanSkips = 0
+  let lineErrors = 0
+
+  for (const raw of lines) {
+    try {
+      const line = JSON.parse(raw)
+      const ts = line.ts || new Date().toISOString()
+      const matchedDispatchTs = line.matched_dispatch_ts || null
+      const toolName = line.tool_name || null
+      const patternPath = line.pattern_path || null
+      const reason = line.reason || ''
+      const inferredFrom = line.hook_name || 'post-action-applied-tag-check'
+      const applied = (line.applied === true || line.applied === false) ? line.applied : null
+      const taggedSilent = line.tagged_silent === true
+
+      if (!patternPath || !matchedDispatchTs || !toolName) {
+        lineErrors += 1
+        console.error('[consumer] application-event line missing required fields:', raw.slice(0, 200))
+        continue
+      }
+
+      // Resolve dispatch_event_id. Exact ts+tool match first, then fuzzy +/-5min.
+      let dispatchId = null
+      const exact = await client.query(
+        `SELECT id FROM dispatch_event
+         WHERE ts = $1::timestamptz AND tool_name = $2
+         ORDER BY id LIMIT 1`,
+        [matchedDispatchTs, toolName]
+      )
+      if (exact.rows.length > 0) {
+        dispatchId = exact.rows[0].id
+      } else {
+        const fuzzy = await client.query(
+          `SELECT id FROM dispatch_event
+           WHERE tool_name = $2
+             AND ts BETWEEN ($1::timestamptz - INTERVAL '5 minutes')
+                       AND ($1::timestamptz + INTERVAL '5 minutes')
+           ORDER BY ABS(EXTRACT(EPOCH FROM (ts - $1::timestamptz)))
+           LIMIT 1`,
+          [matchedDispatchTs, toolName]
+        )
+        if (fuzzy.rows.length > 0) {
+          dispatchId = fuzzy.rows[0].id
+        }
+      }
+
+      if (!dispatchId) {
+        // Orphan: dispatch_event for this hook fire was never ingested. Skip.
+        orphanSkips += 1
+        continue
+      }
+
+      try {
+        await client.query(
+          `INSERT INTO application_event (dispatch_event_id, ts, pattern_path, reason, inferred_from, applied, tagged_silent)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [dispatchId, ts, patternPath, reason, inferredFrom, applied, taggedSilent]
+        )
+        applicationInserts += 1
+      } catch (err) {
+        lineErrors += 1
+        console.error('[consumer] application_event insert failed:', err.message)
+      }
+    } catch (err) {
+      lineErrors += 1
+      console.error('[consumer] failed to parse application-event JSONL line:', err.message, 'raw:', raw.slice(0, 200))
+    }
+  }
+
+  return { processed: lines.length, applicationInserts, orphanSkips, lineErrors }
+}
+
 async function pruneOldProcessedFiles() {
   try {
     const entries = await fs.promises.readdir(PROCESSED_DIR).catch(() => [])
@@ -247,11 +346,60 @@ async function rotateAndConsume() {
   return { ok: true, ...result, processedPath }
 }
 
+/**
+ * Rotate and drain application-events.jsonl. Same atomic-rename safety as the
+ * dispatch-events drain. Looks up dispatch_event_id at insert time. Must run
+ * AFTER rotateAndConsume() in the same tick so that dispatch_event rows for
+ * this tick are already in DB.
+ */
+async function rotateAndConsumeApplicationEvents() {
+  await fs.promises.mkdir(PROCESSED_DIR, { recursive: true })
+
+  const srcStat = await fs.promises.stat(APPLICATION_EVENT_FILE).catch(() => null)
+  if (!srcStat) {
+    return { ok: true, processed: 0, applicationInserts: 0, orphanSkips: 0, lineErrors: 0, note: 'no source file' }
+  }
+  if (srcStat.size === 0) {
+    return { ok: true, processed: 0, applicationInserts: 0, orphanSkips: 0, lineErrors: 0, note: 'source file empty' }
+  }
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const processedPath = path.join(PROCESSED_DIR, `${stamp}-application-events.jsonl`)
+  await fs.promises.rename(APPLICATION_EVENT_FILE, processedPath)
+
+  const env = getEnv()
+  const client = new Client({ connectionString: env.DATABASE_URL })
+  try {
+    await client.connect()
+  } catch (err) {
+    console.error('[consumer] cannot connect to Postgres for application events:', err.message)
+    try { await fs.promises.rename(processedPath, APPLICATION_EVENT_FILE) } catch { /* ignore */ }
+    throw err
+  }
+
+  let result
+  try {
+    result = await consumeApplicationEventFile(processedPath, client)
+  } finally {
+    try { await client.end() } catch { /* ignore */ }
+  }
+
+  return { ok: true, ...result, processedPath }
+}
+
 async function runOnce() {
   try {
-    const result = await rotateAndConsume()
-    console.log('[consumer] tick complete:', JSON.stringify(result))
-    return result
+    const dispatchResult = await rotateAndConsume()
+    console.log('[consumer] tick complete:', JSON.stringify(dispatchResult))
+    let applicationResult
+    try {
+      applicationResult = await rotateAndConsumeApplicationEvents()
+      console.log('[consumer] application tick complete:', JSON.stringify(applicationResult))
+    } catch (err) {
+      console.error('[consumer] application tick failed:', err.message)
+      applicationResult = { ok: false, error: err.message }
+    }
+    return { ok: dispatchResult.ok !== false, dispatch: dispatchResult, application: applicationResult }
   } catch (err) {
     console.error('[consumer] tick failed:', err.message)
     return { ok: false, error: err.message }
@@ -280,8 +428,10 @@ if (require.main === module) {
 
 module.exports = {
   rotateAndConsume,
+  rotateAndConsumeApplicationEvents,
   runOnce,
   consumeFile,
+  consumeApplicationEventFile,
   actionTypeForHook,
   extractContextKeywords,
 }
