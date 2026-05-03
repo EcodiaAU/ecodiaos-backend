@@ -13,6 +13,29 @@ function defaultFyStart() {
   const year = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
   return `${year}-07-01`
 }
+// Australian GST quarters: Jul-Sep, Oct-Dec, Jan-Mar, Apr-Jun
+function defaultQuarterStart() {
+  const now = new Date()
+  const m = now.getMonth() // 0-11
+  const y = now.getFullYear()
+  let qStart
+  if (m >= 6 && m <= 8) qStart = 6      // Q1: Jul
+  else if (m >= 9 && m <= 11) qStart = 9 // Q2: Oct
+  else if (m >= 0 && m <= 2) qStart = 0  // Q3: Jan
+  else qStart = 3                         // Q4: Apr
+  return `${y}-${String(qStart + 1).padStart(2, '0')}-01`
+}
+function defaultQuarterEnd() {
+  const now = new Date()
+  const m = now.getMonth()
+  const y = now.getFullYear()
+  let qEndMonth, qEndDay
+  if (m >= 6 && m <= 8) { qEndMonth = 8; qEndDay = 30 }       // Sep 30
+  else if (m >= 9 && m <= 11) { qEndMonth = 11; qEndDay = 31 } // Dec 31
+  else if (m >= 0 && m <= 2) { qEndMonth = 2; qEndDay = 31 }   // Mar 31
+  else { qEndMonth = 5; qEndDay = 30 }                          // Jun 30
+  return `${y}-${String(qEndMonth + 1).padStart(2, '0')}-${String(qEndDay).padStart(2, '0')}`
+}
 
 // ── Staged Transactions ──
 
@@ -141,8 +164,11 @@ router.get('/ledger/trial-balance', async (req, res, next) => {
 // ── Reports ──
 
 router.get('/reports/bas', async (req, res, next) => {
-  try { res.json(await bk.getBASReport(req.query.period_start, req.query.period_end)) }
-  catch (err) { next(err) }
+  try {
+    const from = req.query.from || req.query.period_start || defaultQuarterStart()
+    const to = req.query.to || req.query.period_end || defaultQuarterEnd()
+    res.json(await bk.getBASReport(from, to))
+  } catch (err) { next(err) }
 })
 
 router.get('/reports/pnl', async (req, res, next) => {
@@ -169,8 +195,11 @@ router.get('/reports/expense-breakdown', async (req, res, next) => {
 })
 
 router.get('/reports/gst-summary', async (req, res, next) => {
-  try { res.json(await bk.getGSTSummary(req.query.period_start, req.query.period_end)) }
-  catch (err) { next(err) }
+  try {
+    const from = req.query.from || req.query.period_start || defaultQuarterStart()
+    const to = req.query.to || req.query.period_end || defaultQuarterEnd()
+    res.json(await bk.getGSTSummary(from, to))
+  } catch (err) { next(err) }
 })
 
 // ── Director Loan ──
