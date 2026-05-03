@@ -31,7 +31,6 @@ three scalar strings (NOT a single object).
 ## Used by
 
 - `~/ecodiaos/scripts/release.sh` ASC fallback branch (`scripts/release.sh:300-307, 550-552`)
-- `~/ecodiaos/src/services/appStoreConnect.js` (reads from a phantom `creds.apple.asc_api` path that does NOT exist - drift; see `INDEX.md` Drift section)
 - `~/ecodiaos/clients/app-release-flow-ios.md` (path 1 in the credential ranking)
 - `~/ecodiaos/patterns/ios-signing-credential-paths.md` (path 1 of three)
 
@@ -55,4 +54,4 @@ If you find yourself reaching for these scalars: first check whether the macro p
 ## Drift
 
 - `creds.asc_api_key_p8` is referenced by the release driver and pattern files but does not exist in kv_store. Either populate it or formally demote the fallback path.
-- `~/ecodiaos/src/services/appStoreConnect.js` reads `creds.apple.asc_api` as a single object holding `{issuer_id, key_id, private_key}`. That key path is NOT the actual storage shape - the runtime would error if invoked. Needs follow-up fork to align (see `INDEX.md` Drift).
+- ~~`src/services/appStoreConnect.js` phantom-key reader~~ - RESOLVED 2026-05-04 by deletion (orphan code, no production callers). See Neo4j Decision "appStoreConnect.js orphan code deleted 2026-05-04" and status_board row 610b994c-f16e-49b0-b499-8c866a7c9cca (archived).

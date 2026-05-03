@@ -82,7 +82,7 @@ How this fits with the rest of the EcodiaOS knowledge surface:
 - `creds.google_play_service_account_json` - DEMOTED to fallback.
 - `creds.revenuecat_ios_public_key` - NEEDS-TATE.
 - `creds.coexist_test` referenced in `clients/coexist.md:133` - actual row is `creds.coexist`. SAFE-TO-FIX (corrected this fork).
-- `creds.apple.asc_api` referenced in `src/services/appStoreConnect.js` as a single object holding `{issuer_id, key_id, private_key}` - the storage shape is different (split scalars + .p8 not provisioned). Runtime would error if invoked. NEEDS-FOLLOW-UP-FORK.
+- ~~`creds.apple.asc_api` referenced in `src/services/appStoreConnect.js`~~ RESOLVED 2026-05-04: orphan service + test deleted (no production callers; `scripts/release.sh` is the canonical caller and uses the three-scalar shape). See Neo4j Decision "appStoreConnect.js orphan code deleted 2026-05-04".
 
 **Stale pattern reference:**
 - `~/ecodiaos/CLAUDE.md` and `~/CLAUDE.md` cite `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - file does NOT exist. NEEDS-FOLLOW-UP-FORK to author the pattern (its content lives in `~/CLAUDE.md` directly today).
