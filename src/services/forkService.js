@@ -102,6 +102,67 @@ function _isPhantomBail(result) {
   return typeof result === 'string' && result.startsWith(FALLBACK_MARKER)
 }
 
+// ── Fork-report enqueue helpers ─────────────────────────────────────────────
+// Two emission paths share the success-path enqueue (forkService.js, end of
+// spawnFork's stream loop):
+//
+//   (a) clean — fork emitted [FORK_REPORT]; body wraps report verbatim.
+//   (b) phantom_bail — fork transcript ended without [FORK_REPORT] tag;
+//       state.result carries the FALLBACK_MARKER prefix + transcript tail.
+//
+// Pre-2026-05-03 the enqueue was gated `if (report)`, so phantom-bail forks
+// silently skipped the inbox path — they only surfaced via forks_rollup for
+// ~15min before dropping off the conductor's view. Closing this gap is the
+// second half of the same observability fix as 3 May rotation C / b00f75f
+// (which surfaced phantom_bail in forks_rollup). Body shape is built by a
+// pure function so tests can assert content without spinning up the SDK
+// loop.
+//
+// Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult }) {
+  if (report) {
+    return [
+      `[SYSTEM: fork_report ${fork_id}]`,
+      `Brief: ${brief}`,
+      '',
+      `Report: ${report}`,
+      nextStep ? `\nNext step suggested: ${nextStep}` : '',
+    ].filter(Boolean).join('\n')
+  }
+  // Phantom-bail body — durable inbox record so the conductor can verify-
+  // then-act beyond the 15min rollup window. Carries state.result which
+  // already begins with FALLBACK_MARKER and includes the transcript tail.
+  return [
+    `[SYSTEM: fork_report ${fork_id} no_report_emitted=true]`,
+    `Brief: ${brief}`,
+    '',
+    `No [FORK_REPORT] tag was emitted before transcript closed.`,
+    `Apply probe-then-trust (verify-deployed-state-against-narrated-state) before treating the tail as ground truth.`,
+    '',
+    `Transcript tail (state.result):`,
+    fallbackResult || '(empty)',
+  ].filter(Boolean).join('\n')
+}
+
+async function _enqueueForkReport({ fork_id, brief, report, nextStep, fallbackResult }) {
+  let mq = _messageQueueOverride
+  if (!mq) {
+    try { mq = require('./messageQueue') }
+    catch (err) {
+      logger.warn('forkService: messageQueue unavailable, skipping fork_report enqueue', { fork_id, error: err.message })
+      return { enqueued: false, reason: 'mq_unavailable' }
+    }
+  }
+  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
+  try {
+    await mq.enqueueMessage({ body, source: `fork:${fork_id}`, mode: 'queue' })
+    return { enqueued: true, had_report: !!report }
+  } catch (err) {
+    logger.warn('forkService: failed to enqueue fork_report to main', { fork_id, had_report: !!report, error: err.message })
+    return { enqueued: false, reason: 'enqueue_threw', error: err.message }
+  }
+}
+
 // Conductor & subagent MCP groups — duplicated from osSessionService so a
 // refactor there doesn't silently change fork behaviour. Kept narrow on
 // purpose: forks should match the conductor's tool surface (minus session
@@ -722,21 +783,27 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
 
       // Post the report back to main via the message queue. Non-interrupting:
       // it lands on main's next turn as a system message.
-      if (report) {
-        try {
-          const mq = require('./messageQueue')
-          const body = [
-            `[SYSTEM: fork_report ${fork_id}]`,
-            `Brief: ${brief}`,
-            '',
-            `Report: ${report}`,
-            nextStep ? `\nNext step suggested: ${nextStep}` : '',
-          ].filter(Boolean).join('\n')
-          await mq.enqueueMessage({ body, source: `fork:${fork_id}`, mode: 'queue' })
-        } catch (err) {
-          logger.warn('forkService: failed to enqueue fork_report to main', { fork_id, error: err.message })
-        }
-      }
+      //
+      // Two emission paths share this enqueue:
+      //   (a) clean — fork emitted [FORK_REPORT]; body wraps report verbatim.
+      //   (b) phantom_bail — fork transcript ended without [FORK_REPORT] tag;
+      //       state.result carries the FALLBACK_MARKER prefix + transcript tail.
+      //       Per ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md the
+      //       conductor MUST be told this happened. Without an inbox message
+      //       the only surface is the 15min forks_rollup window, after which
+      //       the fork silently disappears from the conductor's view. Closing
+      //       this gap is the second half of the same observability fix as
+      //       3 May rotation C / b00f75f (rollup phantom_bail flag).
+      //
+      // Routed through _enqueueForkReport so the test seam (_messageQueueOverride)
+      // applies on the success path too, matching the recoverStaleForks pattern.
+      await _enqueueForkReport({
+        fork_id,
+        brief,
+        report,
+        nextStep,
+        fallbackResult: state.result,
+      })
     } catch (err) {
       // Close the prompt stream and drain pending resolvers so the generator
       // does not leak (null sentinel causes the generator to return).
@@ -1289,6 +1356,8 @@ module.exports = {
   ENERGY_FORK_CAPS,
   FALLBACK_MARKER,
   _isPhantomBail,
+  _buildForkReportBody,
+  _enqueueForkReport,
   _resetForTest,
   _getForkMapForTest,
   _setQueryForTest,
