@@ -493,7 +493,29 @@ server.listen(env.PORT, async () => {
           logger.error('haltForks: listForks threw', { error: err.message })
         }
       },
+      // iMessage primary, Twilio fallback. Tate-directed 4 May 2026
+      // 18:30+18:39+18:46 AEST. Wrapper signature unchanged
+      // (string body → Promise<void>) so fireIncident() needs no edit.
+      // Behind USE_IMESSAGE_PRIMARY (default '1'); '0' = Twilio only.
       smsTate: async (msg) => {
+        const useIMessage = process.env.USE_IMESSAGE_PRIMARY !== '0'
+        if (useIMessage) {
+          try {
+            const tateMsg = require('../skills/tate-msg')
+            const r = await tateMsg.sendImessage(msg)
+            if (r && r.ok) {
+              logger.info('securityIncidentResponse.smsTate: iMessage delivered', { sid: r.sid })
+              return
+            }
+            logger.warn('securityIncidentResponse.smsTate: iMessage failed, falling back to Twilio', {
+              error: r && r.error,
+            })
+          } catch (err) {
+            logger.error('securityIncidentResponse.smsTate: iMessage threw, falling back to Twilio', {
+              error: err.message,
+            })
+          }
+        }
         try { await alerting.sendSmsToTate(msg) } catch (err) {
           logger.error('smsTate: sendSmsToTate threw', { error: err.message })
         }
@@ -501,6 +523,19 @@ server.listen(env.PORT, async () => {
     })
   } catch (err) {
     logger.warn('securityIncidentResponse.wireServices failed to boot', { error: err.message })
+  }
+
+  // ── Boot: iMessage path health check (Tate-directed 4 May 2026) ───
+  // 6h cron. SSH-probes SY094 (sshpass + pgrep Messages.app), writes
+  // result to kv_store.health.imessage_path, raises status_board P2 if
+  // the path is degraded for >12h. NEVER actually messages Tate — this
+  // is a backend canary so the OS knows whether Twilio is bearing all
+  // traffic. Cron name: 'imessage-path-health-check'.
+  try {
+    const imessageHealth = require('./services/imessagePathHealthCheck')
+    imessageHealth.start()
+  } catch (err) {
+    logger.warn('imessagePathHealthCheck failed to start', { error: err.message })
   }
 
   // ── Boot: Rescue Service (api-side subscriber) ────────────────────
