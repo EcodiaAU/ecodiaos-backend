@@ -92,6 +92,29 @@ async function fireIncident({
   const incidentRow = await _logIncident({ incident_class, trigger_source, session_id, details })
   const incidentId = incidentRow?.id || null
 
+  // Capture emergency state BEFORE setEmergencyMode runs so we can decide
+  // whether the SMS represents a real transition or just a re-fire of an
+  // already-known incident class. SMS only goes out on the transition from
+  // not-in-emergency to in-emergency. Subsequent incidents within an
+  // already-active emergency window are recorded in security_incidents and
+  // log lines, but they DO NOT re-SMS Tate. He's already been told; clearing
+  // emergency mode is the next signal that re-arms the SMS.
+  //
+  // Pre-2026-05-04: each incident fired its own SMS, so a fork-burst pattern
+  // (e.g. credentialRedactionMonitor polling every 30s catching multiple
+  // fork phantom-bails in a row) sent 22+ identical SMS in one session.
+  // Tate's directive 18:03 AEST: "stop sending security texts for similar
+  // and irrelevant things" — gating on the emergency-mode transition is the
+  // mechanical fix.
+  let wasAlreadyInEmergency = false
+  try {
+    wasAlreadyInEmergency = await isEmergencyMode()
+  } catch (err) {
+    logger.warn('isEmergencyMode probe failed before SMS gate; defaulting to fire', {
+      error: err.message,
+    })
+  }
+
   const steps = []
 
   if (typeof _services.setEmergencyMode === 'function') {
@@ -113,11 +136,18 @@ async function fireIncident({
     )
   }
   if (typeof _services.smsTate === 'function') {
-    const msg = `[SECURITY] ${incident_class} — check VPS. Incident #${incidentId || 'unknown'}. Emergency mode set; cron+forks halted. SSH to clear.`
-    steps.push(
-      Promise.resolve(_services.smsTate(msg.slice(0, 160)))
-        .catch((err) => logger.error('sms_tate failed', { error: err.message })),
-    )
+    if (wasAlreadyInEmergency) {
+      logger.info('securityIncidentResponse: SMS suppressed (already in emergency mode)', {
+        incident_class,
+        incidentId,
+      })
+    } else {
+      const msg = `[SECURITY] ${incident_class} - check VPS. Incident #${incidentId || 'unknown'}. Emergency mode set; cron+forks halted. SSH to clear.`
+      steps.push(
+        Promise.resolve(_services.smsTate(msg.slice(0, 160)))
+          .catch((err) => logger.error('sms_tate failed', { error: err.message })),
+      )
+    }
   }
 
   await Promise.allSettled(steps)

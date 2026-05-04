@@ -81,6 +81,56 @@ describe('securityIncidentResponse wireServices() + fireIncident()', () => {
     expect(smsTate).toHaveBeenCalledTimes(1)
   })
 
+  test('SMS is suppressed when emergency mode is already active (no re-spam)', async () => {
+    // Mock db to return active emergency-mode row before fireIncident calls
+    // isEmergencyMode(). The wiring test's outer db mock returns [{id:42}]
+    // for every query; here we override with a per-call mock that returns
+    // a real emergency-mode row.
+    jest.resetModules()
+    jest.doMock('../../config/db', () => {
+      // Both _logIncident and isEmergencyMode hit the same db call signature.
+      // Track which call this is: first INSERT (returns row), then SELECT
+      // emergency_mode (returns active flag).
+      let callCount = 0
+      return (strings, ...values) => {
+        callCount++
+        const sql = strings.join('?')
+        if (sql.includes('INSERT INTO security_incidents')) {
+          return Promise.resolve([{ id: 99 }])
+        }
+        if (sql.includes('emergency_mode')) {
+          return Promise.resolve([{ value: JSON.stringify(true) }])
+        }
+        return Promise.resolve([{ id: 99 }])
+      }
+    })
+    const incidentReloaded = require('../securityIncidentResponse')
+
+    const setEmergencyMode = jest.fn(async () => {})
+    const pauseCrons = jest.fn(() => {})
+    const haltForks = jest.fn(async () => {})
+    const smsTate = jest.fn(async () => true)
+
+    incidentReloaded.wireServices({ setEmergencyMode, pauseCrons, haltForks, smsTate })
+
+    await incidentReloaded.fireIncident({
+      incident_class: 'credential_redaction_burst',
+      trigger_source: 'test',
+      session_id: 'sess-already-emergency',
+      details: { delta: 1 },
+    })
+
+    // Other actuators still run (idempotent).
+    expect(setEmergencyMode).toHaveBeenCalledTimes(1)
+    expect(pauseCrons).toHaveBeenCalledTimes(1)
+    expect(haltForks).toHaveBeenCalledTimes(1)
+    // SMS is the only one suppressed.
+    expect(smsTate).not.toHaveBeenCalled()
+
+    jest.dontMock('../../config/db')
+    jest.resetModules()
+  })
+
   test('partial wiring: only provided services are invoked, missing ones silently skipped', async () => {
     const pauseCrons = jest.fn(() => {})
     const smsTate = jest.fn(async () => true)
