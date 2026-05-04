@@ -91,7 +91,7 @@ sshpass -p "$PW" ssh -o PubkeyAuthentication=no user276189@SY094.macincloud.com 
 ## Failure modes to know
 
 - **MacInCloud kicks idle sessions.** If the SSH connection has been idle for hours, the rental session may have ended. Reconnect; the agent should auto-restart on Mac console boot but verify with `/api/health`.
-- **Password rotates.** MacInCloud auto-rotates passwords on certain events. If `sshpass` fails with `Permission denied`, check the MacInCloud control panel and update `kv_store.creds.macincloud.password`.
+- **Password is fixed at purchase, NOT auto-rotated.** (Tate verbatim 2026-05-04 20:14 AEST: "the pw cant be rotated, its designated by MacInCloud at purchase time".) If `sshpass` fails with `Permission denied`, check: (a) typo / trailing whitespace in `kv_store.creds.macincloud.password`, (b) MacInCloud kicked the session for inactivity (just reconnect), (c) rental lapsed and needs renewal in the control panel, (d) very rare manual password change by Tate. Do NOT assume rotation.
 - **Tunnel collisions.** If a previous tunnel is still open on local port 17456, the new ssh -L will silently bind to a different port or fail. Use `pkill -f 'ssh.*17456:localhost:7456'` before re-tunnelling.
 - **No outbound Tailscale.** I cannot reach the Mac via Tailnet because MacInCloud's account is not on it. Adding it would require installing Tailscale on the Mac with `sudo` rights - possible but not done. Decision: accept SSH-only for now, revisit if I find myself wanting Tate's machine + this Mac on the same private network for any reason.
 
