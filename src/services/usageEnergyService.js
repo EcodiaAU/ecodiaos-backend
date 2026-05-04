@@ -891,6 +891,20 @@ function invalidateCache() {
   _cacheAt = 0
 }
 
+// Stamp a weekly reset timestamp directly. Used when we learned the reset
+// time from a non-header source (e.g. parsed from an SDK error string)
+// and want the reset watcher to arm even though `_doQuotaCheck` headers
+// never landed for this account.
+function stampReset(account, weeklyResetsAtSec) {
+  const state = _accounts[account]
+  if (!state) return
+  state.weeklyResetsAt = Number(weeklyResetsAtSec)
+  _cache = null
+  _cacheAt = 0
+  try { _armResetWatcher() } catch {}
+  logger.info('stampReset applied', { account, weeklyResetsAtSec })
+}
+
 // Reset all in-memory account state to fresh defaults. Used by the manual
 // /energy/reset endpoint when stale rejected state with no reset timestamps
 // is wedging the router into permanent fallback. Next getEnergy() call will
@@ -953,6 +967,7 @@ module.exports = {
   invalidateCache,
   markAccountRejected,
   resetAllAccounts,
+  stampReset,
   on,
   off,
 }

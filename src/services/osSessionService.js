@@ -727,6 +727,48 @@ function _recordTurnOutcome(ok, errorMsg) {
 // Strict matcher: require either an explicit HTTP status (429), an official
 // Anthropic error code, or a full exhaustion phrase. Single-word matches
 // like "quota" alone are NOT sufficient.
+// Best-effort parser for the reset time embedded in Anthropic exhaustion
+// errors. Returns a Unix-seconds timestamp (next future occurrence of the
+// stated time) or null. Patterns seen:
+//   "resets 11am (UTC)"
+//   "resets 5am (UTC)"
+//   "resets Apr 25, 5am (UTC)"
+//   "resets Mon at 3pm UTC"
+// If a date is included we use it; otherwise we project to the next future
+// occurrence of the stated hour in UTC. Updates _accounts[account] state
+// directly so the reset watcher arms.
+function _parseAndStampResetFromError(text, account) {
+  if (!text || !account) return
+  const t = String(text)
+  // Match "resets ... (UTC)" or "resets ... UTC"
+  const m = t.match(/resets\s+(?:[A-Za-z]+\s+\d+,\s+)?(\d{1,2})(am|pm)\s*\(?UTC\)?/i)
+  if (!m) return
+  const hour12 = parseInt(m[1], 10)
+  const ampm = m[2].toLowerCase()
+  let hour24 = hour12 % 12
+  if (ampm === 'pm') hour24 += 12
+
+  const now = new Date()
+  const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour24, 0, 0, 0))
+  // If target is in the past today, push to tomorrow (the typical case for
+  // "resets 11am UTC" stated late at night).
+  if (target.getTime() <= now.getTime()) {
+    target.setUTCDate(target.getUTCDate() + 1)
+  }
+  const resetSec = Math.floor(target.getTime() / 1000)
+
+  try {
+    // Reach into usageEnergy to stamp the reset time. We don't have a
+    // setter so do it via a small helper added to the service exports.
+    if (typeof usageEnergy.stampReset === 'function') {
+      usageEnergy.stampReset(account, resetSec)
+      logger.info('parsed reset time from SDK error', { account, resetSec, parsed: m[0] })
+    }
+  } catch (err) {
+    logger.debug('stampReset failed', { error: err.message })
+  }
+}
+
 function _isUsageExhausted(text) {
   const t = (text || '').toLowerCase()
   // HTTP 429 always = exhaustion
@@ -2343,6 +2385,15 @@ async function _sendMessageImpl(content, opts = {}) {
               }
 
               if (_isUsageExhausted(errTexts)) {
+                // Parse reset time from the SDK error string so the auto-switch-back
+                // watcher can arm. Anthropic surfaces errors like:
+                //   "You're out of extra usage · resets Apr 25, 5am (UTC)"
+                //   "resets 11am (UTC)"
+                //   "resets Mon at 3pm UTC"
+                // Best-effort: if parsing fails, account is still marked rejected,
+                // just without a watcher target — switch-back falls back to the
+                // next user message or heartbeat.
+                _parseAndStampResetFromError(errTexts, _currentProvider)
                 const next = _switchAfterExhaustion()
                 if (next) {
                   ccSessionId = null
