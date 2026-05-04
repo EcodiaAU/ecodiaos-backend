@@ -144,12 +144,46 @@ async function consumeFile(filePath, client) {
       const actionType = actionTypeForHook(hookName, toolName)
       const keywords = extractContextKeywords(ctx)
 
+      // For fork_spawn rows, enrich metadata with fork_id by ts-proximity match
+      // against os_forks. The PreToolUse hook fires BEFORE the fork is created,
+      // so the JSONL line cannot carry fork_id at hot-path write-time. The
+      // os_forks row is INSERTed by forkService a few seconds after the hook
+      // fires (typical delta ~5s), so by the time the consumer drains the
+      // JSONL (every 15 min), the os_forks row is durable and unambiguous.
+      // The window allows 5s before the dispatch ts (clock skew) and 60s
+      // after (slow spawn). Closest match wins to disambiguate concurrent
+      // spawns. Origin: phase-G-audit-2026-05-04 critique #1 - 660/660
+      // fork_spawn dispatch_events over 7d had no fork_id, breaking the
+      // join key for outcome inference (~/ecodiaos/src/services/telemetry/
+      // outcomeInference.js inferForkSpawnOutcome).
+      let metadata = ctx
+      if (actionType === 'fork_spawn') {
+        try {
+          const forkLookup = await client.query(
+            `SELECT fork_id FROM os_forks
+             WHERE started_at >= $1::timestamptz - INTERVAL '5 seconds'
+               AND started_at <= $1::timestamptz + INTERVAL '60 seconds'
+             ORDER BY ABS(EXTRACT(EPOCH FROM (started_at - $1::timestamptz)))
+             LIMIT 1`,
+            [ts]
+          )
+          if (forkLookup.rows.length > 0 && forkLookup.rows[0].fork_id) {
+            metadata = { ...ctx, fork_id: forkLookup.rows[0].fork_id }
+          }
+        } catch (err) {
+          // Lookup failure is non-fatal: fall through to NULL fork_id metadata.
+          // The row still gets inserted; outcome inference will fall to the
+          // unverified branch for this dispatch (acceptable degradation).
+          console.error('[consumer] fork_id proximity lookup failed:', err.message)
+        }
+      }
+
       // Insert dispatch_event row.
       const dispatchResult = await client.query(
         `INSERT INTO dispatch_event (ts, actor, action_type, tool_name, context_keywords, metadata)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
-        [ts, actor, actionType, toolName, keywords, ctx]
+        [ts, actor, actionType, toolName, keywords, metadata]
       )
       const dispatchId = dispatchResult.rows[0].id
       dispatchInserts += 1
