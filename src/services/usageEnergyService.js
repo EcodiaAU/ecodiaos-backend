@@ -140,12 +140,17 @@ function updateFromHeaders(headers, account = null) {
     if (claim)  state.rateLimitType   = claim
     state.isUsingOverage = overageStatus === 'allowed' || overageStatus === 'allowed_warning'
 
-    logger.debug('Claude usage headers captured', {
+    logger.info('Claude usage headers captured', {
       account: acct,
       weeklyUtil: state.weeklyUtilization,
+      weeklyReset: state.weeklyResetsAt,
       sessionUtil: state.sessionUtilization,
+      sessionReset: state.sessionResetsAt,
       status: state.rateLimitStatus,
       type: state.rateLimitType,
+      rawWeeklyUtil: weeklyUtil,
+      rawWeeklyReset: weeklyReset,
+      rawStatus: status,
     })
 
     // Reset moments may have just changed — re-arm the watcher so we wake at
