@@ -30,8 +30,18 @@
 
 const fs = require('fs')
 const path = require('path')
+const { EventEmitter } = require('events')
 const logger = require('../config/logger')
 const db = require('../config/db')
+
+// Event bus for reset-driven notifications. Currently emits:
+//   'claude-available' { provider, reason } — fired after a reset window passes
+//   and a Claude account becomes healthy again. osSessionService listens to
+//   flip _currentProvider back from deepseek/bedrock at the next turn boundary;
+//   osHeartbeatService listens to wake immediately so autonomy resumes without
+//   waiting for the next scheduled tick.
+const _events = new EventEmitter()
+_events.setMaxListeners(20)
 
 // ─── Per-account state ──────────────────────────────────────────────────────
 // Each account has its own independent utilization tracking.
@@ -137,6 +147,11 @@ function updateFromHeaders(headers, account = null) {
       status: state.rateLimitStatus,
       type: state.rateLimitType,
     })
+
+    // Reset moments may have just changed — re-arm the watcher so we wake at
+    // the new earliest reset (handles both fresh reset times and account
+    // transitions out of "no data").
+    try { _armResetWatcher() } catch {}
   } catch (err) {
     logger.debug('updateFromHeaders failed', { error: err.message, account: acct })
   }
@@ -333,6 +348,121 @@ async function refreshAllAccounts() {
   }
   await Promise.allSettled(promises)
 }
+
+// ─── Reset watcher ──────────────────────────────────────────────────────────
+// On fallback (deepseek/bedrock), nothing in-flight re-evaluates providers
+// until the next user message or heartbeat — and the heartbeat itself is
+// paused on fallback (osHeartbeatService:284). Without a watcher, Claude
+// reset windows pass silently and the OS stays on DeepSeek until Tate starts
+// a new session. The watcher arms a single setTimeout for the earliest
+// pending reset (weekly OR 5h) across both accounts, fires re-probes, and
+// emits 'claude-available' when a Claude account scores healthy again.
+let _resetTimer = null
+let _resetTimerArmedFor = null  // unix seconds the current timer is targeting
+const RESET_SLACK_MS = 30_000   // re-probe slightly after the reset boundary
+const RESET_RETRY_MS = 5 * 60 * 1000  // if reset passed but probe still says rejected
+const RESET_MAX_DELAY_MS = 7 * 24 * 60 * 60 * 1000  // hard cap (weekly window)
+
+function _earliestPendingResetSec() {
+  const nowSec = Date.now() / 1000
+  let earliest = null
+  for (const [, state] of Object.entries(_accounts)) {
+    for (const ts of [state.weeklyResetsAt, state.sessionResetsAt]) {
+      if (!ts || ts <= nowSec) continue
+      if (earliest === null || ts < earliest) earliest = ts
+    }
+  }
+  return earliest
+}
+
+function _armResetWatcher() {
+  const targetSec = _earliestPendingResetSec()
+  if (!targetSec) {
+    // No known reset windows — nothing to arm. If a timer is outstanding for
+    // a now-unknown target, leave it; it'll fire and self-clear harmlessly.
+    return
+  }
+
+  // Already armed for the same (or earlier) target — don't churn.
+  if (_resetTimer && _resetTimerArmedFor !== null && targetSec >= _resetTimerArmedFor) {
+    return
+  }
+
+  if (_resetTimer) {
+    clearTimeout(_resetTimer)
+    _resetTimer = null
+  }
+
+  const delayMs = Math.min(
+    RESET_MAX_DELAY_MS,
+    Math.max(1_000, (targetSec * 1000 - Date.now()) + RESET_SLACK_MS),
+  )
+  _resetTimerArmedFor = targetSec
+
+  _resetTimer = setTimeout(async () => {
+    _resetTimer = null
+    _resetTimerArmedFor = null
+    try {
+      await _onResetFired()
+    } catch (err) {
+      logger.warn('reset watcher: _onResetFired crashed', { error: err.message })
+    }
+    // Re-arm for the next pending boundary (could be the OTHER account's window).
+    _armResetWatcher()
+  }, delayMs)
+
+  if (typeof _resetTimer.unref === 'function') _resetTimer.unref()
+
+  logger.info('reset watcher armed', {
+    targetSec,
+    delayMinutes: Math.round(delayMs / 60_000),
+  })
+}
+
+async function _onResetFired() {
+  logger.info('reset watcher fired — probing both accounts')
+  await refreshAllAccounts()
+
+  const best = getBestProvider()
+  const isClaude = best.provider === 'claude_max' || best.provider === 'claude_max_2'
+
+  if (!isClaude) {
+    // Reset boundary passed but probe still shows both accounts capped.
+    // Arm a short retry — clock skew or staggered reset cadence on Anthropic's
+    // side can leave the account rejected for a few minutes after the timestamp.
+    logger.info('reset watcher: still on fallback after probe — retry in 5min', {
+      provider: best.provider,
+      reason: best.reason,
+    })
+    if (_resetTimer) clearTimeout(_resetTimer)
+    _resetTimer = setTimeout(() => {
+      _resetTimer = null
+      _resetTimerArmedFor = null
+      _onResetFired().catch(() => {})
+    }, RESET_RETRY_MS)
+    if (typeof _resetTimer.unref === 'function') _resetTimer.unref()
+    _resetTimerArmedFor = (Date.now() + RESET_RETRY_MS) / 1000
+    return
+  }
+
+  // Don't emit if we never left Claude in the first place — listeners only
+  // care about the deepseek/bedrock → claude transition.
+  const onFallback = _activeProvider === 'deepseek' || _activeProvider === 'bedrock'
+  if (!onFallback) {
+    logger.debug('reset watcher: Claude healthy but already on Claude — no event needed')
+    return
+  }
+
+  logger.info('reset watcher: Claude available again — emitting claude-available', {
+    provider: best.provider,
+    reason: best.reason,
+    activeProvider: _activeProvider,
+  })
+  _events.emit('claude-available', { provider: best.provider, reason: best.reason })
+}
+
+function on(event, listener)  { _events.on(event, listener) }
+function off(event, listener) { _events.off(event, listener) }
 
 // ─── Energy state from real utilization ───────────────────────────────────────
 function _energyState(pctUsed) {
@@ -753,6 +883,11 @@ function markAccountRejected(account, rateLimitType = 'unknown') {
   _cache = null
   _cacheAt = 0
   logger.warn('Account marked rejected', { account, rateLimitType })
+  // Just got rejected — make sure the watcher is armed for whatever reset
+  // window we know about. If we only just learned this account is rejected
+  // and don't have reset timestamps yet, refreshAllAccounts (called via
+  // the next getBestProvider tick) will populate them.
+  try { _armResetWatcher() } catch {}
 }
 
 module.exports = {
@@ -766,4 +901,6 @@ module.exports = {
   getBestProvider,
   invalidateCache,
   markAccountRejected,
+  on,
+  off,
 }

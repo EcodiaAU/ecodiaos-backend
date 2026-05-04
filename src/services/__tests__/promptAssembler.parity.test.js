@@ -68,6 +68,9 @@ jest.mock('../usageEnergyService', () => ({
     provider: 'claude_max', isBedrockFallback: false, isDeepseekFallback: false, reason: 'healthy',
   }),
   setProvider: jest.fn(),
+  invalidateCache: jest.fn(),
+  on: jest.fn(),
+  off: jest.fn(),
 }))
 
 jest.mock('../osIncidentService', () => ({ log: jest.fn() }))

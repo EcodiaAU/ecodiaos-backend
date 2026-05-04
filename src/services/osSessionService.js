@@ -64,6 +64,41 @@ usageEnergy.refreshAllAccounts()
   }))
   .catch(err => logger.warn('Claude energy startup refresh failed', { error: err.message }))
 
+// ─── Auto-switch back to Claude when a reset window passes ──────────────────
+// usageEnergyService arms a timer for the earliest pending reset across both
+// accounts. When it fires and a Claude account is healthy again, it emits
+// 'claude-available'. We invalidate the cached provider state so the NEXT
+// sendMessage() picks up Claude via getBestProvider(). We do NOT interrupt
+// an in-flight turn — the Claude switch happens at the next turn boundary,
+// where the existing claude_max / claude_max_2 branches already handle
+// stripping DEEPSEEK env, restoring OAuth tokens, and clearing ccSessionId.
+usageEnergy.on('claude-available', ({ provider, reason }) => {
+  // Only act if we're actually on a fallback. The watcher already gates this,
+  // but a defensive check keeps this idempotent if it ever fires spuriously.
+  if (_currentProvider !== 'deepseek' && _currentProvider !== 'bedrock') return
+
+  logger.info('Claude reset detected — scheduling switch-back at next turn boundary', {
+    provider, reason, currentProvider: _currentProvider,
+  })
+  // Invalidate so getEnergy()/getBestProvider() rebuild from fresh state.
+  usageEnergy.invalidateCache()
+
+  // Wake the heartbeat immediately so autonomy resumes without waiting for
+  // the next scheduled tick (which is up to 4h on critical, and was paused
+  // on fallback anyway). The heartbeat itself re-checks energy + busy state
+  // before firing, so this is safe even if a turn is currently in flight.
+  try {
+    const heartbeat = require('./osHeartbeatService')
+    if (typeof heartbeat.wakeNow === 'function') {
+      heartbeat.wakeNow('claude_reset').catch(err => {
+        logger.debug('heartbeat.wakeNow failed', { error: err.message })
+      })
+    }
+  } catch (err) {
+    logger.debug('heartbeat.wakeNow unavailable', { error: err.message })
+  }
+})
+
 
 // ─── Conductor Architecture ─────────────────────────────────────────────────
 // The OS session is a lightweight conductor (~35 tools) that delegates to

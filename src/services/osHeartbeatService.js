@@ -363,6 +363,28 @@ function start() {
   logger.info('OS Heartbeat service started (first tick in 2min, cadence is energy-adjusted)')
 }
 
+// Force an immediate heartbeat — used when a Claude reset window passes
+// during DeepSeek/Bedrock fallback. Without this, autonomy resumes only at
+// the next scheduled tick (up to 4h on critical), which makes the reset
+// effectively wasted while Tate is away.
+async function wakeNow(reason = 'manual') {
+  if (_stopped) return
+  // Replace any pending tick with one that fires now. _scheduleNext() handles
+  // re-arming after the tick completes.
+  if (_timeout) {
+    clearTimeout(_timeout)
+    _timeout = null
+  }
+  logger.info('Heartbeat: wakeNow triggered', { reason })
+  // Defer one tick so the caller's synchronous code completes first (avoids
+  // re-entrancy if the caller is itself inside a heartbeat-triggered turn).
+  _timeout = setTimeout(async () => {
+    try { await _tick() } catch (err) { logger.warn('Heartbeat: wakeNow tick crashed', { error: err.message }) }
+    _scheduleNext()
+  }, 0)
+  if (typeof _timeout.unref === 'function') _timeout.unref()
+}
+
 function stop() {
   _stopped = true
   if (_timeout) {
@@ -380,4 +402,4 @@ function getStatus() {
   }
 }
 
-module.exports = { start, stop, getStatus }
+module.exports = { start, stop, getStatus, wakeNow }
