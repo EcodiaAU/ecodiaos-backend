@@ -1,5 +1,5 @@
 ---
-triggers: gui-recipe, recipe-authoring, recipe-optimisation, recipe-verification, ui-automation-recipe, fast-path-recipe, gui-flow-codify, end-to-end-timing, baseline-before-tune, programmatic-mutation-primary, pixel-click-fallback, enum-tree-before-guessing-coords, probe-for-state, fixed-sleep-vs-probe, failed-attempts-must-be-codified, gui-anatomy, recipe-anatomy, gui-fast-path, recipe-index
+triggers: gui-recipe, recipe-authoring, recipe-optimisation, recipe-verification, ui-automation-recipe, fast-path-recipe, gui-flow-codify, end-to-end-timing, baseline-before-tune, programmatic-mutation-primary, pixel-click-fallback, enum-tree-before-guessing-coords, probe-for-state, fixed-sleep-vs-probe, failed-attempts-must-be-codified, gui-anatomy, recipe-anatomy, gui-fast-path, recipe-index, computer-use, computer-use-api, vision-grounded-clicks, path-a-vs-path-b, first-run-authoring-driver, recorded-macro-vs-computer-use, anthropic-computer-use-tool
 ---
 
 # GUI recipes - authoring, optimisation, and verification
@@ -46,11 +46,28 @@ A recipe missing any of these sections is incomplete. The verification protocol 
 
 ## The 5-step authoring workflow (first run of a new recipe)
 
-1. **Walk before guessing.** Run UI Automation enumeration on the target window or dialog. Get exact `BoundingRectangle` X/Y/W/H for every interactive element. Do not pixel-hunt by trial-and-error.
+1. **Walk before guessing.** Run UI Automation enumeration on the target window or dialog. Get exact `BoundingRectangle` X/Y/W/H for every interactive element. Do not pixel-hunt by trial-and-error. **If UIA returns nothing for the load-bearing controls (XAML / Canvas / DirectComposition / browser-rendered): switch first-run authoring driver to Computer Use (Path B) instead of conductor verify-then-click — see substrate selection below.**
 2. **Identify the programmatic surface.** For each load-bearing element, query its supported patterns: `WindowPattern`, `TogglePattern`, `InvokePattern`, `ValuePattern`, `SelectionPattern`, `ExpandCollapsePattern`. If a pattern is exposed, programmatic mutation is the primary path; pixel-click is the fallback.
 3. **Run the recipe live with timing instrumentation.** Bash `date +%s.%N` before and after each phase. Capture a baseline end-to-end time. Numbers, not vibes.
 4. **Capture failures explicitly.** When a click misses, when a sleep is too short, when a coord is off, when a programmatic call throws "Unsupported Pattern" - record the symptom, the cause once known, and the working fix. Future-you reads these breadcrumbs before retrying.
 5. **Codify the fast-path checklist with verified timings.** Tate-verbatim Origin section, dated. Cross-link from `~/ecodiaos/CLAUDE.md` if high-traffic, or just from the recipe index in this doctrine.
+
+## First-run authoring substrate selection (Path A vs Path B vs UIA)
+
+GUI flows have three viable first-run authoring drivers. Pick by target characteristic; do not default to the slowest path (conductor verify-then-click) just because it is always available.
+
+| Driver | When to use first-run | Codified output | Cost / latency |
+|---|---|---|---|
+| **UI Automation tree walk + pattern mutation** (Tier 0/1) | Target exposes UIA properties for every load-bearing element | Recipe with programmatic-mutation primary, pixel-click fallback | Free, ~50-100ms per click |
+| **Path B — Anthropic Computer Use API** | Target has XAML/Canvas/DirectComposition/browser-rendered controls UIA cannot see, AND flow is novel (no recorded macro yet exists) | Click sequence captured during the validated run; Phase 3 of the Computer Use spec auto-exports to a Path A recorded macro | ~$0.02-0.10/click on Sonnet 4.6, ~3-8s per turn |
+| **Path A — recorded macro (Path A)** | Recipe is already validated end-to-end; we are encoding the proven sequence for fast replay | Single-shell PowerShell / shell script with batched action sequence | Free, ~50ms per click batched |
+| **Conductor verify-then-click** (Tier 5) | Fallback when Computer Use is unavailable (rate-limited, cost-capped, beta header rejected) | Should not be codified — it is the slow default we are trying to replace | ~$0.10-0.20/click and 3+ screenshots per click |
+
+**Default first-run driver for novel desktop / RDP flows:** Path B (Computer Use). Validated runs auto-export to Path A for next-time replay (per Phase 3 of the Computer Use integration spec).
+
+**Default first-run driver for novel logged-in webapp flows:** Cowork (per `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`). Cowork already gets Tate's signed-in session and ships with Anthropic's vision-grounded clicks built in.
+
+**Default replay driver for any validated recipe:** Path A (recorded macro). Always faster than re-invoking Computer Use.
 
 ## The 7-step optimisation workflow (iterating an existing recipe)
 
@@ -81,9 +98,12 @@ When confirming a step worked, always prefer the cheapest reliable tier:
 | 2 | Process check via `process.listProcesses` | Process-level verification (e.g. mstsc.exe still running) |
 | 3 | Filesystem check (`filesystem.readFile`, file mtime, dir listing) | When the action mutates disk |
 | 4 | Cropped pixel screenshot + visual interpretation | When UI Automation cannot see the state (XAML inside Win32 dialogs sometimes, browser-rendered UIs sometimes) |
-| 5 | Full screenshot + visual interpretation | Last resort; expensive to interpret, expensive to render |
+| 4-α | Anthropic Computer Use API vision-grounded element identification (`computer_20251124` tool, optional `zoom` action) | When UI Automation cannot see the state AND the conductor's own vision is unreliable on small/dense targets. Sends the screenshot to a Claude model trained against the computer-use action vocabulary; model returns precise click coordinates (and can `zoom` into a region for detail). ~3-8s and ~$0.02-0.10 per call. Cheaper and faster than the conductor's verify-then-click loop on novel/dense UIs; more expensive than tiers 0-4 on simple targets. See `~/ecodiaos/drafts/computer-use-api-integration-spec-2026-05-04.md`. |
+| 5 | Full screenshot + visual interpretation by the conductor (verify-then-click loop) | Last resort; expensive to interpret, expensive to render, slowest of all tiers because each click usually takes 3+ screenshots to land. Use only when no other tier is wired or when Computer Use is rate-limited / cost-capped. |
 
-If Tier 0 works for a state, never use Tier 4 for that state. Codify the cheapest reliable tier in the verification protocol section. If the only tier that works is 4 or 5, document why - it is a constraint, not a default.
+If Tier 0 works for a state, never use Tier 4 for that state. Codify the cheapest reliable tier in the verification protocol section. If the only tier that works is 4-α or 5, document why - it is a constraint, not a default.
+
+**Tier 4-α placement reasoning:** Computer Use lives between cropped pixel screenshot (Tier 4) and full conductor verify-then-click (Tier 5) because (a) it operates on screenshots so it inherits Tier 4's "no UIA available" precondition, (b) it is meaningfully cheaper and more reliable than the conductor's own visual interpretation (Tier 5), and (c) it is meaningfully more expensive than a tight cropped pixel match. It is the right substrate when UIA fails AND the target is novel or dense enough that conductor-vision is the actual bottleneck.
 
 ## Recipe maintenance cadence
 
@@ -128,5 +148,6 @@ Each of these is now a generalised step in the authoring/optimisation workflows 
 - `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` - Chrome-driving subset of GUI recipes
 - `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` - when Cowork supersedes a hand-rolled GUI recipe (logged-in webapps in Tate's Chrome)
 - `~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md` - bounded-step dispatch when delegating GUI work to Cowork
-- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` - the Anthropic-first check; Cowork supersedes hand-rolled `cu.*` for web UIs
+- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` - the Anthropic-first check; Computer Use is the canonical answer for desktop / RDP / OS-level driving (analogue to Cowork for webapps)
+- `~/ecodiaos/drafts/computer-use-api-integration-spec-2026-05-04.md` - Computer Use API integration spec (Path B as first-run authoring driver, auto-export to Path A recorded macro for replay, drift detection via re-fall-back to Computer Use)
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - verification protocol generalisation; recipes are a worked instance
