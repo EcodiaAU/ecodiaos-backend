@@ -513,6 +513,22 @@ function _accountHealth(account) {
       refreshQuotaCheck(account).catch(() => {})
       return { score: 30, reason: `reset_just_passed_reprobing (${resetType})` }
     }
+    // Stuck-rejection guard: if status is rejected but we have no reset
+    // timestamp AND no captured headers, treat as a stale wedge (typically:
+    // boot-time probe got a 429 before reset headers parsed correctly, or
+    // an SDK error mis-classified). Clear it and let the next real call
+    // re-establish ground truth — it'll either succeed (proving acct healthy)
+    // or 429 again (this time hopefully with proper headers).
+    if (!state.weeklyResetsAt && !state.sessionResetsAt && !state.headersUpdatedAt) {
+      logger.warn('Account rejection auto-cleared: stale wedge (no reset times, no headers)', { account })
+      state.rateLimitStatus = 'allowed'
+      state.rateLimitType = null
+      state.weeklyUtilization = null
+      state.sessionUtilization = null
+      state.rejectionClearedAt = Date.now()
+      refreshQuotaCheck(account).catch(() => {})
+      return { score: 30, reason: 'stuck_rejection_cleared_reprobing' }
+    }
     return { score: -10, reason: `rejected (${state.rateLimitType || 'unknown'})` }
   }
 
