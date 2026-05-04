@@ -23,6 +23,7 @@ object `{username, password, hostname, agent_token, agent_port, ip, os, service,
 - `~/ecodiaos/scripts/laptop-agent-staging/macroHandlers/transporter-upload.js` (same)
 - `~/ecodiaos/clients/macincloud-access.md` (canonical access doctrine)
 - `~/ecodiaos/clients/app-release-flow-ios.md`
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` (Phase A pre-flight — `creds.macincloud.password` is the SSH password used by `mic-fast.ps1` to drive the RDP signin)
 
 ## Replaceable by macro?
 
@@ -30,13 +31,13 @@ No. SSH to SY094 IS the bootstrap that ENABLES the macro path on the Mac. The `p
 
 ## Rotation
 
-Per-vendor-policy. **MacInCloud auto-rotates passwords on certain panel events.** If `sshpass` fails with `Permission denied`, the most likely cause is the password rotated and `creds.macincloud.password` is stale.
+**No automatic rotation. The password is designated by MacInCloud at purchase time and stays fixed for the life of the rental** (Tate verbatim 2026-05-04 20:14 AEST). If `sshpass` fails with `Permission denied`, the most likely cause is NOT a rotation: check (a) typo or trailing-whitespace contamination in `creds.macincloud.password`, (b) MacInCloud kicked the session due to inactivity (reconnect retries), (c) the rental lapsed (renew via control panel - separate Tate action), or (d) Tate manually changed the password in the panel (rare).
 
 ## Restoration if lost
 
 1. Tate logs into the MacInCloud control panel.
-2. Reads current SSH credentials from the panel.
-3. Updates `creds.macincloud.password` (and `username`, `hostname` if those changed).
+2. Reads the SSH credentials from the panel (the original purchase-time password remains the canonical value).
+3. Updates `creds.macincloud.password` (and `username`, `hostname` if those changed - they normally do not).
 
 ```sql
 -- Pseudo-pattern (Tate runs this; agent does not have authority to modify creds without explicit instruction)
@@ -47,4 +48,4 @@ Documented in `~/ecodiaos/clients/macincloud-access.md`.
 
 ## Failure mode if missing
 
-All iOS releases blocked at preflight. The `release.sh` driver reaches `die "SSH to $MAC_USER@$MAC_HOST failed. Verify creds.macincloud.password is current; the panel rotates it."`
+All iOS releases blocked at preflight. The `release.sh` driver reaches `die "SSH to $MAC_USER@$MAC_HOST failed. Verify creds.macincloud.password is correct; the password is set at MacInCloud purchase time and does not auto-rotate."` (Note: existing release.sh die-message string still references panel rotation - update to match this doctrine when next on a release-pipeline pass.)
