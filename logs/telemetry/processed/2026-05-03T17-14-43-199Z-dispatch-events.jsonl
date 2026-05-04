@@ -1,0 +1,1 @@
+{"ts":"2026-05-03T17:14:43.000Z","hook_name":"smoke-test","tool_name":"mcp__forks__spawn_fork","context":{"brief_excerpt":"phase-c-smoke-test fork_moq0ybyf_9e5fa5"},"surfaces":[{"pattern_path":"/home/tate/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md","trigger_keyword":"smoke","source_layer":"hook:smoke-test"}]}

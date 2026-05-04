@@ -86,7 +86,7 @@ const ENERGY_FORK_CAPS = {
   healthy:  5,
   conserve: 4,
   low:      2,
-  critical: 0,
+  critical: 2,
 }
 
 // ── Phantom-bail signal (per fork-result-fallback-must-be-marked.md) ────────
@@ -144,7 +144,41 @@ function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult
   ].filter(Boolean).join('\n')
 }
 
+// ── Cron fork_report suppression ─────────────────────────────────────────────
+// Cron-spawned forks (dispatched by cronForkDispatcher) run on a self-contained
+// brief prefixed with "You are EcodiaOS in fork form, no prior context." When
+// the result is a clean no-op (healthy, all-clear, zero-action), the fork_report
+// should NOT enqueue to main — it pollutes the conductor's context with noise.
+//
+// Detection: check the brief for the cron prefix + the report for no-op patterns.
+// Both must match to suppress. A cron fork that actually DID work (files changed,
+// commits made, emails sent) won't match the no-op patterns and will pass through.
+// Origin: Tate 4 May 2026 20:55 AEST "bro wtf... your crons are still coming in"
+const CRON_BRIEF_PREFIX = 'You are EcodiaOS in fork form, no prior context.'
+const CLEAN_NOOP_PATTERNS = [
+  /exit(?:ing)?\s+silent(?:ly)?/i,
+  /all\s+(?:systems?\s+)?(?:healthy|clean)/i,
+  /no\s+(?:action\s+)?(?:needed|required|alert)/i,
+  /zero\s+(?:to\s+)?(?:do|report|action)/i,
+  /(?:processed|classified|errors?|inferred|archived|reaped)\s*:?\s*0(?:\D|$)/i,
+  /no\s+deployments?\s+in/i,
+  /nothing\s+(?:to\s+)?(?:do|report)/i,
+]
+
+function _isCleanNoop(report, brief) {
+  if (!report || !brief) return false
+  const isCron = brief.includes(CRON_BRIEF_PREFIX)
+  if (!isCron) return false
+  return CLEAN_NOOP_PATTERNS.some(p => p.test(report))
+}
+
 async function _enqueueForkReport({ fork_id, brief, report, nextStep, fallbackResult }) {
+  // Suppress clean no-op reports from cron-spawned forks — they pollute main chat
+  if (_isCleanNoop(report, brief)) {
+    logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
+    return { enqueued: false, reason: 'suppressed_clean_noop' }
+  }
+
   let mq = _messageQueueOverride
   if (!mq) {
     try { mq = require('./messageQueue') }
@@ -1342,6 +1376,11 @@ function _getForkMapForTest() { return _forks }
 function _setQueryForTest(fn) { _queryOverride = fn }
 function _setExecGitForTest(fn) { _execGitOverride = fn }
 function _setMessageQueueForTest(mq) { _messageQueueOverride = mq }
+function _setCleanNoopPatternsForTest(patterns) {
+  // Override the CLEAN_NOOP_PATTERNS array for tests (mutate in-place)
+  CLEAN_NOOP_PATTERNS.length = 0
+  CLEAN_NOOP_PATTERNS.push(...patterns)
+}
 
 module.exports = {
   spawnFork,
@@ -1363,4 +1402,6 @@ module.exports = {
   _setQueryForTest,
   _setExecGitForTest,
   _setMessageQueueForTest,
+  _isCleanNoop,
+  _setCleanNoopPatternsForTest,
 }
