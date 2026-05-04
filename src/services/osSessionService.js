@@ -591,6 +591,19 @@ let ccSessionId = null          // CC's internal session_id (for resume)
 let sessionTokenUsage = { input: 0, output: 0 }
 let _currentProvider = 'claude_max'  // tracks which provider the current session is using
 
+// Auto-handover compact threshold — provider-aware. DeepSeek V4 Flash has a
+// 1M context window vs Claude/Bedrock's 200K, so reusing the same 120K
+// threshold there compacted ~6x more aggressively than necessary and made
+// long DeepSeek fallback turns chop themselves off. The DeepSeek-specific
+// threshold (default 800K, leaves 200K headroom on the 1M ceiling) only
+// kicks in when _currentProvider === 'deepseek'.
+function _compactThreshold() {
+  if (_currentProvider === 'deepseek') {
+    return parseInt(env.OS_SESSION_COMPACT_THRESHOLD_DEEPSEEK || '800000', 10)
+  }
+  return parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+}
+
 // Message queue — prevents concurrent sendMessage calls from racing and clobbering
 // each other's queries. Each sendMessage waits for the previous one to finish.
 let _sendQueue = Promise.resolve()
@@ -2151,7 +2164,7 @@ async function _sendMessageImpl(content, opts = {}) {
               // if the broadcast fails.
               if (!suppressOutput) {
                 try {
-                  const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+                  const handoverThreshold = _compactThreshold()
                   const total = sessionTokenUsage.input + sessionTokenUsage.output
                   // Also surface the "context size" signal — for resumed sessions the
                   // SDK's per-turn input_tokens is roughly how much context we're
@@ -2451,7 +2464,7 @@ async function _sendMessageImpl(content, opts = {}) {
                 ;(async () => {
                   try {
                     const dbModule = require('../config/db')
-                    const threshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+                    const threshold = _compactThreshold()
                     const prefixTokens = _lastTurnInputTokens || null
                     const [row] = await dbModule`
                       INSERT INTO compaction_events (
@@ -2719,7 +2732,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // Threshold signal: use last turn's input_tokens (= resumed context
     // size being sent each turn), NOT sessionTokenUsage.input+output
     // which is smaller because it accumulates only output across turns.
-    const handoverThreshold = parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
+    const handoverThreshold = _compactThreshold()
     const contextFill = _lastTurnInputTokens || 0
     const shouldHandover = contextFill > handoverThreshold && !suppressOutput
     if (shouldHandover) {

@@ -252,6 +252,12 @@ const envSchema = z.object({
   // ROLLBACK: bump back to '800000' if /ops shows compaction firing >2x/min
   // or cache_hit_ratio drops below pre-flip baseline for >2h.
   OS_SESSION_COMPACT_THRESHOLD: z.string().default('120000'),
+  // DeepSeek V4 Flash has a 1M-token context window (vs Claude's 200K), so the
+  // 120K threshold compacts way too early and burns the fallback's main edge —
+  // long-horizon turns. Default 800K leaves 200K headroom on the 1M ceiling.
+  // Only consulted when the active provider is DeepSeek; Bedrock (200K) stays
+  // on the default Claude threshold.
+  OS_SESSION_COMPACT_THRESHOLD_DEEPSEEK: z.string().default('800000'),
   // Automatic Neo4j memory injection into user messages.
   // Semantic-searches Pattern/Decision/Episode nodes and prepends a
   // <relevant_memory> block between <now> and <restart_recovery>.
