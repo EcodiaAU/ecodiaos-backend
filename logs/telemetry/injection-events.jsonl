@@ -6767,3 +6767,10 @@
 {"ts":"2026-05-04T22:20:25.523Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":854,"block_name":"<perception_summary>","char_count":0,"emitted":false,"skip_reason":"not_present"}
 {"ts":"2026-05-04T22:20:25.523Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":854,"block_name":"<restart_recovery>","char_count":0,"emitted":false,"skip_reason":"not_present"}
 {"ts":"2026-05-04T22:20:25.523Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":854,"block_name":"<last_turn_breadcrumb>","char_count":0,"emitted":false,"skip_reason":"not_present"}
+{"ts":"2026-05-04T22:27:34.904Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<now>","char_count":39,"emitted":true,"skip_reason":null,"hash_prefix":"b593949171a022b1","minimal_mode":false}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<forks_rollup>","char_count":277,"emitted":true,"skip_reason":null,"hash_prefix":"40ed1cff4ffeede0","minimal_mode":false}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<recent_doctrine>","char_count":889,"emitted":false,"skip_reason":"dedupe","hash_prefix":"574fec9a652b97c4","minimal_mode":false}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<relevant_memory>","char_count":989,"emitted":true,"skip_reason":null,"hash_prefix":"fc440a46518ec01d","minimal_mode":false}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<perception_summary>","char_count":253,"emitted":true,"skip_reason":null,"hash_prefix":"96b2a08201386a12","minimal_mode":false}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<restart_recovery>","char_count":0,"emitted":false,"skip_reason":"not_present"}
+{"ts":"2026-05-04T22:27:34.905Z","session_id":"a3ab1766-7285-4197-9e57-d57f590d5fb8","turn_idx":855,"block_name":"<last_turn_breadcrumb>","char_count":0,"emitted":false,"skip_reason":"not_present"}
