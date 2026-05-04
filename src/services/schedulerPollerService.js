@@ -79,15 +79,26 @@ async function isSessionBusy() {
 // result for run_count / result-stamp purposes downstream.
 //
 // Decision 3993 commit 3/3: forks-as-primitive routing.
-//   conductor       → POST to /api/os-session/message (status quo, judgment loop)
-//   direct_exec     → POST to /api/os-session/message (status quo, tiny shell-exec
-//                     prompts; pollution footprint negligible, churn-not-worth)
-//   high_priority_fork → spawn fork (always, budget bypass)
-//   low_priority_fork  → spawn fork (skipped if budget < 25%)
+// Decision 4 May 2026 ("Crons route to forks by default, NEVER main chat"):
+//   conductor          → POST to /api/os-session/message (RESERVED: meta-loop only,
+//                         the conductor's CEO judgment cycle which IS main chat).
+//   direct_exec        → POST to /api/os-session/message. DEPRECATED 4 May 2026.
+//                         Set is empty; preserved only for forward-compat.
+//                         Per Tate verbatim 19:30 AEST: every previous DIRECT_EXEC
+//                         cron now spawns a fork instead so it never pollutes
+//                         the chat stream.
+//   high_priority_fork → spawn fork (always, budget bypass).
+//   low_priority_fork  → spawn fork (skipped if budget < 25%).
 //
 // Delayed (one-shot) tasks always go via the os-session POST path — they
 // don't carry a classification yet and the convention is to handle them in
-// the conductor for Tate-typed scheduling.
+// the conductor for Tate-typed scheduling. (Tate-typed delayed tasks ARE
+// chat-relevant by definition: he asked for a thing to happen at a time.)
+//
+// Verification post-deploy: probe os_forks for new rows correlated with each
+// fork-routed cron's last_run_at; probe /api/os-session/messages for absence
+// of [SCHEDULED:] prompts in the cron-fire window. Doctrine:
+// ~/ecodiaos/patterns/crons-route-to-forks-by-default.md.
 async function _shouldDispatchAsFork(task) {
   if (task.type !== 'cron') return false
   const route = classifyCron(task.name)
