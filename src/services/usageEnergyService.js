@@ -689,17 +689,11 @@ async function getEnergy() {
   // Return cached snapshot if fresh
   if (_cache && (now - _cacheAt) < CACHE_TTL_MS) return _cache
 
-  // Trigger background quota-checks for stale accounts
+  // Stale-header background refresh disabled 2026-05-05 — quota-check fetch
+  // was crashing the api process (silent exit code 0 mid-fetch). Real SDK
+  // turns populate headers via updateFromHeaders, which is enough for routing.
   const hasAcct2 = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
   const skipAcct1 = !!process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE && !process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE && !process.env.CLAUDE_CONFIG_DIR_1
-  for (const [acct, state] of Object.entries(_accounts)) {
-    if (acct === 'claude_max_2' && !hasAcct2) continue
-    if (acct === 'claude_max' && skipAcct1) continue
-    const headerAge = state.headersUpdatedAt ? (now - state.headersUpdatedAt) : Infinity
-    if (headerAge > HEADER_STALE_MS) {
-      refreshQuotaCheck(acct).catch(() => {})
-    }
-  }
 
   // Build snapshots for both accounts
   const acct1 = skipAcct1 ? null : _getAccountSnapshot('claude_max')

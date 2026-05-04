@@ -55,14 +55,13 @@ const {
 // Log failure — if both accounts are misconfigured, the first user message fails
 // with an opaque error. Knowing this at boot is the difference between 10s
 // diagnosis and reading PM2 logs.
-usageEnergy.refreshAllAccounts()
-  .then(() => usageEnergy.getEnergy())
-  .then(e => logger.info('Claude energy on startup', {
-    pctUsed: e.pctUsed, level: e.level,
-    recommended: e.recommendedProvider, reason: e.providerReason,
-    acct1: e.accounts?.claude_max?.pctUsed, acct2: e.accounts?.claude_max_2?.pctUsed,
-  }))
-  .catch(err => logger.warn('Claude energy startup refresh failed', { error: err.message }))
+// Boot-time refreshAllAccounts() was crashing the api process mid-fetch
+// (exit code 0, no error logged — likely a Node 20 fetch + simultaneous
+// AbortController interaction). Disabled 2026-05-05. The router still works
+// from "no_data" defaults (score 30 → claude_max picked) and real SDK turns
+// populate state via _switchAfterExhaustion on 429. The reset watcher arms
+// from real headers captured during turns instead of from boot probes.
+logger.info('Claude energy: boot probe disabled (state populates from SDK turns)')
 
 // ─── Auto-switch back to Claude when a reset window passes ──────────────────
 // usageEnergyService arms a timer for the earliest pending reset across both
