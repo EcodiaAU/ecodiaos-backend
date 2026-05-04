@@ -21,15 +21,43 @@
  *   transcript-tail path because the closing tag was absent. (Constant defined
  *   in src/services/forkService.js as FALLBACK_MARKER, exported.)
  *
+ * --- Slicing (added 2026-05-04 by fork_moqqickb_dee99b, rotation C) ---
+ *
+ * The headline rate (all phantom_bail / all done) is dominated by cron-fired
+ * forks whose deliverables are explicitly conditional ("exit silent on health
+ * window", "no unread email", etc — see
+ * ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md).
+ * On 4 May 2026 those forks make up >70% of phantom_bail volume but represent
+ * 0% of the upstream-bug signal the doctrine threshold was designed to catch.
+ *
+ * To deflate the headline noise, every fork is classified by brief prefix:
+ *   - cron_intent       : brief contains '[ORIGINAL CRON INTENT BELOW'
+ *                          → expected_silent (conditional deliverable)
+ *   - self_evolution    : brief starts with 'SELF-EVOLUTION SESSION'
+ *                          → expected_silent (long-transcript build sessions)
+ *   - fork_recon_no_cron: brief starts with the cron wrapper preamble but
+ *                          lacks the CRON INTENT header
+ *                          → expected_silent (brief-template variant)
+ *   - interactive       : everything else (Tate-typed dispatches, factory work,
+ *                          audit findings, demand-driven dispatches)
+ *                          → INVESTIGATE — true upstream-bug signal
+ *
+ * The trip threshold is now applied to the `investigate_rate`
+ * (interactive-class phantom_bail / interactive-class done) with `min_sample`
+ * applied to interactive class only. Headline rate is preserved for
+ * back-compat in the snapshot shape but no longer drives the alert.
+ *
  * Writes (in --write mode):
  *   - kv_store key `ceo.phantom_bail_telemetry.last_run`
- *       latest snapshot (window stats, rate, per-day breakdown)
+ *       latest snapshot (window stats, headline rate, investigate rate,
+ *       per-class breakdown, per-day breakdown)
  *   - kv_store key `ceo.phantom_bail_telemetry.daily_history`
  *       rolling array of the last <historyDays> daily snapshots, newest first.
- *       Each snapshot: { day, done, phantom_bail, rate }.
+ *       Each snapshot: { day, done, phantom_bail, rate, investigate, by_class }.
  *   - status_board P3 row "phantom-bail rate above 30% threshold (7d)"
- *       upserted when rate >= 0.30 AND decided >= 10 (sample-size guard).
- *       Archived when rate falls back under threshold for 2 consecutive runs.
+ *       upserted when investigate.rate >= 0.30 AND investigate.done >= 10
+ *       (sample-size guard). Archived when investigate rate falls back under
+ *       threshold for 2 consecutive runs.
  *   - Neo4j Decision when threshold first crossed in a run (one per crossing).
  *
  * Modes:
@@ -39,16 +67,20 @@
  *   --history-days N per-day breakdown depth (default 14)
  *   --threshold X    rate at which the status_board row trips (default 0.30)
  *   --min-sample N   minimum decided sample to trip threshold (default 10)
+ *   --legacy-trip    fall back to headline_rate for tripping (debug only)
  *   --verbose        full report instead of slim
  *
  * Exit code: 0 always (advisory, never blocks). All errors to stderr.
  *
  * Cross-refs:
  *   ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md (canonical doctrine)
+ *   ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md (sibling rule)
  *   ~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
  *   ~/ecodiaos/patterns/outcome-classification-must-distinguish-unverified-from-success.md
  *
- * Author: fork_moqhxg1z_68ea5d self-evolution rotation D session 4 May 2026
+ * Authors:
+ *   - fork_moqhxg1z_68ea5d  self-evolution rotation D 4 May 2026 (initial)
+ *   - fork_moqqickb_dee99b  self-evolution rotation C 4 May 2026 (slicing)
  */
 
 require('dotenv').config({ path: '/home/tate/ecodiaos/.env' });
@@ -56,8 +88,48 @@ require('dotenv').config({ path: '/home/tate/ecodiaos/.env' });
 const { createClient } = require('@supabase/supabase-js');
 const neo4j = require('neo4j-driver');
 
-const FORK_ID = 'fork_moqhxg1z_68ea5d';
+const FORK_ID = 'fork_moqqickb_dee99b';
 const FALLBACK_MARKER = '(no [FORK_REPORT] emitted';
+
+// Fork classification by brief prefix.
+// `interactive` is the only class that contributes to investigate_rate (the
+// authoritative trip metric). Other classes are expected-silent because their
+// deliverables are conditional or their transcripts run long enough that the
+// terminal [FORK_REPORT] line falls outside the tail-grab window.
+const CLASS_INTERACTIVE = 'interactive';
+const CLASS_CRON_INTENT = 'cron_intent';
+const CLASS_SELF_EVOLUTION = 'self_evolution';
+const CLASS_FORK_RECON_NO_CRON = 'fork_recon_no_cron';
+const ALL_CLASSES = [
+  CLASS_INTERACTIVE,
+  CLASS_CRON_INTENT,
+  CLASS_SELF_EVOLUTION,
+  CLASS_FORK_RECON_NO_CRON,
+];
+
+function classifyFork(brief) {
+  if (typeof brief !== 'string' || brief.length === 0) return CLASS_INTERACTIVE;
+  // Order matters: SELF-EVOLUTION header is checked before the cron-wrapper
+  // prefix because a self-evolution brief never carries the cron preamble,
+  // and cron_intent is checked before fork_recon_no_cron because a fork can
+  // carry both the wrapper and the CRON INTENT header.
+  if (brief.startsWith('SELF-EVOLUTION SESSION')) return CLASS_SELF_EVOLUTION;
+  if (brief.includes('[ORIGINAL CRON INTENT BELOW')) return CLASS_CRON_INTENT;
+  if (brief.startsWith('You are EcodiaOS in fork form, no prior context')) {
+    return CLASS_FORK_RECON_NO_CRON;
+  }
+  return CLASS_INTERACTIVE;
+}
+
+function emptyClassMap() {
+  const m = {};
+  for (const c of ALL_CLASSES) m[c] = { done: 0, phantom_bail: 0 };
+  return m;
+}
+
+function rateOf(slice) {
+  return slice.done > 0 ? slice.phantom_bail / slice.done : null;
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -89,9 +161,10 @@ function parseArgs(argv) {
     else if (a === '--history-days') out.historyDays = parseInt(argv[++i], 10);
     else if (a === '--threshold') out.threshold = parseFloat(argv[++i]);
     else if (a === '--min-sample') out.minSample = parseInt(argv[++i], 10);
+    else if (a === '--legacy-trip') out.legacyTrip = true;
     else if (a === '--help' || a === '-h') {
       process.stderr.write(
-        'phantom-bail-telemetry.js [--report|--write] [--window-days N] [--history-days N] [--threshold X] [--min-sample N] [--verbose]\n'
+        'phantom-bail-telemetry.js [--report|--write] [--window-days N] [--history-days N] [--threshold X] [--min-sample N] [--legacy-trip] [--verbose]\n'
       );
       process.exit(0);
     }
@@ -122,19 +195,28 @@ function initNeo4j() {
 }
 
 // --------------- probes ---------------
-// Aggregate counts over a window. Uses COALESCE(ended_at, started_at) so
-// running forks (no ended_at) are included via started_at without distorting
-// completed forks (which have both).
+// Aggregate counts over a window, sliced by classifyFork(brief).
+//
+// Returns:
+//   {
+//     done, phantomBail,                     // headline totals
+//     byClass: { interactive: {done, phantom_bail}, cron_intent: {...}, ... }
+//   }
+//
+// Uses ended_at as the window boundary for completed forks; running forks
+// (no ended_at) are included via started_at >= fromIso so a long-running
+// interactive fork is visible immediately.
 async function aggregateWindow(supabase, fromIso, toIso) {
   // Page through results — Supabase JS client default cap is 1000.
   const PAGE = 1000;
   let from = 0;
   let done = 0;
   let phantomBail = 0;
+  const byClass = emptyClassMap();
   for (;;) {
     const { data, error } = await supabase
       .from('os_forks')
-      .select('status, result, started_at, ended_at')
+      .select('status, result, brief, started_at, ended_at')
       .or(`ended_at.gte.${fromIso},and(ended_at.is.null,started_at.gte.${fromIso})`)
       .lte('started_at', toIso)
       .range(from, from + PAGE - 1);
@@ -143,17 +225,22 @@ async function aggregateWindow(supabase, fromIso, toIso) {
     for (const row of data) {
       if (row.status !== 'done') continue;
       done += 1;
+      const cls = classifyFork(row.brief);
+      byClass[cls].done += 1;
       if (typeof row.result === 'string' && row.result.startsWith(FALLBACK_MARKER)) {
         phantomBail += 1;
+        byClass[cls].phantom_bail += 1;
       }
     }
     if (data.length < PAGE) break;
     from += PAGE;
   }
-  return { done, phantomBail };
+  return { done, phantomBail, byClass };
 }
 
 // Per-day breakdown for the last historyDays days. UTC day boundaries.
+// Each entry includes headline rate, sliced by_class breakdown, and the
+// derived `investigate` slice (interactive class only).
 async function dailyBreakdown(supabase, historyDays) {
   const out = [];
   const now = new Date();
@@ -161,17 +248,37 @@ async function dailyBreakdown(supabase, historyDays) {
   for (let i = 0; i < historyDays; i += 1) {
     const dayStart = new Date(todayUtc.getTime() - i * 86400000);
     const dayEnd = new Date(dayStart.getTime() + 86400000);
-    const { done, phantomBail } = await aggregateWindow(
+    const { done, phantomBail, byClass } = await aggregateWindow(
       supabase,
       dayStart.toISOString(),
       dayEnd.toISOString()
     );
     const rate = done > 0 ? phantomBail / done : null;
+    const interactive = byClass[CLASS_INTERACTIVE];
+    const investigateRate = rateOf(interactive);
     out.push({
       day: dayStart.toISOString().slice(0, 10),
       done,
       phantom_bail: phantomBail,
       rate: rate === null ? null : Number(rate.toFixed(3)),
+      investigate: {
+        done: interactive.done,
+        phantom_bail: interactive.phantom_bail,
+        rate: investigateRate === null ? null : Number(investigateRate.toFixed(3)),
+      },
+      by_class: Object.fromEntries(
+        ALL_CLASSES.map((c) => {
+          const r = rateOf(byClass[c]);
+          return [
+            c,
+            {
+              done: byClass[c].done,
+              phantom_bail: byClass[c].phantom_bail,
+              rate: r === null ? null : Number(r.toFixed(3)),
+            },
+          ];
+        })
+      ),
     });
   }
   return out;
@@ -205,6 +312,11 @@ async function kvGet(supabase, key) {
 async function upsertStatusBoardRow(supabase, snapshot) {
   const { window, daily } = snapshot;
   const tripped = window.tripped;
+  // Authoritative trip metric: investigate_rate (interactive class only).
+  // Fall back to headline rate only when --legacy-trip was set (debug path).
+  const tripMetric = snapshot.trip_metric === 'legacy_headline'
+    ? { rate: window.rate, decided: window.done, phantom_bail: window.phantom_bail }
+    : { rate: window.investigate.rate, decided: window.investigate.done, phantom_bail: window.investigate.phantom_bail };
 
   // Look up existing row (active or archived) by name.
   const { data: existing, error: lookupErr } = await supabase
@@ -220,29 +332,54 @@ async function upsertStatusBoardRow(supabase, snapshot) {
 
   const nowIso = new Date().toISOString();
   const topDays = daily
-    .filter((d) => d.rate !== null)
+    .filter((d) => d.investigate && d.investigate.rate !== null)
     .slice(0, 3)
-    .map((d) => `${d.day}=${d.rate !== null ? (d.rate * 100).toFixed(0) + '%' : 'n/a'}(${d.phantom_bail}/${d.done})`)
+    .map((d) => {
+      const inv = d.investigate;
+      const headline = d.rate !== null ? (d.rate * 100).toFixed(0) + '%' : 'n/a';
+      const investigate = inv.rate !== null ? (inv.rate * 100).toFixed(0) + '%' : 'n/a';
+      return `${d.day}=inv:${investigate}(${inv.phantom_bail}/${inv.done})/hl:${headline}(${d.phantom_bail}/${d.done})`;
+    })
     .join(', ');
+
+  const byClassDigest = {};
+  for (const c of ALL_CLASSES) {
+    const slice = window.by_class[c];
+    byClassDigest[c] = {
+      done: slice.done,
+      phantom_bail: slice.phantom_bail,
+      rate: slice.rate,
+    };
+  }
 
   const context = JSON.stringify({
     fork_id: FORK_ID,
     last_check: snapshot.generated_at,
     window_days: window.window_days,
-    decided: window.done,
-    phantom_bail: window.phantom_bail,
-    rate: Number(window.rate.toFixed(3)),
+    // Authoritative metric:
+    investigate_decided: window.investigate.done,
+    investigate_phantom_bail: window.investigate.phantom_bail,
+    investigate_rate: window.investigate.rate === null ? null : Number(window.investigate.rate.toFixed(3)),
+    // Legacy headline (preserved for back-compat):
+    headline_decided: window.done,
+    headline_phantom_bail: window.phantom_bail,
+    headline_rate: Number(window.rate.toFixed(3)),
     threshold: snapshot.threshold,
     min_sample: snapshot.min_sample,
+    trip_metric: snapshot.trip_metric,
+    by_class: byClassDigest,
     last3_days: topDays,
     pattern_ref: '~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md',
+    sibling_ref: '~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md',
   });
 
   const row = existing && existing.length > 0 ? existing[0] : null;
 
   if (tripped) {
     // Active P3 row needed.
-    const status = `phantom_bail_${(window.rate * 100).toFixed(0)}pct_${window.window_days}d`;
+    const ratePct = tripMetric.rate === null ? 0 : tripMetric.rate * 100;
+    const metricTag = snapshot.trip_metric === 'legacy_headline' ? 'hl' : 'inv';
+    const status = `phantom_bail_${metricTag}_${ratePct.toFixed(0)}pct_${window.window_days}d`;
     const nextAction =
       'investigate spawn-prompt / token-budget / tool-call ceiling per pattern doctrine; cross-ref ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md verification block';
     if (row) {
@@ -346,16 +483,28 @@ async function maybeWriteNeo4jDecision(driver, snapshot, statusBoardOutcome) {
     return;
   }
   const { window } = snapshot;
+  const inv = window.investigate;
+  const tripRate = snapshot.trip_metric === 'legacy_headline' ? window.rate : inv.rate;
+  const tripDecided = snapshot.trip_metric === 'legacy_headline' ? window.done : inv.done;
+  const tripBail = snapshot.trip_metric === 'legacy_headline' ? window.phantom_bail : inv.phantom_bail;
   const session = driver.session({ database: NEO4J_DATABASE });
   try {
-    const name = `phantom-bail threshold crossed ${snapshot.generated_at.slice(0, 16)}Z rate=${(window.rate * 100).toFixed(0)}%`;
+    const metricLabel = snapshot.trip_metric === 'legacy_headline' ? 'headline' : 'investigate';
+    const name = `phantom-bail threshold crossed ${snapshot.generated_at.slice(0, 16)}Z ${metricLabel}=${tripRate === null ? 'n/a' : (tripRate * 100).toFixed(0) + '%'}`;
+    const byClassSummary = ALL_CLASSES.map((c) => {
+      const s = window.by_class[c];
+      const r = s.rate === null ? 'n/a' : (s.rate * 100).toFixed(0) + '%';
+      return `${c}=${r}(${s.phantom_bail}/${s.done})`;
+    }).join(', ');
     const description = [
       `phantom-bail-telemetry run by ${FORK_ID} at ${snapshot.generated_at}.`,
-      `Window=${window.window_days}d, threshold=${(snapshot.threshold * 100).toFixed(0)}%, min_sample=${snapshot.min_sample}.`,
-      `Decided=${window.done}, phantom_bail=${window.phantom_bail}, rate=${(window.rate * 100).toFixed(1)}%.`,
-      `Doctrine (fork-result-fallback-must-be-marked.md verification block): >30% over 7d means the bug is upstream — investigate spawn-prompt instructions, token budgets, and tool-call ceilings rather than blaming individual forks.`,
+      `Window=${window.window_days}d, threshold=${(snapshot.threshold * 100).toFixed(0)}%, min_sample=${snapshot.min_sample}, trip_metric=${snapshot.trip_metric}.`,
+      `Authoritative metric (${metricLabel}): decided=${tripDecided}, phantom_bail=${tripBail}, rate=${tripRate === null ? 'n/a' : (tripRate * 100).toFixed(1) + '%'}.`,
+      `Headline (legacy, all classes): decided=${window.done}, phantom_bail=${window.phantom_bail}, rate=${(window.rate * 100).toFixed(1)}%.`,
+      `By class: ${byClassSummary}.`,
+      `Doctrine (fork-result-fallback-must-be-marked.md verification block): >30% over 7d means the bug is upstream — investigate spawn-prompt instructions, token budgets, and tool-call ceilings rather than blaming individual forks. Investigate-class slice is now the authoritative metric since cron-fired conditional-deliverable forks dominate the headline (see cron-deliverables-can-be-conditional-not-all-fires-must-ship.md).`,
       `status_board action=${statusBoardOutcome.action}.`,
-      `Cross-ref: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md`,
+      `Cross-refs: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md, ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md`,
     ].join(' ');
     await session.run(
       `
@@ -364,7 +513,9 @@ async function maybeWriteNeo4jDecision(driver, snapshot, statusBoardOutcome) {
       SET d.description = $description,
           d.updated_at = datetime(),
           d.fork_id = $fork_id,
-          d.phantom_bail_rate = $rate,
+          d.phantom_bail_rate = $headline_rate,
+          d.investigate_rate = $investigate_rate,
+          d.trip_metric = $trip_metric,
           d.decided_count = $decided,
           d.window_days = $window_days
       `,
@@ -372,8 +523,10 @@ async function maybeWriteNeo4jDecision(driver, snapshot, statusBoardOutcome) {
         name,
         description,
         fork_id: FORK_ID,
-        rate: window.rate,
-        decided: window.done,
+        headline_rate: window.rate,
+        investigate_rate: inv.rate,
+        trip_metric: snapshot.trip_metric,
+        decided: tripDecided,
         window_days: window.window_days,
       }
     );
@@ -393,22 +546,49 @@ async function main() {
   const now = new Date();
   const windowStart = new Date(now.getTime() - args.windowDays * 86400000);
 
-  const { done, phantomBail } = await aggregateWindow(
+  const { done, phantomBail, byClass } = await aggregateWindow(
     supabase,
     windowStart.toISOString(),
     now.toISOString()
   );
   const rate = done > 0 ? phantomBail / done : 0;
+  const interactive = byClass[CLASS_INTERACTIVE];
+  const investigateRate = rateOf(interactive);
+  const investigate = {
+    done: interactive.done,
+    phantom_bail: interactive.phantom_bail,
+    rate: investigateRate,
+  };
 
   const daily = await dailyBreakdown(supabase, args.historyDays);
 
-  const tripped = rate >= args.threshold && done >= args.minSample;
+  // Trip on investigate_rate (interactive class) by default; legacy headline
+  // path retained for debug only via --legacy-trip.
+  const tripMetricName = args.legacyTrip ? 'legacy_headline' : 'investigate';
+  const tripRate = args.legacyTrip ? rate : investigateRate;
+  const tripDecided = args.legacyTrip ? done : interactive.done;
+  const tripped = tripRate !== null && tripRate >= args.threshold && tripDecided >= args.minSample;
+
+  const byClassWithRates = Object.fromEntries(
+    ALL_CLASSES.map((c) => {
+      const r = rateOf(byClass[c]);
+      return [
+        c,
+        {
+          done: byClass[c].done,
+          phantom_bail: byClass[c].phantom_bail,
+          rate: r === null ? null : Number(r.toFixed(3)),
+        },
+      ];
+    })
+  );
 
   const snapshot = {
     generated_at: now.toISOString(),
     fork_id: FORK_ID,
     threshold: args.threshold,
     min_sample: args.minSample,
+    trip_metric: tripMetricName,
     window: {
       window_days: args.windowDays,
       from: windowStart.toISOString(),
@@ -417,6 +597,12 @@ async function main() {
       phantom_bail: phantomBail,
       rate,
       tripped,
+      investigate: {
+        done: investigate.done,
+        phantom_bail: investigate.phantom_bail,
+        rate: investigate.rate === null ? null : Number(investigate.rate.toFixed(3)),
+      },
+      by_class: byClassWithRates,
     },
     daily,
   };
@@ -429,10 +615,15 @@ async function main() {
       JSON.stringify(
         {
           generated_at: snapshot.generated_at,
-          rate: Number(rate.toFixed(3)),
-          phantom_bail: phantomBail,
-          done,
+          trip_metric: tripMetricName,
+          investigate_rate: investigate.rate === null ? null : Number(investigate.rate.toFixed(3)),
+          investigate_phantom_bail: investigate.phantom_bail,
+          investigate_done: investigate.done,
+          headline_rate: Number(rate.toFixed(3)),
+          headline_phantom_bail: phantomBail,
+          headline_done: done,
           tripped,
+          by_class: byClassWithRates,
           last3_days: daily.slice(0, 3),
         },
         null,
@@ -456,12 +647,20 @@ async function main() {
   try {
     const prevHistory = (await kvGet(supabase, KV_HISTORY)) || [];
     const todayKey = snapshot.generated_at.slice(0, 10);
-    const headlineToday = daily.find((d) => d.day === todayKey) || {
-      day: todayKey,
-      done: 0,
-      phantom_bail: 0,
-      rate: null,
-    };
+    // History entries carry the same shape the daily breakdown emits so a
+    // consumer reading a single entry has both headline and investigate
+    // slices without re-querying.
+    const headlineToday =
+      daily.find((d) => d.day === todayKey) || {
+        day: todayKey,
+        done: 0,
+        phantom_bail: 0,
+        rate: null,
+        investigate: { done: 0, phantom_bail: 0, rate: null },
+        by_class: Object.fromEntries(
+          ALL_CLASSES.map((c) => [c, { done: 0, phantom_bail: 0, rate: null }])
+        ),
+      };
     const prevArr = Array.isArray(prevHistory) ? prevHistory : [];
     // Replace today's entry if already present, else prepend.
     const filtered = prevArr.filter((e) => e && e.day !== todayKey);

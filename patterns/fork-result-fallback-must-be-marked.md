@@ -50,6 +50,8 @@ WHERE started_at > now() - interval '7 days';
 
 If `fallback / (fallback + real_report)` > 30% over a 7-day window, the doctrine bug is upstream: forks are systematically running out of budget before emitting the tag. Investigate spawn-prompt instructions, token budgets, and tool-call ceilings rather than blaming individual forks.
 
+**Important slicing caveat (added 4 May 2026):** the headline rate above is dominated by *cron-fired* forks whose deliverables are explicitly conditional (see `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md`). Those forks correctly exit silent when there's nothing to do, but the fallback path still fires because no `[FORK_REPORT]` tag was emitted. On 4 May 2026, cron-fired phantom_bail represented 65.4% of cron-class volume but 0% of the upstream-bug signal. The threshold MUST be applied to the **interactive-class slice only** (briefs that are not cron-wrapped, not self-evolution, and not the cron-recon variant) to be meaningful. Telemetry below now slices accordingly.
+
 ## Origin
 
 2 May 2026 20:05-20:15 AEST. SDK fork `fork_moo6esm9_565a0e` ran the SELF-EVOLUTION rotation B brief: "debunk-or-confirm phantom-fork hypothesis". Conductor had been building doctrine that today's 5 forks "phantom-shipped" / "bailed at orientation" because their results were ~600 chars. Fork probed `os_forks.result` schema first (text, unlimited; column is not the bottleneck) then length distribution (455/555 at exactly 600 chars). Read `forkService.js:655` and found:
@@ -93,15 +95,17 @@ The enqueue is now unconditional. Phantom-bail forks survive past the 15-minute 
 
 The conductor MUST read `phantom_bail` from `forks_rollup` (or the `[SYSTEM: fork_report <fork_id>]` tag in the inbox) as the canonical bail signal. Length-based heuristics (`length(result) == 600`) are deprecated and incorrect. The 2 May write-side fix removed the 600-char cluster; the 3 May read-side fixes make the new signal mechanically observable.
 
-### Daily telemetry (commit pending, 4 May 2026)
+### Daily telemetry (initial commit 4 May 2026 01:07 UTC, slicing extension 4 May 2026 05:09 UTC)
 
 The verification SQL in this pattern names a 30%-over-7d threshold for "the bug is upstream." That measurement is now mechanical via `~/ecodiaos/scripts/phantom-bail-telemetry.js`:
 
 - **Daily user-cron**: 02:13 UTC (12:13 AEST) - aggregates `os_forks` over the rolling 7d window plus per-day breakdown for the last 14d, persists to `kv_store.ceo.phantom_bail_telemetry.last_run` and rolling `kv_store.ceo.phantom_bail_telemetry.daily_history`.
-- **Threshold trip**: when 7d rate >= 0.30 AND decided-sample >= 10, upserts a P3 `status_board` row `phantom-bail rate above 30% threshold (7d)` (entity_type=infrastructure). Carries the doctrine cross-ref in `context.pattern_ref` so the conductor reading the row lands here.
+- **Brief-prefix slicing (4 May 2026 extension, fork_moqqickb_dee99b)**: every fork is classified by brief into `interactive` / `cron_intent` / `self_evolution` / `fork_recon_no_cron`. The trip metric is now `investigate_rate` (interactive-class phantom_bail / interactive-class done) so cron-fire conditional-exit noise no longer inflates the headline. Headline rate is preserved in the snapshot for back-compat but is no longer authoritative.
+- **Threshold trip**: when `investigate_rate >= 0.30` AND `investigate.done >= 10`, upserts a P3 `status_board` row `phantom-bail rate above 30% threshold (7d)` (entity_type=infrastructure). Status code carries the metric tag (`phantom_bail_inv_NNpct_7d`) and context exposes both rates plus the per-class breakdown so the conductor reading the row sees what was sliced. `--legacy-trip` flag retained for debug-only fall-back to headline-rate tripping.
 - **Anti-flap**: when rate falls back under threshold the row is archived only after 2 consecutive under-threshold runs, tracked in `context.consecutive_under`. Single-run dips don't churn the row.
-- **Neo4j Decision**: written exactly once per fresh threshold-crossing transition (action=`inserted` OR `unarchived_and_updated`), name `phantom-bail threshold crossed YYYY-MM-DDTHH:MMZ rate=N%`. Background runs that stay tripped do NOT write a new Decision (avoids Neo4j noise).
-- **First snapshot, 4 May 2026 01:07 UTC**: 7d rate=13.6% (640 done / 87 phantom_bail), NOT tripped. Per-day shows the suppression: 4 May=100%, 3 May=96.8%, 2 May=47.8%, 28 Apr - 1 May=0% (FALLBACK_MARKER prefix only landed in 2 May commit, so pre-marker days are unobservable not clean). The 7d window is expected to cross threshold within ~3-4 days as zero-days roll out.
+- **Neo4j Decision**: written exactly once per fresh threshold-crossing transition (action=`inserted` OR `unarchived_and_updated`), name `phantom-bail threshold crossed YYYY-MM-DDTHH:MMZ {investigate|headline}=N%`. Description embeds full per-class breakdown.
+- **First snapshot, 4 May 2026 01:07 UTC** (pre-slicing): 7d headline rate=13.6% (640 done / 87 phantom_bail), NOT tripped. Misleading because cron-class dominated.
+- **Post-slicing snapshot, 4 May 2026 05:09 UTC**: investigate_rate=**1.6%** (495 interactive done / 8 interactive phantom_bail) vs headline=14.9% (650 done / 97 phantom_bail). Per-class: interactive 1.6%, cron_intent 65.6%, self_evolution 60%, fork_recon_no_cron 0%. Interactive class confirms doctrine is working — the 8 bails are real upstream-bug candidates (high tool-call counts, substantial transcripts that exhausted budget pre-`[FORK_REPORT]`); cron and self_evolution classes are conditional-deliverable expected-silence and should not feed the threshold.
 
 The third visibility layer named in the 3 May 12:35 self-evolution episode (osSessionService continuity-block surfacing of phantom_bail forks beyond the 15min rollup window) remains deferred. Today's telemetry layer addresses the slower-cycle aggregate-rate signal; the continuity-block extension would address per-fork visibility.
 
