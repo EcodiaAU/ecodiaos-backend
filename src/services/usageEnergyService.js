@@ -925,6 +925,12 @@ function markAccountRejected(account, rateLimitType = 'unknown') {
   state.rateLimitStatus = 'rejected'
   state.rateLimitType = rateLimitType
   if (state.weeklyUtilization === null) state.weeklyUtilization = 1.0
+  // Stamp headersUpdatedAt so the stuck-rejection clear guard in
+  // _accountHealth doesn't immediately undo this. The SDK 429 path doesn't
+  // give us reset timestamps (those would come from response headers, not
+  // the surfaced error string), so we rely on this stamp to differentiate
+  // "freshly rejected by real 429" from "stale wedge from old probe".
+  state.headersUpdatedAt = Date.now()
   _cache = null
   _cacheAt = 0
   logger.warn('Account marked rejected', { account, rateLimitType })
