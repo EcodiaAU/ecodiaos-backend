@@ -190,6 +190,19 @@ router.post('/energy/refresh', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// Reset all in-memory account state to fresh defaults. Use when stale
+// rejected state with no reset timestamps wedges the router into permanent
+// fallback (typically when boot-time probe got a 429 before reset headers
+// could populate, or when the process inherited stuck inFlight promises).
+router.post('/energy/reset', async (_req, res, next) => {
+  try {
+    usageEnergy.resetAllAccounts()
+    await usageEnergy.refreshAllAccounts()
+    const energy = await usageEnergy.getEnergy()
+    res.json(energy)
+  } catch (err) { next(err) }
+})
+
 // Get historical weekly usage (self-tracked turns for activity log)
 router.get('/energy/history', async (req, res, next) => {
   try {

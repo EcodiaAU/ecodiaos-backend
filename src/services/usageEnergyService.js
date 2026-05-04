@@ -864,6 +864,24 @@ function invalidateCache() {
   _cacheAt = 0
 }
 
+// Reset all in-memory account state to fresh defaults. Used by the manual
+// /energy/reset endpoint when stale rejected state with no reset timestamps
+// is wedging the router into permanent fallback. Next getEnergy() call will
+// re-probe via stale-headers path.
+function resetAllAccounts() {
+  for (const acct of Object.keys(_accounts)) {
+    _accounts[acct] = _makeAccountState()
+  }
+  _cache = null
+  _cacheAt = 0
+  if (_resetTimer) {
+    clearTimeout(_resetTimer)
+    _resetTimer = null
+    _resetTimerArmedFor = null
+  }
+  logger.info('usageEnergy: all account state reset to defaults')
+}
+
 // ─── Mark an account as rejected (called by osSession on 429 / exhaustion) ───
 function markAccountRejected(account, rateLimitType = 'unknown') {
   const state = _accounts[account]
@@ -901,6 +919,7 @@ module.exports = {
   getBestProvider,
   invalidateCache,
   markAccountRejected,
+  resetAllAccounts,
   on,
   off,
 }
