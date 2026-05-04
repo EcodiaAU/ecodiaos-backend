@@ -93,6 +93,18 @@ The enqueue is now unconditional. Phantom-bail forks survive past the 15-minute 
 
 The conductor MUST read `phantom_bail` from `forks_rollup` (or the `[SYSTEM: fork_report <fork_id>]` tag in the inbox) as the canonical bail signal. Length-based heuristics (`length(result) == 600`) are deprecated and incorrect. The 2 May write-side fix removed the 600-char cluster; the 3 May read-side fixes make the new signal mechanically observable.
 
+### Daily telemetry (commit pending, 4 May 2026)
+
+The verification SQL in this pattern names a 30%-over-7d threshold for "the bug is upstream." That measurement is now mechanical via `~/ecodiaos/scripts/phantom-bail-telemetry.js`:
+
+- **Daily user-cron**: 02:13 UTC (12:13 AEST) - aggregates `os_forks` over the rolling 7d window plus per-day breakdown for the last 14d, persists to `kv_store.ceo.phantom_bail_telemetry.last_run` and rolling `kv_store.ceo.phantom_bail_telemetry.daily_history`.
+- **Threshold trip**: when 7d rate >= 0.30 AND decided-sample >= 10, upserts a P3 `status_board` row `phantom-bail rate above 30% threshold (7d)` (entity_type=infrastructure). Carries the doctrine cross-ref in `context.pattern_ref` so the conductor reading the row lands here.
+- **Anti-flap**: when rate falls back under threshold the row is archived only after 2 consecutive under-threshold runs, tracked in `context.consecutive_under`. Single-run dips don't churn the row.
+- **Neo4j Decision**: written exactly once per fresh threshold-crossing transition (action=`inserted` OR `unarchived_and_updated`), name `phantom-bail threshold crossed YYYY-MM-DDTHH:MMZ rate=N%`. Background runs that stay tripped do NOT write a new Decision (avoids Neo4j noise).
+- **First snapshot, 4 May 2026 01:07 UTC**: 7d rate=13.6% (640 done / 87 phantom_bail), NOT tripped. Per-day shows the suppression: 4 May=100%, 3 May=96.8%, 2 May=47.8%, 28 Apr - 1 May=0% (FALLBACK_MARKER prefix only landed in 2 May commit, so pre-marker days are unobservable not clean). The 7d window is expected to cross threshold within ~3-4 days as zero-days roll out.
+
+The third visibility layer named in the 3 May 12:35 self-evolution episode (osSessionService continuity-block surfacing of phantom_bail forks beyond the 15min rollup window) remains deferred. Today's telemetry layer addresses the slower-cycle aggregate-rate signal; the continuity-block extension would address per-fork visibility.
+
 ## Cross-refs
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - would have flagged the phantom-bail doctrine earlier if applied (length-heuristic was the narrated state; column-type and .slice site were the disk state).
