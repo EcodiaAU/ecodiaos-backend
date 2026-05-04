@@ -228,10 +228,12 @@ async function _doQuotaCheck(account) {
   const state = _accounts[account]
   if (!state) return
 
+  logger.info('quota-check: starting', { account })
+
   try {
     const configDir = _getConfigDir(account)
     if (!configDir) {
-      logger.debug('quota-check: no config dir, skipping', { account })
+      logger.warn('quota-check: no config dir, skipping', { account })
       return
     }
 
@@ -240,6 +242,7 @@ async function _doQuotaCheck(account) {
       logger.warn('quota-check: no OAuth token found', { account, configDir })
       return
     }
+    logger.info('quota-check: token found, fetching', { account, tokenPrefix: oauthToken.slice(0, 16), source: process.env[account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' : 'CLAUDE_CODE_OAUTH_TOKEN_CODE'] ? 'env' : 'file' })
 
     // Quota-check is a throwaway 1-token probe — any valid model ID works.
     // Picking a cheap current one so a retired default can't silently 400
@@ -272,6 +275,15 @@ async function _doQuotaCheck(account) {
     } finally {
       clearTimeout(timeoutId)
     }
+
+    logger.info('quota-check: response received', {
+      account,
+      status: resp.status,
+      hasGetHeader: typeof resp.headers?.get === 'function',
+      sample7dUtil: resp.headers?.get?.('anthropic-ratelimit-unified-7d-utilization'),
+      sample7dReset: resp.headers?.get?.('anthropic-ratelimit-unified-7d-reset'),
+      sampleStatus: resp.headers?.get?.('anthropic-ratelimit-unified-status'),
+    })
 
     // Extract headers regardless of status — 429s still carry utilization headers
     updateFromHeaders(resp.headers, account)
