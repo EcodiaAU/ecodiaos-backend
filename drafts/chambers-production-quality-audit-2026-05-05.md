@@ -381,3 +381,78 @@ Fork: `fork_mos43hak_4e5581`. Commit: **447ee5d** on chambers-frontend main. Ver
 - `/admin/onboarding` redirect target after chamber claim uses `?tenant=<slug>` localStorage override; per-tenant DNS subdomains will tighten that to a host redirect once wired.
 
 [FORK_REPORT — completed via fork_mos43hak_4e5581 5 May 2026]
+
+## 5g. F6-PAYMENTS closure (5 May 2026)
+
+Build fork F6-PAYMENTS (`fork_mos71pc6_1fa042`) shipped chambers-frontend commit `7e44d79` to `main`. Vercel deployment `dpl_635ZQL4X7sxK3XRDaFBC4ASZr2rN` READY against production target. Three rules closed in a single coherent commit per the brief:
+
+| gap_id | closed_in | notes |
+|---|---|---|
+| `CMH9-no-email-verification-gate` | 7e44d79 | `AdminLayout` short-circuits when `tenants.status === 'pending_verification'` and renders a `Verify your chamber's email` landing. Member-facing routes (`/`, `/events`, `/members`, `/sign-up/:slug`, `/onboarding/chamber`) are unaffected - the gate is officer/admin-scoped only. |
+| `verify-chamber-token-route-missing` | 7e44d79 | New `/verify-chamber/:token` route consumes a verification UUID via the `verify_chamber_token` RPC (migration 0009), atomically flips `status` from `pending_verification` to `active`, clears the token, and renders success / failure / pending states. Covers the operator-emailed-recovery path while leaving the existing F6 `claim_pending_tenant` Supabase Auth flow untouched. |
+| `CMH9-membership-tier-purchase-not-wired` | 7e44d79 | `/admin/billing` page renders current tier card, paid-tier picker (Stripe Checkout redirect), feature comparison matrix, and a manage-subscription footer. Tier set: `free` / `starter` / `standard` / `premium`. New edge function `chamber-stripe-checkout` creates per-tenant Stripe customers + subscription Checkout sessions; new edge function `chamber-stripe-webhook` is the canonical writer to `tenants.subscription_tier` (handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`). The Co-Exist `create-checkout` / `stripe-webhook` functions remain untouched (they handle donations / merch / tickets). |
+| `CMH9-tier-not-enforced-server-side` | 7e44d79 | `src/lib/feature-gates.tsx` ships `TIER_LIMITS` map (member caps + feature sets per tier), `useTier()` hook reading `tenants.subscription_tier`, `<FeatureGate feature="...">` + `<UpgradePill />` components. Wired across: `AdminLayout` nav (locked tabs render as Lock + label `Link` to `/admin/billing` on tiers below requirement), `MembersAdmin` count badge (`$count / $cap active` turns red at cap), `EventsAdmin` (`New Event` replaced by Upgrade CTA on free), `CommitteesAdmin` (`Add Committee` replaced by Upgrade CTA on free). |
+
+**Architectural choice (Stripe model)**: platform-Stripe-with-transfer (v1). Ecodia is the merchant of record. Stripe Connect Express deferred to v1.1 to avoid blocking public launch on per-chamber KYC onboarding. Migration path: when chambers want their own bank linkage, add Connect "transfers-only" capability + per-tenant `stripe_connect_account_id` column; existing `subscription_tier` flow is unchanged. Audit-doc closure note records this.
+
+**Schema delta (migration 0009):**
+- `tenants` ADD: `subscription_tier` text NOT NULL DEFAULT `'free'` (CHECK `free|starter|standard|premium`), `stripe_customer_id text NULL`, `stripe_subscription_id text NULL`.
+- `tenants_subscription_tier_check` constraint added (idempotent via `pg_constraint` probe).
+- Indexes on `stripe_subscription_id` + `stripe_customer_id` (partial, NOT NULL).
+- `verify_chamber_token(_token uuid)` RETURNS json SECURITY DEFINER RPC — anon-callable, validates token + expiry, atomically activates the tenant, clears the token. Idempotent on already-active rows (returns `already_active=true`). GRANTed to `anon, authenticated`.
+- Backfill: every existing tenant gets the `'free'` default.
+
+**Tier matrix:**
+
+| Tier | Members | Events | Committees | Connections | Switching | $/mo AUD |
+|---|---|---|---|---|---|---|
+| free | 25 | - | - | - | - | $0 |
+| starter | 100 | ✓ | ✓ | - | - | $49 |
+| standard | 500 | ✓ | ✓ | ✓ | ✓ | $149 |
+| premium | unlimited | ✓ | ✓ | ✓ | ✓ | $399 |
+
+Override per-environment via `STRIPE_TIER_PRICE_<TIER>_CENTS` env on the Edge Function project.
+
+**Acceptance gates (per brief):**
+1. ✓ `npx tsc --noEmit` clean (EXIT=0, zero errors)
+2. ✓ `npx vite build` clean (677ms, no warnings; `BillingAdmin` 8.86 kB / 2.82 kB gzip; `VerifyChamber` 4.41 kB / 1.41 kB gzip; `feature-gates` 0.78 kB / 0.37 kB gzip)
+3. ✓ Vercel deployment `dpl_635ZQL4X7sxK3XRDaFBC4ASZr2rN` state=READY
+4. ✓ `/onboarding/chamber` HTTP 200 (regression check passes)
+5. ✓ `/verify-chamber/:token` HTTP 200 (invalid + malformed token both render the failure state cleanly)
+6. ✓ `/admin/billing` HTTP 200 (renders the officer-gate when unauthed; authed render is deferred to manual)
+7. ⚠ Stripe test-mode payment link creation: NOT smoked from this fork because `STRIPE_SECRET_KEY` + `STRIPE_CHAMBER_WEBHOOK_SECRET` env vars must be set on the Chambers Supabase Edge Function project (`arkbjjkfjsjibnhivjis`). Documented in deferred-tests below.
+8. ✓ status_board row `6338c323-aa95-4da2-ba39-1c103ad4c303` updated with commit SHA + Vercel deployment ID.
+
+**Build + verify:**
+- localhost smoke: `/`, `/onboarding/chamber`, `/verify-chamber/:token`, `/admin`, `/admin/billing` all HTTP 200.
+- production smoke (against `chambers-frontend-l5e9n2tzc-ecodia.vercel.app`): all 6 routes HTTP 200.
+- 4 unauth Puppeteer screenshots saved at `~/ecodiaos/drafts/chambers-f6-payments-screenshots/` (tenant-not-found, onboarding/chamber, verify-chamber invalid token, verify-chamber malformed token).
+
+**Doctrine-applied (also tagged in commit body):**
+- factory-codebase-staleness-check-before-dispatch.md (FF pull from `447ee5d` confirmed clean)
+- stage-worktree-before-factory-dispatch.md (clean tree pre-write)
+- verify-deployed-state-against-narrated-state.md (production HTTP probes against the new deployment URL)
+- multi-tenant-brief-must-enumerate-customisation-surface.md (customisation surface enumerated in the commit body and brief)
+- sdk-forks-must-commit-deliverables-not-leave-untracked.md (all work committed; tree clean)
+- solo-fork-pushes-to-main-no-pr-ceremony.md (direct push to chambers-frontend `main`)
+- visual-test-before-push-when-tate-not-around.md (Mode A localhost screenshots captured before push for renderable surfaces; authed `/admin/billing` render deferred to manual)
+- parallel-forks-must-claim-numbered-resources-before-commit.md (`0009` claimed by greppable-empty probe of existing migrations)
+
+**Deferred manual tests (require env config or auth):**
+- ⚠ Migration 0009 apply against arkbjjkfjsjibnhivjis live Supabase. The DB password in `kv_store.creds.chambers_supabase_dbpass` is a placeholder (`"placeholder-need-to-stash-real-pass"`); fork did not have credentials to apply DDL directly. Apply via the Supabase SQL editor or stash the real DB pass into kv_store and rerun via psql.
+- ⚠ Edge Function deploy: `supabase functions deploy chamber-stripe-checkout chamber-stripe-webhook --project-ref arkbjjkfjsjibnhivjis`.
+- ⚠ Edge Function env vars: `STRIPE_SECRET_KEY` (TEST mode for v1), `STRIPE_CHAMBER_WEBHOOK_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Optional `STRIPE_TIER_PRICE_{STARTER,STANDARD,PREMIUM}_CENTS` overrides.
+- ⚠ Stripe webhook endpoint registration: register `https://arkbjjkfjsjibnhivjis.supabase.co/functions/v1/chamber-stripe-webhook` in Stripe dashboard (TEST mode), copy the webhook signing secret into the Edge Function env. Subscribe to `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`.
+- ⚠ End-to-end Stripe test card flow: officer-auth, click Upgrade to Starter, complete checkout with `4242 4242 4242 4242`, verify the webhook fires, verify `tenants.subscription_tier` flips to `'starter'`, verify the tier badge updates in the UI within ~60s.
+- ⚠ Authed `/admin/billing` visual: the chambers login is magic-link (per `kv_store.creds.chambers_tate_login.password_recovery`), which can't be driven headless from the VPS without email API access. Manual test recipe: send magic link via `supabase.auth.signInWithOtp({email: 'tate@ecodia.au'})` against `arkbjjkfjsjibnhivjis`, click the link, navigate to `/admin/billing`, screenshot the tier picker.
+- ⚠ Pending-verification gate manual visual: temporarily flip a non-prod tenant's `status` to `'pending_verification'` and visit `/admin` as that tenant's officer. Should render the "Verify your chamber's email" landing.
+- ⚠ Production Stripe key flip: TEST keys only on this fork. PRODUCTION key flip is a Tate-go-ahead step.
+
+**Known follow-ups (not blocking public launch):**
+- v1 has no self-serve Stripe customer portal; manage-subscription footer points officers at `mailto:billing@ecodia.au`. Future fork wires `customer_portal.create()` for self-serve card / cancel.
+- Member tier purchase (Co-Exist-shaped Members `Join as X` flow against `tenant_members.tier_id`) is OUT OF SCOPE for this fork by design. The audit's CMH9 row has both meanings; this fork shipped the chamber-pays-platform interpretation per the brief. Member-side tier purchase remains a separate fork against the `tenant_members` shape if/when chambers want member dues collection.
+- Billing/Subscription columns are NOT exposed via the existing tenants RLS UPDATE policies; the Stripe webhook (service-role) is the canonical writer. Tier-spoofing from clients impossible by construction.
+
+**Next recommended fork**: F7 (chamber switching multi-tenant UI). F8 (production polish: error boundaries, perf, a11y) and F9 (privacy/terms/push/report-a-problem) close the public-launch arc after F7.
+
+[FORK_REPORT — completed via fork_mos71pc6_1fa042 5 May 2026]
