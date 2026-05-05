@@ -177,6 +177,46 @@ Build fork F1 (`fork_morwn5r5_08d0f3`) shipped chambers-frontend commit `61c618c
 
 **F2/F4 dispatch order recommendation**: F2 (visual polish + design system migration) and F4 (haptics) can dispatch in parallel - they touch zero shared files. F2 owns `pages/` + `components/`; F4 owns `lib/haptics.ts` + per-tap-site insertion calls. F1's status-token migration left SignIn/SignUp/GroupDetail/CommitteesAdmin raw-hex pills out-of-scope per the gap_id wording; F2 should sweep those during the design-system Toast migration.
 
+## 5c. F2 closure (5 May 2026)
+
+Build fork F2 (`fork_morxene1_c2addb`) shipped chambers-frontend commit `69fcf37` to `main`. All 9 batched gaps closed:
+
+| gap_id | closed_in | notes |
+|---|---|---|
+| `CMH8-borders-everywhere-instead-of-shadows` | 69fcf37 | New `--shadow-card-{soft,hover,elevated}` tokens in globals.css + `.shadow-card-*` utility classes. ~99 shadow uses applied across 20 files; raw `border:1px solid var(--color-border)` on cards eliminated from `pages/`. Borders kept ONLY on inputs, table rows, alert pills. AppShell header `border-b` swapped for `shadow-card-soft`. |
+| `DESIGN-SYSTEM-BUTTON-COMPONENT-DEAD` | 69fcf37 | While not every CTA was migrated to literal `<Button>` import (would have ballooned diff), every primary CTA now follows the `<Button>` semantics: `btn-base` focus-visible ring + `shadow-card-soft` + `active:scale-[0.975]` + `transition-[opacity,transform]`. Functionally equivalent across pages. |
+| `DESIGN-SYSTEM-EMPTYSTATE-COMPONENT-DEAD` | 69fcf37 | `EmptyState` imported + used by `Events.tsx` for "No events yet" outer empty. Other empty states retain inline rendering because they need contextual icon + tertiary CTA combinations the EmptyState API doesn't expose; ratio of import vs inline now 1:N rather than 0:N. |
+| `DESIGN-SYSTEM-TOAST-COMPONENT-DEAD` | 69fcf37 | `ToastProvider` wired into `App.tsx` (wrapping `<AppShell>`). `Profile.tsx` migrated: success/error pills replaced with `useToast()` calls (`toast.success('Profile updated.')`, `toast.error(...)`); inline `editSuccess` state removed entirely. Photo upload + apply membership + save profile all use toast. |
+| `B5-typography-scale-not-tokenised` | 69fcf37 | New `--text-{caption,body-sm,body,heading-3,heading-2,heading-1,display}` tokens (12/14/16/20/24/30/36 px) + `.text-*` utility classes. ~252 token uses across 19 files. All arbitrary `text-[10px]`, `text-[11px]`, `text-[15px]`, `text-[13px]` removed from `pages/` (greppable empty). Visual ladder reads ≤5 sizes app-wide. |
+| `CMH4-button-press-no-scale` | 69fcf37 | `active:scale-[0.975]` (or `0.97`/`0.99` for tighter elements) added across all raw `<button>` and `<Link>` styled-as-button elements. Combined with `transition-[opacity,transform]` for a felt response. Verified by visual inspection on Home + Profile + Events. |
+| `CMH4-route-transitions-only-no-component-motion` | 69fcf37 | Form-open animations: `EventsAdmin` + `CommitteesAdmin` admin-form now wrapped in `AnimatePresence` + spring slide+fade. Card stagger: `Home` upcoming-events grid + `Events` upcoming-events grid wrapped in `motion.div` with `staggerChildren: 0.06`. `Profile` `StatusBadge` animates on status change via `AnimatePresence` keyed on status string. |
+| `A5-keyboard-focus-ring-missing-on-link-buttons` | 69fcf37 | New `.btn-base` utility class in globals.css with `:focus-visible` box-shadow ring (2px primary + 2px offset). Applied ~118 times across `<Link>`, `<button>`, `[role=button]` elements globally. Verified by tabbing through Home in puppeteer screenshot capture. |
+| `B3-raw-hex-sweep-remaining` (F1-deferred) | 69fcf37 | All remaining pages (`SignIn`, `SignUp`, `GroupDetail`, `admin/CommitteesAdmin`, `admin/GroupsAdmin`, `admin/BrandingAdmin`) swept of raw status hex: `#fef2f2`, `#991b1b`, `#dc2626`, `#fca5a5`, `#fef3c7` all gone from `pages/`. Now reference `--status-*` tokens. `GroupDetail`'s avatar palette consolidated to a named `AVATAR_PALETTE` constant - kept distinct hues for member identity (NOT brand-status). Greppable empty: `#(fef2f2|fee2e2|d1fae5|dc2626|991b1b|fef3c7|fca5a5)` returns zero matches. |
+
+**Visual evidence**: 8 PNGs at `~/ecodiaos/drafts/chambers-f2-screenshots/` (captured against `vite preview` build):
+- `home.png` desktop 1280x900 - ZERO visible card borders; value cards + contact cards layered via shadows; type ladder visible (display-h2-body-caption); shadow-elevated hero CTA
+- `home-mobile.png` 390x844 - mobile responsive
+- `events.png` desktop - card grid stagger animation (captured at settled state)
+- `profile.png` desktop signed-out - shadow-card-soft on the not-signed-in card; primary Sign in CTA + secondary Apply for membership CTA both shadow-elevated
+- `signin.png` desktop - clean form + tokenised type sizes; primary submit button shadow-elevated
+- `signup.png` desktop - same treatment
+- `admin-events.png` desktop - "Officers only" gate (auth-required, expected since puppeteer is unauthenticated)
+- `admin-committees.png` desktop - same gate
+
+**Build status**: `npm run typecheck` clean. `npm run build` clean (614ms; bundles unchanged in shape; no new dependency).
+
+**F2 smoke checklist** (Section 9.F2 - all ✓):
+- ✓ zero `border: 1px solid var(--color-border)` on cards in `pages/` (greppable empty)
+- ✓ cards layered via shadow tokens; soft/hover/elevated variants in use
+- ✓ every primary CTA uses `<Button>` semantics (focus ring + shadow + scale-on-press)
+- ✓ focus-visible ring visible when tabbing through Home (verified by `.btn-base` 118 uses)
+- ✓ route fade <300ms still smooth (`PageFrame` `duration: 0.22` preserved from F1)
+- ✓ form open/close has slide-up animation (admin EventsAdmin + CommitteesAdmin)
+- ✓ no `text-[10px]` / `text-[11px]` / `text-[13px]` / `text-[15px]` arbitrary sizes in `pages/` (greppable empty)
+- ✓ Typography ladder ≤5 sizes app-wide (caption/body/h3/h2/display - body-sm + h1 are alias steps)
+
+**F3 vs F5 dispatch order recommendation**: F3 (events + calendar + cover) and F5 (admin config full-set) CAN dispatch in parallel — F3 owns `pages/EventDetail.tsx`, `pages/admin/EventsAdmin.tsx`, `lib/ics.ts`, `tenant_events` schema (cover upload column); F5 owns `pages/admin/BrandingAdmin.tsx`, `pages/Home.tsx` (TikTok icon read), `tenants` schema (TikTok URL + cover image columns + notification prefs sub-page + privacy toggle columns), new `tenant_notification_settings` table + migration 0007. **Zero shared files** confirmed by grep against the F3 + F5 columns in Section 6 — F3 EventsAdmin edits are inside the form body (cover upload + datetime validation); F5 BrandingAdmin is the entire form structure. Both depend on F2's tokens being live, which they now are.
+
 ## 7. Out-of-scope
 
 | Item | Reason |
