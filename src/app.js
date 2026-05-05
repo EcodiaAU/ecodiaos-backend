@@ -54,6 +54,16 @@ app.use(cors({
   allowedHeaders: ['Authorization', 'Content-Type', 'Mcp-Session-Id', 'Mcp-Protocol-Version', 'X-Requested-With'],
 }))
 app.use(compression())
+
+// ── Webhook routes — MUST mount BEFORE express.json() ───────────────────
+// Vercel + Stripe webhook handlers need the raw request body for HMAC
+// signature verification. Each router declares its own express.raw() body
+// parser scoped to the route, so once we hand the request off the global
+// JSON middleware below cannot strip the bytes we need to verify.
+// (Wave C C1, fork_mosn8o5x_7a0e54, 5 May 2026)
+app.use('/api/webhooks/vercel', require('./routes/webhooks/vercel'))
+app.use('/api/webhooks/stripe', require('./routes/webhooks/stripe'))
+
 app.use(express.json({ limit: '5mb' }))
 app.use(express.urlencoded({ extended: false }))
 

@@ -676,6 +676,17 @@ server.listen(env.PORT, async () => {
   }
   process.stderr.write('[boot] post-perceptionDispatcher\n')
 
+  // ── Boot: Filesystem Watcher (publisher for doctrine_authored matcher) ──
+  // Watches ~/ecodiaos/patterns/*.md and publishes pattern_file_<created|updated>
+  // perception events. Wave C C1, fork_mosn8o5x_7a0e54.
+  try {
+    const fsWatcher = require('./services/fsWatcher')
+    fsWatcher.start()
+  } catch (err) {
+    logger.warn('fsWatcher failed to start (non-fatal)', { error: err.message })
+  }
+  process.stderr.write('[boot] post-fsWatcher\n')
+
   // ── Boot: Pattern Evolution (Layer 10) ───────────────────────────
   try {
     const patternEvolution = require('./services/patternEvolution')
