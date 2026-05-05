@@ -1,10 +1,36 @@
 #!/usr/bin/env node
 /**
- * Scheduler MCP Server - persistent, database-backed task scheduling.
- * 
- * Two responsibilities:
- * 1. MCP tools for creating/managing scheduled tasks
- * 2. Background polling loop that fires due tasks at the OS session
+ * Scheduler MCP Server - MCP tool surface ONLY.
+ *
+ * Single responsibility: expose schedule_cron / schedule_delayed / schedule_chain /
+ * schedule_list / schedule_cancel / schedule_pause / schedule_resume /
+ * schedule_run_now / os_signal_handoff to whichever Claude session loads this
+ * stdio MCP server.
+ *
+ * Polling is OWNED by `src/services/schedulerPollerService.js` inside the
+ * persistent ecodia-api process. That poller is the single canonical fire path
+ * and it routes every cron through `cronForkDispatcher` / `cronPriority.js` so
+ * non-`meta-loop` crons spawn ephemeral forks instead of polluting the
+ * conductor's chat stream.
+ *
+ * History (5 May 2026): this MCP server previously ran its own setInterval
+ * polling loop (`pollOnce` -> `fireTask` -> POST /api/os-session/message),
+ * which DUPLICATED the canonical poller and bypassed the fork-route entirely.
+ * Every Claude session that loaded this stdio server brought up a parallel
+ * poller that POSTed cron prompts straight into the conductor's message queue.
+ * That was the proximate cause of `[SCHEDULED: telemetry-dispatch-consumer]`,
+ * `[SCHEDULED: vercel-deploy-monitor]`, `[SCHEDULED: kg-consolidation]`, etc.
+ * still landing in chat after the 4 May 2026 routing fix shipped: the
+ * canonical poller respected the fork-route, this duplicate one did not.
+ *
+ * Tate verbatim 5 May 2026 ~12:09 AEST: "bro youshouldnt be dealing with this
+ * shit... why has this poluted the conductor chat... put that shit in a fork
+ * in future by default."
+ *
+ * `fireTask` is preserved (used by `schedule_run_now`) but no longer fires on
+ * its own schedule - only when explicitly invoked by an MCP tool call.
+ *
+ * Doctrine: ~/ecodiaos/patterns/crons-route-to-forks-by-default.md.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -13,7 +39,8 @@ import postgres from 'postgres'
 
 const db = postgres(process.env.DATABASE_URL, { max: 3, idle_timeout: 30 })
 const API_PORT = process.env.PORT || 3001
-const POLL_INTERVAL = 30_000 // 30 seconds
+// POLL_INTERVAL removed 5 May 2026: polling is owned by ecodia-api/
+// schedulerPollerService.js. See header comment.
 const TZ_OFFSET_HOURS = 10 // Australia/Brisbane (AEST, no DST)
 
 const server = new McpServer({ name: 'scheduler', version: '1.1.0' })
@@ -222,60 +249,19 @@ async function fireTask(task) {
   }
 }
 
-// ── Polling loop - check for due tasks every 30s ──
-
-async function isSessionBusy() {
-  try {
-    const res = await fetch(`http://127.0.0.1:${API_PORT}/api/os-session/status`, {
-      signal: AbortSignal.timeout(5000),
-    })
-    const status = await res.json()
-    return status.active === true || status.status === 'streaming'
-  } catch {
-    return false // If we can't check, assume not busy
-  }
-}
-
-async function pollOnce() {
-  try {
-    const now = new Date()
-    const dueTasks = await db`
-      SELECT * FROM os_scheduled_tasks
-      WHERE status = 'active' AND next_run_at IS NOT NULL AND next_run_at <= ${now}
-      ORDER BY next_run_at
-    `
-    if (dueTasks.length === 0) return
-
-    // Skip if session is already busy - reschedule overdue tasks
-    const busy = await isSessionBusy()
-    if (busy) {
-      console.error(`[Scheduler] Session busy - skipping ${dueTasks.length} due task(s), will retry next poll`)
-      return
-    }
-
-    // Only fire one task per poll cycle to avoid flooding
-    const task = dueTasks[0]
-    await fireTask(task)
-
-    // Reschedule remaining overdue crons to next interval (don't stack them)
-    for (const t of dueTasks.slice(1)) {
-      if (t.type === 'cron') {
-        const nextRun = computeNextRun(t.cron_expression)
-        await db`UPDATE os_scheduled_tasks SET next_run_at = ${nextRun} WHERE id = ${t.id}`
-        console.error(`[Scheduler] Rescheduled overdue "${t.name}" to ${nextRun}`)
-      }
-    }
-  } catch (err) {
-    console.error(`[Scheduler] Poll error: ${err.message}`)
-  }
-}
-
-// Start polling
-setInterval(pollOnce, POLL_INTERVAL)
-// Also poll immediately on startup to catch overdue tasks
-setTimeout(pollOnce, 5000)
-
-console.error('[Scheduler] Polling loop started (every 30s)')
+// ── Polling loop REMOVED 5 May 2026 ─────────────────────────────────────────
+// The previous setInterval(pollOnce, 30s) + setTimeout(pollOnce, 5s) loop +
+// pollOnce + isSessionBusy lived here. They duplicated the canonical poller
+// in ecodia-api (`src/services/schedulerPollerService.js`) and bypassed the
+// fork-route by POSTing every fire to /api/os-session/message via fireTask().
+// That was the root cause of `[SCHEDULED: <name>]` cron prompts continuing to
+// pollute the conductor's chat stream after the 4 May 2026 routing fix
+// (commit df030e7) shipped. The canonical poller respects the fork-route;
+// this stdio MCP server's duplicate did not. See header doctrine block.
+//
+// Polling is now owned solely by ecodia-api. This stdio server is a pure MCP
+// tool surface.
+// ────────────────────────────────────────────────────────────────────────────
 
 // ── Connect MCP ──
 
