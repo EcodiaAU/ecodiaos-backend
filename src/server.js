@@ -426,6 +426,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('credentialRedactionMonitor failed to start', { error: err.message })
   }
+  process.stderr.write('[boot] post-credentialRedactionMonitor\n')
 
   // ── Boot: Claude Token Refresh ────────────────────────────────────
   // Proactively refreshes OAuth tokens before they expire so the VPS
@@ -438,6 +439,7 @@ server.listen(env.PORT, async () => {
       logger.warn('Claude token refresh service failed to start', { error: err.message })
     }
   }
+  process.stderr.write('[boot] post-claudeTokenRefreshService\n')
 
   // ── Boot: Security Incident Response wiring (§7.2) ────────────────
   // Injects the four actuator closures the securityIncidentResponse
@@ -524,6 +526,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('securityIncidentResponse.wireServices failed to boot', { error: err.message })
   }
+  process.stderr.write('[boot] post-securityIncidentResponse.wireServices\n')
 
   // ── Boot: iMessage path health check (Tate-directed 4 May 2026) ───
   // 6h cron. SSH-probes SY094 (sshpass + pgrep Messages.app), writes
@@ -537,6 +540,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('imessagePathHealthCheck failed to start', { error: err.message })
   }
+  process.stderr.write('[boot] post-imessagePathHealthCheck\n')
 
   // ── Boot: Rescue Service (api-side subscriber) ────────────────────
   // Subscribes to Redis channels published by the ecodia-rescue process
@@ -549,6 +553,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Rescue service failed to load', { error: err.message })
   }
+  process.stderr.write('[boot] post-rescueService\n')
 
   // ── Boot: Nightly Restart ─────────────────────────────────────────
   // Scheduled `pm2 restart ecodia-api` at 03:00 AEST with a T-5min heads-up
@@ -563,6 +568,7 @@ server.listen(env.PORT, async () => {
       logger.warn('Nightly restart service failed to start', { error: err.message })
     }
   }
+  process.stderr.write('[boot] post-nightlyRestartService\n')
 
   // ── Boot: Process Restart Alert + Alive Beacon ────────────────────
   // Emails Tate when ecodia-api restarts. Uses kv_store to record the
@@ -625,6 +631,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Process restart alert setup failed', { error: err.message })
   }
+  process.stderr.write('[boot] post-processRestartAlert\n')
 
   // ── Boot: Session Auto-Wake ───────────────────────────────────────
   // If a recent handoff state exists, fires a wake message after 15s so the
@@ -634,6 +641,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Session auto-wake setup failed (non-fatal)', { error: err.message })
   }
+  process.stderr.write('[boot] post-sessionAutoWake\n')
 
   // ── Boot: Listener Subsystem ──────────────────────────────────────
   // Always-on in-process Haiku agents that read the WS event stream
@@ -646,6 +654,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Listener subsystem failed to start', { error: err.message })
   }
+  process.stderr.write('[boot] post-listenerSubsystem\n')
 
   // ── Boot: Proactivity Engine (Layer 2) ───────────────────────────
   if (!CONDUCTOR_DETACHED) {
@@ -656,6 +665,7 @@ server.listen(env.PORT, async () => {
       logger.warn('Proactivity engine failed to start (non-fatal)', { error: err.message })
     }
   }
+  process.stderr.write('[boot] post-proactivityEngine\n')
 
   // ── Boot: Perception Dispatcher (universal domain-reactive listener) ──
   try {
@@ -664,6 +674,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Perception dispatcher failed to start (non-fatal)', { error: err.message })
   }
+  process.stderr.write('[boot] post-perceptionDispatcher\n')
 
   // ── Boot: Pattern Evolution (Layer 10) ───────────────────────────
   try {
@@ -672,6 +683,7 @@ server.listen(env.PORT, async () => {
   } catch (err) {
     logger.warn('Pattern evolution failed to start (non-fatal)', { error: err.message })
   }
+  process.stderr.write('[boot] post-patternEvolution\n')
 })
 
 // ── Boot: Conditional Auto-wake OS Session ───────────────────────────
