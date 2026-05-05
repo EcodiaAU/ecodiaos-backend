@@ -56,7 +56,13 @@ const LISTENER_FILES = [
 const EXPECTED_LOADED_COUNT = LISTENER_FILES.length - 1
 
 let _listeners = []
-const _inFlight = new Map() // listener name -> boolean
+const _inFlight = new Map()    // listener name -> boolean (currently processing)
+const _pending = new Map()     // listener name -> [{event, ctx}, ...] (queued, FIFO)
+const _drops = new Map()       // listener name -> drop count (counter for /api/ops/listener-stats)
+// Per-listener queue cap. Empirically 5-event fork-burst observed in the
+// wild; 10 = 2× headroom. Bigger = more memory, smaller = more drops on burst.
+// Memory cost: 8 listeners × 10 events × ~1KB envelope ≈ 80KB worst case.
+const QUEUE_LIMIT = 10
 
 // Synchronous stderr write — bypasses winston async-buffer log loss observed
 // during boot. PM2 captures stderr to ecodia-api-err.log directly, so these
@@ -161,24 +167,51 @@ async function dispatch(event, _testListeners) {
     }
     if (!relevant) continue
 
-    // Concurrency cap — drop if handler already in-flight
-    if (_inFlight.get(listener.name)) {
-      logger.info(`listener ${listener.name}: dropping event (concurrency cap, handler in-flight)`, { type: event.type })
-      continue
-    }
-
+    // Concurrency cap with bounded queue: handler-in-flight events queue
+    // (FIFO, capped at QUEUE_LIMIT). Drops counted in _drops, surfaced via
+    // /api/ops/listener-stats (B3). Per drafts/proposed-design-fixes/03-bounded-queue-not-drop.md.
     const sourceEventId = event.ws_seq != null
       ? String(event.ws_seq)
       : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
     const ctx = { sourceEventId }
 
+    if (_inFlight.get(listener.name)) {
+      const q = _pending.get(listener.name) || []
+      if (q.length >= QUEUE_LIMIT) {
+        _drops.set(listener.name, (_drops.get(listener.name) || 0) + 1)
+        logger.warn(`listener ${listener.name}: queue full, dropping event`, {
+          type: event.type, queueLen: q.length, totalDrops: _drops.get(listener.name),
+        })
+        continue
+      }
+      q.push({ event, ctx })
+      _pending.set(listener.name, q)
+      continue
+    }
+
     _inFlight.set(listener.name, true)
     try {
       await listener.handle(event, ctx)
+      // Drain queue: one event at a time, preserves FIFO order. Drains
+      // until empty or until a queued handler throws (logged, then continues).
+      while (true) {
+        const q = _pending.get(listener.name)
+        if (!q || q.length === 0) break
+        const { event: nextEvent, ctx: nextCtx } = q.shift()
+        try {
+          await listener.handle(nextEvent, nextCtx)
+        } catch (err) {
+          logger.warn(`listener ${listener.name}: queued handler threw`, { error: err.message })
+        }
+      }
     } catch (err) {
       logger.warn(`listener ${listener.name}: handler threw`, { error: err.message })
     } finally {
       _inFlight.delete(listener.name)
+      // Clean up empty queue maps so /api/ops/listener-stats reports
+      // queue_depth=0 cleanly without stale entries.
+      const q = _pending.get(listener.name)
+      if (q && q.length === 0) _pending.delete(listener.name)
     }
   }
 }
@@ -221,6 +254,11 @@ module.exports = {
   registerAll,
   dispatch,
   getListeners,
+  // Telemetry exports for /api/ops/listener-stats (B3)
+  _drops,
+  _pending,
+  _inFlight,
+  QUEUE_LIMIT,
   // Exported for test access and for the boot-time assertion in index.js
   EXPECTED_LOADED_COUNT,
   LISTENER_FILES,
