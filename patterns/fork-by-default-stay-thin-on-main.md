@@ -1,16 +1,27 @@
 ---
-triggers: spawn_fork, fork-by-default, fork-decompose, multi-stream-fork, conductor-routing, mid-task-input, fork-vs-main, conductor-thin, fork-work-doer, list_forks, abort_fork, mcp__forks, fork-mode, fork-sub-session, parallel-fork-work, route-vs-execute
+triggers: spawn_fork, fork-by-default, fork-decompose, multi-stream-fork, conductor-routing, mid-task-input, fork-vs-main, conductor-thin, fork-work-doer, list_forks, abort_fork, mcp__forks, fork-mode, fork-sub-session, parallel-fork-work, route-vs-execute, artefact-test, deliverable-test, per-arc-vs-per-step, NOT-APPLIED-chain, fork-by-default-exemption, doctrine-correction-6-may-2026, context_mode-recent
 ---
 
 # Fork by default, stay thin on main
 
-## The rule
+## The rule (updated 6 May 2026 — artefact-vs-no-artefact test)
 
-If a piece of work will take more than ~2 turns AND does not need mid-flight conversational steering, fork it. Main is the thin conversation-handler. The fork is the work-doer with 100% of main's context at spawn-time.
+**DEFAULT: fork.** Use `mcp__forks__spawn_fork` with `context_mode: 'recent'` (which inherits the full recent conversation tail; there is no `'full'` option even though that's the natural mental model — the SDK option is `recent`, do not search for `'full'`).
+
+**NOT-APPLIED only when the operation produces NO artefact.** That is the test. Not "is this step quick", not "is this under 30 seconds", not "is this a single tool call". The test is: when the entire arc finishes, did it produce a durable output?
+
+- If YES (a commit, a pushed deploy, a pattern file, a multi-row UPDATE, a Neo4j Decision/Pattern/Episode, a code change, a Stripe charge, an outbound email or SMS, a status_board sweep that touches more than the row Tate explicitly named, a kv_store write that downstream code or future-me will read) → **fork**, regardless of how short each step looks.
+- If NO (a single diagnostic probe — `db_query`, `pm2_list`, `pm2_logs`, `git status`, `git log -5` — or a single read — `Read`, `Grep`, `Glob`, `graph_query` orientation — or a single capture of Tate's directive into status_board where the row IS the capture) → main is fine.
+
+The conductor's correct job is routing and coordination. If main is producing artefacts, main is doing the work, and the work belongs in a fork.
+
+The full rule statement and worked example live in [`fork-by-artefact-not-by-quickness.md`](fork-by-artefact-not-by-quickness.md). This file remains the canonical entry point with reflex/protocol/rolled-up-view sections; the artefact-test sibling holds the rule and the failure mode it corrects.
 
 ## Why this is the default (not an exception)
 
-A fork is a clone of the conductor at T=now. It inherits the recent conversation tail (`context_mode=recent`, the default) so its first move is exactly the move main would have made. The reason forks initially feel costly is the assumption that work needs steering. Most work does not. It needs context-at-spawn-time, which forks have natively.
+A fork is a clone of the conductor at T=now. It inherits the recent conversation tail (`context_mode: 'recent'`, the default) so its first move is exactly the move main would have made. The reason forks initially feel costly is the assumption that work needs steering. Most work does not. It needs context-at-spawn-time, which forks have natively.
+
+**Per-step quickness is the wrong heuristic.** Each individual tool call usually IS quick — a single `Read`, a single `Edit`, a single `git push`, a single `graph_merge_node`. Per-step evaluation chains exemptions: the conductor walks through ten "quick" steps citing `[NOT-APPLIED]` on each because no individual step trips a 30-second-or-multi-step threshold. By step 10, ten minutes of conductor time have produced multiple artefacts and Tate has been waiting on a thin conductor that turned out not to be thin. Evaluate per-arc, not per-step. If the entire arc will produce any durable artefact, the entire arc was fork-scale at step 1. See [`fork-by-artefact-not-by-quickness.md`](fork-by-artefact-not-by-quickness.md).
 
 The conductor's correct job is routing and coordination, not execution:
 
@@ -23,19 +34,21 @@ When main does the work itself, every Tate message lands on the same context as 
 
 ## Do
 
+- Default to spawning a fork for ANY arc that will produce an artefact (commit, pattern file, multi-row UPDATE, Neo4j node, deploy, email/SMS, Stripe action, kv_store write read by downstream code). The artefact test is canonical — see [`fork-by-artefact-not-by-quickness.md`](fork-by-artefact-not-by-quickness.md).
 - Default to spawning a fork for any cron-fired work with phases (e.g. silent-loop-detector phases 1-7, meta-loop phases 2-6, deep-research session).
 - Default to forking when Tate sends a directive that decomposes into 2+ independent pieces.
-- Default to forking when investigation needs 3+ tool calls and the result will be a verdict (not a stream of decisions).
-- Use `context_mode=recent` (default). The fork inherits everything it needs.
+- Use `context_mode: 'recent'` (default). It inherits the full recent conversation tail. There is no `'full'` option even though that's the natural mental model — `recent` is the SDK name.
 - Write the brief like a complete handover: goal, constraints, what counts as done, where to write durable state. The fork has 100% of recent context, but its [FORK_REPORT] back to you must be readable from cold-start.
 - Call `list_forks` at the end of any message where forks are running, so Tate sees what's in flight.
 
 ## Do not
 
-- Do not fork trivial questions you can answer in one turn. The slot is precious.
-- Do not fork work that genuinely needs mid-flight steering (live negotiation, ambiguous spec where the next decision depends on what the previous one revealed). Those stay on main.
+- Do NOT chain `[NOT-APPLIED]` tags through an artefact-producing arc citing per-step quickness. The arc is fork-scale even if every step looks single-target. The 6 May 2026 ensure-deps fix arc (14 chained `[NOT-APPLIED]` tags across 10 minutes producing 6 artefacts) is the canonical failure mode this rule corrects.
+- Do not fork trivial questions you can answer in one turn that produce no artefact (a status update to Tate, a single read, a clarifying answer). The slot is precious.
+- Do not fork work that genuinely needs mid-flight steering (live negotiation with Tate where each next decision depends on what the previous one revealed). Those stay on main.
 - Do not spawn a fork on a codebase that already has a Factory session running on it, or that another fork is already touching. Worktree collision risk.
 - Do not let yourself sit and wait for a fork mid-stream. You cannot see its progress. Spawn, return to main work, and read the report when it arrives.
+- Do not author hindsight-detection rules ("if you cite NOT-APPLIED 3 times in a row then fork"). Tate has explicitly rejected this framing — the fix is the bar to NOT fork is HIGHER, not "detect you've been failing and switch mid-stream".
 
 ## Protocol when Tate gives a directive mid-task
 
@@ -79,6 +92,12 @@ If the first batch of tool calls in response to a multi-stream directive does NO
 Apr 27 2026 conversation with Tate. Tate reframed forks: "the whole point is that they have the exact same context as you at the moment of forking, so the path they travel should theoretically be exactly what you would have done. Right now if I have a thought while you're doing a task, me sending it is just overloading your context, so it would be better for you to create a clone to do the work, and the version of you that I'm talking to is just able to checking in by asking the forks what they're up to or checking in on them. It's kinda just like an agent but with 100% of your context at fork time."
 
 Before this reframe, my heuristic was "fork if independent and >10s." That's too narrow and led to repeatedly serialising forkable work. The corrected heuristic is "fork if Tate might say something to me before this finishes, AND the work doesn't need conversational steering" - which covers almost all proactive work.
+
+## Worked example — the failure mode this rule corrects (6 May 2026)
+
+09:00-09:11 AEST. Conductor diagnosed a 4.7-day api restart loop and shipped the fix on main. Arc: `Read` of failing module → `Edit` of `package.json` → commit + push → status_board UPDATE → `pm2 restart` → `pm2_logs` verify → status_board UPDATE → pattern file Write → commit + push → `graph_merge_node` Decision → `graph_merge_node` Pattern → `graph_create_relationship` → reflection write. Total: ~10 minutes, 2 commits, 2 graph nodes, 2 status_board UPDATEs, 1 pattern file, 1 reflection — six artefacts, 14 `[NOT-APPLIED]` tags chained citing per-step quickness on each.
+
+Per the artefact-test, this whole arc was fork-scale at step 1. Correct response: one `mcp__forks__spawn_fork` call with `context_mode: 'recent'` and a brief naming the bug + the desired artefacts (~5 seconds of conductor time), then the conductor returns to Tate immediately while the fork lands all six artefacts. The 14-tag chain IS the failure mode. The fix is not "detect that the chain is happening and fork mid-stream" (Tate explicitly rejected that as hindsight); the fix is the bar to NOT fork is HIGHER, codified in [`fork-by-artefact-not-by-quickness.md`](fork-by-artefact-not-by-quickness.md).
 
 ## Third-strike enforcement (29 Apr 2026 13:17 AEST)
 
