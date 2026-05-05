@@ -1399,6 +1399,9 @@ async function _sendMessageImpl(content, opts = {}) {
     cwd,
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
+    // SDK auto-detect picks musl binary on Ubuntu (glibc) — override to the
+    // globally installed CLI which always works.
+    pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || undefined,
     // settingSources intentionally omitted — we inline CLAUDE.md ourselves via
     // buildCustomSystemPrompt. Setting it would trigger the CLI's auto-memory
     // subsystem (bl8 in cli.js) on top of our own inlined copy.
