@@ -251,18 +251,26 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 - `eos-laptop-agent` ALWAYS running when laptop on (PM2 auto-start + monitor). Treat reachable by default; only fall back to VPS-only if `/api/health` actually fails
 
 ### SY094 (MacInCloud Mac)
-- SSH: `sshpass -p 'PASSWORD' ssh -o PubkeyAuthentication=no user276189@SY094.macincloud.com`. Optional SSH-tunnel `-L 17456:localhost:7456 -fN` for the on-Mac agent.
 - Token: `creds.macincloud` (under `agent_token`)
 - macOS 15.7.4, Apple Silicon, 16GB, Xcode 26.3
 - Has Claude.app, Cursor, Android Studio, Firefox, Messages.app (signed into Apple ID code@ecodia.au for iMessage primary contact channel)
 
-**Two canonical access paths, neither is the macincloud.com web portal:**
-1. **SSH from VPS** for headless / scripted work (xcodebuild, xcrun altool, simctl headless, git, file CRUD, process listing, iMessage send via osascript). Default for ALL non-GUI work. See ~/ecodiaos/clients/macincloud-access.md.
-2. **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop) for Xcode signing UI, Simulator GUI, Keychain Access, App Store Connect Transporter, Apple Developer signing flows. Microsoft RDP, NOT Citrix. Procedure verified working 4 May 2026 19:43 AEST. Coordinates on 1366x768 Corazon: Show-desktop sliver (1364,766), security checkboxes (550,343)+(550,363), Connect (822,442), Mac login Name (685,275). Target end-to-end <90 seconds with known coords. See ~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md for full step-by-step.
+**Canonical access path is RDP from Corazon. SSH is forbidden as of 5 May 2026.**
 
-**Forbidden** (Tate verbatim 4 May 2026 19:22 AEST): macincloud.com web portal in any browser, desktop.macincloud.com Citrix HTML5, fullscreen Citrix Workspace, third-party VNC. See ~/ecodiaos/patterns/sy094-access-via-ssh-not-macincloud-web-portal.md.
+- **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` — verified 23.6s end-to-end on 4 May 2026.
+- Operate from inside the RDP session: terminal, GUI, agent, all there.
+- The eos-laptop-agent on SY094 MUST be started from inside the RDP terminal so it inherits the GUI Aqua context. SSH-spawned agents are functionally dead.
 
-### How to call (both machines, same API)
+Forbidden access paths (Tate verbatim 4 May 2026 19:22 AEST + 5 May 2026 ~10:58 AEST):
+- macincloud.com web portal in any browser
+- desktop.macincloud.com Citrix HTML5
+- Fullscreen Citrix Workspace
+- Third-party VNC
+- **SSH (`sshpass -p ... ssh user276189@SY094.macincloud.com`)** — added 5 May 2026
+
+See [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](patterns/never-use-ssh-on-macincloud-rdp-only.md) for full doctrine + the diagnosis showing why SSH on SY094 is functionally useless (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
+
+### How to call Corazon API (SY094 calls happen from inside the RDP terminal, not from VPS)
 ```bash
 curl http://100.114.219.69:7456/api/health
 

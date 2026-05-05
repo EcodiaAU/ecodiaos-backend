@@ -4,6 +4,11 @@ triggers: coexist-ios-release, coexist-asc-upload, capacitor-ios-build, capacito
 
 # Co-Exist iOS release recipe — verified end-to-end ~10min from version bump to "Uploaded to Apple"
 
+> **DEPRECATED SSH STEPS — 5 May 2026.** This recipe was authored on a now-forbidden SSH-from-VPS path.
+> SSH on MacInCloud is forbidden per [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](never-use-ssh-on-macincloud-rdp-only.md).
+> Re-author all SSH-driven steps onto the RDP-terminal path on next iOS-release iteration.
+> Until re-authored, this recipe is informational only — DO NOT DRIVE.
+
 End-to-end iOS release pipeline for Co-Exist (`org.coexistaus.app`). Bumps version, pulls latest source on SY094, builds, smoke-tests on iPhone 17 Pro sim, archives signed for distribution, uploads to App Store Connect via the in-Xcode GUI flow. **No Tate-action required for the release-cycle steps anymore** — Apple ID password lives in `kv_store.creds.apple.password` per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`, and Xcode caches the signin in Mac Keychain across sessions.
 
 > **Meta-doctrine:** This is a worked instance of `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`. The MIC entry phase (Phase A) is itself a worked instance of `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md`. Read both before authoring or optimising this recipe further.
