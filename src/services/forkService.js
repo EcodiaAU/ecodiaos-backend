@@ -129,18 +129,48 @@ function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult
       nextStep ? `\nNext step suggested: ${nextStep}` : '',
     ].filter(Boolean).join('\n')
   }
-  // Phantom-bail body — durable inbox record so the conductor can verify-
-  // then-act beyond the 15min rollup window. Carries state.result which
-  // already begins with FALLBACK_MARKER and includes the transcript tail.
+  // Phantom-bail body — TIGHT version (5 May 2026, fork_morzn67x_635460).
+  // Pre-fix this dumped the full brief (2-10KB) + full state.result
+  // (~2080 chars) into main chat every time a fork closed without
+  // [FORK_REPORT]. On 5 May 2026 ALL 16 dispatched forks hit this path
+  // (reasons under investigation — transcript-tail truncation, brief
+  // length, hooks-eating-budget all suspect), producing ~80KB of pollution
+  // in main chat for forks that mostly shipped real work.
+  //
+  // Tate verbatim 5 May 2026 ~12:05 AEST: "a lot of the forks are
+  // converting into queued messages in the main chat… fork should have
+  // sent the report cleanly". The fix doesn't address why the model
+  // doesn't emit the closing tag (separate diagnosis); it stops the
+  // unconditional fallback path from polluting chat.
+  //
+  // Full state.result + full brief are still on disk in os_forks. The
+  // conductor can `mcp__forks__get_fork` or `db_query os_forks WHERE
+  // fork_id=...` to pull more context if it needs it. The inbox message
+  // is the alert + the breadcrumbs to fetch the rest, NOT the dump.
+  // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+  const briefHead = (brief || '').slice(0, 200)
+  const briefSuffix = (brief && brief.length > 200) ? '…' : ''
+  // state.result for phantom-bail forks is shaped:
+  //   "(no [FORK_REPORT] emitted; last N chars of transcript follow)\n\n${tail}"
+  // Strip the marker wrapper line so we surface only the actual transcript
+  // tail content, then trim to the last 500 chars. Conductor knows the
+  // fork bailed from `no_report_emitted=true` in the SYSTEM tag; carrying
+  // the marker in the body is redundant.
+  let tailContent = fallbackResult || ''
+  if (typeof tailContent === 'string' && tailContent.startsWith(FALLBACK_MARKER)) {
+    const splitAt = tailContent.indexOf('\n\n')
+    if (splitAt > 0) tailContent = tailContent.slice(splitAt + 2)
+  }
+  const tailHead = tailContent.length > 500
+    ? `…${tailContent.slice(-500)}`
+    : (tailContent || '(empty)')
   return [
     `[SYSTEM: fork_report ${fork_id} no_report_emitted=true]`,
-    `Brief: ${brief}`,
+    `Brief (head): ${briefHead}${briefSuffix}`,
+    `No [FORK_REPORT] emitted. Probe os_forks/${fork_id} or git log --grep=${fork_id} before assuming bailed.`,
     '',
-    `No [FORK_REPORT] tag was emitted before transcript closed.`,
-    `Apply probe-then-trust (verify-deployed-state-against-narrated-state) before treating the tail as ground truth.`,
-    '',
-    `Transcript tail (state.result):`,
-    fallbackResult || '(empty)',
+    `Transcript tail (last 500 chars):`,
+    tailHead,
   ].filter(Boolean).join('\n')
 }
 

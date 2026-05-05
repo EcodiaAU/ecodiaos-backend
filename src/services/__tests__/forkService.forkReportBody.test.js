@@ -83,7 +83,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).not.toMatch(/Next step suggested/)
   })
 
-  test('phantom_bail path — emits no_report_emitted=true tag', () => {
+  test('phantom_bail path — emits no_report_emitted=true tag and tight body (<1KB)', () => {
     const fallback = `${FALLBACK_MARKER}; last 1500 chars of transcript follow)\n\n... lots of tool-call narration ...`
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_bail_001',
@@ -93,14 +93,49 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
       fallbackResult: fallback,
     })
     expect(body).toMatch(/^\[SYSTEM: fork_report fork_test_bail_001 no_report_emitted=true\]$/m)
-    expect(body).toMatch(/^Brief: audit kv_store for stale rows$/m)
-    expect(body).toMatch(/No \[FORK_REPORT\] tag was emitted before transcript closed\./)
-    // Carries verify-then-act guidance for the conductor.
-    expect(body).toMatch(/probe-then-trust/)
-    expect(body).toMatch(/verify-deployed-state-against-narrated-state/)
-    // Carries the full state.result (FALLBACK_MARKER prefix + tail) verbatim
-    // so the conductor has substrate to anchor probes to.
-    expect(body).toContain(fallback)
+    expect(body).toMatch(/^Brief \(head\): audit kv_store for stale rows$/m)
+    expect(body).toMatch(/No \[FORK_REPORT\] emitted\. Probe os_forks\/fork_test_bail_001 or git log --grep=fork_test_bail_001/)
+    expect(body).toMatch(/Transcript tail \(last 500 chars\):/)
+    // Tight body: total under 1024 chars even with non-trivial fallback input.
+    expect(body.length).toBeLessThan(1024)
+    // Tail body strips the FALLBACK_MARKER wrapper line; only the actual
+    // transcript narration survives.
+    expect(body).toContain('lots of tool-call narration')
+    expect(body).not.toContain(FALLBACK_MARKER)
+  })
+
+  test('phantom_bail path — long brief is truncated to first 200 chars with ellipsis', () => {
+    const longBrief = 'A'.repeat(2000) + '_TAIL_'
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_bail_long',
+      brief: longBrief,
+      report: null,
+      nextStep: null,
+      fallbackResult: `${FALLBACK_MARKER}; last 0 chars)\n\n`,
+    })
+    // First 200 chars only, with ellipsis suffix.
+    expect(body).toMatch(/Brief \(head\): A{200}…/)
+    // The trailing portion of the long brief MUST NOT leak.
+    expect(body).not.toContain('_TAIL_')
+    // Hard size guarantee even with multi-KB brief input.
+    expect(body.length).toBeLessThan(1024)
+  })
+
+  test('phantom_bail path — long transcript tail is truncated to last 500 chars with ellipsis prefix', () => {
+    const longTail = 'X'.repeat(50) + 'Y'.repeat(2000) + '_END_'
+    const fallback = `${FALLBACK_MARKER}; last ${longTail.length} chars of transcript follow)\n\n${longTail}`
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_bail_longtail',
+      brief: 'b',
+      report: null,
+      nextStep: null,
+      fallbackResult: fallback,
+    })
+    // Last 500 chars survive; ellipsis prefix indicates truncation.
+    expect(body).toContain('_END_')
+    expect(body).not.toContain('X'.repeat(50)) // head of original tail dropped
+    expect(body).toMatch(/…Y+_END_$/)
+    expect(body.length).toBeLessThan(1024)
   })
 
   test('phantom_bail path — handles null fallbackResult without crashing', () => {
@@ -112,7 +147,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
       fallbackResult: null,
     })
     expect(body).toMatch(/no_report_emitted=true/)
-    // When fallbackResult is null, body falls back to literal '(empty)' so the
+    // When fallbackResult is null, tail line emits literal '(empty)' so the
     // shape stays parseable rather than emitting a stray 'undefined' line.
     expect(body).toMatch(/^\(empty\)$/m)
   })
@@ -125,7 +160,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
       nextStep: null,
       fallbackResult: '',
     })
-    // Empty string is falsy → falls back to '(empty)' marker.
+    // Empty string falls back to '(empty)' marker.
     expect(body).toMatch(/^\(empty\)$/m)
   })
 
@@ -142,7 +177,6 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     })
     expect(body).toMatch(/Report: real report/)
     expect(body).not.toMatch(/no_report_emitted=true/)
-    expect(body).not.toMatch(/probe-then-trust/)
   })
 })
 
@@ -218,11 +252,19 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
-describe('integration: phantom_bail body matches the FALLBACK_MARKER producer shape', () => {
+describe('integration: phantom_bail body shape (5 May 2026 tight version)', () => {
   // Mirror the writer at forkService.js (state.result fallback path) so that
   // future drift in either the marker constant or the wrapper line is caught
   // by this test, not in production by a conductor that can't parse the body.
-  test('phantom_bail body always includes the marker prefix substring', () => {
+  //
+  // Pre-5 May 2026: the inbox body included the FALLBACK_MARKER prefix
+  // verbatim. That made the body 5KB+ per phantom-bail fork. The 5 May fix
+  // strips the marker and trims to <1KB; downstream phantom-bail
+  // classification now hangs off the SYSTEM-tag line (`no_report_emitted=
+  // true`), NOT a substring search for FALLBACK_MARKER on the body.
+  // The marker constant is still the single source of truth for state.result
+  // (the os_forks column writer) and forksRollup() — both unchanged.
+  test('phantom_bail body shape: tight + parseable + bounded under 1KB', () => {
     const tail = 'aaa'.repeat(700)
     const sliced = tail.length > 2000 ? tail.slice(-2000) : tail
     const fallback = `${FALLBACK_MARKER}; last ${sliced.length} chars of transcript follow)\n\n${sliced}`
@@ -235,9 +277,11 @@ describe('integration: phantom_bail body matches the FALLBACK_MARKER producer sh
       fallbackResult: fallback,
     })
 
-    // The body must carry the marker so any downstream classifier matching
-    // _isPhantomBail-style logic on the body content keeps working.
-    expect(body).toContain(FALLBACK_MARKER)
+    // The SYSTEM tag line carries the canonical phantom-bail signal for the
+    // inbox. FALLBACK_MARKER is intentionally stripped from the body to keep
+    // it tight (the marker still lives on os_forks.result for forksRollup).
     expect(body).toContain('no_report_emitted=true')
+    expect(body).not.toContain(FALLBACK_MARKER)
+    expect(body.length).toBeLessThan(1024)
   })
 })
