@@ -1493,16 +1493,19 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
     _currentProvider = 'deepseek'
-    ccSessionId = null  // can't resume across providers
-    // Clear the DB session ID so the next turn doesn't read the old Claude
-    // cc_cli_session_id back and try to resume a session that has thinking blocks.
-    if (dbSessionId) {
-      db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+    if (prevProvider !== 'deepseek') {
+      ccSessionId = null  // can't resume across providers
+      // Clear the DB session ID so the next turn doesn't read the old Claude
+      // cc_cli_session_id back and try to resume a session that has thinking blocks.
+      if (dbSessionId) {
+        db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+      }
+      delete options.resume
+      emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
+    } else if (ccSessionId) {
+      options.resume = ccSessionId
     }
     const sessionEnv = { ...process.env }
-    // V4 Pro always activates thinking mode. DeepSeek requires thinking blocks
-    // echoed back, but they carry Anthropic-format signatures DeepSeek rejects.
-    // V4 Flash has no thinking mode — same 1M context/384K output, no issue.
     sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
@@ -1511,8 +1514,6 @@ async function _sendMessageImpl(content, opts = {}) {
     options.env = sessionEnv
     options.model = 'deepseek-v4-flash'
     delete options.thinking
-    delete options.resume
-    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   } else if (best.provider === 'claude_max_2') {
@@ -1815,6 +1816,30 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'perception summary',
   )
+  // Proactivity engine state — cheap (in-memory + 3 DB queries), capped at 2s.
+  // Injects <proactivity_signal> into BP4 so the conductor knows what the engine
+  // would suggest next, without the engine having to enqueue a message.
+  const _proactivityPromise = _withTimeout(
+    (async () => {
+      try {
+        const proactivity = require('./proactivityEngine')
+        const state = await proactivity._gatherState()
+        const action = await proactivity.nextAction(state)
+        if (!action) return null
+        const lines = [
+          `action_class: ${action.action_class}`,
+          `action: ${action.action}`,
+          `reason: ${action.reason}`,
+        ]
+        if (action.goal_id) lines.push(`goal_id: ${action.goal_id}`)
+        if (state.live_forks !== undefined) lines.push(`live_forks: ${state.live_forks}`)
+        if (state.work_queue_depth !== undefined) lines.push(`queue_depth: ${state.work_queue_depth}`)
+        return lines.join('\n')
+      } catch { return null }
+    })(),
+    2000,
+    'proactivity signal',
+  )
   // Conductor commitments + thread carry-forward — fork_mos3hwpk_9fbdc5 5 May 2026.
   // Cheap (status_board + kv_store reads, <100ms each), capped at 2s.
   const _commitmentsPromise = _withTimeout(
@@ -1845,6 +1870,7 @@ async function _sendMessageImpl(content, opts = {}) {
   let _doctrineBlock = null
   let _forksBlock = null
   let _perceptionBlock = null
+  let _proactivityBlock = null
   let _commitmentsBlock = null
   let _carryForwardBlock = null
   try { _forksBlock = await _forksRollupPromise } catch (err) {
@@ -1858,6 +1884,9 @@ async function _sendMessageImpl(content, opts = {}) {
   }
   try { _perceptionBlock = await _perceptionPromise } catch (err) {
     logger.debug('OS Session: perception summary failed', { error: err.message })
+  }
+  try { _proactivityBlock = await _proactivityPromise } catch (err) {
+    logger.debug('OS Session: proactivity signal failed', { error: err.message })
   }
   try { _commitmentsBlock = await _commitmentsPromise } catch (err) {
     logger.debug('OS Session: conductor commitments failed', { error: err.message })
@@ -1942,6 +1971,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<recent_doctrine>':      _doctrineBlock,
       '<relevant_memory>':      _memoryBlock,
       '<perception_summary>':   _perceptionBlock ? `<perception_summary>\n${_perceptionBlock}\n</perception_summary>` : null,
+      '<proactivity_signal>':   _proactivityBlock ? `<proactivity_signal>\n${_proactivityBlock}\n</proactivity_signal>` : null,
       '<restart_recovery>':     recoveryBlock ? `<restart_recovery>\n${recoveryBlock}\n</restart_recovery>` : null,
       '<last_turn_breadcrumb>': breadcrumbBlock ? `<last_turn_breadcrumb>\n${breadcrumbBlock}\n</last_turn_breadcrumb>` : null,
     }
@@ -1963,6 +1993,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<recent_doctrine>',
       '<relevant_memory>',
       '<perception_summary>',
+      '<proactivity_signal>',
       '<restart_recovery>',
       '<last_turn_breadcrumb>',
     ]
@@ -1978,6 +2009,7 @@ async function _sendMessageImpl(content, opts = {}) {
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
+      proactivity_signal: !!emitted['<proactivity_signal>'],
       restart_recovery: !!emitted['<restart_recovery>'],
       breadcrumb: !!emitted['<last_turn_breadcrumb>'],
       skipped,
@@ -2001,6 +2033,7 @@ async function _sendMessageImpl(content, opts = {}) {
     if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
     if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
     if (_perceptionBlock) continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
+    if (_proactivityBlock) continuityParts.splice(1, 0, `<proactivity_signal>\n${_proactivityBlock}\n</proactivity_signal>`)
   }
 
   if (continuityParts.length > 0) {
@@ -2026,6 +2059,7 @@ async function _sendMessageImpl(content, opts = {}) {
         recent_doctrine: _doctrineBlock || null,
         relevant_memory: _memoryBlock || null,
         perception_summary: _perceptionBlock || null,
+        proactivity_signal: _proactivityBlock || null,
         restart_recovery: recoveryBlock || null,
         last_turn_breadcrumb: breadcrumbBlock || null,
       }

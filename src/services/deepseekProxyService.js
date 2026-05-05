@@ -79,6 +79,29 @@ function _transformJSON(body) {
   }
 }
 
+// ─── Outgoing request body transformer ───────────────────────────────────────
+// Strip thinking/redacted_thinking blocks from assistant messages before
+// forwarding to DeepSeek. The CC SDK echoes prior assistant messages including
+// thinking blocks that carry Anthropic signatures — DeepSeek rejects these with
+// 400 "Invalid signature in thinking block".
+function _stripThinkingFromRequest(body) {
+  try {
+    const parsed = JSON.parse(body)
+    if (!Array.isArray(parsed.messages)) return body
+    let mutated = false
+    parsed.messages = parsed.messages.map(msg => {
+      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return msg
+      const filtered = msg.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking')
+      if (filtered.length === msg.content.length) return msg
+      mutated = true
+      return { ...msg, content: filtered }
+    })
+    return mutated ? JSON.stringify(parsed) : body
+  } catch {
+    return body
+  }
+}
+
 // ─── Server ──────────────────────────────────────────────────────────────────
 function start() {
   if (_server) return
@@ -103,7 +126,9 @@ function start() {
     const chunks = []
     req.on('data', c => chunks.push(c))
     req.on('end', () => {
-      const body = Buffer.concat(chunks)
+      const rawBody = Buffer.concat(chunks)
+      const bodyStr = rawBody.length ? _stripThinkingFromRequest(rawBody.toString('utf8')) : ''
+      const body = bodyStr.length ? Buffer.from(bodyStr, 'utf8') : rawBody
       if (body.length) options.headers['content-length'] = body.length
 
       const proxyReq = https.request(options, proxyRes => {

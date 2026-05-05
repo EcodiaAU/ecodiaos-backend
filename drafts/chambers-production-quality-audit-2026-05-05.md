@@ -143,7 +143,32 @@ Eight build forks proposed. Each fork resolves a thematic batch, names the exact
 
 Dispatch order: **F1 → F2 + F4 (parallel, no shared files) → F3 + F5 (parallel) → F6 → F7 → F8 → F9**.
 
-## 5b. F1 closure (5 May 2026)
+## 5b. F7 closure (5 May 2026)
+
+Fork `fork_mos8x31a_2c8ef5` shipped chambers-frontend commit `ae0bcbf` to `main`.
+
+**Deliverable**: chamber switching multi-tenant UI.
+
+| artefact | status |
+|---|---|
+| migration_0010_applied | y - `kv_user_chambers` view + `idx_tenant_members_active_user` index |
+| kv_user_chambers_view_verified | y - user 625b60ca sees 2 chambers (scycc, samplechamber) |
+| `src/hooks/useUserChambers.ts` | new - React Query hook against `kv_user_chambers` |
+| `src/lib/tenant/TenantProvider.tsx` | updated - `switchChamber()` writes `active_chamber` localStorage + reloads |
+| `src/components/layout/AppShell.tsx` | updated - ChevronDown dropdown only renders for >1 chamber |
+| `src/lib/auth/AuthProvider.tsx` | updated - signOut clears `active_chamber` + `chambers.tenantOverride` |
+| `npm run typecheck` | clean |
+| `npm run build` | clean |
+| commit_sha | ae0bcbf |
+| vercel_deploy_id | dpl_5RzskiCBnQAzq5NrcJ8ePJWaDkx7 |
+| vercel_state | READY |
+| HTTP 200 | `/`, `/events`, `/members` |
+
+**Visual verification**: Mode A localhost not possible from VPS-only fork. Deploy verified via HTTP 200 curl checks. Screenshots deferred to Tate-conducted visual check.
+
+**Status**: `F7_chamber_switching_shipped`.
+
+## 5a. F1 closure (5 May 2026)
 
 Build fork F1 (`fork_morwn5r5_08d0f3`) shipped chambers-frontend commit `61c618c` to `main`. All 13 quick-win gaps closed:
 

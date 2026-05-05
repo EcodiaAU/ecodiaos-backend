@@ -333,6 +333,108 @@ async function computeDriftSignals() {
       }
     }
 
+    // ── consumer_health_signal ─────────────────────────────────────
+    // Detect when consumer event pipelines fall behind their producers.
+    // Two critical pairs:
+    //   1. outcomeInference: dispatch_event (parent) → outcome_event (child)
+    //   2. autoTags:         surface_event  (parent) → application_event (child)
+    const CONSUMER_PAIRS = [
+      { name: 'outcomeInference', parent: 'dispatch_event', child: 'outcome_event' },
+      { name: 'autoTags',         parent: 'surface_event', child: 'application_event' },
+    ]
+
+    for (const pair of CONSUMER_PAIRS) {
+      // 24h baseline for Rule 1 (lag) and Rule 2 (flatline)
+      const c = await client.query(`
+        SELECT
+          (SELECT COUNT(*) FROM ${pair.parent}
+             WHERE ts > NOW() - INTERVAL '24 hours')::int AS parent_count,
+          (SELECT COUNT(*) FROM ${pair.child}
+             WHERE ts > NOW() - INTERVAL '24 hours')::int AS child_count
+      `)
+      const pc = c.rows[0].parent_count
+      const cc = c.rows[0].child_count
+      const ratio = pc > 0 ? Math.round((cc / pc) * 10000) / 10000 : 1
+
+      // Rule 1: Consumer lag (P2) — parent produced >50 events,
+      //          child consumed <30% of them.
+      if (pc > 50 && ratio < 0.3) {
+        flags.push({
+          flag_type: 'consumer_health_signal',
+          name: `Consumer lag: ${pair.name}`,
+          context: `${pair.name} processed ${cc} events from ${pc} produced in 24h (ratio: ${ratio}). Rule: consumer_lag — child consumed <30% of parent output.`,
+          next_action: 'Investigate consumer pipeline for regression',
+        })
+      }
+
+      // Rule 2: Consumer flatline (P1) — parent produced >10 events,
+      //          child produced 0.
+      if (pc > 10 && cc === 0) {
+        flags.push({
+          flag_type: 'consumer_health_signal',
+          name: `Consumer flatline: ${pair.name}`,
+          context: `${pair.name} processed 0 events from ${pc} produced in 24h (ratio: 0). Rule: consumer_flatline — child produced zero output despite parent activity.`,
+          next_action: 'Investigate consumer pipeline for regression',
+        })
+      }
+
+      // Rule 3: Consumer attenuation (P3) — daily consumption ratio
+      //         declined for 5+ consecutive days over the last 7.
+      const att = await client.query(`
+        WITH days AS (
+          SELECT generate_series(
+            (NOW() - INTERVAL '7 days')::date,
+            NOW()::date,
+            '1 day'::interval
+          )::date AS day
+        ),
+        parent_counts AS (
+          SELECT date_trunc('day', ts)::date AS day, COUNT(*)::int AS cnt
+          FROM ${pair.parent}
+          WHERE ts > NOW() - INTERVAL '8 days'
+          GROUP BY day
+        ),
+        child_counts AS (
+          SELECT date_trunc('day', ts)::date AS day, COUNT(*)::int AS cnt
+          FROM ${pair.child}
+          WHERE ts > NOW() - INTERVAL '8 days'
+          GROUP BY day
+        )
+        SELECT d.day,
+               COALESCE(p.cnt, 0)  AS parent_cnt,
+               COALESCE(c.cnt, 0)  AS child_cnt,
+               CASE WHEN COALESCE(p.cnt, 0) > 0
+                    THEN ROUND(COALESCE(c.cnt, 0)::numeric /
+                              COALESCE(p.cnt, 0), 4)
+                    ELSE 1
+               END AS ratio
+        FROM days d
+        LEFT JOIN parent_counts p ON p.day = d.day
+        LEFT JOIN child_counts c ON c.day = d.day
+        ORDER BY d.day
+      `)
+
+      let declineStreak = 0
+      let maxDeclineStreak = 0
+      for (let i = 1; i < att.rows.length; i++) {
+        if (Number(att.rows[i].ratio) < Number(att.rows[i - 1].ratio)) {
+          declineStreak++
+          maxDeclineStreak = Math.max(maxDeclineStreak, declineStreak)
+        } else {
+          declineStreak = 0
+        }
+      }
+
+      if (maxDeclineStreak >= 5) {
+        flags.push({
+          flag_type: 'consumer_health_signal',
+          name: `Consumer attenuation: ${pair.name}`,
+          context: `${pair.name} consumption ratio declined for ${maxDeclineStreak}+ consecutive days over the last 7. Rule: consumer_attenuation — ratio shrinking over time.`,
+          next_action: 'Investigate consumer pipeline for regression',
+        })
+      }
+    }
+
     return flags
   })
 }

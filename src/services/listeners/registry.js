@@ -78,7 +78,7 @@ function loadListeners() {
     try {
       // Boot-time validation: reject modules that import osSessionService
       const content = fs.readFileSync(filePath, 'utf-8')
-      if (content.includes('osSessionService')) {
+      if (/require\s*\(\s*['"][^'"]*osSessionService['"]/.test(content)) {
         _bootStderr(`load: rejected ${file} (imports osSessionService)`)
         logger.warn(`listener: rejected ${file} — imports osSessionService (forbidden)`)
         skipped.push({ file, reason: 'imports osSessionService' })
