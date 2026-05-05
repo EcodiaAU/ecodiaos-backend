@@ -53,15 +53,25 @@ async function tryReserveForkSlot({
   // For sub-forks it equals the parent's root_fork_id (passed in by forkService).
   const effectiveRoot = root_fork_id || fork_id
 
-  const effectiveCap = Number.isFinite(energy_cap)
-    ? Math.min(hard_cap, Math.max(0, energy_cap))
-    : hard_cap
-
   // Per-tree cap: count active forks with the same root, not all forks globally.
   // Sub-forks consume slots from their tree's pool, not from conductor's global pool.
   // Root-level forks (root = self) still see the full effectiveCap against the global
   // count — they ARE the tree root, so tree count == global count for their isolation.
   const useTreeCap = parent_id !== 'main'
+
+  // Energy_cap is a CONDUCTOR-level throttle: when both Claude Max accounts are
+  // at 100% / level=critical, energy_cap=2 blocks the conductor from spawning new
+  // root forks. But once a tree is alive, sub-forks within that tree should use
+  // hard_cap only — the token spend was already committed by the root, and the
+  // manager-fork pattern (1 root + 1 manager + N workers) is structurally
+  // unviable if energy_cap=2 applies per-tree (root + manager = 2 = full,
+  // workers blocked). So sub-fork spawns use hard_cap; only conductor-level
+  // (parent='main') spawns enforce energy_cap.
+  // Origin: smoke test 5 May 2026 — fork_mosjxwdv_ef9c98 manager dog-food
+  // hit energy_cap=2 with root+manager alive, workers blocked.
+  const effectiveCap = useTreeCap
+    ? hard_cap
+    : (Number.isFinite(energy_cap) ? Math.min(hard_cap, Math.max(0, energy_cap)) : hard_cap)
 
   const rows = useTreeCap
     ? await db`
