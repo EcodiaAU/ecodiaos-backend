@@ -1,5 +1,5 @@
 ---
-triggers: spawn_fork, fork-by-default, fork-decompose, multi-stream-fork, conductor-routing, mid-task-input, fork-vs-main, conductor-thin, fork-work-doer, list_forks, abort_fork, mcp__forks, fork-mode, fork-sub-session, parallel-fork-work, route-vs-execute, artefact-test, deliverable-test, per-arc-vs-per-step, NOT-APPLIED-chain, fork-by-default-exemption, doctrine-correction-6-may-2026, context_mode-recent
+triggers: spawn_fork, fork-by-default, fork-decompose, multi-stream-fork, conductor-routing, mid-task-input, fork-vs-main, conductor-thin, fork-work-doer, list_forks, abort_fork, mcp__forks, fork-mode, fork-sub-session, parallel-fork-work, route-vs-execute, artefact-test, deliverable-test, per-arc-vs-per-step, NOT-APPLIED-chain, fork-by-default-exemption, doctrine-correction-6-may-2026, context_mode-recent, manager-fork, sub-fork, parent_fork_id, fork-hierarchy, MANAGER-true
 ---
 
 # Fork by default, stay thin on main
@@ -49,6 +49,18 @@ When main does the work itself, every Tate message lands on the same context as 
 - Do not spawn a fork on a codebase that already has a Factory session running on it, or that another fork is already touching. Worktree collision risk.
 - Do not let yourself sit and wait for a fork mid-stream. You cannot see its progress. Spawn, return to main work, and read the report when it arrives.
 - Do not author hindsight-detection rules ("if you cite NOT-APPLIED 3 times in a row then fork"). Tate has explicitly rejected this framing — the fix is the bar to NOT fork is HIGHER, not "detect you've been failing and switch mid-stream".
+
+## Manager forks — default for multi-worker decomposition
+
+Once you've decided to fork (artefact-test passes), the next decision is whether the fork is a single worker or a manager. **Default: manager fork for any task that decomposes into 2+ independent worker streams.** Brief carries `MANAGER: true`. The manager spawns sub-forks with `parent_fork_id` = its own `fork_id`, sub-fork `[FORK_REPORT]`s route to the manager's stream (NEVER the conductor's inbox), the manager consolidates N reports into ONE.
+
+- Per-tree cap: 5 sub-forks per manager. Conductor's global cap (5) does NOT apply to sub-forks.
+- Total system parallelism: 5 managers × 5 workers = 30 streams.
+- Pipeline tasks (build → test → deploy → verify), audits decomposing per-file/per-service, multi-tenant migrations, doctrine sweeps touching N pattern files, parallel research dossiers, codebase-wide refactors per-module → manager fork.
+- Single atomic deliverables (one commit, one file, one graph node) → worker fork, not manager. Spawning a manager to coordinate one worker is overhead with no win.
+- Conductor sees the manager in `<forks_rollup>` tagged `[manager, N sub]` with sub-forks indented; do NOT reach into the manager's subtree to message/abort sub-forks individually. Trust the manager or abort the whole tree.
+
+Full doctrine + worked example (audit + edit CLAUDE.md gaps as the canonical case) + caps math: [`manager-forks-for-multi-worker-decomposition.md`](manager-forks-for-multi-worker-decomposition.md).
 
 ## Protocol when Tate gives a directive mid-task
 
