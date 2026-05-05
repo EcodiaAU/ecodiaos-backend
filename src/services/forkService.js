@@ -120,12 +120,16 @@ function _isPhantomBail(result) {
 //
 // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
 function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult }) {
-  if (report) {
+  // report is null when regex did NOT match (truly no FORK_REPORT).
+  // report is '' when regex matched but body was empty
+  // (e.g. [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP]).
+  // Both cases must be distinguished — empty body is still a valid report.
+  if (report !== null) {
     return [
       `[SYSTEM: fork_report ${fork_id}]`,
       `Brief: ${brief}`,
       '',
-      `Report: ${report}`,
+      `Report: ${report || '(empty body — FORK_REPORT immediately followed by NEXT_STEP)'}`,
       nextStep ? `\nNext step suggested: ${nextStep}` : '',
     ].filter(Boolean).join('\n')
   }
@@ -220,9 +224,9 @@ async function _enqueueForkReport({ fork_id, brief, report, nextStep, fallbackRe
   const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
   try {
     await mq.enqueueMessage({ body, source: `fork:${fork_id}`, mode: 'queue' })
-    return { enqueued: true, had_report: !!report }
+    return { enqueued: true, had_report: report !== null }
   } catch (err) {
-    logger.warn('forkService: failed to enqueue fork_report to main', { fork_id, had_report: !!report, error: err.message })
+    logger.warn('forkService: failed to enqueue fork_report to main', { fork_id, had_report: report !== null, error: err.message })
     return { enqueued: false, reason: 'enqueue_threw', error: err.message }
   }
 }
@@ -780,8 +784,8 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       // conductor can tell `[FORK_REPORT] missing` apart from `report content was
       // 600 chars`. Origin: fork_moo6esm9_565a0e debunk-or-confirm investigation.
       // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
-      if (report) {
-        state.result = report
+      if (reportMatch) {
+        state.result = report || '(report body empty — FORK_REPORT immediately followed by NEXT_STEP)'
       } else if (fullText.length > 0) {
         const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
         state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
@@ -791,7 +795,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       state.next_step = nextStep
       state.status = 'done'
       state.ended_at = Date.now()
-      state.position = report ? `done: ${report.slice(0, 100)}` : 'done'
+      state.position = report ? `done: ${report.slice(0, 100)}` : (reportMatch ? 'done (empty FORK_REPORT body)' : 'done')
       _emitForkEvent('done', state)
       _emitForkStatus(fork_id, 'complete', { fork_id })
       await _dbUpdate(state)

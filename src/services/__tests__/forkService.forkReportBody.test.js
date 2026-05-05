@@ -83,6 +83,29 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).not.toMatch(/Next step suggested/)
   })
 
+  test('clean path — empty report string (FORK_REPORT + NEXT_STEP on adjacent lines) does NOT phantom_bail', () => {
+    // Regression: test for the exact regex extraction bug found 5 May 2026.
+    // When a fork writes [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP],
+    // the lazy [\s\S]*? captures only the newlines — .trim() gives "".
+    //
+    // OLD code used `if (report)` which treated "" as falsy → phantom_bail fallback.
+    // FIXED code uses `if (report !== null)` so "" is correctly treated as a valid
+    // (empty-body) report, not a missing tag.
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_empty_body',
+      brief: 'b',
+      report: '',
+      nextStep: 'Merge the PR.',
+      fallbackResult: 'should never be reached',
+    })
+    // Must NOT carry the phantom-bail tag — FORK_REPORT WAS found, body was just empty.
+    expect(body).not.toMatch(/no_report_emitted=true/)
+    // Must show the empty-body explanation in the Report line.
+    expect(body).toMatch(/Report: \(empty body/)
+    // Must still include next step.
+    expect(body).toMatch(/Next step suggested: Merge the PR\./)
+  })
+
   test('phantom_bail path — emits no_report_emitted=true tag and tight body (<1KB)', () => {
     const fallback = `${FALLBACK_MARKER}; last 1500 chars of transcript follow)\n\n... lots of tool-call narration ...`
     const body = forkService._buildForkReportBody({
