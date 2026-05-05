@@ -138,6 +138,8 @@ app.use('/api/telemetry', require('./routes/telemetry'))
 app.use('/api/hands', require('./routes/hands'))
 app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
 app.use('/api/ops', require('./routes/ops'))
+// /api/ops/listener-stats — perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
+app.use('/api/ops/listener-stats', require('./routes/ops/listenerStats'))
 app.use('/api/dispatch-queue', require('./routes/dispatchQueue'))
 
 // Error handler (must be last)

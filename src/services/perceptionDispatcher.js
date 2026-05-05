@@ -32,6 +32,19 @@ const perceptionBus = require('./perceptionBus')
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000
 const _recentDispatches = new Map() // key → timestamp
 
+// ── Per-matcher counters (B3: listener-stats endpoint) ─────────────────────
+// In-memory since process boot. Surfaced at /api/ops/listener-stats.
+// Conductor reads these in BP4 / drift detection: matcher silent for 1h+ =
+// publisher gap or matcher logic regression.
+const _stats = {
+  matcher_fires: new Map(),       // domain → count of dispatch() calls (post-dedupe)
+  matcher_test_passes: new Map(), // domain → count of test() === true (pre-dedupe)
+  matcher_dedupes: new Map(),     // domain → count of dedupe-suppressed
+  matcher_errors: new Map(),      // domain → count of test/dispatch throws
+  bus_events_in: 0,                // total _onEvent invocations
+}
+function _bump(map, key) { map.set(key, (map.get(key) || 0) + 1) }
+
 function _shouldDispatch(key) {
   const last = _recentDispatches.get(key)
   if (last && Date.now() - last < DEDUPE_WINDOW_MS) return false
@@ -283,18 +296,26 @@ const MATCHERS = [
 // ── Core subscriber ────────────────────────────────────────────────────────
 
 function _onEvent(event) {
+  _stats.bus_events_in++
   for (const matcher of MATCHERS) {
     try {
       if (!matcher.test(event)) continue
+      _bump(_stats.matcher_test_passes, matcher.domain)
       const dedupeKey = `${matcher.domain}:${event.source}:${event.kind}`
-      if (!_shouldDispatch(dedupeKey)) continue
+      if (!_shouldDispatch(dedupeKey)) {
+        _bump(_stats.matcher_dedupes, matcher.domain)
+        continue
+      }
+      _bump(_stats.matcher_fires, matcher.domain)
       // Fire-and-forget — never block the publishing stream
       matcher.dispatch(event).catch(err => {
+        _bump(_stats.matcher_errors, matcher.domain)
         logger.debug('perceptionDispatcher: async dispatch error', {
           domain: matcher.domain, error: err.message,
         })
       })
     } catch (err) {
+      _bump(_stats.matcher_errors, matcher.domain)
       logger.debug('perceptionDispatcher: matcher error', {
         domain: matcher.domain, error: err.message,
       })
@@ -319,4 +340,5 @@ module.exports = {
   _onEvent,
   _shouldDispatch,
   _recentDispatches,
+  _stats,
 }
