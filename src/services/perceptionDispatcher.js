@@ -291,6 +291,24 @@ const MATCHERS = [
       }
     },
   },
+
+  // ── 9 new matchers (Wave B B1, fork_mosmjqi4_20c41a, 5 May 2026) ──────────
+  // Per W2 listener gap analysis. Each matcher loaded as a standalone module
+  // in src/services/matchers/. Closure-style: each module requires its own
+  // db/logger/perceptionBus and exports { domain, test, dispatch }. Three
+  // (deploy_event, stripe_event, doctrine_authored) are GATED on Wave C
+  // publishers — they registered live but won't fire until Wave C ships
+  // their event sources. The other six fire immediately on existing
+  // event sources or timer-driven scans.
+  require('./matchers/clientMention'),
+  require('./matchers/scheduleDrift'),
+  require('./matchers/forkPhantomBail'),
+  require('./matchers/deployEvent'),                 // GATED on Wave C: vercel webhook publisher
+  require('./matchers/stripeEvent'),                 // GATED on Wave C: stripe webhook publisher
+  require('./matchers/calendarEventImminent'),
+  require('./matchers/doctrineAuthored'),            // GATED on Wave C: fs-watcher publisher
+  require('./matchers/statusBoardPriorityInversion'),
+  require('./matchers/kvStoreHandoffAged'),
 ]
 
 // ── Core subscriber ────────────────────────────────────────────────────────
