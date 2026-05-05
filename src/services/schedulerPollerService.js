@@ -19,10 +19,9 @@ const POLL_INTERVAL_MS = 30_000
 const TZ_OFFSET_HOURS = 10 // AEST (UTC+10, no DST)
 const API_PORT = process.env.PORT || 3001
 
-// Crons that must fire even at critical energy (>=90% quota). Watchdogs and
-// the blocked-work nudge stay on - if these defer, silent stall goes
-// undetected and Tate loses the one signal that tells him autonomy flatlined.
-const ESSENTIAL_CRON_NAMES = new Set(['silent-loop-detector', 'system-health', 'tate-blocked-nudge-weekly'])
+// ESSENTIAL_CRON_NAMES removed 5 May 2026 (fork_mos3hwpk_9fbdc5) along with
+// the critical-energy pre-gate. Trust /api/os-session/message queue downstream
+// per ~/ecodiaos/patterns/scheduler-no-pregate-trust-os-message-queue.md.
 
 let _timeout = null
 let _running = false
@@ -229,47 +228,50 @@ async function pollOnce() {
     // No pre-gate. Trust /api/os-session/message with source:'scheduler' to queue
     // behind in-flight turns or initialise an idle session. See
     // patterns/scheduler-no-pregate-trust-os-message-queue.md.
-    // (isSessionBusy() retained above for diagnostic / potential future use.)
-
-    // Energy-aware gating: at critical level, only fire tasks flagged as critical
-    // (or high-priority). Below critical, run everything. We keep this permissive
-    // for low/conserve because the scheduleMultiplier already spaces out polls.
-    let energyLevel = 'healthy'
+    //
+    // Energy-aware gating REMOVED 5 May 2026 (fork_mos3hwpk_9fbdc5) per Tate
+    // verbatim 13:52 AEST: "you're scheduling taskss needs to be 100% reliable".
+    // Previously, `level === 'critical'` deferred all non-essential CRONS by 1h
+    // and silently dropped DELAYED tasks (the loop returned without rescheduling
+    // them — they'd stay overdue forever, never firing). With both Claude Max
+    // accounts at 100% used today this branch fired every poll, blocking all
+    // 6 cascade tasks (codify-no-bedrock, chambers-cascade-F6/F7/F8/final-sweep,
+    // chambers-fork-resume).
+    //
+    // Pay-as-you-go gate NARROWED to crons only. Delayed tasks are explicit
+    // conductor-typed or Tate-typed work (one-shot, scheduled with intent).
+    // They MUST fire even on Bedrock/DeepSeek. Crons can stay halted under
+    // pay-as-you-go because they're recurring and the next cycle resumes once
+    // we're back on Claude Max.
     let isPayAsYouGoProvider = false
     try {
       const energy = await usageEnergy.getEnergy()
-      energyLevel = energy?.level || 'healthy'
-      // DeepSeek and Bedrock are pay-per-token — halt all autonomous cron work
-      // to avoid runaway spend. Max is a flat subscription so cron cost is free.
       isPayAsYouGoProvider = !!(energy?.isDeepseekFallback || energy?.isBedrockFallback)
     } catch {}
 
+    // Pay-as-you-go gate: halt CRONS only, never delayed tasks. Crons are
+    // recurring (next cycle picks up once we're back on Claude Max). Delayed
+    // tasks are explicit conductor/Tate-typed work — they MUST fire.
+    let dueToFire = due
     if (isPayAsYouGoProvider) {
-      logger.info('Scheduler: on pay-as-you-go provider (DeepSeek/Bedrock), halting all cron tasks to avoid spend', {
-        due: due.length,
-        provider: 'deepseek/bedrock',
-      })
-      return
-    }
-
-    if (energyLevel === 'critical') {
-      // Critical: defer all non-essential crons by 1h. Only run tasks whose
-      // metadata marks them critical (backup jobs, health checks).
-      const essentialTasks = due.filter(t => ESSENTIAL_CRON_NAMES.has(t.name))
-      if (essentialTasks.length === 0) {
-        logger.info('Scheduler: critical energy, deferring all non-essential tasks', { deferred: due.length })
-        for (const t of due) {
-          if (t.type === 'cron') {
-            const deferred = new Date(Date.now() + 60 * 60 * 1000)
-            await db`UPDATE os_scheduled_tasks SET next_run_at = ${deferred} WHERE id = ${t.id}`
-              .catch(() => {})
-          }
+      const cronTasks = due.filter(t => t.type === 'cron')
+      const delayedTasks = due.filter(t => t.type !== 'cron')
+      if (cronTasks.length > 0) {
+        // Defer crons +5min to avoid log/poll stacking.
+        for (const t of cronTasks) {
+          const deferred = new Date(Date.now() + 5 * 60 * 1000)
+          await db`UPDATE os_scheduled_tasks SET next_run_at = ${deferred} WHERE id = ${t.id}`
+            .catch(() => {})
         }
-        return
+        logger.info('Scheduler: pay-as-you-go provider, halting crons +5min; delayed tasks still fire', {
+          halted_crons: cronTasks.length,
+          firing_delayed: delayedTasks.length,
+          provider: 'deepseek/bedrock',
+          gate_tripped: 'pay_as_you_go_crons_only',
+        })
       }
-      logger.info('Scheduler: critical energy, firing only essential tasks', { essential: essentialTasks.length, deferred: due.length - essentialTasks.length })
-      await fireTask(essentialTasks[0])
-      return
+      if (delayedTasks.length === 0) return
+      dueToFire = delayedTasks
     }
 
     // Fire up to MAX_PER_TICK tasks per cycle to prevent queue starvation when
@@ -282,8 +284,8 @@ async function pollOnce() {
     // (osSession.js line 71), so each fireTask is a fast HTTP roundtrip; the
     // OS-session message queue serialises actual model turns downstream.
     const MAX_PER_TICK = 5
-    const toFire = due.slice(0, MAX_PER_TICK)
-    const toRequeue = due.slice(MAX_PER_TICK)
+    const toFire = dueToFire.slice(0, MAX_PER_TICK)
+    const toRequeue = dueToFire.slice(MAX_PER_TICK)
 
     for (const task of toFire) {
       await fireTask(task)
