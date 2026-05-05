@@ -594,6 +594,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     includePartialMessages: true,
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
+    maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
     // DeepSeek thinking blocks carry Anthropic-signed signatures invalid on replay — omit.
     // V4 Pro activates its own native thinking automatically without the SDK option.
     ...(!isDeepseek && { thinking: { type: 'enabled', budget_tokens: 1500 } }),
