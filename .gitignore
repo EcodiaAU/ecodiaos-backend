@@ -16,3 +16,4 @@ coverage
 .git
 id
 ARCHITECTURE.md
+.claude/worktrees/

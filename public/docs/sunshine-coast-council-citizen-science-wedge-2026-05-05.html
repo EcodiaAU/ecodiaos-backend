@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sunshine Coast Council citizen-science wedge</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1a1a; font-size: 10.5pt; line-height: 1.45; }
+  h1 { font-size: 18pt; margin: 0 0 4pt 0; font-weight: 600; letter-spacing: -0.3pt; }
+  h2 { font-size: 11.5pt; margin: 16pt 0 4pt 0; font-weight: 600; color: #0a3d2a; border-bottom: 1px solid #d8e4dc; padding-bottom: 2pt; }
+  h3 { font-size: 10.5pt; margin: 10pt 0 2pt 0; font-weight: 600; color: #1a1a1a; }
+  .sender { color: #555; font-size: 9pt; margin-bottom: 18pt; }
+  .meta { color: #555; font-size: 9pt; margin-bottom: 14pt; }
+  .lede { font-size: 11pt; line-height: 1.5; padding: 8pt 10pt; background: #f4f8f5; border-left: 3px solid #0a3d2a; margin: 8pt 0 12pt 0; }
+  ul { margin: 4pt 0 4pt 0; padding-left: 18pt; }
+  li { margin: 2pt 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0 8pt 0; font-size: 9.5pt; }
+  th, td { text-align: left; padding: 4pt 8pt; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  th { background: #f4f8f5; font-weight: 600; }
+  .num { color: #0a3d2a; font-weight: 600; }
+  .ask { background: #fff8e6; border-left: 3px solid #c79a1a; padding: 8pt 10pt; margin: 10pt 0 0 0; }
+  .footer { margin-top: 18pt; padding-top: 6pt; border-top: 1px solid #e0e0e0; font-size: 8.5pt; color: #888; }
+</style>
+</head>
+<body>
+
+<div class="sender">
+Ecodia / EcodiaOS &nbsp;|&nbsp; code@ecodia.au &nbsp;|&nbsp; ecodia.au
+</div>
+
+<h1>Sunshine Coast Council citizen-science wedge</h1>
+<div class="meta">Concept doc, 5 May 2026. Internal. Read time ~4 min.</div>
+
+<div class="lede">
+Sunshine Coast Council currently runs flagship citizen-science programs (Big Butterfly Count, Annual Frog Survey, and others) by manually uploading CSV files into the Atlas of Living Australia. We replace that CSV step with a branded, Co-Exist-derived mobile app that submits records natively via Darwin Core Archive (DwCA-via-BioCollect). Council gets cleaner data, their own brand on a phone-friendly volunteer flow, and zero IT lift. We get a real-revenue local-government client and a template repeatable across every other council in Australia.
+</div>
+
+<h2>1. Why this works for Council (the specific pain)</h2>
+<table>
+  <tr><th>Today</th><th>With our app</th></tr>
+  <tr>
+    <td>Volunteers fill paper forms or spreadsheets, send them in. Coordinator chases data, reformats, manually uploads CSV to ALA BioCollect.</td>
+    <td>Volunteer opens app, taps a species, photo + GPS auto-attached, submitted live. ALA harvests via DwCA on Council&rsquo;s own DOI dataResource.</td>
+  </tr>
+  <tr>
+    <td>Big Butterfly Count: 262 records over 4 seasons (since 2022). Annual Frog Survey: 66 records over 11 seasons.</td>
+    <td>10x to 100x participation per season. Field validation prevents nonsense entries. Photo-evidence is automatic.</td>
+  </tr>
+  <tr>
+    <td>No real-time engagement metric for Council. No way to show ratepayers the program is working.</td>
+    <td>Live Council dashboard: records this week, top species, top spots, top volunteers. Press-release fodder, monthly.</td>
+  </tr>
+</table>
+
+<h2>2. What we&rsquo;d build</h2>
+<ul>
+  <li><b>Co-Exist platform tenant for SCC.</b> Council-branded splash, theming, content. Their logo, their language, their species lists.</li>
+  <li><b>Custom forms per program.</b> Big Butterfly Count form, Frog Survey form, Coastal Bird Survey form. Configurable for new programs.</li>
+  <li><b>BioCollect / DwCA integration.</b> Records emit as Darwin Core Archive at a stable URL. ALA harvests on schedule. Council&rsquo;s own DOI dataResource per program (federally citable).</li>
+  <li><b>Council dashboard.</b> Read-only metrics view for the Environmental Volunteer Coordinator and the comms team.</li>
+</ul>
+<p style="font-size: 9.5pt; color: #555; margin-top: 6pt;">Technical premise (verified via live ALA query, 1 May 2026): Big Butterfly Count is a registered ALA dataResource (dr19044), Sunshine Coast Council is the operating institution (in665), and the existing flow is <span class="num">automation=false, harvestFrequency=0</span>, i.e. manual CSV. We replace one substrate with another, leave the ALA registry record in place. Source draft: <code>citizen-science-app-ecosystem-feeding-ala-2026-05-01.md</code>.</p>
+
+<h2>3. Pricing</h2>
+<table>
+  <tr><th>Item</th><th>Cost</th><th>Notes</th></tr>
+  <tr><td>Phase 1 build (one program, branded, DwCA-emit)</td><td class="num">$4&ndash;8k AUD</td><td>Fits under Council discretionary budget. No formal procurement needed.</td></tr>
+  <tr><td>Hosting + maintenance retainer</td><td class="num">$200/mo</td><td>$2,400/yr recurring. Minor edits, security, ALA-pipeline monitoring.</td></tr>
+  <tr><td>Additional programs (Frog Survey, Coastal Bird Survey, etc)</td><td class="num">$1.5&ndash;3k each</td><td>Same template, configured for the new program.</td></tr>
+</table>
+
+<h2>4. Who at Council</h2>
+<ul>
+  <li><b>Primary contact:</b> Environmental Volunteer Coordinator, <code>evc@sunshinecoast.qld.gov.au</code>. This is the published contact for the Big Butterfly Count and the Frog Survey. They are the gateway.</li>
+  <li><b>Decision authority:</b> EVC plus Environment &amp; Sustainability Manager. Discretionary budget at this size sits with the manager, not procurement.</li>
+  <li><b>Open question:</b> the EVC&rsquo;s personal name is not yet verified. To pin before any contact lands.</li>
+</ul>
+
+<h2>5. The mechanism: demo-first, in-person, NOT cold email</h2>
+<p>Cold email to <code>evc@sunshinecoast.qld.gov.au</code> is the wrong move. It lands as one of fifty grant pitches and goes to triage. The right move is <b>demo-first at a Council ecosystem event</b>:</p>
+<ol>
+  <li>Tate attends a Council-organised volunteer or environment forum (Maleny, Caloundra, Mooloolaba) with the Co-Exist app live on his phone.</li>
+  <li>Conversational opener with the EVC or program coordinator on site: &ldquo;I&rsquo;m local. I built this. Watch.&rdquo; Submit a record live.</li>
+  <li>Follow-up next morning with a one-page leave-behind PDF and a 15-minute demo offer.</li>
+</ol>
+<p>Tate&rsquo;s natural Sunshine Coast presence is the unfair advantage here. No competitor pitching a council from Sydney or Melbourne can match an in-person Saturday-morning demo at a local volunteer event.</p>
+
+<h2>6. Why this client first (and why it scales)</h2>
+<ul>
+  <li><b>Local + Tate physical access.</b> Walk-in distance, not phone distance.</li>
+  <li><b>Smaller deal but unblocks the council-tier business model.</b> $4&ndash;8k is below what a serious procurement gate would scrutinise. We get in, we ship, we get a reference.</li>
+  <li><b>Replicable.</b> Every council in Australia (537 of them) runs analogous citizen-science programs. SCC reference + the DwCA template is a sales asset for every next council pitch. Logan, Brisbane City, Noosa, Gympie, Moreton Bay are obvious next-five.</li>
+  <li><b>Ties into the wider Ecodia thesis.</b> Co-Exist already collects geolocated youth-engagement data. Adding DwCA-emit makes every Co-Exist deployment an ALA-recognised dataResource with its own DOI. Massive credibility infrastructure for biodiversity-credit and Landcare-adjacent peak-body pitches downstream.</li>
+</ul>
+
+<h2>7. Risks (named)</h2>
+<ul>
+  <li><b>Council procurement is slow by default.</b> Three to six months from intro to PO is normal. Mitigant: pitch as &ldquo;pilot under existing discretionary budget&rdquo;, not capex. Stay under the threshold that triggers procurement review.</li>
+  <li><b>Grant cycle lock-in.</b> If the program is grant-funded, the funding window may not align with our delivery. Mitigant: ask the EVC about funding source on first contact. Time the pilot launch to their next grant round if needed.</li>
+  <li><b>iNaturalist is &ldquo;good enough&rdquo; for some councils.</b> Counter: iNat is generalist, not branded, no Council dashboard, no campaign lock-in, no DOI per program. We are the Council&rsquo;s own data substrate, not a tenant inside someone else&rsquo;s.</li>
+</ul>
+
+<h2 style="color: #c79a1a;">The ask of Tate</h2>
+<div class="ask">
+<b>Confirm or redirect.</b> If yes:
+<ol style="margin: 4pt 0 0 0;">
+  <li>Tate identifies the next Council ecosystem event he can attend with Co-Exist live on his phone (volunteer event, Mary Cairncross open day, environment forum, similar).</li>
+  <li>Conductor preps a 5-minute live demo flow on a SCC-branded test tenant of Co-Exist + a one-page leave-behind PDF.</li>
+  <li>Tate runs the in-person opener at the event. Conductor handles follow-up correspondence the morning after, on Tate&rsquo;s explicit go-ahead per the no-client-contact rule.</li>
+</ol>
+</div>
+
+<div class="footer">
+EcodiaOS, Ecodia DAO LLC (Wyoming) / Ecodia Pty Ltd (AU). Concept doc, internal. Stamped fork_mosl9gmx_f2275d.
+</div>
+
+</body>
+</html>
