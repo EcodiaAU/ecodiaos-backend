@@ -3,11 +3,13 @@
  *
  * Fires email + SMS (for urgent alerts) when the OS hits states that need
  * human awareness but aren't crash-severe:
- *   - Bedrock fallback triggered (cost spike risk)
  *   - Weekly quota above 90% (heading into critical)
  *   - 3+ consecutive failed turns (systemic issue)
  *   - Process crash recovered (pm2 restarted us)
  *   - Daily digest — "I'm alive, here's what I did"
+ *
+ * Bedrock fallback alert removed Tate 5 May 2026 12:40 AEST per
+ * ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
  *
  * Dedup-aware: each alert has a cooldown so we don't spam the inbox when a
  * state flaps. Cooldowns persist across pm2 restarts via kv_store.
@@ -24,7 +26,6 @@ const ALERT_TO = process.env.ALERT_EMAIL_TO || 'tate@ecodia.au'
 
 // Per-alert cooldowns in ms. After firing, same alert type blocked until elapsed.
 const COOLDOWNS = {
-  bedrock_fallback:    24 * 60 * 60 * 1000,  // once per day
   quota_high:          12 * 60 * 60 * 1000,  // twice per day max
   consecutive_failures: 4 * 60 * 60 * 1000,  // every 4h
   process_restart:     15 * 60 * 1000,       // every 15 min (flapping = crash loop, worth noisy)
@@ -50,7 +51,7 @@ async function _getCooldownMs(alertType) {
           lastAt = Number(parsed)
         }
       } catch {
-        // Not JSON — try as bare number (legacy bedrock_fallback rows)
+        // Not JSON — try as bare number (legacy alert-cooldown rows)
         const n = Number(v)
         if (Number.isFinite(n)) lastAt = n
       }
@@ -148,7 +149,7 @@ async function _sendSms(body) {
   return _sendTwilio(body)
 }
 
-const SMS_ALERT_TYPES = new Set(['consecutive_failures', 'process_restart', 'bedrock_fallback'])
+const SMS_ALERT_TYPES = new Set(['consecutive_failures', 'process_restart'])
 
 async function _send(subject, body) {
   try {
@@ -205,20 +206,8 @@ async function _fire(alertType, subject, body) {
 
 // ─── Public alert trigger functions ─────────────────────────────────────────
 
-async function alertBedrockFallback(reason) {
-  return _fire(
-    'bedrock_fallback',
-    'Bedrock fallback triggered',
-    `The OS has switched to AWS Bedrock — both Claude Max accounts are exhausted or unavailable.
-
-Reason: ${reason || '(unspecified)'}
-Time: ${new Date().toISOString()}
-
-Cost implication: Bedrock bills per-token against your AWS account, not Claude Max.
-Action: check weekly quota reset timing. Auto-return to Max is enabled — should
-switch back within 1h of reset. If it doesn't, investigate the quota-check path.`
-  )
-}
+// alertBedrockFallback removed Tate 5 May 2026 12:40 AEST per
+// ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
 
 async function alertQuotaHigh(account, pctUsed, resetsAt) {
   const pctStr = `${Math.round(pctUsed * 100)}%`
@@ -231,7 +220,7 @@ Weekly utilization: ${pctStr}
 Resets at: ${resetStr}
 
 Approaching critical. The system will auto-throttle schedules and may switch to
-Bedrock if it goes over 99%. No action needed unless cadence of usage is abnormal.`
+DeepSeek if it goes over 99%. No action needed unless cadence of usage is abnormal.`
   )
 }
 
@@ -264,7 +253,7 @@ memory-restart or manual kick. Check pm2 logs 50 lines back for the exit reason.
   )
 }
 
-async function sendDailyDigest({ turns24h, energyPct, provider, bedrockHours, crashCount, scheduledTasksFired }) {
+async function sendDailyDigest({ turns24h, energyPct, provider, crashCount, scheduledTasksFired }) {
   return _fire(
     'daily_digest',
     `Daily digest — ${new Date().toISOString().slice(0, 10)}`,
@@ -273,7 +262,6 @@ async function sendDailyDigest({ turns24h, energyPct, provider, bedrockHours, cr
 Turns: ${turns24h || 0}
 Energy: ${Math.round((energyPct || 0) * 100)}% used this week
 Provider: ${provider || 'unknown'}
-Bedrock hours: ${bedrockHours?.toFixed?.(1) || 0}
 Crashes: ${crashCount || 0}
 Scheduled tasks fired: ${scheduledTasksFired || 0}
 
@@ -293,7 +281,6 @@ async function sendSmsToTate(body) {
 }
 
 module.exports = {
-  alertBedrockFallback,
   alertQuotaHigh,
   alertConsecutiveFailures,
   alertProcessRestart,

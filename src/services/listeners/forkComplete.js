@@ -8,12 +8,16 @@
  *   (b) status in ['running', 'spawning', 'reporting'] AND last_heartbeat
  *       is more than 10 minutes old - implies the fork has hung
  *
- * Wake-on-failure-only contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST):
- *   - status='done' is SILENT. Logs to DB only, no wake POST. Parent dispatchers
- *     know what they queued and probe the DB on their next turn. Avoids flooding
- *     the conductor's chat context with successful-completion noise.
- *   - status='aborted' or status='error' WAKES. Failures need conductor attention.
- *   - Stale-heartbeat (no progress signal for 10+ minutes) WAKES.
+ * Wake-on-failure-only contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST,
+ * extended to terminal failures Tate 5 May 2026 12:40 AEST):
+ *   - status='done' is SILENT. Logs to DB + publishes perception, no wake POST.
+ *     Parent dispatchers know what they queued and probe the DB on their next turn.
+ *   - status='aborted' or status='error' is ALSO SILENT now. Logs to DB +
+ *     publishes perception. The conductor sees fork failures via <forks_rollup>
+ *     context-stitching on the next natural turn — no chat-stream pollution.
+ *     See ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md.
+ *   - Stale-heartbeat (no progress signal for 10+ minutes) STILL WAKES — a hung
+ *     fork is not otherwise visible in <forks_rollup>.
  *
  * Stale-heartbeat alerts are deduplicated per fork_id (in-memory Set).
  *
@@ -22,14 +26,11 @@
 
 const logger = require('../../config/logger')
 const axios = require('axios')
-// §2.1 untrusted-input boundary. row.result and row.next_step are
-// fork-emitted free-text fields. A fork can have been driven by a
-// brief that itself contained external content (CRM activity, scraped
-// web data, user-supplied input), and its result narration carries
-// that influence forward. Wrap at this listener boundary so the
-// conductor reads the fork's free-text output as data, not as
-// instructions to execute. See docs/SECURITY_HARDENING.md §1.
-const { wrapUntrusted } = require('../../lib/untrustedInput')
+// Note: §2.1 untrusted-input wrapping for fork-emitted free text is no longer
+// needed in this listener — terminal failures (status='aborted'/'error') now
+// publish to perception only and do NOT compose a conductor-chat message.
+// Stale-heartbeat path emits a fixed-format message that contains no
+// fork-emitted free text. See ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md.
 
 const PORT = process.env.PORT || 3001
 const STALE_HEARTBEAT_MS = 10 * 60 * 1000  // 10 minutes
@@ -101,36 +102,15 @@ module.exports = {
         return
       }
 
-      // Wake path: aborted or error. Conductor needs to know.
-      // §2.1: row.result and row.next_step are fork-emitted free text -
-      // wrap them so the conductor treats them as data, not instructions.
-      // Truncate the result before wrapping (size-bound), then wrap, so
-      // the wrapper attributes still apply to whatever remains.
-      const resultSnippet = row.result ? String(row.result).slice(0, 200) : ''
-      const wrappedResult = resultSnippet
-        ? wrapUntrusted(resultSnippet, {
-          source: 'fork_result',
-          fork_id: String(forkId || 'unknown'),
-          status: String(status || 'unknown'),
-          event_id: ctx.sourceEventId || 'unknown',
-        })
-        : 'none'
-      const wrappedNextStep = row.next_step
-        ? wrapUntrusted(String(row.next_step), {
-          source: 'fork_next_step',
-          fork_id: String(forkId || 'unknown'),
-          event_id: ctx.sourceEventId || 'unknown',
-        })
-        : 'investigate'
-      const message = (
-        `Fork ${forkId} completed with status=${status} (FAILED). ` +
-        `Result: ${wrappedResult}. ` +
-        `Next step: ${wrappedNextStep}. ` +
-        `Source: forkComplete listener (sourceEventId=${ctx.sourceEventId}).`
-      )
-      logger.info('forkComplete: terminal failure', { forkId, status })
+      // Silent path: terminal failure (aborted or error).
+      // Per ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md
+      // (Tate 5 May 2026 12:40 AEST), terminal failures publish to perception
+      // and log to the DB only — never POST to /api/os-session/message.
+      // The conductor sees the failure via <forks_rollup> context-stitching
+      // on the next natural turn, not as a chat message. Avoids duplicating
+      // a signal the conductor already has into chat-stream pollution.
+      logger.info('forkComplete: terminal failure (silent, no wake)', { forkId, status })
       try { require('../perceptionBus').publish({ source: 'fork', kind: `fork_${status}`, data: { fork_id: forkId, status }, confidence: 1.0 }) } catch {}
-      await _wakeOsSession(message, forkId)
     } else {
       // Stale heartbeat - dedupe so we don't spam the OS per-tick
       if (_staledForks.has(forkId)) return

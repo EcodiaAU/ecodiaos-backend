@@ -8,14 +8,14 @@
  * cron runner.
  *
  * Cadence is energy-adjusted: full/healthy every 30 min, conserve every 1h,
- * low every 2h, critical every 4h. On Bedrock fallback, pauses entirely to
+ * low every 2h, critical every 4h. On DeepSeek fallback, pauses entirely to
  * avoid burning AWS $ on speculative wakes.
  *
  * A heartbeat skips if:
  *   - An OS Session turn is currently active (don't interrupt)
  *   - Tate messaged in the last HEARTBEAT_INTERVAL (user activity is signal enough)
  *   - Energy level is critical AND no essential tasks are due (pure conservation)
- *   - Provider is Bedrock (heartbeats cost $$$ on Bedrock, not Max)
+ *   - Provider is DeepSeek fallback (heartbeats cost on DeepSeek, not Max)
  */
 
 const logger = require('../config/logger')
@@ -278,11 +278,13 @@ async function _tick() {
       return
     }
 
-    // 3. Energy gate — skip entirely on Bedrock (cost) or critical (pure conservation).
+    // 3. Energy gate — skip entirely on DeepSeek (cost) or critical (pure conservation).
+    // Bedrock removed Tate 5 May 2026 12:40 AEST per
+    // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
     let energy = null
     try { energy = await usageEnergy.getEnergy() } catch {}
-    if (energy?.isBedrockFallback || energy?.isDeepseekFallback) {
-      logger.info(`Heartbeat: on ${energy?.isDeepseekFallback ? 'DeepSeek' : 'Bedrock'} fallback, skipping to avoid cost burn`)
+    if (energy?.isDeepseekFallback) {
+      logger.info('Heartbeat: on DeepSeek fallback, skipping to avoid cost burn')
       return
     }
     if (energy?.level === 'critical') {
@@ -364,7 +366,7 @@ function start() {
 }
 
 // Force an immediate heartbeat — used when a Claude reset window passes
-// during DeepSeek/Bedrock fallback. Without this, autonomy resumes only at
+// during DeepSeek fallback. Without this, autonomy resumes only at
 // the next scheduled tick (up to 4h on critical), which makes the reset
 // effectively wasted while Tate is away.
 async function wakeNow(reason = 'manual') {

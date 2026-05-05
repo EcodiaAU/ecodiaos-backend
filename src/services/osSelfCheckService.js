@@ -94,14 +94,16 @@ async function _probeClaudeEnergy() {
   try {
     const energy = await _withTimeout(usageEnergy.getEnergy(), PROBE_TIMEOUT_MS, null)
     if (!energy) return { ok: false, detail: { error: 'timeout' } }
-    const ok = !energy.isBedrockFallback && !energy.isDeepseekFallback && (energy.level !== 'critical')
+    // Bedrock removed Tate 5 May 2026 12:40 AEST per
+    // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+    const ok = !energy.isDeepseekFallback && (energy.level !== 'critical')
     return {
       ok,
       detail: {
         provider: energy.currentProvider,
         level: energy.level,
         pctUsed: energy.pctUsed,
-        isBedrockFallback: !!energy.isBedrockFallback,
+        isDeepseekFallback: !!energy.isDeepseekFallback,
         accounts: {
           claude_max: energy.accounts?.claude_max ? {
             pctUsed: energy.accounts.claude_max.pctUsed,

@@ -218,20 +218,16 @@ const envSchema = z.object({
   CLAUDE_CODE_OAUTH_TOKEN_CODE: z.string().default(''),  // code@ecodia.au
   // Explicit Factory override — takes priority over CLAUDE_CONFIG_DIR_2 for Factory sessions only
   FACTORY_CC_HOME: z.string().default(''),
-  // Bedrock fallback — used when BOTH Claude Max accounts are exhausted.
-  // Set AWS credentials + region to enable Bedrock as the final fallback tier.
+  // AWS env defs retained as no-ops. Bedrock fallback tier was removed Tate
+  // 5 May 2026 12:40 AEST per ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+  // No code path reads these for routing any more; left here so deployment
+  // configs that still set them don't cause Zod validation errors. Safe to
+  // delete in a future pass once external infra is confirmed clean.
   AWS_ACCESS_KEY_ID: z.string().default(''),
   AWS_SECRET_ACCESS_KEY: z.string().default(''),
   AWS_REGION: z.string().default('us-east-1'),
-  // Bedrock fallback model id. MUST be a real Bedrock cross-region inference
-  // profile id (e.g. us.anthropic.claude-opus-4-1-20250805-v1:0) — Anthropic
-  // OAuth ids like `claude-opus-4-7` are REJECTED by the Bedrock SDK with
-  // "invalid model identifier" errors. Default below is the Opus 4.1 profile
-  // verified by the Bedrock SDK error message (30 Apr 2026 23:24 AEST incident).
-  // TODO: confirm real Bedrock ids for Sonnet 4.5/4.6 and Haiku 4.5 against AWS docs
-  // before switching tier. Validated downstream in osSessionService/forkService.
-  BEDROCK_MODEL: z.string().default('us.anthropic.claude-opus-4-1-20250805-v1:0'),
-  // DeepSeek V4 Pro fallback — sits between Max exhaustion and Bedrock.
+  BEDROCK_MODEL: z.string().default(''),
+  // DeepSeek V4 Pro fallback — final tier after both Max accounts exhausted.
   // Uses native Anthropic-compatible endpoint; no SDK changes required.
   DEEPSEEK_FALLBACK_ENABLED: z.string().default('false'),
   DEEPSEEK_FALLBACK_BASE_URL: z.string().default('https://api.deepseek.com/anthropic'),
@@ -255,8 +251,7 @@ const envSchema = z.object({
   // DeepSeek V4 Flash has a 1M-token context window (vs Claude's 200K), so the
   // 120K threshold compacts way too early and burns the fallback's main edge —
   // long-horizon turns. Default 800K leaves 200K headroom on the 1M ceiling.
-  // Only consulted when the active provider is DeepSeek; Bedrock (200K) stays
-  // on the default Claude threshold.
+  // Only consulted when the active provider is DeepSeek.
   OS_SESSION_COMPACT_THRESHOLD_DEEPSEEK: z.string().default('800000'),
   // Automatic Neo4j memory injection into user messages.
   // Semantic-searches Pattern/Decision/Episode nodes and prepends a

@@ -88,6 +88,59 @@ const TICK_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
 const SMS_CORRECTION_WINDOW_MS = 30 * 60 * 1000 // 30 minutes after dispatch
 const UNVERIFIED_AGE_MS = 30 * 60 * 1000 // dispatch must be at least this old before defaulting to unverified
 
+/**
+ * Compute inference confidence based on how many substrates were probed.
+ * Explicit signals (failure, correction) return 1.0.
+ * Inferred outcomes get confidence proportional to triangulation count:
+ *   3+ probes = 0.9 (high triangulation)
+ *   2 probes  = 0.7 (moderate)
+ *   1 probe   = 0.4 (weak, single source)
+ *   0 probes  = 0.2 (no evidence, structural guess)
+ */
+function computeConfidence(outcome, substratesChecked) {
+  if (outcome === 'failure' || outcome === 'correction') return 1.0
+  if (outcome === 'success') {
+    if (substratesChecked >= 3) return 0.9
+    if (substratesChecked === 2) return 0.7
+    if (substratesChecked === 1) return 0.4
+    return 0.2
+  }
+  // unverified / unknown
+  return 0.3
+}
+
+/**
+ * Probe for an expected artefact specified in dispatch metadata.
+ * Returns { found: true|false|null, substrate?, reason? }.
+ *   found=true   -> artefact confirmed on a substrate
+ *   found=false  -> expected artefact explicitly missing (failure signal)
+ *   found=null   -> no artefact path specified or path isn't probeable
+ *
+ * Currently supports: status_board rows by name or entity_ref.
+ * Can be extended to other substrates (filesystem, kv_store, cc_sessions).
+ */
+async function probeExpectedArtefact(client, metadata) {
+  if (!metadata) return { found: null, reason: 'no_metadata' }
+  const artefactPath = metadata.expected_artefact || null
+  if (!artefactPath) return { found: null, reason: 'no_path_specified' }
+
+  if (typeof artefactPath === 'string' && artefactPath.startsWith('status_board:')) {
+    const ref = artefactPath.slice('status_board:'.length)
+    try {
+      const r = await client.query(
+        `SELECT 1 FROM status_board WHERE (name = $1 OR entity_ref = $1) AND archived_at IS NULL LIMIT 1`,
+        [ref]
+      )
+      if (r.rowCount > 0) return { found: true, substrate: 'status_board' }
+      return { found: false, reason: `status_board '${ref}' not found` }
+    } catch {
+      return { found: null, reason: 'status_board_query_failed' }
+    }
+  }
+
+  return { found: null, reason: `unverifiable_path_type: ${typeof artefactPath}` }
+}
+
 const CORRECTION_KEYWORDS = [
   // Multi-token "I want you to undo / redo / not that" phrases
   'not that',
@@ -345,40 +398,96 @@ async function inferFactoryDispatchOutcome(client, dispatch) {
  *   6. Defer (return null) for fresh dispatches.
  */
 async function inferDispatchOutcome(client, dispatch, smsTable) {
+  const meta = dispatch.metadata || {}
+  let substratesChecked = 0
+
   // Step 1: type-specific FAILURE signals (highest evidence on the negative side).
   if (dispatch.action_type === 'fork_spawn') {
     const r = await inferForkSpawnOutcome(client, dispatch)
     if (r && r.outcome === 'failure') return r
+    substratesChecked += 1
   }
   if (dispatch.action_type === 'factory_dispatch') {
     const r = await inferFactoryDispatchOutcome(client, dispatch)
     if (r && r.outcome === 'failure') return r
+    substratesChecked += 1
   }
 
   // Step 2 + 3: Tate SMS signal (correction OR affirmation).
   const sig = await findTateSignal(client, dispatch, smsTable)
+  if (smsTable) substratesChecked += 1
   if (sig && sig.kind === 'correction') {
     return {
       outcome: 'correction',
-      evidence: `sms within 30min after dispatch matched correction '${sig.matched_keyword}'`,
+      evidence: `confidence=1.0|sms within 30min after dispatch matched correction '${sig.matched_keyword}'`,
       correction_text: sig.body,
     }
   }
   if (sig && sig.kind === 'affirmation') {
     return {
       outcome: 'success',
-      evidence: `sms within 30min after dispatch matched affirmation '${sig.matched_keyword}'`,
+      evidence: `confidence=0.9|tate_affirmation|sms within 30min after dispatch matched affirmation '${sig.matched_keyword}'`,
     }
   }
 
   // Step 4: type-specific SUCCESS signals (require explicit artefacts).
+  let successFromType = null
   if (dispatch.action_type === 'fork_spawn') {
     const r = await inferForkSpawnOutcome(client, dispatch)
-    if (r && r.outcome === 'success') return r
+    if (r && r.outcome === 'success') successFromType = r
+    substratesChecked += 1
   }
   if (dispatch.action_type === 'factory_dispatch') {
     const r = await inferFactoryDispatchOutcome(client, dispatch)
-    if (r && r.outcome === 'success') return r
+    if (r && r.outcome === 'success') successFromType = r
+    substratesChecked += 1
+  }
+
+  if (successFromType) {
+    // Multi-substrate probe before accepting type-level success.
+    // Probe 1: expected artefact existence (strongest signal when metadata specifies it).
+    const artefact = await probeExpectedArtefact(client, meta)
+    if (artefact.found === true) {
+      substratesChecked += 1
+    } else if (artefact.found === false) {
+      // Expected artefact missing - this is effectively a failure signal.
+      console.warn(
+        `[outcomeInference] dispatch ${dispatch.id}: expected artefact missing, downgrading success: ${artefact.reason}`
+      )
+      return {
+        outcome: 'unverified',
+        evidence: `confidence=0.3|expected_artefact_missing:${artefact.reason}|${successFromType.evidence}`,
+      }
+    }
+    // artefact.found === null means no path specified - no extra substrate counted.
+
+    // Probe 2: reasonable timing (non-trivial work completing in <15s is suspicious).
+    const elapsedMs = Date.now() - new Date(dispatch.ts).getTime()
+    if (elapsedMs >= 15000 || dispatch.action_type === 'tool_call') {
+      substratesChecked += 1
+    } else {
+      console.warn(
+        `[outcomeInference] dispatch ${dispatch.id}: suspiciously fast completion (${elapsedMs}ms) for non-trivial action`
+      )
+      // Fast completion does not count as a valid substrate.
+    }
+
+    const confidence = computeConfidence('success', substratesChecked)
+    let evidence = `confidence=${confidence}|substrates=${substratesChecked}|${successFromType.evidence}`
+
+    if (confidence < 0.7) {
+      console.warn(
+        `[outcomeInference] dispatch ${dispatch.id}: success with low confidence ${confidence} (substrates=${substratesChecked})`
+      )
+    }
+    if (confidence < 0.5) {
+      return {
+        outcome: 'unverified',
+        evidence: `confidence=${confidence}|low_confidence_downgrade|${successFromType.evidence}`,
+      }
+    }
+
+    return { outcome: 'success', evidence }
   }
 
   // Step 5: UNVERIFIED default for dispatches older than the verification window.
@@ -388,7 +497,7 @@ async function inferDispatchOutcome(client, dispatch, smsTable) {
   if (ageMs > UNVERIFIED_AGE_MS) {
     return {
       outcome: 'unverified',
-      evidence: `no positive or negative signal within ${UNVERIFIED_AGE_MS / 60000}min, action_type=${dispatch.action_type}`,
+      evidence: `confidence=0.3|no positive or negative signal within ${UNVERIFIED_AGE_MS / 60000}min, action_type=${dispatch.action_type}, substrates=${substratesChecked}`,
     }
   }
 
@@ -497,6 +606,8 @@ module.exports = {
   findTateCorrection,
   inferForkSpawnOutcome,
   inferFactoryDispatchOutcome,
+  computeConfidence,
+  probeExpectedArtefact,
   CORRECTION_KEYWORDS,
   AFFIRMATION_KEYWORDS,
   UNVERIFIED_AGE_MS,

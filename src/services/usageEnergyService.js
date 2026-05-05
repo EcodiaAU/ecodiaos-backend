@@ -1,8 +1,8 @@
 /**
- * Usage Energy Service — Dual-Account + Bedrock Fallback
+ * Usage Energy Service — Dual-Account + DeepSeek Fallback
  *
  * Tracks BOTH Claude Max accounts independently and picks the healthiest one.
- * Falls back to Bedrock when both Max accounts are exhausted.
+ * Falls back to DeepSeek V4 when both Max accounts are exhausted.
  *
  * How it works:
  *   Every /v1/messages response from Anthropic includes:
@@ -15,10 +15,11 @@
  *   We probe BOTH accounts via lightweight 1-token quota-checks (independent timers).
  *   This lets us always know which account has more headroom — weekly AND 5h session.
  *
- * Provider priority:
+ * Provider priority (Tate 5 May 2026 12:40 AEST — Bedrock removed):
  *   1. Healthiest Claude Max account (whichever has lower utilization)
  *   2. The other Claude Max account (if first is capped)
- *   3. Bedrock Opus (final fallback when both Max accounts are exhausted)
+ *   3. DeepSeek V4 (final fallback when both Max accounts are exhausted, if enabled)
+ *   See ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
  *
  * Energy states (derived from real utilization):
  *   full      0–10%  used  — opus freely, all schedules
@@ -37,7 +38,7 @@ const db = require('../config/db')
 // Event bus for reset-driven notifications. Currently emits:
 //   'claude-available' { provider, reason } — fired after a reset window passes
 //   and a Claude account becomes healthy again. osSessionService listens to
-//   flip _currentProvider back from deepseek/bedrock at the next turn boundary;
+//   flip _currentProvider back from deepseek at the next turn boundary;
 //   osHeartbeatService listens to wake immediately so autonomy resumes without
 //   waiting for the next scheduled tick.
 const _events = new EventEmitter()
@@ -367,7 +368,7 @@ async function refreshAllAccounts() {
 }
 
 // ─── Reset watcher ──────────────────────────────────────────────────────────
-// On fallback (deepseek/bedrock), nothing in-flight re-evaluates providers
+// On fallback (deepseek), nothing in-flight re-evaluates providers
 // until the next user message or heartbeat — and the heartbeat itself is
 // paused on fallback (osHeartbeatService:284). Without a watcher, Claude
 // reset windows pass silently and the OS stays on DeepSeek until Tate starts
@@ -463,8 +464,8 @@ async function _onResetFired() {
   }
 
   // Don't emit if we never left Claude in the first place — listeners only
-  // care about the deepseek/bedrock → claude transition.
-  const onFallback = _activeProvider === 'deepseek' || _activeProvider === 'bedrock'
+  // care about the deepseek → claude transition.
+  const onFallback = _activeProvider === 'deepseek'
   if (!onFallback) {
     logger.debug('reset watcher: Claude healthy but already on Claude — no event needed')
     return
@@ -505,7 +506,7 @@ function _accountHealth(account) {
   if (!hasLongLivedToken && !configDir) return { score: -100, reason: 'no_token_or_config_dir' }
 
   // Rejected = completely unusable UNLESS the reset time has passed.
-  // Without this, once we mark an account rejected we stay on Bedrock forever.
+  // Without this, once we mark an account rejected we stay on the fallback forever.
   // Check BOTH weekly reset AND 5-hour session reset — if either has passed,
   // the account is usable again. The quota-check will re-probe and update
   // with real headers.
@@ -589,11 +590,12 @@ function _accountHealth(account) {
 }
 
 // ─── Pick the best provider ────────────────────────────────────────────────
-// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } for the caller to use.
-// Priority: claude_max → claude_max_2 → deepseek (if enabled) → bedrock → best-effort
+// Returns { provider, reason, isDeepseekFallback } for the caller to use.
+// Priority: claude_max → claude_max_2 → deepseek (if enabled) → best-effort.
+// Bedrock removed Tate 5 May 2026 12:40 AEST per
+// ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
 function getBestProvider() {
   const hasAccount2   = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
-  const hasBedrock    = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
   const hasDeepseek   = process.env.DEEPSEEK_FALLBACK_ENABLED === 'true' && !!process.env.DEEPSEEK_API_KEY
 
   const health1 = _accountHealth('claude_max')
@@ -602,36 +604,30 @@ function getBestProvider() {
   logger.debug('Provider health scores', {
     acct1: { score: health1.score, reason: health1.reason },
     acct2: { score: health2.score, reason: health2.reason },
-    hasBedrock,
     hasDeepseek,
   })
 
   // Both usable — pick the healthier one
   if (health1.score > 0 && health2.score > 0) {
     if (health1.score >= health2.score) {
-      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isBedrockFallback: false, isDeepseekFallback: false }
+      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isDeepseekFallback: false }
     }
-    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isBedrockFallback: false, isDeepseekFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isDeepseekFallback: false }
   }
 
   // One usable — use it
   if (health1.score > 0) {
-    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
+    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isDeepseekFallback: false }
   }
   if (health2.score > 0) {
-    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isBedrockFallback: false, isDeepseekFallback: false }
+    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isDeepseekFallback: false }
   }
 
   const bothDownReason = `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`
 
-  // Both down — try DeepSeek before Bedrock
+  // Both down — try DeepSeek (final tier)
   if (hasDeepseek) {
-    return { provider: 'deepseek', reason: `${bothDownReason} — using DeepSeek V4 Pro`, isBedrockFallback: false, isDeepseekFallback: true }
-  }
-
-  // DeepSeek not available — try Bedrock
-  if (hasBedrock) {
-    return { provider: 'bedrock', reason: bothDownReason, isBedrockFallback: true, isDeepseekFallback: false }
+    return { provider: 'deepseek', reason: `${bothDownReason} — using DeepSeek V4 Pro`, isDeepseekFallback: true }
   }
 
   // Nothing available — return whichever is least bad
@@ -639,7 +635,6 @@ function getBestProvider() {
   return {
     provider: best,
     reason: `all providers exhausted — using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
-    isBedrockFallback: false,
     isDeepseekFallback: false,
   }
 }
@@ -742,7 +737,6 @@ async function getEnergy() {
     // ─── Smart provider recommendation
     recommendedProvider: best.provider,
     providerReason: best.reason,
-    isBedrockFallback: best.isBedrockFallback,
     isDeepseekFallback: best.isDeepseekFallback,
     // ─── Self-tracked activity
     turnsThisWeek: selfTracked.turns,

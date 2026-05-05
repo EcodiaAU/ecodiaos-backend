@@ -13,7 +13,8 @@
  * Provider fallback chain (smart selection via usageEnergyService.getBestProvider()):
  *   1. Healthiest Claude Max account (whichever has more weekly + 5h headroom)
  *   2. The other Claude Max account (if first is capped — weekly OR 5h session)
- *   3. Bedrock Opus (final fallback when both Max accounts are exhausted)
+ *   3. DeepSeek V4 (final fallback when both Max accounts are exhausted, if enabled)
+ *   See ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md (Tate 5 May 2026 12:40 AEST).
  */
 
 const fs = require('fs')
@@ -74,7 +75,7 @@ logger.info('Claude energy: boot probe disabled (state populates from SDK turns)
 usageEnergy.on('claude-available', ({ provider, reason }) => {
   // Only act if we're actually on a fallback. The watcher already gates this,
   // but a defensive check keeps this idempotent if it ever fires spuriously.
-  if (_currentProvider !== 'deepseek' && _currentProvider !== 'bedrock') return
+  if (_currentProvider !== 'deepseek') return
 
   logger.info('Claude reset detected — scheduling switch-back at next turn boundary', {
     provider, reason, currentProvider: _currentProvider,
@@ -591,7 +592,7 @@ let sessionTokenUsage = { input: 0, output: 0 }
 let _currentProvider = 'claude_max'  // tracks which provider the current session is using
 
 // Auto-handover compact threshold — provider-aware. DeepSeek V4 Flash has a
-// 1M context window vs Claude/Bedrock's 200K, so reusing the same 120K
+// 1M context window vs Claude's 200K, so reusing the same 120K
 // threshold there compacted ~6x more aggressively than necessary and made
 // long DeepSeek fallback turns chop themselves off. The DeepSeek-specific
 // threshold (default 800K, leaves 200K headroom on the 1M ceiling) only
@@ -721,8 +722,8 @@ function _recordTurnOutcome(ok, errorMsg) {
 // Detect REAL exhaustion, not casual mentions. The old implementation matched
 // bare "quota" / "weekly" / "resets " substrings which tripped on almost any
 // assistant-generated text mentioning those words (e.g. "let me check the
-// weekly report" or "quota analysis"). That false-positived into Bedrock
-// fallback on healthy accounts.
+// weekly report" or "quota analysis"). That false-positived into the
+// DeepSeek fallback on healthy accounts.
 //
 // Strict matcher: require either an explicit HTTP status (429), an official
 // Anthropic error code, or a full exhaustion phrase. Single-word matches
@@ -829,7 +830,7 @@ function _DEAD_isSuspectSilentFailure({ collectedText, errMsg, hadResultMessage 
 //                   plausible but unconfirmed — avoids wasting a refresh on a healthy
 //                   token when the real bug was something else)
 async function _DEAD_tryTokenRefresh(mode = 'force') {
-  if (_currentProvider === 'bedrock') return false  // Bedrock uses AWS creds, not OAuth
+  // Bedrock branch removed Tate 5 May 2026 12:40 AEST.
   try {
     const tokenRefresh = require('./claudeTokenRefreshService')
     const account = _currentProvider === 'claude_max_2' ? 'claude_max_2' : 'claude_max'
@@ -866,7 +867,8 @@ async function _DEAD_tryTokenRefresh(mode = 'force') {
 }
 
 // After an exhaustion event on the current provider, mark it rejected and pick the next best.
-// Returns { provider, reason, isBedrockFallback, isDeepseekFallback } or null if no alternative.
+// Returns { provider, reason, isDeepseekFallback } or null if no alternative.
+// Bedrock removed Tate 5 May 2026 12:40 AEST per ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
 function _switchAfterExhaustion() {
   const from = _currentProvider
   // Mark current provider as rejected so getBestProvider skips it
@@ -879,10 +881,10 @@ function _switchAfterExhaustion() {
   }
   osIncident.log({
     kind: 'provider_switch',
-    severity: (best.isBedrockFallback || best.isDeepseekFallback) ? 'error' : 'warn',
+    severity: best.isDeepseekFallback ? 'error' : 'warn',
     component: from,
     message: `switched ${from} -> ${best.provider}`,
-    context: { from, to: best.provider, reason: best.reason, isBedrockFallback: !!best.isBedrockFallback, isDeepseekFallback: !!best.isDeepseekFallback },
+    context: { from, to: best.provider, reason: best.reason, isDeepseekFallback: !!best.isDeepseekFallback },
   })
   return best
 }
@@ -1327,8 +1329,9 @@ async function _sendMessageImpl(content, opts = {}) {
 
   // Energy level is still tracked for logging + provider routing, but no longer
   // gates thinking — the conductor thinks on every turn now (see thinking block
-  // below). Provider routing still honours energy (Bedrock fallback when both
-  // Max accounts are exhausted).
+  // below). Provider routing still honours energy (DeepSeek fallback when both
+  // Max accounts are exhausted; Bedrock forbidden per
+  // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md).
   let energy = null
   try { energy = await usageEnergy.getEnergy() } catch {}
   const energyLevel = energy?.level || 'healthy'
@@ -1431,7 +1434,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // the conductor should be the absolute smartest it can be on every turn.
     // Previous energy-gated tiers (5k/10k/off) were trading quality for weekly
     // budget; weekly-budget pressure is now handled upstream via account
-    // routing + Bedrock fallback, so there's no reason to throttle reasoning.
+    // routing + DeepSeek fallback, so there's no reason to throttle reasoning.
     // 10k was empirically the right ceiling before — keeping it as the cap to
     // avoid eating into the response budget on turns that need long output.
     thinking: {
@@ -1462,7 +1465,9 @@ async function _sendMessageImpl(content, opts = {}) {
 
   // ─── Smart provider selection ──────────────────────────────────────────────
   // getBestProvider() checks both accounts' weekly + 5h utilization and picks the
-  // healthiest. Falls back to Bedrock when both Max accounts are exhausted.
+  // healthiest. Falls back to DeepSeek V4 when both Max accounts are exhausted.
+  // Bedrock removed Tate 5 May 2026 12:40 AEST per
+  // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   const best = usageEnergy.getBestProvider()
   const prevProvider = _currentProvider
 
@@ -1470,6 +1475,8 @@ async function _sendMessageImpl(content, opts = {}) {
     // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
     // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
     // Model must be set explicitly: unknown names silently map to deepseek-v4-flash.
+    // Final tier of the fallback chain. Bedrock forbidden per Tate 5 May 2026 12:40 AEST,
+    // see ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
     if (prevProvider !== 'deepseek') {
       let energySnap = null
       try { energySnap = await usageEnergy.getEnergy() } catch {}
@@ -1477,13 +1484,8 @@ async function _sendMessageImpl(content, opts = {}) {
       const acct2 = energySnap?.accounts?.claude_max_2
       const trulyExhausted = (acct1?.pctUsed >= 0.85) || (acct2?.pctUsed >= 0.85) ||
         acct1?.rateLimitStatus === 'rejected' || acct2?.rateLimitStatus === 'rejected'
-      if (trulyExhausted) {
-        try {
-          const alerting = require('./osAlertingService')
-          alerting.alertBedrockFallback(`DeepSeek fallback: ${best.reason}`).catch(() => {})
-        } catch {}
-      } else {
-        logger.warn('DeepSeek fallback triggered but no account is near-exhausted — likely spurious, NOT alerting', {
+      if (!trulyExhausted) {
+        logger.warn('DeepSeek fallback triggered but no account is near-exhausted — likely spurious', {
           reason: best.reason,
           acct1PctUsed: acct1?.pctUsed,
           acct2PctUsed: acct2?.pctUsed,
@@ -1511,65 +1513,8 @@ async function _sendMessageImpl(content, opts = {}) {
     delete options.thinking
     delete options.resume
     emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
-  } else if (best.isBedrockFallback) {
-    // Bedrock fallback — use ANTHROPIC_API_KEY with Bedrock model.
-    // Alert ONLY if a Max account was genuinely near cap — otherwise this is
-    // a false fallback (e.g. `_isUsageExhausted` mis-matched on stray text,
-    // or the quota-check hasn't run yet and both accounts look unknown).
-    // Gate: at least one Max account must have weeklyUtilization >= 0.85,
-    // OR be explicitly rejected by the API. Without that signal, Bedrock
-    // fallback is likely spurious and we log-only instead of emailing.
-    if (prevProvider !== 'bedrock') {
-      let energySnap = null
-      try { energySnap = await usageEnergy.getEnergy() } catch {}
-      const acct1 = energySnap?.accounts?.claude_max
-      const acct2 = energySnap?.accounts?.claude_max_2
-      const trulyExhausted = (acct1?.pctUsed >= 0.85) || (acct2?.pctUsed >= 0.85) ||
-        acct1?.rateLimitStatus === 'rejected' || acct2?.rateLimitStatus === 'rejected'
-      if (trulyExhausted) {
-        try {
-          const alerting = require('./osAlertingService')
-          alerting.alertBedrockFallback(best.reason).catch(() => {})
-        } catch {}
-      } else {
-        logger.warn('Bedrock fallback triggered but no account is near-exhausted — likely spurious, NOT alerting', {
-          reason: best.reason,
-          acct1PctUsed: acct1?.pctUsed,
-          acct2PctUsed: acct2?.pctUsed,
-        })
-      }
-    }
-    _currentProvider = 'bedrock'
-    ccSessionId = null  // can't resume across providers
-    if (dbSessionId) {
-      db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
-    }
-    const sessionEnv = { ...process.env }
-    // For Bedrock via CC Agent SDK: set model to bedrock-prefixed model
-    // and provide AWS credentials in the environment
-    if (env.AWS_ACCESS_KEY_ID) sessionEnv.AWS_ACCESS_KEY_ID = env.AWS_ACCESS_KEY_ID
-    if (env.AWS_SECRET_ACCESS_KEY) sessionEnv.AWS_SECRET_ACCESS_KEY = env.AWS_SECRET_ACCESS_KEY
-    if (env.AWS_REGION) sessionEnv.AWS_REGION = env.AWS_REGION
-    // CC Agent SDK supports Bedrock via CLAUDE_CODE_USE_BEDROCK=1
-    sessionEnv.CLAUDE_CODE_USE_BEDROCK = '1'
-    options.env = sessionEnv
-    // Bedrock requires cross-region inference profile ids (us./eu./apac.anthropic.*).
-    // Anthropic OAuth ids like `claude-opus-4-7` are rejected by the Bedrock SDK
-    // with "invalid model identifier" errors. Validate and substitute safe default.
-    // Origin: 30 Apr 2026 23:24 AEST — 3 turn failures from BEDROCK_MODEL=claude-opus-4-7.
-    const bedrockDefault = 'us.anthropic.claude-opus-4-1-20250805-v1:0'
-    const candidateBedrockModel = env.BEDROCK_MODEL || bedrockDefault
-    if (!/^(us|eu|apac)\.anthropic\.claude-/i.test(candidateBedrockModel)) {
-      logger.warn('Bedrock fallback: BEDROCK_MODEL is not a Bedrock-shaped id, using safe default', {
-        configured: candidateBedrockModel,
-        using: bedrockDefault,
-      })
-      options.model = bedrockDefault
-    } else {
-      options.model = candidateBedrockModel
-    }
-    delete options.resume
-    emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to Bedrock (${options.model}).` })
+  // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
+  // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   } else if (best.provider === 'claude_max_2') {
     _currentProvider = 'claude_max_2'
     if (prevProvider !== 'claude_max_2') {
@@ -1619,7 +1564,6 @@ async function _sendMessageImpl(content, opts = {}) {
   logger.info('OS Session provider decision', {
     provider: _currentProvider,
     reason: best.reason,
-    isBedrockFallback: best.isBedrockFallback,
     isDeepseekFallback: best.isDeepseekFallback,
     prevProvider,
     configDir1: env.CLAUDE_CONFIG_DIR_1 || '(default)',
@@ -2744,8 +2688,8 @@ async function _sendMessageImpl(content, opts = {}) {
       // A hung MCP tool or a silent SDK means the current PROVIDER is fine;
       // something downstream is stuck. Previously we called
       // _switchAfterExhaustion() here, which marked the provider rejected
-      // and flipped us to Bedrock — that's how a neo4j outage could end up
-      // burning AWS $ on a 35%-quota Max account.
+      // and flipped us to a fallback — that's how a neo4j outage could end up
+      // marking a healthy 35%-quota Max account as exhausted unnecessarily.
       //
       // New policy: a hang retries on the SAME provider (fresh session_id)
       // up to MAX_RETRY_DEPTH. Only a real rate-limit / exhaustion signal

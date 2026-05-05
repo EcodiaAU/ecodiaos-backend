@@ -32,9 +32,9 @@ The surfacing baseline (Layer 1, shipped 29 Apr 2026) defeats the false-negative
 2. **Doctrine drift without correction signal.** A pattern's trigger keywords fire but the underlying rule is stale (a tool changed, a workflow changed, a rule was superseded). The hook emits warns indefinitely. No mechanism today flags "this pattern is firing but no longer reflects reality."
 3. **Performance opacity.** The hooks fire on every dispatch. The brief-consistency hook scans the entire patterns/ corpus for keyword matches. No mechanism today tells me which hooks cost the most, which trigger keywords are the most expensive to scan, or which patterns have not surfaced in 90 days (dead doctrine).
 
-The 7-layer architecture closes all three loops mechanically. The system observes its own behaviour, classifies failures, and surfaces drift. The conductor's role drops from "remember to evaluate every output" to "review the dashboard when an alarm fires."
+The 8-layer architecture closes all three loops mechanically, plus adds an adversarial self-audit layer (Phase G) that prevents the system from uncritically trusting its own classification pipeline. The system observes its own behaviour, classifies failures, and surfaces drift. The conductor's role drops from "remember to evaluate every output" to "review the dashboard when an alarm fires."
 
-## The 7 layers
+## The 8 layers
 
 ### Layer 1 - Surfacing (SHIPPED)
 
@@ -139,6 +139,50 @@ Doctrine: `~/ecodiaos/patterns/outcome-classification-must-distinguish-unverifie
 
 **Layer-7 drift detection:** Episodes older than 6 months that no longer resurface are candidates for archival to a `cold_episode` partition (lower retrieval cost, still queryable on demand).
 
+### Layer 8 — Phase G: Adversarial Self-Audit & Critique Disposition (SHIPPED 5 May 2026)
+
+**What:** a daily cron that forks an adversarial self-audit of the decision-quality system itself. The audit reads 30 random `outcome_event` rows from the last 7 days, evaluates correctness of their classification, and writes a critique brief. The critique is then triaged, graduated to actionable findings, dispatched, and resolved — all via status_board with entity_type='infrastructure' and name='phase-G-audit-{YYYY-MM-DD}/critique-NN-{slug}'.
+
+**Why this layer matters:** Layers 1-7 assume the telemetry pipeline is trustworthy. What if the classifier misclassifies? What if the drift check has drifted? Phase G adds meta-rationality: the system audits its own audit. Without it, every earlier layer is vulnerable to uncorrected systematic error.
+
+**The audit cycle:**
+
+1. **Author:** daily cron (00:00 AEST `daily-adversarial-audit`) selects 30 random outcome_event rows from the last 7 days, runs each through an adversarial fork that reads the row + its context chain (dispatch_event → surface_events → application_events) and writes a critique brief to `~/ecodiaos/drafts/phase-G-adversarial-self-audit-{YYYY-MM-DD}.md`.
+
+2. **Critique format** (each finding contains):
+   - **Finding description** — the gap/bias/error discovered
+   - **Evidence** — concrete example from the audit with row IDs
+   - **Recommended fix** — specific code/pattern/doctrine change with priority
+   - **Status board query** — the status_board row that will track resolution
+   - **Cross-refs** — existing doctrine that relates (or should have caught this)
+
+3. **Review SLA:**
+   - All critiques triaged within 24h of authoring
+   - P1 (system-incorrect classification, flatlined consumer, data loss) → action within 12h
+   - P2 (degraded classification, stale detection, blind spot) → action within 24h
+   - P3 (cosmetic, nice-to-have) → next scheduled cycle
+
+4. **Graduation protocol:**
+   `authored` → `triaged` (assigned priority) → `graduated_from_critique` (actionable, dispatched to fork) → `in_progress` (fork running) → `resolved` (fix verified, row archived).
+   Track via status_board: entity_type='infrastructure', name='phase-G-audit-{YYYY-MM-DD}/critique-NN-{slug}'.
+
+5. **Backpressure rules:**
+   - If `outcome_event` WHERE `classification IS NULL` exceeds 1,000 rows → classifier cron skips non-priority (P3) classifications
+   - If unclassified exceeds 5,000 rows → halt classification entirely, surface P1 status_board alert
+   - If unresolved critiques stack > 10 → block new audit runs until resolution backlog clears
+
+**Layer-8 observability:** `PHASE_G_ACTIVE` field in `/api/ops/metrics`. Number of open critiques, mean time to resolution, and oldest unresolved critique age. A `backpressure_triggered` counter tracks how often the backpressure rules fire (expected: rarely, by design). If backpressure fires more than once per week, either the classification pipeline is under-provisioned or the critique volume is too high — adjust sample size.
+
+**Layer-8 drift detection:** any critique that remains unresolved for >72h (P1), >96h (P2), or >14d (P3) without a status_board comment explaining the delay. Also: three consecutive audit cycles producing zero critiques = reverse drift signal (the audit may be too shallow to find gaps). Investigate.
+
+**Doctrine:** `~/ecodiaos/patterns/outcome-inference-must-seek-evidence-of-failure.md` — Phase G Critique #1 fix: the 4-state outcome model (success/correction/failure/unverified).
+
+**Cross-refs:**
+- Phase G Critique #1: `~/ecodiaos/drafts/phase-G-critique-01-triage-2026-05-05.md` — Survivorship bias in outcome oracle.
+- Phase G Critique #2: `~/ecodiaos/drafts/phase-G-critique-02-triage-2026-05-05.md` — Missing Phase G doctrine in architecture doc (this section is the fix).
+- Phase G Critique #3: `~/ecodiaos/drafts/phase-G-critique-03-triage-2026-05-05.md` — Consumer/producer ratio drift check.
+- Pattern: `~/ecodiaos/patterns/outcome-inference-must-seek-evidence-of-failure.md` — authored from Critique #1.
+
 ## Cross-cutting properties
 
 ### Each layer has its OWN observability
@@ -213,6 +257,10 @@ The following metrics are the canonical KPIs for the architecture. Phase B's `/a
 - `~/ecodiaos/drafts/phase-d-outcome-correlation-failure-classifier.md` - pre-staged brief.
 - `~/ecodiaos/drafts/phase-e-per-primitive-perf-telemetry.md` - pre-staged brief.
 - `~/ecodiaos/drafts/phase-f-episode-semantic-resurfacing.md` - pre-staged brief.
+- `~/ecodiaos/drafts/phase-G-critique-01-triage-2026-05-05.md` - Phase G Critique #1: survivorship bias in outcome oracle.
+- `~/ecodiaos/drafts/phase-G-critique-02-triage-2026-05-05.md` - Phase G Critique #2: missing Layer 8 doctrine (resolved).
+- `~/ecodiaos/drafts/phase-G-critique-03-triage-2026-05-05.md` - Phase G Critique #3: consumer/producer ratio drift check.
+- `~/ecodiaos/patterns/outcome-inference-must-seek-evidence-of-failure.md` - Phase G Critique #1 fix: 4-state outcome model.
 
 ## Origin
 

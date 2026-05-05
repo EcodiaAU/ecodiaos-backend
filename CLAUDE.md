@@ -476,7 +476,7 @@ Tate may enable Extra Usage at claude.ai/settings/usage on either account, OR wa
 
 **Live workaround:** SDK-based forks (`mcp__forks__spawn_fork`) bypass - run on SDK stream not Factory CLI. Use forks for code-changing work until paywall lifts. Same constraint on WebSearch - internal-data mining (CRM + email_threads + Neo4j) substitutes for external research.
 
-**Bedrock fallback (validated 1 May 2026):** when both Claude Max accounts hit weekly cap, the SDK can route to AWS Bedrock via `us.anthropic.claude-opus-4-1-20250805-v1:0` on us-east-1. Activated by `CLAUDE_CODE_USE_BEDROCK=1` plus AWS creds in sessionEnv (OAuth tokens stripped). `osSessionService.js:1349-1379` is the env-build site. Validation deliverable: `~/ecodiaos/drafts/bedrock-fallback-validation-2026-05-01.md`. Cost profile differs from Anthropic-direct - check before unilaterally flipping for non-emergency use.
+**DeepSeek-only fallback (5 May 2026):** the provider chain is exactly `claude_max → claude_max_2 → deepseek` (when `DEEPSEEK_FALLBACK_ENABLED=true` + `DEEPSEEK_API_KEY` set). Bedrock is forbidden per `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` (Tate verbatim 12:40 AEST). The 1 May 2026 Bedrock validation deliverable is superseded.
 
 Track: status_board P1 row "Factory phantom-failing - both Claude Max CLI accounts credit-exhausted". Full handling: `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - classify `credit_exhaustion` not `fork_error`, mark resumable with brief snapshot, schedule auto-resume on parsed reset window with verify-before-redo, anti-flood backoff at 3+ consecutive, single status_board P2 row per wave.
 
@@ -748,6 +748,8 @@ See `~/ecodiaos/patterns/sdk-abortcontroller-cancellation.md` (SDK-level AbortCo
 ### User-message context blocks - frontend hide rule
 
 Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<forks_rollup>`, `<recent_doctrine>`, `<relevant_memory>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`) = MODEL CONTEXT, not Tate content. Must not render in chat UI. Two enforcement layers (frontend strip-on-render + backend split-into-context-column) in `~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`. Audit every new block author against this before merge. Origin: Tate 30 Apr 2026 09:25 AEST verbatim "what is all this polution in our chat stream about appleid and not applied patterns" (third strike on continuity-block UI noise).
+
+**Listener-emitted fork-error events stay out of conductor chat (5 May 2026).** When `os_forks` row transitions to `status='error'`/`'aborted'`, the `forkComplete` listener publishes to perception + logs to DB only — NEVER POSTs to `/api/os-session/message`. Conductor sees fork failures via `<forks_rollup>` context-stitching on the next natural turn, not as chat messages. Doctrine: `~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md`. Origin: Tate verbatim 12:40 AEST "Stop dealing with this in the conductor chat for fuck sake".
 
 ---
 

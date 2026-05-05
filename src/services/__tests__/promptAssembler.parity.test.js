@@ -42,10 +42,6 @@ jest.mock('../../config/env', () => ({
   CLAUDE_CONFIG_DIR_2: undefined,
   CLAUDE_CODE_OAUTH_TOKEN_TATE: undefined,
   CLAUDE_CODE_OAUTH_TOKEN_CODE: undefined,
-  AWS_ACCESS_KEY_ID: undefined,
-  AWS_SECRET_ACCESS_KEY: undefined,
-  AWS_REGION: undefined,
-  BEDROCK_MODEL: undefined,
   ANTHROPIC_API_KEY: undefined,
 }))
 
@@ -65,7 +61,7 @@ jest.mock('../usageEnergyService', () => ({
     accounts: { claude_max: {}, claude_max_2: {} },
   }),
   getBestProvider: jest.fn().mockReturnValue({
-    provider: 'claude_max', isBedrockFallback: false, isDeepseekFallback: false, reason: 'healthy',
+    provider: 'claude_max', isDeepseekFallback: false, reason: 'healthy',
   }),
   setProvider: jest.fn(),
   invalidateCache: jest.fn(),

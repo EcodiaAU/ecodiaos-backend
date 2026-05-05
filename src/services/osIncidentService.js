@@ -16,7 +16,7 @@ const logger = require('../config/logger')
 const KNOWN_KINDS = new Set([
   'turn_failure',        // SDK stream ended bad — empty, inactivity, tool hang
   'mcp_failure',         // MCP server unreachable or returned error repeatedly
-  'provider_switch',     // Bedrock fallback triggered OR returned to Max
+  'provider_switch',     // DeepSeek fallback triggered OR returned to Max
   'tool_hung',           // tool watchdog fired
   'db_error',            // postgres write/read failed after retries
   'redis_error',         // Redis connection lost / write failed

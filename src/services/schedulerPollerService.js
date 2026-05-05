@@ -240,13 +240,14 @@ async function pollOnce() {
     //
     // Pay-as-you-go gate NARROWED to crons only. Delayed tasks are explicit
     // conductor-typed or Tate-typed work (one-shot, scheduled with intent).
-    // They MUST fire even on Bedrock/DeepSeek. Crons can stay halted under
+    // They MUST fire even on DeepSeek. Crons can stay halted under
     // pay-as-you-go because they're recurring and the next cycle resumes once
-    // we're back on Claude Max.
+    // we're back on Claude Max. Bedrock removed Tate 5 May 2026 12:40 AEST per
+    // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
     let isPayAsYouGoProvider = false
     try {
       const energy = await usageEnergy.getEnergy()
-      isPayAsYouGoProvider = !!(energy?.isDeepseekFallback || energy?.isBedrockFallback)
+      isPayAsYouGoProvider = !!energy?.isDeepseekFallback
     } catch {}
 
     // Pay-as-you-go gate: halt CRONS only, never delayed tasks. Crons are
@@ -266,7 +267,7 @@ async function pollOnce() {
         logger.info('Scheduler: pay-as-you-go provider, halting crons +5min; delayed tasks still fire', {
           halted_crons: cronTasks.length,
           firing_delayed: delayedTasks.length,
-          provider: 'deepseek/bedrock',
+          provider: 'deepseek',
           gate_tripped: 'pay_as_you_go_crons_only',
         })
       }
