@@ -143,6 +143,40 @@ Eight build forks proposed. Each fork resolves a thematic batch, names the exact
 
 Dispatch order: **F1 → F2 + F4 (parallel, no shared files) → F3 + F5 (parallel) → F6 → F7 → F8 → F9**.
 
+## 5b. F1 closure (5 May 2026)
+
+Build fork F1 (`fork_morwn5r5_08d0f3`) shipped chambers-frontend commit `61c618c` to `main`. All 13 quick-win gaps closed:
+
+| gap_id | closed_in | notes |
+|---|---|---|
+| `CMH2-no-global-user-select-none` | 61c618c | globals.css body `user-select:none` + `[data-selectable]` opt-in; Home contact email/phone/address + EventDetail description marked selectable |
+| `CMH2-touch-action-not-set` | 61c618c | globals.css `button, a, [role="button"] { touch-action: manipulation }` |
+| `CMH4-prefers-reduced-motion-no-globals-css` | 61c618c | globals.css `@media (prefers-reduced-motion: reduce)` clamps animations + transitions, kills shimmer |
+| `CMH1-crisp-white-tokens-grey-tinted` | 61c618c | `--color-surface` flipped `#f9fafb -> #ffffff` in both `:root` and `@theme` |
+| `CMH5-google-calendar-deeplink-missing` | 61c618c | `lib/ics.ts` exposes `buildGoogleCalendarUrl` + `openGoogleCalendarForEvent`; Events.tsx + EventDetail.tsx render two side-by-side CTAs (Google / Apple-iCal). URL format unit-verified `https://www.google.com/calendar/render?action=TEMPLATE&text=...&dates=...&location=...` |
+| `A2-edit-pencil-and-trash-icons-too-small` | 61c618c | EventsAdmin pencil/trash buttons wrapped in 44x44 hit areas |
+| `A2-form-x-close-button-too-small` | 61c618c | EventsAdmin form X close button wrapped in 44x44 hit area |
+| `B3-raw-hex-codes-in-pages` | 61c618c | New `--status-{success,warn,danger,neutral}-{bg,fg}` tokens in globals.css; Profile.tsx StatusBadge + error/success pills + admin/EventsAdmin.tsx + admin/MembersAdmin.tsx migrated. NOTE: SignIn.tsx, SignUp.tsx, GroupDetail.tsx, admin/CommitteesAdmin.tsx still hold raw hex codes outside the named scope of this gap_id row - F2 design-system migration scope. |
+| `B6-iconography-emoji-fallback-letter` | 61c618c | Home.tsx tenant value cards: first-letter -> Lucide `<Sparkles size={28}>` glyph |
+| `D5-empty-states-have-cta-mostly` | 61c618c | Events.tsx (both top-level and "No upcoming") and Groups.tsx (empty) render officer-only "Create event/group" CTA |
+| `D6-error-state-has-no-retry` | 61c618c | Groups.tsx error state renders RefreshCw Retry button calling both `refetchCategories()` + `refetchGroups()` |
+| `H1-no-versioned-release-notes` | 61c618c | vite.config.ts `define: { __APP_VERSION__ }` from package.json; Profile.tsx footer "Chambers v{__APP_VERSION__}" |
+| `CMH7-event-cancel-loses-edits` | 61c618c | EventsAdmin.tsx tracks `initialForm`; Cancel + X close run `formsEqual` and `window.confirm('Discard your changes?')` if dirty |
+| `CMH9-no-membership-status-banner-on-pending` | 61c618c | Profile.tsx renders Clock-icon explainer card with "5 business days" copy + `mailto:tenant.contact_email` CTA when `member.status === 'pending'` |
+
+**Visual evidence**: 7 PNGs at `~/ecodiaos/drafts/chambers-f1-screenshots/` (mobile + desktop + event detail with calendar buttons).
+- 01-home.png mobile - crisp white surface, Sparkles glyphs on value cards, contact card
+- 02-events.png mobile - empty Upcoming, expandable Past
+- 03-profile-signedout.png mobile - signed-out state on white surface
+- 04-admin-events.png mobile - admin Officers-only gate
+- 05-home-desktop.png - desktop home, Sparkles glyphs visible across all 5 value cards
+- 06-events-desktop.png - desktop events
+- 07-event-detail-calendar-buttons.png mobile - **both "Add to Google Calendar" + "Add to Apple/iCal (.ics)" CTAs render side-by-side** (April Coffee Catch-Up event)
+
+**Build status**: `npm run typecheck` clean (zero TS errors). `npm run build` clean (no warnings). Bundle sizes unchanged in shape.
+
+**F2/F4 dispatch order recommendation**: F2 (visual polish + design system migration) and F4 (haptics) can dispatch in parallel - they touch zero shared files. F2 owns `pages/` + `components/`; F4 owns `lib/haptics.ts` + per-tap-site insertion calls. F1's status-token migration left SignIn/SignUp/GroupDetail/CommitteesAdmin raw-hex pills out-of-scope per the gap_id wording; F2 should sweep those during the design-system Toast migration.
+
 ## 7. Out-of-scope
 
 | Item | Reason |
