@@ -25,5 +25,12 @@ fi
 echo "[ensure-deps] $LOCK changed (or first run) — running npm install"
 npm install --omit=dev --no-audit --no-fund
 mkdir -p node_modules
+# Recompute hash AFTER install. `npm install --omit=dev` can rewrite
+# package-lock.json (peer-dep drift, lockfileVersion bumps), so the
+# pre-install hash would never match next restart, causing the install
+# to re-fire every restart in an infinite loop. Loop observed 5 May 2026:
+# 6431 restarts, 67 fork errors / 7h, ~1 npm install/min until marker
+# fixed manually. Post-install hash captures the settled state.
+LOCK_HASH=$(sha256sum "$LOCK" | awk '{print $1}')
 echo "$LOCK_HASH" > "$MARKER"
 echo "[ensure-deps] done"
