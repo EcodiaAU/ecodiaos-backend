@@ -275,8 +275,8 @@ router.post('/abort', async (_req, res, next) => {
 
 router.post('/fork', async (req, res, next) => {
   try {
-    const { brief, context_mode } = req.body || {}
-    const snapshot = await fork.spawnFork({ brief, context_mode })
+    const { brief, context_mode, parent_fork_id } = req.body || {}
+    const snapshot = await fork.spawnFork({ brief, context_mode, parent_fork_id })
     return res.status(202).json({ accepted: true, fork: snapshot })
   } catch (err) {
     if (err && err.httpStatus) {

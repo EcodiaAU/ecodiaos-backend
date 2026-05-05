@@ -657,6 +657,14 @@ server.listen(env.PORT, async () => {
     }
   }
 
+  // ── Boot: Perception Dispatcher (universal domain-reactive listener) ──
+  try {
+    const perceptionDispatcher = require('./services/perceptionDispatcher')
+    perceptionDispatcher.start()
+  } catch (err) {
+    logger.warn('Perception dispatcher failed to start (non-fatal)', { error: err.message })
+  }
+
   // ── Boot: Pattern Evolution (Layer 10) ───────────────────────────
   try {
     const patternEvolution = require('./services/patternEvolution')

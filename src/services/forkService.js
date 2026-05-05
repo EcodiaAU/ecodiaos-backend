@@ -206,11 +206,37 @@ function _isCleanNoop(report, brief) {
   return CLEAN_NOOP_PATTERNS.some(p => p.test(report))
 }
 
-async function _enqueueForkReport({ fork_id, brief, report, nextStep, fallbackResult }) {
+async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult }) {
   // Suppress clean no-op reports from cron-spawned forks — they pollute main chat
   if (_isCleanNoop(report, brief)) {
     logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
     return { enqueued: false, reason: 'suppressed_clean_noop' }
+  }
+
+  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
+
+  // Sub-fork routing: if parent_id is a live fork (not 'main'), inject the report
+  // directly into the parent fork's message stream. The parent aggregates sub-reports
+  // and emits its own [FORK_REPORT] to main. This keeps conductor context clean —
+  // it only sees the manager's summary, not raw worker output.
+  if (parent_id && parent_id !== 'main') {
+    const parentFork = _forks.get(parent_id)
+    if (parentFork) {
+      try {
+        sendMessageToFork(parent_id, `[SUB_FORK_REPORT from ${fork_id}]\n${body}`)
+        logger.info('forkService: sub-fork report injected to parent', { fork_id, parent_id })
+        return { enqueued: true, routed_to_parent: true, had_report: report !== null }
+      } catch (err) {
+        logger.warn('forkService: sub-fork report injection to parent failed, falling back to main queue', {
+          fork_id, parent_id, error: err.message,
+        })
+        // Fall through to main queue on failure
+      }
+    } else {
+      // Parent fork not live (already finished or crashed). Fall back to main queue
+      // so the report isn't lost — conductor can see it even if parent is gone.
+      logger.info('forkService: parent fork not live, routing sub-fork report to main queue', { fork_id, parent_id })
+    }
   }
 
   let mq = _messageQueueOverride
@@ -221,7 +247,6 @@ async function _enqueueForkReport({ fork_id, brief, report, nextStep, fallbackRe
       return { enqueued: false, reason: 'mq_unavailable' }
     }
   }
-  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
   try {
     await mq.enqueueMessage({ body, source: `fork:${fork_id}`, mode: 'queue' })
     return { enqueued: true, had_report: report !== null }
@@ -255,6 +280,7 @@ function _forkSnapshot(state) {
   return {
     fork_id:        state.fork_id,
     parent_id:      state.parent_id,
+    root_fork_id:   state.root_fork_id || state.fork_id,
     brief:          state.brief,
     context_mode:   state.context_mode,
     status:         state.status,
@@ -465,7 +491,30 @@ Your fork id: ${fork_id}
     [NEXT_STEP] <one short sentence>
 - Stamp every external side-effect (commits, emails, SMS, Neo4j writes) with your fork id (${fork_id}) so duplicate-detection works.
 - If you hit something only main should decide, write it into [FORK_REPORT] and stop.
-- Keep your output tight. Main's context is the precious one, but you still cost tokens.`
+- Keep your output tight. Main's context is the precious one, but you still cost tokens.
+
+# Manager forks (only if brief contains MANAGER: true)
+If your brief marks you as a MANAGER fork, you are the project manager for your subtree.
+
+## Manager responsibilities:
+1. DECOMPOSE: Break the brief into independent worker tasks. Spawn sub-forks for each.
+2. COORDINATE: Wait for sub-fork reports. Sequence dependent steps (don't spawn step 2 until step 1 reports success).
+3. RETRY: If a sub-fork fails or phantom-bails, probe its deliverables (db_query os_forks, git log --grep). If work partially landed, spawn a cleanup fork. If it fully failed, re-dispatch with a tighter brief.
+4. VERIFY: After sub-forks report, verify their claims match reality (check the actual deployed state, committed code, or DB rows before trusting a sub-fork's self-report).
+5. CONSOLIDATE: Write ONE [FORK_REPORT] to the conductor that tells the full story: what shipped, what didn't, what the conductor should do next.
+
+## Manager mechanics:
+- ALWAYS pass parent_fork_id="${fork_id}" to mcp__forks__spawn_fork when spawning sub-forks.
+- Sub-fork [FORK_REPORT]s arrive as [SUB_FORK_REPORT from <id>] messages in YOUR stream (not the conductor's).
+- You have a per-tree cap of 5 sub-forks. The conductor's global cap doesn't affect you.
+- Use list_forks to track your sub-forks' progress. You'll see them in real-time.
+- If a sub-fork phantom-bails (no [SUB_FORK_REPORT] and it's gone from list_forks), check db_query os_forks or git log --grep=<fork_id>.
+- Don't emit your own [FORK_REPORT] until ALL sub-forks have completed (or been given up on). The conductor doesn't want partial reports.
+
+## Manager anti-patterns (avoid):
+- Don't do sub-task work yourself. If it's decomposable, spawn it.
+- Don't send the conductor multiple messages. ONE [FORK_REPORT] at the end.
+- Don't bail early because one sub-fork failed. Retry it or report what DID work.`
 
   const envBlock = `# Environment
 Working directory: ${cwd}
@@ -516,7 +565,11 @@ function _resolveProviderForFork() {
 }
 
 // ── Core: spawn one fork ────────────────────────────────────────────────────
-async function spawnFork({ brief, context_mode = 'recent' } = {}) {
+// parent_fork_id: 'main' (default) = conductor-level fork.
+//   Any other fork_id = sub-fork (manager/worker hierarchy).
+//   Sub-forks count against the parent tree's per-tree cap, not the global cap.
+//   Sub-fork [FORK_REPORT] messages route to the parent fork's inbox, not main's.
+async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'main' } = {}) {
   if (!brief || typeof brief !== 'string' || !brief.trim()) {
     throw Object.assign(new Error('brief is required'), { httpStatus: 400, code: 'invalid_brief' })
   }
@@ -526,15 +579,33 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
     })
   }
 
+  // Resolve root_fork_id for per-tree cap enforcement.
+  // For root-level forks (parent='main'): root = this fork itself.
+  // For sub-forks: inherit root from parent's DB row.
+  let root_fork_id = null
+  if (parent_fork_id !== 'main') {
+    try {
+      const parentRow = await db`
+        SELECT root_fork_id FROM os_forks WHERE fork_id = ${parent_fork_id} LIMIT 1
+      `
+      root_fork_id = parentRow[0]?.root_fork_id || parent_fork_id
+    } catch {
+      root_fork_id = parent_fork_id
+    }
+  }
+
   // Atomic cap check + DB insert via pg_advisory_xact_lock.
   // Closes the TOCTOU race: count read + insert in one transaction.
   const fork_id = _newForkId()
+  // root resolves after fork_id is generated (root = fork_id for root-level)
+  const effectiveRoot = root_fork_id || fork_id
   const eCap = await _energyCap()
   await tryReserveForkSlot({
     fork_id,
     brief,
     context_mode,
-    parent_id: 'main',
+    parent_id: parent_fork_id,
+    root_fork_id: effectiveRoot,
     hard_cap: HARD_FORK_CAP,
     energy_cap: eCap,
   })
@@ -546,7 +617,8 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
 
   const state = {
     fork_id,
-    parent_id: 'main',
+    parent_id: parent_fork_id,
+    root_fork_id: effectiveRoot,
     brief,
     context_mode,
     status: 'spawning',
@@ -831,6 +903,29 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
         had_next_step: !!nextStep,
       })
 
+      // Publish to perception bus — universal domain-reactive dispatch.
+      // Forks get the same intelligence as conductor (finance, CRM, error
+      // escalation, status_board tracking) without separate listener chats.
+      try {
+        const pb = require('./perceptionBus')
+        pb.publish({
+          source: `fork:${fork_id}`,
+          kind: 'fork_complete',
+          data: {
+            fork_id,
+            status: 'done',
+            brief_head: (brief || '').slice(0, 120),
+            report_head: (report || '').slice(0, 200),
+            next_step: nextStep || null,
+            tokens_total: state.tokens_input + state.tokens_output,
+            tool_calls: state.tool_calls,
+            duration_ms: state.ended_at - state.started_at,
+            parent_id: state.parent_id,
+          },
+          confidence: report ? 0.8 : 0.5,
+        }).catch(() => {})
+      } catch {}
+
       // Post the report back to main via the message queue. Non-interrupting:
       // it lands on main's next turn as a system message.
       //
@@ -849,6 +944,7 @@ async function spawnFork({ brief, context_mode = 'recent' } = {}) {
       // applies on the success path too, matching the recoverStaleForks pattern.
       await _enqueueForkReport({
         fork_id,
+        parent_id: state.parent_id,
         brief,
         report,
         nextStep,
@@ -987,10 +1083,32 @@ async function forksRollup({ includeRecentDone = true } = {}) {
     })
     return `<forks_rollup>\nNo active forks. Recently finished:\n${lines.join('\n')}\n</forks_rollup>`
   }
-  const lines = live.map(f => {
+  // Build tree-aware rollup: group sub-forks under their parent, indent workers.
+  const rootForks = live.filter(f => f.parent_id === 'main')
+  const subForksByParent = new Map()
+  for (const f of live) {
+    if (f.parent_id !== 'main') {
+      if (!subForksByParent.has(f.parent_id)) subForksByParent.set(f.parent_id, [])
+      subForksByParent.get(f.parent_id).push(f)
+    }
+  }
+  const lines = []
+  const _forkLine = (f, indent = '') => {
     const ageSec = f.started_at ? Math.round((Date.now() - new Date(f.started_at).getTime()) / 1000) : 0
-    return `- ${f.fork_id} [${f.status}] (${ageSec}s, ${f.tool_calls} tools) brief="${(f.brief || '').slice(0, 60)}"`
-  })
+    const sub = subForksByParent.has(f.fork_id) ? ` [manager, ${subForksByParent.get(f.fork_id).length} sub]` : ''
+    return `${indent}- ${f.fork_id} [${f.status}${sub}] (${ageSec}s, ${f.tool_calls} tools) brief="${(f.brief || '').slice(0, 60)}"`
+  }
+  for (const f of rootForks) {
+    lines.push(_forkLine(f))
+    const subs = subForksByParent.get(f.fork_id) || []
+    for (const sf of subs) lines.push(_forkLine(sf, '  '))
+  }
+  // Orphaned sub-forks whose parent isn't in the live list (parent finished mid-way)
+  for (const f of live) {
+    if (f.parent_id !== 'main' && !rootForks.find(r => r.fork_id === f.root_fork_id)) {
+      lines.push(_forkLine(f, '  '))
+    }
+  }
   return `<forks_rollup>\nActive forks (${live.length}/${HARD_FORK_CAP}):\n${lines.join('\n')}\n</forks_rollup>`
 }
 

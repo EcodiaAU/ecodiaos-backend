@@ -34,14 +34,19 @@ async function getForkConductorMcpServer() {
 
     const spawn_fork_tool = tool(
       'spawn_fork',
-      'Spawn a parallel fork sub-session that works on `brief` while you continue your own work. Returns immediately with a fork_id. The fork runs independently — it does NOT share state with you, and you cannot talk to it while it works. When it finishes, its [FORK_REPORT] arrives in your inbox as a [SYSTEM: fork_report] queue message on your next turn. Use this whenever a piece of work can run in parallel with whatever else you are doing. You can spawn up to 5 concurrent forks. Each fork costs tokens proportional to its work, so use this for genuinely-parallel work, not for trivial things you would do faster yourself.',
+      'Spawn a parallel fork sub-session that works on `brief` while you continue your own work. Returns immediately with a fork_id. The fork runs independently — it does NOT share state with you, and you cannot talk to it while it works. When it finishes, its [FORK_REPORT] arrives in your inbox as a [SYSTEM: fork_report] queue message on your next turn. Use this whenever a piece of work can run in parallel with whatever else you are doing. You can spawn up to 5 concurrent forks. MANAGER FORKS: if you include MANAGER: true in the brief, the fork is expected to decompose its task, spawn its own sub-forks (passing its own fork_id as parent_fork_id), and return a consolidated [FORK_REPORT] to you. Sub-fork reports go to the manager, not to you — you only see the manager summary. This gives you one clean line per piece of work regardless of how many workers are running under it.',
       {
-        brief: z.string().min(1).describe('A complete brief describing what the fork should do. The fork will not have your context; write the brief as if you are handing the task to a fresh OS instance — include the goal, any constraints, and what counts as done.'),
+        brief: z.string().min(1).describe('A complete brief describing what the fork should do. The fork will not have your context; write the brief as if you are handing the task to a fresh OS instance — include the goal, any constraints, and what counts as done. Include MANAGER: true if the fork should decompose and spawn its own sub-forks.'),
         context_mode: z.enum(['recent', 'brief']).optional().default('recent').describe('"recent" (default): fork inherits the recent conversation tail. "brief": fork gets only the brief, no context — use when the brief is self-contained and you want to minimize the fork token cost.'),
+        parent_fork_id: z.string().optional().describe('Set this to your own fork_id when spawning sub-forks from within a manager fork. Sub-fork reports will route to you (the manager) instead of the conductor. Leave unset when spawning from main.'),
       },
       async (args) => {
         try {
-          const snap = await fork.spawnFork({ brief: args.brief, context_mode: args.context_mode || 'recent' })
+          const snap = await fork.spawnFork({
+            brief: args.brief,
+            context_mode: args.context_mode || 'recent',
+            parent_fork_id: args.parent_fork_id || 'main',
+          })
           return {
             content: [{
               type: 'text',

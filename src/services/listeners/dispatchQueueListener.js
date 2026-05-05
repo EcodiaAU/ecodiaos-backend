@@ -71,6 +71,7 @@ async function _executeDispatch(qrow, sourceEventId) {
         const snap = await fork.spawnFork({
           brief: payload.brief,
           context_mode: payload.context_mode || 'brief',
+          parent_fork_id: payload.parent_fork_id || 'main',
         })
         return { ok: true, fork_id: snap?.fork_id || snap?.id || null }
       } catch (err) {

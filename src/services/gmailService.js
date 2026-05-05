@@ -1187,6 +1187,28 @@ async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessi
   if (!to) throw new Error('sendEmailAuto: `to` is required')
   const effectiveSessionId = sessionId || `autonomous-${context?.source || 'gmail'}-${Date.now()}`
 
+  // Calendar gate — applies to all autonomous sends (thread replies, new emails,
+  // alert sends). calendarGate.urgency='critical' bypasses (alert paths set this).
+  // sendEmailGated also has this gate for external Tier-3 sends, so external sends
+  // get it twice — acceptable; the first gate here catches all auto paths uniformly.
+  try {
+    const timeSense = require('./timeSenseService')
+    const calResult = await timeSense.calendarGate({ type: 'gmail_send', urgency: urgency || 'normal' })
+    if (!calResult.proceed) {
+      logger.info('sendEmailAuto: deferred by calendar gate', {
+        to: Array.isArray(to) ? to[0] : to,
+        subject,
+        reason: calResult.reason,
+        defer_until: calResult.defer_until,
+        source: context?.source,
+      })
+      return { deferred: true, reason: calResult.reason, defer_until: calResult.defer_until }
+    }
+  } catch (err) {
+    // Calendar gate failure → fail-open (don't block sends on gate errors)
+    logger.debug('sendEmailAuto: calendar gate error, proceeding', { error: err.message })
+  }
+
   const tier3 = require('./tier3GateService')
   const target = _buildSendTarget({ to, subject, body, threadId, context })
 

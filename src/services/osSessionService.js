@@ -3037,7 +3037,9 @@ async function _sendMessageImpl(content, opts = {}) {
     if (!opts._staleCleaned && retryDepth < MAX_RETRY_DEPTH && (
       errMsg.includes('No conversation found') ||
       (errMsg.includes('session') && errMsg.includes('not found')) ||
-      errMsg.includes('Invalid session')
+      errMsg.includes('Invalid session') ||
+      errMsg.includes('Invalid signature in thinking block') ||
+      errMsg.includes('invalid_signature')
     )) {
       logger.warn('OS Session: stale resume ID — starting fresh', { staleCcSessionId: ccSessionId })
       osIncident.log({

@@ -542,6 +542,22 @@ See `~/CLAUDE.md` "Fork dispatch is demand-driven" for canonical doctrine, Tate-
 
 Cross-refs: `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` (corrected interpretation: stay alert to incoming demand, do NOT manufacture work), `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (on-main-vs-fork choice once work queued), `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (slot-fill forks ARE symbolic activity), `~/ecodiaos/patterns/no-self-prompting-from-queued-kv-store-plans.md` (kv_store-queue-as-prompt failure mode: queueing followups in kv_store and self-firing them next turn is slot-fill in a different costume; demand is external), `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`, `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` (lost forks: redispatch briefs check existing deliverables BEFORE re-doing), `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md`, `~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md` (fork-result classification: forks closing without `[FORK_REPORT]` write a fallback-marker prefix that the rollup surfaces as `phantom_bail`, and the always-enqueue path keeps the fork in the inbox past the 15-min rollup window).
 
+### Fork hierarchy — Manager forks (5 May 2026)
+
+The conductor can spawn MANAGER forks that in turn spawn WORKER sub-forks. This keeps the conductor's context pristine: instead of 5 fork_reports cluttering the inbox, the manager aggregates N worker reports into 1 consolidated [FORK_REPORT].
+
+**How it works:**
+- `spawn_fork({ brief: "MANAGER: true\n...", context_mode: "brief" })` — the brief contains `MANAGER: true`, signalling the fork to enter project-manager mode
+- The manager decomposes its task, spawns sub-forks with `parent_fork_id` = its own fork_id
+- Sub-fork [FORK_REPORT]s route to the MANAGER's stream (never the conductor's inbox)
+- The manager consolidates, retries failures, verifies deliverables, then emits ONE [FORK_REPORT] to the conductor
+
+**Caps:** Sub-forks count against a per-tree cap (5 per tree root), NOT the conductor's global cap. Total system parallelism: 5 managers × 5 workers = 30 parallel streams.
+
+**When to use:** Any task decomposing into 2+ independent workers. Pipeline tasks (build→test→deploy→verify). Multi-step processes needing coordination. Default to manager forks for non-trivial work.
+
+**Conductor discipline:** You see the manager in `<forks_rollup>` tagged `[manager, N sub]` with sub-forks indented beneath it. Wait for the manager's consolidated [FORK_REPORT]. Do NOT reach into the manager's subtree. Trust the manager or abort the whole tree.
+
 ---
 
 ## Session Orientation - Wake-Up Checklist

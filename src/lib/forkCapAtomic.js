@@ -23,6 +23,7 @@ const ACTIVE_STATUSES = Object.freeze(['spawning', 'running', 'reporting'])
  * @param {string} params.brief
  * @param {string} [params.context_mode='recent']
  * @param {string} [params.parent_id='main']
+ * @param {string} [params.root_fork_id] - tree root; defaults to fork_id for root-level forks
  * @param {number} params.hard_cap
  * @param {number} [params.energy_cap]
  * @param {number} [params.goal_id] - optional goal ID for per-goal fork budget enforcement
@@ -33,6 +34,7 @@ async function tryReserveForkSlot({
   brief,
   context_mode = 'recent',
   parent_id = 'main',
+  root_fork_id,
   hard_cap,
   energy_cap,
   goal_id,
@@ -47,33 +49,68 @@ async function tryReserveForkSlot({
     throw Object.assign(new Error('hard_cap must be a positive number'), { code: 'invalid_params' })
   }
 
+  // root_fork_id: for root-level forks (parent_id='main') this equals fork_id.
+  // For sub-forks it equals the parent's root_fork_id (passed in by forkService).
+  const effectiveRoot = root_fork_id || fork_id
+
   const effectiveCap = Number.isFinite(energy_cap)
     ? Math.min(hard_cap, Math.max(0, energy_cap))
     : hard_cap
 
-  const rows = await db`
-    WITH locked AS (
-      SELECT pg_advisory_xact_lock(hashtext('fork_cap'))
-    ),
-    live_count AS (
-      SELECT COUNT(*)::int AS n
-      FROM os_forks
-      WHERE status IN ('spawning', 'running', 'reporting')
-    ),
-    attempted AS (
-      INSERT INTO os_forks
-        (fork_id, parent_id, brief, status, started_at, context_mode)
-      SELECT
-        ${fork_id}, ${parent_id}, ${brief}, 'spawning', NOW(),
-        ${context_mode}
-      FROM live_count, locked
-      WHERE live_count.n < ${effectiveCap}
-      RETURNING *
-    )
-    SELECT
-      (SELECT n FROM live_count) AS live_count_before,
-      (SELECT row_to_json(a) FROM attempted a) AS inserted_row
-  `
+  // Per-tree cap: count active forks with the same root, not all forks globally.
+  // Sub-forks consume slots from their tree's pool, not from conductor's global pool.
+  // Root-level forks (root = self) still see the full effectiveCap against the global
+  // count — they ARE the tree root, so tree count == global count for their isolation.
+  const useTreeCap = parent_id !== 'main'
+
+  const rows = useTreeCap
+    ? await db`
+        WITH locked AS (
+          SELECT pg_advisory_xact_lock(hashtext('fork_cap_' || ${effectiveRoot}))
+        ),
+        tree_count AS (
+          SELECT COUNT(*)::int AS n
+          FROM os_forks
+          WHERE root_fork_id = ${effectiveRoot}
+            AND status IN ('spawning', 'running', 'reporting')
+        ),
+        attempted AS (
+          INSERT INTO os_forks
+            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode)
+          SELECT
+            ${fork_id}, ${parent_id}, ${effectiveRoot}, ${brief}, 'spawning', NOW(),
+            ${context_mode}
+          FROM tree_count, locked
+          WHERE tree_count.n < ${effectiveCap}
+          RETURNING *
+        )
+        SELECT
+          (SELECT n FROM tree_count) AS live_count_before,
+          (SELECT row_to_json(a) FROM attempted a) AS inserted_row
+      `
+    : await db`
+        WITH locked AS (
+          SELECT pg_advisory_xact_lock(hashtext('fork_cap'))
+        ),
+        live_count AS (
+          SELECT COUNT(*)::int AS n
+          FROM os_forks
+          WHERE status IN ('spawning', 'running', 'reporting')
+        ),
+        attempted AS (
+          INSERT INTO os_forks
+            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode)
+          SELECT
+            ${fork_id}, ${parent_id}, ${effectiveRoot}, ${brief}, 'spawning', NOW(),
+            ${context_mode}
+          FROM live_count, locked
+          WHERE live_count.n < ${effectiveCap}
+          RETURNING *
+        )
+        SELECT
+          (SELECT n FROM live_count) AS live_count_before,
+          (SELECT row_to_json(a) FROM attempted a) AS inserted_row
+      `
 
   const [result] = rows
   if (!result) {
@@ -91,6 +128,8 @@ async function tryReserveForkSlot({
       energy_cap,
       effective_cap: effectiveCap,
       cap_hit: capHit,
+      tree_cap: useTreeCap,
+      root_fork_id: effectiveRoot,
     })
     throw Object.assign(new Error('fork_cap_reached'), {
       httpStatus: 429,
@@ -101,6 +140,8 @@ async function tryReserveForkSlot({
         energy_cap,
         effective_cap: effectiveCap,
         cap_hit: capHit,
+        tree_cap: useTreeCap,
+        root_fork_id: effectiveRoot,
       },
     })
   }
@@ -142,7 +183,16 @@ async function tryReserveForkSlot({
   return insertedRow
 }
 
-async function liveForkCount() {
+async function liveForkCount(root_fork_id) {
+  if (root_fork_id) {
+    const rows = await db`
+      SELECT COUNT(*)::int AS n
+      FROM os_forks
+      WHERE root_fork_id = ${root_fork_id}
+        AND status IN ('spawning', 'running', 'reporting')
+    `
+    return rows[0]?.n || 0
+  }
   const rows = await db`
     SELECT COUNT(*)::int AS n
     FROM os_forks
