@@ -281,6 +281,7 @@ function _forkSnapshot(state) {
     fork_id:        state.fork_id,
     parent_id:      state.parent_id,
     root_fork_id:   state.root_fork_id || state.fork_id,
+    is_manager:     !!state.is_manager,
     brief:          state.brief,
     context_mode:   state.context_mode,
     status:         state.status,
@@ -324,12 +325,19 @@ function _emitForkEvent(kind, state) {
 // ── DB persistence (fire-and-forget) ────────────────────────────────────────
 async function _dbInsert(state) {
   try {
+    // root_fork_id: the fork hierarchy column added by migration 087.
+    // Defaults to fork_id for root-level forks. Defense-in-depth — the
+    // primary path is forkCapAtomic.tryReserveForkSlot which already writes
+    // this column under advisory lock. _dbInsert is the legacy backup path
+    // (ON CONFLICT DO NOTHING) so it must also include root_fork_id or any
+    // future code path landing here would leave it null.
     await db`
       INSERT INTO os_forks (
-        fork_id, parent_id, brief, context_mode, status,
+        fork_id, parent_id, root_fork_id, brief, context_mode, status,
         provider, started_at
       ) VALUES (
-        ${state.fork_id}, ${state.parent_id}, ${state.brief}, ${state.context_mode}, ${state.status},
+        ${state.fork_id}, ${state.parent_id}, ${state.root_fork_id || state.fork_id},
+        ${state.brief}, ${state.context_mode}, ${state.status},
         ${state.provider}, to_timestamp(${state.started_at} / 1000.0)
       )
       ON CONFLICT (fork_id) DO NOTHING
@@ -615,10 +623,21 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   const abort = new AbortController()
   const startedAt = Date.now()
 
+  // Manager-fork detection: if the brief contains the literal MANAGER: true
+  // sentinel (case-insensitive), this fork is a manager and the rollup should
+  // surface it as such even before sub-forks are spawned. Without this, a
+  // manager looks identical to a regular fork in <forks_rollup> until its
+  // first sub-fork lands — slow visibility for the conductor.
+  const is_manager = /\bMANAGER\s*:\s*true\b/i.test(brief)
+  if (is_manager) {
+    logger.info('forkService: spawning manager fork', { fork_id, parent_fork_id })
+  }
+
   const state = {
     fork_id,
     parent_id: parent_fork_id,
     root_fork_id: effectiveRoot,
+    is_manager,
     brief,
     context_mode,
     status: 'spawning',
@@ -1095,7 +1114,14 @@ async function forksRollup({ includeRecentDone = true } = {}) {
   const lines = []
   const _forkLine = (f, indent = '') => {
     const ageSec = f.started_at ? Math.round((Date.now() - new Date(f.started_at).getTime()) / 1000) : 0
-    const sub = subForksByParent.has(f.fork_id) ? ` [manager, ${subForksByParent.get(f.fork_id).length} sub]` : ''
+    const subCount = subForksByParent.has(f.fork_id) ? subForksByParent.get(f.fork_id).length : 0
+    // Surface manager status even before sub-forks are spawned. Without this,
+    // a manager looks identical to a regular fork until its first worker
+    // lands. The is_manager flag is set at spawn time by parsing the brief
+    // for the MANAGER: true sentinel.
+    let sub = ''
+    if (subCount > 0) sub = ` [manager, ${subCount} sub]`
+    else if (f.is_manager) sub = ' [manager, awaiting subs]'
     return `${indent}- ${f.fork_id} [${f.status}${sub}] (${ageSec}s, ${f.tool_calls} tools) brief="${(f.brief || '').slice(0, 60)}"`
   }
   for (const f of rootForks) {
@@ -1407,20 +1433,38 @@ function _classifyFromProbe(row, probe) {
   return { status: 'crashed', result, next_step, body }
 }
 
-async function recoverStaleForks() {
+async function recoverStaleForks({ bootMode } = {}) {
+  // Auto-detect boot mode: if the in-memory _forks map is empty, the API has
+  // just rebooted and EVERY non-terminal os_forks row is orphaned by definition
+  // (forks live in-memory only; the Map is rebuilt from zero on every boot).
+  // The 2-minute heartbeat filter (used historically) was the bug Tate flagged
+  // 5 May 2026: forks killed seconds before a PM2 restart still had warm
+  // heartbeats at boot, so they were excluded — left forever stuck in 'running'.
+  // Cross-reference: ~/ecodiaos/patterns/fork-recovery-must-probe-deliverables-not-just-flip-status.md
+  const inferredBoot = bootMode === true || _forks.size === 0
+
   // 1. Find stale candidates WITHOUT mutating yet — we need to probe per-row
   //    before deciding the terminal status.
   let candidates = []
   try {
-    candidates = await db`
-      SELECT fork_id, brief, position, started_at, last_heartbeat,
-             tokens_input, tokens_output, tool_calls
-      FROM os_forks
-      WHERE status IN ('spawning', 'running', 'reporting')
-        AND COALESCE(last_heartbeat, started_at) < now() - interval '2 minutes'
-      ORDER BY started_at ASC
-      LIMIT 100
-    `
+    candidates = inferredBoot
+      ? await db`
+          SELECT fork_id, brief, position, started_at, last_heartbeat,
+                 tokens_input, tokens_output, tool_calls
+          FROM os_forks
+          WHERE status IN ('spawning', 'running', 'reporting')
+          ORDER BY started_at ASC
+          LIMIT 100
+        `
+      : await db`
+          SELECT fork_id, brief, position, started_at, last_heartbeat,
+                 tokens_input, tokens_output, tool_calls
+          FROM os_forks
+          WHERE status IN ('spawning', 'running', 'reporting')
+            AND COALESCE(last_heartbeat, started_at) < now() - interval '2 minutes'
+          ORDER BY started_at ASC
+          LIMIT 100
+        `
   } catch (err) {
     logger.warn('forkService.recoverStaleForks: candidate query failed (non-fatal)', { error: err.message })
     return { recovered: 0, error: err.message }

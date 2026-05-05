@@ -181,7 +181,7 @@ server.listen(env.PORT, async () => {
   // Idempotent, never throws. (fork-persistence Option A, fork_mokpm24w_4daefb)
   try {
     const forkService = require('./services/forkService')
-    const recovery = await forkService.recoverStaleForks()
+    const recovery = await forkService.recoverStaleForks({ bootMode: true })
     if (recovery && recovery.recovered > 0) {
       logger.warn('Recovered stale forks at boot', recovery)
     }

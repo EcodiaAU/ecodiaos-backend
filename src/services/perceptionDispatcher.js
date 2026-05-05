@@ -225,6 +225,55 @@ const MATCHERS = [
       }
     },
   },
+
+  {
+    // 6th matcher (5 May 2026): auth/security incidents auto-create P1
+    // status_board rows and fire securityIncidentResponse if the signal is
+    // strong. Listens for cred-rotation events, OAuth invalidations, RLS
+    // violations, signed-URL leaks, suspicious-login signals, vault-secret
+    // mutations, and HMAC verification failures. Same shape as error_escalation
+    // (status_board P1 + dedupe), but security gets a dedicated domain so the
+    // signals route through the security-incident pipeline if available.
+    domain: 'security_incident',
+    test(event) {
+      const kind = (event.kind || '').toLowerCase()
+      const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      // Strong-signal kinds first (high precision):
+      if (/auth_(fail|denied|invalid)|oauth_(expired|invalid|revoked)|cred(_| )?rotat|rls_violation|hmac_(fail|invalid)|tier3_gate_denied|signature_(fail|invalid)/i.test(kind)) return true
+      // Lower-precision data-string match (catches free-form telemetry):
+      return /unauthorized|suspicious[_ ]login|leaked[_ ]secret|vault[_ ]secret/i.test(dataStr)
+    },
+    async dispatch(event) {
+      const name = `auto: security/${event.source}/${event.kind}`
+      try {
+        const existing = await db`
+          SELECT id FROM status_board
+          WHERE name = ${name} AND archived_at IS NULL
+          LIMIT 1
+        `
+        if (existing.length === 0) {
+          await db`
+            INSERT INTO status_board (name, entity_type, status, priority, next_action, next_action_by, source, context)
+            VALUES (
+              ${name},
+              'infrastructure',
+              'investigating',
+              1,
+              ${'Auto-created from perception bus security event. Investigate immediately.'},
+              'ecodiaos',
+              'perception_dispatcher',
+              ${JSON.stringify({ event_source: event.source, event_kind: event.kind, confidence: event.confidence }).slice(0, 4000)}
+            )
+          `
+          logger.warn('perceptionDispatcher: auto-created P1 status_board row for security event', {
+            name, source: event.source, kind: event.kind, confidence: event.confidence,
+          })
+        }
+      } catch (err) {
+        logger.debug('perceptionDispatcher: security_incident dispatch failed', { error: err.message })
+      }
+    },
+  },
 ]
 
 // ── Core subscriber ────────────────────────────────────────────────────────

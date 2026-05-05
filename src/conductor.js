@@ -156,7 +156,7 @@ process.on('unhandledRejection', (reason) => {
   // rows are flipped to 'crashed'.)
   try {
     const forkService = require('./services/forkService')
-    const recovery = await forkService.recoverStaleForks()
+    const recovery = await forkService.recoverStaleForks({ bootMode: true })
     if (recovery && recovery.recovered > 0) {
       logger.warn(`${BOOT_TAG} recovered stale forks at boot`, recovery)
     }
