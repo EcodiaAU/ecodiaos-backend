@@ -9,6 +9,44 @@ function subscribe(fn) {
   if (typeof fn === 'function') _subscribers.push(fn)
 }
 
+// ── Per-source rate cap (C3, fork_mosn8o5x_7a0e54) ─────────────────────────
+//
+// W3 §3.3 / Fix 03 sibling: a runaway publisher (faulty webhook handler,
+// pg_notify replay storm, listener loop publishing back into the bus) can
+// flood perceptionBus, dragging os_observations INSERT contention and
+// burying real signals under noise.
+//
+// Defence-in-depth: per-source rolling 1h ring buffer. When a source exceeds
+// the cap (default 1000 events/hr, configurable via env), publish() returns
+// silently after a single warn log per dropped event. Existing publish
+// callers see no API shape change on success.
+//
+// Memory bound: one timestamp array per source; pruned on every publish.
+// Worst case at cap=1000: ~16KB per source.
+const RATE_CAP_PER_SOURCE_PER_HOUR = (function () {
+  const raw = process.env.PERCEPTION_BUS_RATE_CAP_PER_SOURCE_PER_HOUR
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : 1000
+})()
+const RATE_CAP_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const _rateCapBuckets = new Map() // source -> Array<timestamp_ms>
+
+function _checkRateCap(source) {
+  const now = Date.now()
+  const cutoff = now - RATE_CAP_WINDOW_MS
+  let arr = _rateCapBuckets.get(source)
+  if (!arr) {
+    arr = []
+    _rateCapBuckets.set(source, arr)
+  }
+  // Prune timestamps older than 1h. Source-arrays should be naturally
+  // monotonic so we can shift from the front.
+  while (arr.length > 0 && arr[0] < cutoff) arr.shift()
+  if (arr.length >= RATE_CAP_PER_SOURCE_PER_HOUR) return false
+  arr.push(now)
+  return true
+}
+
 // Belt-and-braces dispatcher self-init.
 //
 // Origin (5 May 2026, fork_moskfb4a_373983):
@@ -43,6 +81,18 @@ function _ensureDispatcher() {
 
 async function publish({ source, kind, data, ts, confidence = 1.0 }) {
   if (!source || !kind) return
+
+  // Per-source rate cap. Drops events from sources exceeding the rolling
+  // 1h cap (default 1000/hr). Logged at warn so a runaway publisher
+  // surfaces in the standard log stream + decision-quality telemetry.
+  if (!_checkRateCap(source)) {
+    logger.warn('perceptionBus: rate cap exceeded for source, dropping event', {
+      source,
+      kind,
+      cap_per_hour: RATE_CAP_PER_SOURCE_PER_HOUR,
+    })
+    return
+  }
 
   // Lazy-init the in-process dispatcher. First publish wires the matcher
   // subscription before this very event reaches the for-loop below.
@@ -211,4 +261,8 @@ module.exports = {
   recentSummary,
   prune,
   promotionScore,
+  // C3 (fork_mosn8o5x_7a0e54): rate cap exposure for tests / observability.
+  RATE_CAP_PER_SOURCE_PER_HOUR,
+  _rateCapBuckets,
+  _checkRateCap,
 }

@@ -27,6 +27,12 @@ const _alertedKeys = new Map() // key -> ts
 module.exports = {
   domain: 'kv_store_handoff_aged',
 
+  // 60min — heartbeat-class events fire many times per hour; per-key in-mem
+  // dedupe already enforces 6h quiet windows per kv key, so dispatcher-level
+  // 1h is the right grain for source/kind-level suppression.
+  // C3 (fork_mosn8o5x_7a0e54).
+  dedupeWindowMs: 60 * 60 * 1000,
+
   test(event) {
     const kind = (event.kind || '').toLowerCase()
     return kind.includes('cron') ||

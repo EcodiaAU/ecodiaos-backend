@@ -24,6 +24,12 @@ const _alertedRows = new Map() // row_id -> ts
 module.exports = {
   domain: 'status_board_priority_inversion',
 
+  // 24h — heartbeat-class events (cron, meta_loop, turn_end) fire many times
+  // per hour. Per-row dedupe via _alertedRows already enforces 7d quiet windows;
+  // the dispatcher-level dedupe just needs to suppress duplicate matcher invocations
+  // from the same source/kind across a day. C3 (fork_mosn8o5x_7a0e54).
+  dedupeWindowMs: 24 * 60 * 60 * 1000,
+
   test(event) {
     const kind = (event.kind || '').toLowerCase()
     return kind.includes('cron') ||

@@ -36,13 +36,21 @@ const _activeClients = [
 module.exports = {
   domain: 'client_mention',
 
+  // 5 min default — same as crm matcher; client mentions can spike during
+  // delivery pushes. Per-source/kind dedupe at this grain is appropriate.
+  // C3 (fork_mosn8o5x_7a0e54).
+  dedupeWindowMs: 5 * 60 * 1000,
+
   test(event) {
-    const text = `${event.kind || ''} ${JSON.stringify(event.data || {})}`
+    // Use pre-tokenised event.data_str (set in perceptionDispatcher._onEvent)
+    // when available to avoid re-stringifying per matcher. Fallback to inline
+    // stringify so the matcher is independently testable.
+    const text = `${event.kind || ''} ${event.data_str || JSON.stringify(event.data || {})}`
     return _activeClients.some(c => c.pattern.test(text))
   },
 
   async dispatch(event) {
-    const text = `${event.kind || ''} ${JSON.stringify(event.data || {})}`
+    const text = `${event.kind || ''} ${event.data_str || JSON.stringify(event.data || {})}`
     const hit = _activeClients.find(c => c.pattern.test(text))
     if (!hit) return
 

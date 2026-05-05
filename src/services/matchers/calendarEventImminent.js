@@ -25,6 +25,11 @@ const _surfacedEvents = new Map() // event_id -> ts
 module.exports = {
   domain: 'calendar_event_imminent',
 
+  // 60min — fires on heartbeat-class events; per-event in-mem dedupe already
+  // enforces 1h quiet windows per calendar event, so dispatcher-level 1h matches.
+  // C3 (fork_mosn8o5x_7a0e54).
+  dedupeWindowMs: 60 * 60 * 1000,
+
   test(event) {
     const kind = (event.kind || '').toLowerCase()
     return kind.includes('cron') ||

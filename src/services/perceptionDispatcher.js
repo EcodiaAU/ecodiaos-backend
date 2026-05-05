@@ -29,8 +29,17 @@ const logger = require('../config/logger')
 const perceptionBus = require('./perceptionBus')
 
 // ── Dedupe window ──────────────────────────────────────────────────────────
-const DEDUPE_WINDOW_MS = 5 * 60 * 1000
+// Default per-matcher dedupe window. Each matcher object can override via
+// optional `dedupeWindowMs` property. High-volume matchers (fork_phantom_bail)
+// shrink to 60s; low-volume cadence-driven matchers (status_board_priority_inversion)
+// stretch to 24h. C3 (fork_mosn8o5x_7a0e54) per-matcher dedupe window fix.
+const DEFAULT_DEDUPE_WINDOW_MS = 5 * 60 * 1000
+// Legacy export retained for callers/tests that still reference DEDUPE_WINDOW_MS.
+const DEDUPE_WINDOW_MS = DEFAULT_DEDUPE_WINDOW_MS
 const _recentDispatches = new Map() // key → timestamp
+
+// Largest configured dedupe window across MATCHERS - used for prune cutoff.
+let _maxDedupeWindowMs = DEFAULT_DEDUPE_WINDOW_MS
 
 // ── Per-matcher counters (B3: listener-stats endpoint) ─────────────────────
 // In-memory since process boot. Surfaced at /api/ops/listener-stats.
@@ -45,13 +54,17 @@ const _stats = {
 }
 function _bump(map, key) { map.set(key, (map.get(key) || 0) + 1) }
 
-function _shouldDispatch(key) {
+// Per-matcher dedupe check. windowMs defaults to DEFAULT_DEDUPE_WINDOW_MS.
+// Backward-compatible: callers passing only a key still get default window.
+function _shouldDispatch(key, windowMs) {
+  const w = typeof windowMs === 'number' && windowMs > 0 ? windowMs : DEFAULT_DEDUPE_WINDOW_MS
   const last = _recentDispatches.get(key)
-  if (last && Date.now() - last < DEDUPE_WINDOW_MS) return false
+  if (last && Date.now() - last < w) return false
   _recentDispatches.set(key, Date.now())
-  // Prune old entries every 100 inserts
+  // Prune old entries every 100 inserts. Cutoff uses the LARGEST configured
+  // matcher window so we never evict an entry still inside its own window.
   if (_recentDispatches.size > 200) {
-    const cutoff = Date.now() - DEDUPE_WINDOW_MS
+    const cutoff = Date.now() - _maxDedupeWindowMs
     for (const [k, ts] of _recentDispatches) {
       if (ts < cutoff) _recentDispatches.delete(k)
     }
@@ -65,9 +78,11 @@ function _shouldDispatch(key) {
 const MATCHERS = [
   {
     domain: 'finance',
+    // 5 min default — finance events are routine but bursty around invoice cycles.
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       const kind = (event.kind || '').toLowerCase()
-      const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      const dataStr = (event.data_str || JSON.stringify(event.data || {})).toLowerCase()
       return kind.includes('invoice') || kind.includes('payment') ||
              kind.includes('billing') || kind.includes('transaction') ||
              kind.includes('receipt') || kind.includes('expense') ||
@@ -105,8 +120,11 @@ const MATCHERS = [
 
   {
     domain: 'status_board',
+    // 5 min default — status_board references are spread across many event sources;
+    // dedupe at source/kind grain.
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
-      const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      const dataStr = (event.data_str || JSON.stringify(event.data || {})).toLowerCase()
       return (event.kind || '').includes('status_board') ||
              dataStr.includes('status_board') ||
              dataStr.includes('shipped') || dataStr.includes('blocked')
@@ -142,9 +160,12 @@ const MATCHERS = [
 
   {
     domain: 'crm',
+    // 5 min default — client mentions can spike during a delivery push;
+    // dedupe per source/kind to avoid surfacing the same intelligence pack repeatedly.
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       const kind = (event.kind || '').toLowerCase()
-      const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      const dataStr = (event.data_str || JSON.stringify(event.data || {})).toLowerCase()
       return kind.includes('client') || kind.includes('crm') ||
              dataStr.includes('client_id') || dataStr.includes('client_name')
     },
@@ -178,6 +199,9 @@ const MATCHERS = [
 
   {
     domain: 'error_escalation',
+    // 5 min default — bursts of errors usually share root cause, dedupe is desirable;
+    // error_escalation already does name-based dedupe at the status_board layer.
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       const kind = (event.kind || '').toLowerCase()
       return kind.includes('error') || kind.includes('crash') ||
@@ -218,6 +242,8 @@ const MATCHERS = [
 
   {
     domain: 'task_completion',
+    // 5 min default — fork_complete events with structured next_step are infrequent.
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       return event.kind === 'fork_complete' && event.data?.status === 'done' && event.data?.next_step
     },
@@ -248,10 +274,14 @@ const MATCHERS = [
     // (status_board P1 + dedupe), but security gets a dedicated domain so the
     // signals route through the security-incident pipeline if available.
     domain: 'security_incident',
+    // 5 min default — security signals are LOW-FREQUENCY but we explicitly do NOT
+    // want long suppression windows here: any new security event after 5 min should
+    // re-fire the matcher (status_board name-dedupe still prevents row duplicates).
+    dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       const kind = (event.kind || '').toLowerCase()
       const source = (event.source || '').toLowerCase()
-      const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      const dataStr = (event.data_str || JSON.stringify(event.data || {})).toLowerCase()
       // Source-based: canonical security publishes from securityIncidentResponse
       // (5 May 2026 fix — closes the fireIncident → matcher loop).
       if (source === 'security' || source === 'security_incident') return true
@@ -311,34 +341,81 @@ const MATCHERS = [
   require('./matchers/kvStoreHandoffAged'),
 ]
 
+// Compute the largest dedupe window across all MATCHERS once at module load.
+// Prune cutoff in _shouldDispatch uses this so an entry from the longest-window
+// matcher (e.g. status_board_priority_inversion 24h) is never evicted while
+// still inside its window.
+;(function _computeMaxDedupeWindow() {
+  let max = DEFAULT_DEDUPE_WINDOW_MS
+  for (const m of MATCHERS) {
+    const w = typeof m.dedupeWindowMs === 'number' ? m.dedupeWindowMs : DEFAULT_DEDUPE_WINDOW_MS
+    if (w > max) max = w
+  }
+  _maxDedupeWindowMs = max
+})()
+
 // ── Core subscriber ────────────────────────────────────────────────────────
 
-function _onEvent(event) {
-  _stats.bus_events_in++
-  for (const matcher of MATCHERS) {
+/**
+ * safeDispatch — single-matcher trampoline. Wraps test + dedupe + dispatch in
+ * try/catch so a slow/throwing matcher never delays or kills its siblings.
+ *
+ * Dedupe-check happens BEFORE the fire-counter bumps and BEFORE dispatch fires.
+ * Returns a Promise that resolves whether the matcher fired, deduped, errored,
+ * or was a test-miss; never rejects.
+ *
+ * C3 (fork_mosn8o5x_7a0e54): per-matcher dedupe window + Promise.all parallelism.
+ */
+async function safeDispatch(matcher, event) {
+  try {
+    if (!matcher.test(event)) return
+    _bump(_stats.matcher_test_passes, matcher.domain)
+    const dedupeKey = `${matcher.domain}:${event.source}:${event.kind}`
+    const windowMs = typeof matcher.dedupeWindowMs === 'number'
+      ? matcher.dedupeWindowMs
+      : DEFAULT_DEDUPE_WINDOW_MS
+    if (!_shouldDispatch(dedupeKey, windowMs)) {
+      _bump(_stats.matcher_dedupes, matcher.domain)
+      return
+    }
+    _bump(_stats.matcher_fires, matcher.domain)
     try {
-      if (!matcher.test(event)) continue
-      _bump(_stats.matcher_test_passes, matcher.domain)
-      const dedupeKey = `${matcher.domain}:${event.source}:${event.kind}`
-      if (!_shouldDispatch(dedupeKey)) {
-        _bump(_stats.matcher_dedupes, matcher.domain)
-        continue
-      }
-      _bump(_stats.matcher_fires, matcher.domain)
-      // Fire-and-forget — never block the publishing stream
-      matcher.dispatch(event).catch(err => {
-        _bump(_stats.matcher_errors, matcher.domain)
-        logger.debug('perceptionDispatcher: async dispatch error', {
-          domain: matcher.domain, error: err.message,
-        })
-      })
+      await matcher.dispatch(event)
     } catch (err) {
       _bump(_stats.matcher_errors, matcher.domain)
-      logger.debug('perceptionDispatcher: matcher error', {
+      logger.debug('perceptionDispatcher: async dispatch error', {
         domain: matcher.domain, error: err.message,
       })
     }
+  } catch (err) {
+    _bump(_stats.matcher_errors, matcher.domain)
+    logger.debug('perceptionDispatcher: matcher error', {
+      domain: matcher.domain, error: err.message,
+    })
   }
+}
+
+function _onEvent(event) {
+  _stats.bus_events_in++
+  // Pre-tokenise event payload once per event. Matchers that grep over data
+  // (finance/status_board/crm/security_incident/client_mention) can read
+  // `event.data_str` instead of re-stringifying. W3 §2.7 / Fix 07.
+  // Additive: matchers that haven't been adapted still call JSON.stringify
+  // themselves and continue to work. data_str is a single canonical
+  // (non-lowercased) string — matchers that need lowercase still call
+  // .toLowerCase() locally.
+  if (!event.data_str) {
+    try {
+      event.data_str = JSON.stringify(event.data || {})
+    } catch {
+      event.data_str = ''
+    }
+  }
+  // Promise.all parallelism: a slow matcher only delays its own slot, never
+  // its siblings. safeDispatch swallows all errors so Promise.all never
+  // rejects and the publishing stream is never blocked.
+  // Note: caller does NOT await this — fire-and-forget by design.
+  return Promise.all(MATCHERS.map(matcher => safeDispatch(matcher, event)))
 }
 
 // ── Init (called once at boot) ─────────────────────────────────────────────
@@ -359,4 +436,6 @@ module.exports = {
   _shouldDispatch,
   _recentDispatches,
   _stats,
+  safeDispatch,
+  DEFAULT_DEDUPE_WINDOW_MS,
 }

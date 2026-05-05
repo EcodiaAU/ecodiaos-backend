@@ -28,6 +28,12 @@ const _phantomBailCounts = new Map() // hour-bucket key -> count
 module.exports = {
   domain: 'fork_phantom_bail',
 
+  // 60s — high-volume during fork churn. Per-parent in-mem _phantomBailCounts
+  // does its own bucketing, so the dispatcher-level dedupe just needs to be
+  // tight enough to surface bursts (5min default smothers them).
+  // C3 (fork_mosn8o5x_7a0e54).
+  dedupeWindowMs: 60 * 1000,
+
   test(event) {
     if (event.kind !== 'fork_complete') return false
     const reportHead = event.data?.report_head || ''
