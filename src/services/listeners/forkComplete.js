@@ -98,7 +98,15 @@ module.exports = {
       // (Tate 30 Apr 2026 13:18 AEST).
       if (status === 'done') {
         logger.info('forkComplete: terminal done (silent, no wake)', { forkId })
-        try { require('../perceptionBus').publish({ source: 'fork', kind: 'fork_complete', data: { fork_id: forkId, status: 'done' }, confidence: 1.0 }) } catch {}
+        // Note: forkService.spawnFork already publishes a richer fork_complete
+        // event with tokens/duration/parent_id at terminal-success
+        // (forkService.js:929-945, source='fork:<id>'). Do not re-publish here
+        // from the db:event observation path — it would duplicate every
+        // successful fork in os_observations and double-count in
+        // perception_summary. See drafts/proposed-design-fixes/01-dedupe-fork-complete-publishes.md.
+        // The aborted/error publish below is retained because forkService
+        // publishes only on success; this listener is the single emitter for
+        // terminal-failure events.
         return
       }
 
