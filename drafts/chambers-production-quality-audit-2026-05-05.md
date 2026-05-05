@@ -340,3 +340,44 @@ Estimated calendar-week order of magnitude to clear the rubric and ship to App S
 ---
 
 [FORK_REPORT_PENDING — completed via fork_morvt4qs_ece873, audit-only fork]
+
+---
+
+## F6 (public-launch sign-up flows + onboarding wizard) — SHIPPED 5 May 2026
+
+Fork: `fork_mos43hak_4e5581`. Commit: **447ee5d** on chambers-frontend main. Vercel deployment `dpl_3Zrjdp7h6YNcjoHvUq1X7NMAALiv` = **READY**. Migration 0008 applied to `arkbjjkfjsjibnhivjis` via Management API.
+
+**Scope-note (important).** The original F6 row in §9 dispatch order ("membership + Stripe + email verification gate + tier enforcement") is NOT what this fork shipped. Tate's verbatim 5 May 2026 12:45 AEST autonomous-window scope put public-launch sign-up flows at the top of the queue ahead of paid membership. This fork ships the chamber sign-up + member sign-up + officer onboarding wizard so the platform is **public-launchable**. The Stripe/verification/tier-enforcement scope from the original §9 row is NOT closed and remains queued for a future F6-payments fork.
+
+| gap_id | shipped_in_commit | what shipped |
+|---|---|---|
+| `chamber-signup-route-missing` | 447ee5d | `/onboarding/chamber` 3-step form: name + slug (live uniqueness) + chamber-type + country/region; primary contact email + ABN; password. Anon-callable via new RLS policy. |
+| `chamber-signup-email-confirmation` | 447ee5d | Supabase Auth `signUp()` with `emailRedirectTo` to `/onboarding/chamber/confirm?tenant_id=...`. Confirmation-sent screen at `/onboarding/chamber/sent`. |
+| `chamber-tenant-claim-rpc` | 447ee5d | `claim_pending_tenant(uuid) SECURITY DEFINER` RPC: atomic email-match check, status guard, sets `first_officer_user_id` + flips `status='active'`, inserts `tenant_members` row with `role='officer'`. RLS-tested. |
+| `member-signup-discoverable` | 447ee5d | `/sign-up/:chamberSlug` resolves chamber by slug, applies brand tokens, signUp + email verification. `/sign-up/:slug/confirm` writes `tenant_members` idempotently via existing self-insert policy. |
+| `officer-onboarding-wizard-missing` | 447ee5d | `/admin/onboarding` 4-step wizard: brand colors → logo upload → notifications → privacy. Skip-button always visible. Auto-bypass when `tenants.onboarding_completed_at` is set. Reuses F5 admin-config write paths. |
+| `tenant-not-found-cta-missing` | 447ee5d | `TenantNotFound.tsx` rebuilt with "Sign your chamber up" CTA pointing at `/onboarding/chamber`. Platform-root hosts (chambers.app, chambers.ecodia.au) now route visitors into the public flow. |
+| `platform-routes-deadlocked-on-tenant` | 447ee5d | `App.tsx` adds `isPlatformRoute()` guard so `/onboarding/chamber` + `/sign-up/:slug` render before TenantProvider gate (chamber sign-up cannot resolve a tenant it is creating). |
+
+**Schema delta (migration 0008):**
+- `tenants` ADD: `status` text default 'active' (CHECK pending_verification|active|suspended), `verification_token uuid`, `verification_token_expires_at timestamptz`, `first_officer_user_id uuid REFERENCES auth.users`, `onboarding_completed_at timestamptz`, `abn text`, `chamber_type text` (CHECK), `country text`, `region text`.
+- `tenants_public_read` SELECT policy declared idempotently (was missing on disk - the existing prod row resolves anon SELECT from a pre-RLS bootstrap).
+- `tenants_anon_signup_insert` INSERT policy: anon can insert ONLY with `status='pending_verification'`, no `first_officer_user_id`, `contact_email IS NOT NULL`. Smoke-verified live: anon `pending_verification` insert succeeds; anon `active` bypass returns `42501` RLS violation.
+- `claim_pending_tenant(uuid)` RPC GRANTed to `authenticated`.
+- **`chamber_members` NOT created.** The brief proposed a separate table, but `tenant_members` is the canonical convention across F1..F5 and every read/write hook. Creating a parallel table would have left it without consumers. Documented in migration header.
+
+**Build + verify:**
+- `npm run typecheck` clean (zero TS errors).
+- `npm run build` clean (15.04 kB BrandingAdmin still largest admin chunk; new ChamberSignUp = 12.50 kB; OnboardingWizard = 13.82 kB; MemberSignUp = 11.05 kB).
+- 9 puppeteer screenshots saved at `~/ecodiaos/drafts/chambers-f6-screenshots/` (chamber-signup empty + filled, email-sent, confirm-missing-id, member-signup not-found + scycc, tenant-not-found CTA, mobile pass for chamber + member sign-up).
+- Vercel build log: `built in 764ms`, `Build Completed in /vercel/output [8s]`.
+
+**Doctrine-applied (also tagged in commit body):**
+- production-quality-app-standard.md, multi-tenant-brief-must-enumerate-customisation-surface.md, parallel-forks-must-claim-numbered-resources-before-commit.md (verified 0008 free at write-time), visual-test-before-push-when-tate-not-around.md (Mode A localhost), visual-verify-is-the-merge-gate-not-tate-review.md, deploy-verify-or-the-fork-didnt-finish.md (polled Vercel READY), sdk-forks-must-commit-deliverables-not-leave-untracked.md, solo-fork-pushes-to-main-no-pr-ceremony.md, client-code-scope-discipline.md (chambers is internal Ecodia product, not a client repo).
+
+**Known follow-ups (not blocking public launch):**
+- Email template for the confirmation message is the Supabase Auth default (the existing `send-email` Edge Function is Co-Exist branded and not suitable as-is; rebrand or per-tenant template would be a future polish fork).
+- Slug-uniqueness debounced check has a small race window between debounce settle and submit; the form catches `23505` and returns the user to step 1 with a friendly message, which is acceptable.
+- `/admin/onboarding` redirect target after chamber claim uses `?tenant=<slug>` localStorage override; per-tenant DNS subdomains will tighten that to a host redirect once wired.
+
+[FORK_REPORT — completed via fork_mos43hak_4e5581 5 May 2026]
