@@ -136,54 +136,24 @@ Cross-refs: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `
 
 **GUI recipes (codified GUI flows) are governed by `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property → tree walk → process check → filesystem → cropped pixel → full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18× speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
 
-### Claude Cowork is the 1stop shop for UI-driving (29 Apr 2026)
+### Tailscale laptop-agent is the universal UI-driving substrate (5 May 2026)
 
-**Cowork = TOOL for web UI driving, not peer brain.** Conductor stays in loop: instruct in bounded steps, screenshot, decide next, abort/redirect. Goal selection, step bounding, screenshot interpretation, abort decisions stay with conductor. See `~/ecodiaos/patterns/cowork-is-a-gui-tool-not-a-peer-brain.md`.
+**The Tailscale laptop-agent (Corazon at 100.114.219.69:7456) is the single substrate for ALL UI driving.** The Claude Cowork era (29 Apr - 5 May 2026) is deprecated. Cowork as a separate agent layer was replaced by direct conductor-to-laptop-agent composition: `input.*` + `screenshot.*` + `shell.shell` primitives strung together as macro/GUI recipes.
 
-**Tate, 29 Apr 2026 20:25 AEST verbatim:** "claude cowork is just the 1stop shop which you need to be religiously using."
+For "drive a logged-in webapp UI in Tate's Chrome" (Stripe/Vercel/GitHub web/ASC/Bitbucket web/Canva/Zernio/Xero/Supabase dashboard/Resend/etc): the default is the direct path via `input.shortcut [ctrl,l]` → `input.type` URL → `input.key enter` → `screenshot.screenshot` loop, all driven directly by the conductor (or a fork) through the laptop-agent API.
 
-For "drive a logged-in webapp UI in Tate's Chrome" (Stripe/Vercel/GitHub web/ASC/Bitbucket web/Canva/Zernio/Xero/Supabase dashboard/Resend/etc): Cowork = default substrate. Side panel via `input.shortcut [ctrl+e]` (aspirational shorthand - actual primitive drives Claude Desktop's chat input, see protocol pattern below), instructed via `input.type`, verified via `screenshot.screenshot`. Conductor instructs in bounded steps, waits, screenshots, decides next. Cowork has accessibility tree + Anthropic agentic capability + Tate's signed-in session - all four facets a hand-rolled loop only partially has.
+`cu.*` / computer-use API = OS-level / desktop-app fallback (today: `ios-release-pipeline`, `macincloud-rdp-session` only).
 
-`cu.*` / computer-use API = OS-level / desktop-app fallback (today: `ios-release-pipeline`, `macincloud-ssh-session` only).
+Full doctrine: `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The GUI recipe system (`~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`) is the codification surface for repeatable flows.
 
-Full doctrine: `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`. Cross-refs: `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md`, `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`, `~/ecodiaos/drafts/macro-pivot-to-computer-use-2026-04-29.md` (superseded).
+### Helper script: `~/ecodiaos/scripts/cowork-dispatch` (legacy name)
 
-### Cowork dispatch protocol (29 Apr 2026 21:08 AEST refinement)
+Shipped commit `188f481`, 30 Apr 2026. **The name is legacy** from the Cowork era. The script itself is a useful thin bash wrapper composing `input.*` + `screenshot.*` + `process.*` peer-paradigm primitives against the laptop-agent. It remains the recommended abstraction for multi-step UI sequences.
 
-- "Side panel via Ctrl+E" is shorthand. Tate's Corazon Chrome intercepts Ctrl+E for tab-search overlay
-- "Cowork" = two distinct Anthropic features (Claude Desktop standalone-app Dispatch [Beta] toggle vs Claude in Chrome [Beta] extension)
-- Verified dispatch primitive drives **Claude Desktop's chat input**, not a Chrome side panel
-- Bounded-step loop, pre-dispatch verification (process alive, account+org verified, usage budget, Cowork Dispatch toggle ON), recurring account-revert phenomenon (Claude Desktop reverts to tate@ from code@ within minutes, multiple recurrences)
-- Anthropic-first design check: existing peer-paradigm `input.* + screenshot.*` = canonical primitive (no new MCP wrapper)
-
-Full: `~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md`. Live state: `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md` "Cowork (Claude Desktop side panel) state - verified 2026-04-29 21:08 AEST".
-
-### Step 0: no focus collision (30 Apr 2026)
-
-**Tate verbatim 08:16 AEST.** Before any Cowork / `input.*` / `browser.*` operation driving Corazon UI, probe foreground window (Win32 `GetForegroundWindow` + title).
-
-- Tate's foreground = Cowork's planned target → defer or fall back
-- Different → proceed (Cowork can drive Vercel tab while Tate types in EcodiaOS tab; semi-simultaneous-work property is the win)
-- Probe = foreground-window equality, NOT human-idle-time. Tate at 03:00 in EcodiaOS chat = Tate at 14:00; what matters is whether next keystroke lands in his window
-
-**Per-tool gating:**
-- `screenshot.screenshot`: never gated (no focus steal)
-- MCP peerage calls (V2): never gated (no GUI)
-- `input.*` keystrokes/clicks: gate on collision
-- `browser.*` Puppeteer on `~/.eos-browser` (separate profile): generally proceeds
-
-Full: `~/ecodiaos/patterns/cowork-no-focus-collision.md`.
-
-**6-step pre-dispatch checklist:** 0 (no-focus-collision) → 1 (process alive) → 2 (account verified) → 3 (usage budget) → 4 (Dispatch toggle) → 5 (target app reachable).
-
-### Helper script: `~/ecodiaos/scripts/cowork-dispatch`
-
-Shipped commit `188f481`, 30 Apr 2026. Thin bash wrapper composing existing `input.*` + `screenshot.*` + `process.*` peer-paradigm primitives. NOT MCP wrapper, NOT parallel runtime, does NOT modify laptop agent.
-
-Status: live truth via `wc -lc ~/ecodiaos/scripts/cowork-dispatch`. Executable, on `origin/main` at `188f481`. Verify sync via `git ls-remote origin main`.
+Status: live truth via `wc -lc ~/ecodiaos/scripts/cowork-dispatch`. Executable, on `origin/main` at `188f481`.
 
 **Subcommands:**
-- `precheck [--target "<sub>"]` - 5-step pre-dispatch + screenshot, returns JSON, exit 0/1
+- `precheck [--target "<sub>"]` - pre-dispatch checks + screenshot, returns JSON, exit 0/1
 - `foreground-check [--target "<sub>"] [--verbose]` - read-only Win32 GetForegroundWindow probe (Step 0)
 - `focus`
 - `instruct "<step>"`
@@ -202,31 +172,42 @@ cowork-dispatch step "navigate to vercel.com/dashboard, screenshot when done" --
 
 Token: `~/.ecodiaos/laptop-agent.token`. Env overrides: `COWORK_AGENT_URL`, `COWORK_TOKEN_FILE`, `COWORK_TMP_DIR`. Exit codes: 0 success, 1 precheck-fail, 2 usage-error, 3 transport-error.
 
-### Passkey-stall co-pilot pattern (30 Apr 2026)
+### Step 0: no focus collision (30 Apr 2026, PRESERVED)
 
-When Cowork hits Windows Hello during Chrome credential autofill, Cowork refuses to type unlock PIN (Anthropic safety). Conductor injects via `input.type` from VPS using `kv_store.creds.laptop_passkey`. Detection: `process.listProcesses` for `LogonUI.exe` + foreground-window-title fallback. Never log passkey value. Full: `~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md`.
+**Tate verbatim 08:16 AEST.** Before ANY `input.*` / `browser.*` operation driving Corazon UI, probe foreground window (Win32 `GetForegroundWindow` + title).
 
-### Cowork V2 deep-integration substrate
+- Tate's foreground = planned target → defer or fall back
+- Different → proceed (laptop-agent can drive Vercel tab while Tate types in EcodiaOS tab; semi-simultaneous-work property is the win)
+- Probe = foreground-window equality, NOT human-idle-time. Tate at 03:00 in EcodiaOS chat = Tate at 14:00; what matters is whether next keystroke lands in his window
 
-LIVE on claude.ai/settings/connectors as of 30 Apr 2026 12:47 AEST. Verified 1 May 2026 (fork_molqmxk9_64e31e, 6-substrate probe).
+**Per-tool gating:**
+- `screenshot.screenshot`: never gated (no focus steal)
+- `input.*` keystrokes/clicks: gate on collision
+- `browser.*` Puppeteer on `~/.eos-browser` (separate profile): generally proceeds
 
-- 22 MCP tools at `/api/mcp/cowork/*`: status_board.query/upsert, kv_store.get/set, neo4j.search/write_episode/write_decision, forks.spawn/list, patterns.semantic_search, email_threads.read, crm.get_intelligence, os_session.message, cowork.log_session, gmail.send, sms.tate, scheduler trio (Wave 3)
-- Bearer scopes count = 20. Connector LIVE, button "Configure" (post-handshake)
-- Architecture: `~/ecodiaos/drafts/cowork-deep-integration-architecture-2026-04-30.md` (57KB W2-A)
-- Implementation recon: `~/ecodiaos/drafts/cowork-mcp-v2-implementation-recon-2026-04-30.md` (40KB W2-B-recon)
-- SSH bridge safety: `~/ecodiaos/drafts/cowork-ssh-bridge-safety-model-2026-04-30.md` (22KB W2-D, DEFERRED per status_board 841219da)
-- Ship lineage `src/routes/mcp/cowork.js`: `3f5be8e` V2 substrate, `a17611d` MCP JSON-RPC shim, `05fee8b` CORS allowlist + auth-exempt discovery, `dbf2504` Wave 3 (gmail.send + sms.tate + scheduler trio, +5 tools, +4 scopes)
-- status_board 9edb3a74 status = `connector_live_22_tools_wave3_durable`
+Full: `~/ecodiaos/patterns/cowork-no-focus-collision.md`. The rule ITSELF is preserved; only the "Cowork" framing in the original is historical.
 
-**6-substrate probe before referencing V2 in fork briefs/status_board:**
+**Pre-dispatch checklist:** 0 (no-focus-collision) → 1 (agent alive) → 2 (creds available) → 3 (target reachable).
+
+### Passkey-stall co-pilot pattern (30 Apr 2026, PRESERVED)
+
+When the laptop-agent hits Windows Hello during Chrome credential autofill, the conductor injects the passkey via `input.type` from VPS using `kv_store.creds.laptop_passkey`. Detection: `process.listProcesses` for `LogonUI.exe` + foreground-window-title fallback. Never log passkey value. Full: `~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md`.
+
+### MCP headless REST endpoints (legacy Cowork V2 substrate)
+
+LIVE on `https://api.admin.ecodia.au/api/mcp/cowork/*` as of 30 Apr 2026 12:47 AEST. **Despite the "Cowork" name in the URL path, these are useful headless REST tools**, not Cowork-specific infrastructure. They provide status_board, kv_store, neo4j, forks, email, and scheduler access over HTTP.
+
+- 22 MCP tools at `/api/mcp/cowork/*`: status_board.query/upsert, kv_store.get/set, neo4j.search/write_episode/write_decision, forks.spawn/list, patterns.semantic_search, email_threads.read, crm.get_intelligence, os_session.message, gmail.send, sms.tate, scheduler trio (Wave 3)
+- Bearer scopes count = 20. Custom connector registered on claude.ai
+- Ship lineage `src/routes/mcp/cowork.js`: `3f5be8e` V2 substrate, `a17611d` MCP JSON-RPC shim, `05fee8b` CORS allowlist + auth-exempt discovery, `dbf2504` Wave 3
+- The endpoints will be renamed in a future pass to remove the "cowork" from the URL path
+
+**Probe before referencing in fork briefs/status_board:**
 1. `git log --oneline -- src/routes/mcp/cowork.js | head -5`
 2. `curl -s -H "Authorization: Bearer $COWORK" https://api.admin.ecodia.au/api/mcp/cowork | jq '.tools | length'` returns 22
-3. `kv_store.cowork.deep_integration.queue` shows V2 queue (currently stale at 29 Apr 23:32; status_board 9edb3a74 authoritative)
-4. status_board 9edb3a74 reflects current ship
-5. Neo4j Decision "Cowork V2 endpoint coverage verified 30 Apr 2026" exists
-6. At least one Cowork-side dispatch through new substrate has roundtripped a status_board write
+3. At least one live roundtrip through the surface
 
-Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/fork-narrated-subcommand-additions-must-be-post-pull-verified-before-downstream-forks-depend-on-them.md`.
+Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/cowork-v2-api-shape-conventions.md` (six API-shape gotchas remain accurate).
 
 ### Chrome profile gotcha
 
@@ -303,13 +284,13 @@ Live truth: `curl -H "Authorization: Bearer $TOK" http://100.114.219.69:7456/api
 - `keyboard.*` - older split: type/press/focusWindow/copy/paste. Prefer `input.*` for new code
 - `mouse.*` - click/rightClick/doubleClick/move/scroll/drag
 - `macro.*` (Win AutoHotkey only): run/inline/list/save. Macros at `D:\.code\eos-laptop-agent\macros\*.ahk`. Existing: click-coords, focus-chrome, new-tab, type-and-submit
-- `chrome.*` **(FROZEN, DO NOT EXTEND)** - Phase 1 stubs only, all throw stub errors. Superseded by Cowork-first + drive-Chrome-via-input doctrines. Do not author new chrome.* tools or extend stubs. Use Cowork (`~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`) for web SaaS UIs and `input.*` + `screenshot.*` (`~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`) for Chrome driving. After ANY edit to `tools/*.js`: `pm2 restart eos-laptop-agent` mandatory (require-cache, see `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md`)
+- `chrome.*` **(FROZEN, DO NOT EXTEND)** - Phase 1 stubs only, all throw stub errors. Superseded by direct Tailscale laptop-agent `input.*` + `screenshot.*` primitives. Do not author new chrome.* tools or extend stubs. Use the Tailscale laptop-agent (`~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`) for web SaaS UIs via `input.*` + `screenshot.*` (`~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`). Cowork patterns at `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` are [DEPRECATED]. After ANY edit to `tools/*.js`: `pm2 restart eos-laptop-agent` mandatory (require-cache, see `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md`)
 
-**PIVOT clarification (29 Apr 2026 20:25 AEST, supersedes "being replaced by Anthropic computer-use" wording):** Cowork = PRIMARY for logged-in webapp UI in Tate's Chrome. Anthropic computer-use API = FALLBACK for OS-level / desktop-app where Cowork can't reach.
+**PIVOT clarification (29 Apr 2026 20:25 AEST, superseded 5 May 2026):** The Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) is the PRIMARY substrate for all GUI driving. `cu.*` / computer-use API is FALLBACK for OS-level / desktop-app where the laptop-agent path can't reach. Claude Cowork (Claude Desktop Dispatch) was the interim substrate from 29 Apr - 5 May 2026; it is [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 
 ### Macro doctrine (post-pivot)
 
-- Cowork PRIMARY for logged-in webapp UI driving. Anthropic computer-use FALLBACK for OS-level / desktop-app
+- Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) PRIMARY for GUI driving. `cu.*` / computer-use FALLBACK for OS-level / desktop-app. Cowork [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`
 - Pre-pivot bespoke runtime (`vision.locate` proxy, `runbook.run` iterator, step-array schema, `macroHandlers/*.js`) ARCHIVED 29 Apr per Anthropic-first check. See `~/ecodiaos/patterns/macros-pre-pivot-doctrine-archived-2026-04-29.md`
 - Do not extend bespoke runtime. Do not codify new step-arrays. Treat all `macro_runbooks` rows as `status='untested_spec'` until re-validated under new substrate
 

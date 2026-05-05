@@ -36,7 +36,7 @@ Three tool-unavailable instances within 30 minutes:
 
 1. **WebSearch paywall.** Block accepted. Should have: switched to internal-data mining (CRM, email_threads, Neo4j) for the research question (question #3 - different vendor with same data), OR fixed the WebSearch source on disk (question #4).
 2. **Agent CDP broken.** Block accepted. Should have: driven Tate's existing Chrome via `input.*` + `screenshot.*` (question #1, Corazon route per `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`).
-3. **P1 row deferral.** Status_board row written with `next_action_by='tate'` for credential rotation. Should have: rotated via Cowork in Tate's logged-in Chrome (question #1) using the kv_store creds (question #2). The alternative route was 12 minutes from directive to verified live.
+3. **P1 row deferral.** Status_board row written with `next_action_by='tate'` for credential rotation. Should have: rotated via Tailscale laptop-agent driving Tate's logged-in Chrome `input.*` + `screenshot.*` (question #1, supersedes the historical Cowork path) using the kv_store creds (question #2). The alternative route was 12 minutes from directive to verified live.
 
 The acceptance was the failure, not the work-around availability.
 

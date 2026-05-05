@@ -2,6 +2,8 @@
 triggers: cowork-passkey-stall, windows-hello, passkey-autofill, cowork-refuses-passkey, conductor-injects-passkey, two-bodies-one-mind, cowork-capability-ceiling, hello-prompt-detected, kv-store-laptop-passkey, anthropic-safety-constraint, co-pilot-capability-composition
 ---
 
+> **NOTE — 5 May 2026.** The Cowork framing of this pattern is deprecated per Tate's negation of Cowork. THE RULE ITSELF (conductor injects passkey via `input.type` when Windows Hello blocks credential autofill) IS PRESERVED as a general laptop-agent pattern. The "Cowork stalls" narrative is historical — the conductor now drives ALL Chrome interactions directly, not via Cowork. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+
 # When Cowork stalls on Windows Hello, the conductor injects the passkey via input.type
 
 ## The rule

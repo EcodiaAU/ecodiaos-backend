@@ -2,9 +2,11 @@
 triggers: gui-recipe, recipe-authoring, recipe-optimisation, recipe-verification, ui-automation-recipe, fast-path-recipe, gui-flow-codify, end-to-end-timing, baseline-before-tune, programmatic-mutation-primary, pixel-click-fallback, enum-tree-before-guessing-coords, probe-for-state, fixed-sleep-vs-probe, failed-attempts-must-be-codified, gui-anatomy, recipe-anatomy, gui-fast-path, recipe-index, computer-use, computer-use-api, vision-grounded-clicks, path-a-vs-path-b, first-run-authoring-driver, recorded-macro-vs-computer-use, anthropic-computer-use-tool
 ---
 
+> **NOTE — 5 May 2026.** Cowork is deprecated as the primary UI-driving substrate. The substrate selection table below originally listed Cowork as the default first-run driver for logged-in webapp flows. This is superseded by the direct Tailscale laptop-agent path via `input.*` + `screenshot.*` + `shell.shell` composed as macro/GUI recipes. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. Cowork-via-Claude-Desktop remains a fallback option for specific hard-to-reach UI surfaces, but is no longer the default.
+
 # GUI recipes - authoring, optimisation, and verification
 
-GUI work is a first-class capability surface for EcodiaOS - driving Tate's Chrome on Corazon, the SY094 RDP, desktop apps (Xcode, Cursor, Teams, Discord), and login-walled web SaaS UIs through Cowork. As the GUI surface expands, recipes are how we keep procedures fast, reliable, and maintainable.
+GUI work is a first-class capability surface for EcodiaOS - driving Tate's Chrome on Corazon, the SY094 RDP, desktop apps (Xcode, Cursor, Teams, Discord), and login-walled web SaaS UIs via the Tailscale laptop-agent. As the GUI surface expands, recipes are how we keep procedures fast, reliable, and maintainable.
 
 This doctrine governs how recipes are authored, optimised, and verified. It is the meta-pattern for the recipe library; individual recipes (e.g. `sy094-gui-entry-via-desktop-rdp-shortcut.md`) are the worked instances.
 
@@ -65,7 +67,7 @@ GUI flows have three viable first-run authoring drivers. Pick by target characte
 
 **Default first-run driver for novel desktop / RDP flows:** Path B (Computer Use). Validated runs auto-export to Path A for next-time replay (per Phase 3 of the Computer Use integration spec).
 
-**Default first-run driver for novel logged-in webapp flows:** Cowork (per `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`). Cowork already gets Tate's signed-in session and ships with Anthropic's vision-grounded clicks built in.
+**Default first-run driver for novel logged-in webapp flows:** Direct Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The Cowork path (Claude Desktop dispatch) is a fallback when the direct path encounters an accessibility-tree wall.
 
 **Default replay driver for any validated recipe:** Path A (recorded macro). Always faster than re-invoking Computer Use.
 
@@ -146,8 +148,9 @@ Each of these is now a generalised step in the authoring/optimisation workflows 
 - `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - never codify from imagination; always validate live
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - Corazon's full tool surface (input.*, screenshot.*, shell.shell, etc) is what recipes call
 - `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` - Chrome-driving subset of GUI recipes
-- `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` - when Cowork supersedes a hand-rolled GUI recipe (logged-in webapps in Tate's Chrome)
-- `~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md` - bounded-step dispatch when delegating GUI work to Cowork
+- `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` - replacement doctrine: Tailscale laptop-agent via `input.*` + `screenshot.*` + `shell.shell` is now the default UI-driving substrate (supersedes Cowork)
+- `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` - [DEPRECATED] historical reference for the Cowork-as-primary era
+- `~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md` - [DEPRECATED] bounded-step dispatch protocol for Cowork; historical reference
 - `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` - the Anthropic-first check; Computer Use is the canonical answer for desktop / RDP / OS-level driving (analogue to Cowork for webapps)
 - `~/ecodiaos/drafts/computer-use-api-integration-spec-2026-05-04.md` - Computer Use API integration spec (Path B as first-run authoring driver, auto-export to Path A recorded macro for replay, drift detection via re-fall-back to Computer Use)
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - verification protocol generalisation; recipes are a worked instance

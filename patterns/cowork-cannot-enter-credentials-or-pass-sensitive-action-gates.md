@@ -2,7 +2,9 @@
 triggers: cowork-cannot-enter-passwords, sensitive-action-reauth, admin-google-com, billing-page, password-prompt, duo-edge-case, cowork-claude-pre-stage, verify-step-tate-only, credentials-entry-blocked
 ---
 
-# Cowork-Claude cannot enter credentials or pass sensitive-action re-auth gates
+> **DEPRECATED — 5 May 2026.** The Cowork framing is deprecated per Tate's negation of Cowork. THE CORE INSIGHT (some safety-gated actions require Tate's physical presence) IS PRESERVED, but the pre-stage-via-Cowork path is moot. When the conductor drives Chrome directly via `input.*` + `screenshot.*`, it CAN type credentials from `kv_store` (the Cowork safety constraint does not apply to the conductor). Tate is still needed for phone-only 2FA, physical hardware, and identity-required actions. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+
+# [DEPRECATED] Cowork-Claude cannot enter credentials or pass sensitive-action re-auth gates
 
 ## The rule
 

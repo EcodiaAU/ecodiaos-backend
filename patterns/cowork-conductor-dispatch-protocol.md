@@ -4,7 +4,9 @@ priority: critical
 canonical: true
 ---
 
-# Conductor -> Cowork dispatch protocol - bounded steps, verified state, account-revert aware
+> **DEPRECATED — 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The dispatch protocol (pre-dispatch checklist, account-revert monitoring, bounded-step loop) is moot — the conductor drives directly via `input.*` + `screenshot.*` through the laptop-agent. The reusable PowerShell primitives (focus window, foreground check) retain independent value. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+
+# [DEPRECATED] Conductor -> Cowork dispatch protocol - bounded steps, verified state, account-revert aware
 
 ## 1. The rule
 

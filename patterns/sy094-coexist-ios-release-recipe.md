@@ -8,6 +8,8 @@ triggers: coexist-ios-release, coexist-asc-upload, capacitor-ios-build, capacito
 > SSH on MacInCloud is forbidden per [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](never-use-ssh-on-macincloud-rdp-only.md).
 > Re-author all SSH-driven steps onto the RDP-terminal path on next iOS-release iteration.
 > Until re-authored, this recipe is informational only — DO NOT DRIVE.
+>
+> **NOTE — Cowork deprecated 5 May 2026.** The Cowork no-focus-collision cross-ref (line 58 original) refers to a rule whose framing is deprecated, but the rule itself (foreground-window probe before any `input.*` operation) is preserved per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The foreground probe applies to ALL laptop-agent `input.*` calls regardless of substrate.
 
 End-to-end iOS release pipeline for Co-Exist (`org.coexistaus.app`). Bumps version, pulls latest source on SY094, builds, smoke-tests on iPhone 17 Pro sim, archives signed for distribution, uploads to App Store Connect via the in-Xcode GUI flow. **No Tate-action required for the release-cycle steps anymore** — Apple ID password lives in `kv_store.creds.apple.password` per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`, and Xcode caches the signin in Mac Keychain across sessions.
 

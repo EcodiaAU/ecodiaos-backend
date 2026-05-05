@@ -2,6 +2,8 @@
 triggers: tate-blocked, next_action_by-tate, last-resort, 5-point-check, exhaust-laptop-route, browser-saved-credential, corazon-route, passkey-2fa, web-credential-walled, signed-in-session, tate-required, escalate-to-tate, blocked-on-tate, default-defer, ask-tate, classify-blocker, apple-team-id, asc-id-lookup, vendor-portal-login, tate-laptop-default-profile, gui-macro-route
 ---
 
+> **NOTE — 5 May 2026.** Cowork is deprecated as the default UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The Cowork preference at step 2 and cross-refs (line 69-70 in the original) are superseded by the direct Tailscale laptop-agent path. All other points in this file (the 5-point check, exhausting the laptop route, Tate-blocked classification discipline) remain fully valid.
+
 # Exhaust the laptop + browser + saved-credential route before declaring anything Tate-blocked
 
 The default for any web-accessible credential-walled resource is NOT "ask Tate." Corazon (Tate's Windows laptop, on Tailscale) runs Tate's actual Chrome with the Default profile holding all his saved Apple, Google, GitHub, Vercel, Stripe, Microsoft, Resend, Atlassian, Bitbucket, Supabase, and similar credentials. The Windows passkey for Hello / WebAuthn challenges lives in `kv_store.creds.laptop_passkey`. Therefore: any web URL Tate has access to in his browser, I can also reach via Corazon. Setting `next_action_by='tate'` is reserved for genuine last-resort cases, not the first reach.
@@ -32,7 +34,7 @@ Before classifying any blocker as Tate-required, I run the 5-point check. All fi
 - Default to "this is reachable via Corazon" for any web URL.
 - Drive Tate's existing Chrome via `input.*` + `screenshot.*` for the login probe (per `drive-chrome-via-input-tools-not-browser-tools.md`).
 - Use `kv_store.creds.laptop_passkey` to satisfy Windows Hello / passkey challenges.
-- For logged-in web SaaS UI work, prefer Claude Cowork (`input.shortcut [ctrl+e]`) over hand-rolling a `cu.*` loop, per `claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`.
+- For logged-in web SaaS UI work, prefer the direct Tailscale laptop-agent path (`input.*` + `screenshot.*` + `shell.shell`) per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 - Cite the failing 5-point step inline in any status_board row context that does end up `next_action_by='tate'`.
 - Treat "I tried and it failed" as a documented step. "I assumed it would fail" is not.
 

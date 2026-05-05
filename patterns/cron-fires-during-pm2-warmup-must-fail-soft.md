@@ -62,7 +62,7 @@ A nonzero result means warmup collisions are occurring and the gate is either ab
 
 The downstream cost was nontrivial: `INDEX.md` regen failed silently, leaving 37% pattern drift visible to the next session's author audit. The audit ran 3 May, observed the drift, and dispatched manual recovery (fork_mopny871_37bdaf). The full chain of indirection makes the failure mode a doctrine candidate, not just an incident note.
 
-A broader class lurks behind this specific instance: scheduled work crosses an infrastructure boundary mid-state-transition. Sibling cases include cron firing during a Factory commit window, cron firing during a database migration window, cron firing during a Cowork dispatch focus-collision window. This pattern documents the warmup-specific case; if more class instances accumulate, a meta-pattern for "scheduled work crosses infrastructure boundary mid-state-transition" should be authored.
+A broader class lurks behind this specific instance: scheduled work crosses an infrastructure boundary mid-state-transition. Sibling cases include cron firing during a Factory commit window, cron firing during a database migration window, cron firing during a laptop-agent focus-collision window (the Cowork dispatch instance that originally illustrated this case is historical per tailscale-macro-replaces-cowork.md). This pattern documents the warmup-specific case; if more class instances accumulate, a meta-pattern for "scheduled work crosses infrastructure boundary mid-state-transition" should be authored.
 
 Stamp: fork_mopny871_37bdaf, 3 May 2026 21:00 AEST. Audit input: `~/ecodiaos/drafts/claude-md-gaps-audit-2026-05-03.md` Section 1.1.
 

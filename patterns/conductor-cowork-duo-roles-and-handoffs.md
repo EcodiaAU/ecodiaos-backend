@@ -4,7 +4,9 @@ priority: critical
 canonical: true
 ---
 
-# Conductor + Cowork duo - peer-paradigm conductor + UI-driving Cowork over MCP V2 substrate
+> **DEPRECATED — 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The "duo" framing (conductor + Cowork as complementary agents) is no longer operative. The conductor is single-agent with Tailscale laptop-agent as its physical hands. The MCP V2 REST endpoints at `/api/mcp/cowork/*` remain useful as headless tools (see Section 5 of `tailscale-macro-replaces-cowork.md`). The role-split table's conceptual framing (headless-API vs GUI) remains useful — just the "who" column changes from Cowork to direct laptop-agent. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+
+# [DEPRECATED] Conductor + Cowork duo - peer-paradigm conductor + UI-driving Cowork over MCP V2 substrate
 
 ## 1. The rule
 

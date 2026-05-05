@@ -1,15 +1,27 @@
 #!/usr/bin/env bash
 #
-# cowork-dispatch - thin bash wrapper composing existing input.* + screenshot.* +
-# process.* peer-paradigm primitives into one ergonomic command for the
-# Conductor -> Cowork dispatch protocol.
+# [LEGACY NAME] cowork-dispatch - thin bash wrapper composing input.* +
+# screenshot.* + process.* peer-paradigm primitives as a one-liner for
+# multi-step laptop-agent UI sequences.
 #
-# Doctrine sources (read these before extending this file):
-#   ~/ecodiaos/patterns/cowork-conductor-dispatch-protocol.md
-#   ~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md
+# The name "cowork-dispatch" is legacy from the Claude Cowork era (deprecated
+# 5 May 2026). The SCRIPT ITSELF IS USEFUL as an ergonomic abstraction over
+# the Tailscale laptop-agent (Corazon 100.114.219.69:7456). The script wraps
+# input.* + screenshot.* + process.* primitives — the same tools that now
+# form the canonical GUI-driving substrate.
+#
+# The script is NOT renamed because too many fork briefs, status_board rows,
+# and conv-layer references name it. Treat as a stable CLI with a legacy name.
+#
+# Replaced by: ~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md
+# Canonical doctrine: ~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md
+#
+# Doctrine sources (read before extending):
+#   ~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md
 #   ~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md
 #   ~/ecodiaos/patterns/cowork-no-focus-collision.md
 #   ~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md
+#   ~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md
 #
 # This is NOT an MCP wrapper, NOT a parallel runtime, does NOT modify the
 # laptop agent. It is curl-to-/api/tool with the right defaults and the

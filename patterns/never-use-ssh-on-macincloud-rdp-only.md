@@ -2,6 +2,8 @@
 triggers: never-ssh-macincloud, ssh-mic-forbidden, macincloud-rdp-only, sy094-rdp-only, sy094-no-ssh, macincloud-canonical-path, mic-ssh-banned, sy094-ssh-banned, mic-fucking-useless, ssh-useless-on-mic, sshpass-sy094, sshpass-macincloud, ssh-user276189, sy094-access, macincloud-access, claude-app-signin-sy094, sy094-gui-task, ios-release-via-rdp, sy094-tcc-grant, gui-aqua-context, screencapture-fail, cliclick-fail, eos-laptop-agent-sy094-context, mic-headless-work, on-mac-agent-sy094
 ---
 
+> **NOTE — 5 May 2026.** This file's cross-ref to `cowork-is-a-gui-tool-not-a-peer-brain.md` refers to a deprecated pattern. The substantive claim — "Cowork can drive Corazon's RDP-shortcut click" — is superseded by the direct Tailscale laptop-agent path per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The RDP-first rule itself is fully valid and unchanged; only the substrate reference is historical.
+
 # Never use SSH on MacInCloud SY094 - RDP from Corazon is the only canonical access path
 
 The rule is absolute. Do not use SSH (`sshpass -p ... ssh ... user276189@SY094.macincloud.com`) for any task on SY094. Not for GUI sign-in. Not for "headless" compile work. Not for file CRUD. Not for process inspection. Not for "quick probes". Not for the on-Mac agent. The only canonical access path to SY094 is RDP from Corazon via the `MacinCloud_Full_Screen.rdp` shortcut on Tate's Windows desktop, then operate inside the RDP session (terminal, GUI, agent, all of it inside the RDP).
@@ -72,7 +74,7 @@ These remain forbidden per `~/ecodiaos/patterns/sy094-access-via-ssh-not-macincl
 - `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` — meta-doctrine for any GUI recipe
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — origin for why this file exists
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` — Corazon as peer; RDP via input.* tools is canonical
-- `~/ecodiaos/patterns/cowork-is-a-gui-tool-not-a-peer-brain.md` — Cowork can drive Corazon's RDP-shortcut click
+- `~/ecodiaos/patterns/cowork-is-a-gui-tool-not-a-peer-brain.md` — [DEPRECATED] historical reference for Cowork driving Corazon's RDP-shortcut click; superseded by tailscale-macro-replaces-cowork.md
 - status_board row `b2b67296-387c-4f6c-b9d4-8a24a3b28ec7` — TCC grant required as separate Tate-action prerequisite
 - status_board row `c27c358c-2965-4884-9979-ff2de67b3df7` — Phase 1 sign-in blocked, recipe codified Phase 2
 

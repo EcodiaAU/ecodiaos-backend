@@ -2,9 +2,11 @@
 triggers: sy094-claude-app, sy094-claude-signin, claude-app-mac, claude-desktop-sy094, code-at-ecodia-au-claude-mac, sy094-google-oauth, sy094-anthropic-signin, mac-claude-app-signin, sy094-cowork-bootstrap
 ---
 
+> **NOTE — 5 May 2026.** Cowork is deprecated per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. This recipe's references to Cowork (pre-flight 7, duo-paradigm framing, cross-refs) refer to the historical Claude Desktop dispatch substrate. The foreground-collision check remains valid as a general laptop-agent step. Claude.app on SY094 can still be signed into code@ — the recipe's steps and prerequisites (RDP entry, OAuth sign-in) are unchanged; only the "why" (second Cowork host) is superseded.
+
 # SY094 Claude.app sign-in as code@ecodia.au
 
-This recipe codifies the procedure for signing into Claude.app on SY094 (the MacInCloud Mac) using the `code@ecodia.au` Google Workspace identity. Once signed in, SY094 becomes a viable Cowork host (a second Claude Desktop signed in as code@ alongside Corazon's Claude Desktop signed in as tate@), expanding our duo-paradigm capacity.
+This recipe codifies the procedure for signing into Claude.app on SY094 (the MacInCloud Mac) using the `code@ecodia.au` Google Workspace identity.
 
 > **Meta-doctrine:** This is a worked instance of `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`. Read that file first if authoring or modifying any GUI recipe.
 

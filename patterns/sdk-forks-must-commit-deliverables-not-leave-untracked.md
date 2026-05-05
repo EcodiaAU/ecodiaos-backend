@@ -18,7 +18,7 @@ When a verify probe asks "is X actually shipped?", there are three states the fi
 | **On disk, untracked** | yes | empty | yes | NO — vulnerable to clean checkout, branch switch, sibling-fork `git clean`, working-tree wipe |
 | **Missing** | no | empty | no | n/a |
 
-The correct verify probe is **explicit-path** (`ls -la "$path"` with a literal string, NOT a glob like `cowork-*` which can fail to expand) AND a `git log` check. Conflating "missing" and "on-disk-untracked" produces phantom-ship false-positives (the file IS shipped, just not committed). Conflating "on-disk-untracked" and "committed" produces phantom-ship false-negatives (the file LOOKS shipped, but won't survive the next `git checkout` or sibling-fork `git clean`).
+The correct verify probe is **explicit-path** (`ls -la "$path"` with a literal string, NOT a glob like `drafts-*` which can fail to expand) AND a `git log` check. Conflating "missing" and "on-disk-untracked" produces phantom-ship false-positives (the file IS shipped, just not committed). Conflating "on-disk-untracked" and "committed" produces phantom-ship false-negatives (the file LOOKS shipped, but won't survive the next `git checkout` or sibling-fork `git clean`).
 
 ## The fork checklist (what every fork must do at end-of-work)
 

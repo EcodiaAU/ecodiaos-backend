@@ -2,6 +2,8 @@
 triggers: take-agency, conductor-owns-recovery, self-caused-break, oauth-invalidation-recovery, cred-cascade-recovery, claude-desktop-stuck, ui-recovery-conductor-drives, cowork-broken-conductor-fixes, drive-corazon-input-tools, agency-over-existence, do-not-punt-to-tate, conductor-not-cowork-claude, layer-distinction-credentials, exhaust-laptop-route-before-tate, kill-relaunch-claude-desktop, anthropic-oauth-refresh-failed
 ---
 
+> **NOTE — 5 May 2026.** Cowork is deprecated as a UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. This file's references to `cowork-dispatch` script and `cowork-cannot-enter-credentials` are preserved where contextually valid — the dispatch script still works (legacy name, useful tool) and the credential-layer distinction (Cowork-Claude vs conductor `input.type`) remains correct. All "Cowork" references in this file refer to the historical Claude Desktop dispatch capability, not a currently-supported substrate.
+
 # The conductor takes agency on recovery — not Tate, when conductor action caused the break
 
 ## Rule

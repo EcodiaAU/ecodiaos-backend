@@ -2,6 +2,8 @@
 triggers: cowork-no-focus-collision, focus-collision, no-focus-collision, cowork-pre-dispatch, cowork-step-0, semi-simultaneous-work, focus-stealing, do-not-steal-focus, foreground-window-equality, foreground-app-check, cowork-coexistence, tate-active-but-different-tab, dispatch-while-tate-typing, dispatch-while-tate-active-different-window, cowork-target-collision, target-window-equality, getforegroundwindow, getwindowthreadprocessid, conductor-courtesy, win32-foreground, focus-collision-block, no-collision-proceed, cowork-target, cowork-target-app, cowork-target-tab, claude-desktop-foreground, vercel-tab-foreground, mcp-peerage-bypasses-focus-rule, v2-mcp-bypass, cowork-coexists-with-tate
 ---
 
+> **NOTE — 5 May 2026.** The Cowork framing of this pattern is deprecated per Tate's negation of Cowork. THE RULE ITSELF (no-focus-collision before any `input.*` operation) IS PRESERVED. The focus-collision probe is Step 0 before ANY laptop-agent `input.*` call. The Cowork-specific parts (dispatch-while-Tate-typing, Cowork tab-vs-tab collision table) are historical. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+
 # Cowork dispatches must not steal focus from Tate's active window
 
 Cowork (and any `input.*` / `browser.*` operation that drives Corazon UI) **can run while Tate is actively at the keyboard**, provided the dispatch does not steal focus from Tate's current foreground window. The semi-simultaneous-work property is a real win: Cowork can drive the Vercel tab while Tate types in the EcodiaOS tab in the same Chrome instance, and they coexist. The rule is **focus-collision**, not human-idle-time.
