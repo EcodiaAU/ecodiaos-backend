@@ -43,6 +43,7 @@ const LISTENER_FILES = [
   '_smoke.js',
   'ccSessionsFailure.js',
   'dbBridge.js',
+  'dispatchQueueListener.js',
   'emailArrival.js',
   'factorySessionComplete.js',
   'forkComplete.js',

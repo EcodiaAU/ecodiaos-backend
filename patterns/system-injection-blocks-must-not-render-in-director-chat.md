@@ -39,6 +39,9 @@ When building or modifying any FE surface that displays conversation content:
    - `<recent_doctrine>...</recent_doctrine>`
    - `<relevant_memory>...</relevant_memory>`
    - `<forks_rollup>...</forks_rollup>`
+   - `<conductor_commitments>...</conductor_commitments>` (added 5 May 2026, fork_mos3hwpk_9fbdc5)
+   - `<conductor_blocked_on>...</conductor_blocked_on>` (added 5 May 2026, fork_mos3hwpk_9fbdc5)
+   - `<thread_carry_forward>...</thread_carry_forward>` (added 5 May 2026, fork_mos3hwpk_9fbdc5)
    - `<restart_recovery>...</restart_recovery>`
    - `<recent_exchanges>...</recent_exchanges>`
    - `<last_turn_breadcrumb>...</last_turn_breadcrumb>`

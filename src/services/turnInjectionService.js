@@ -94,6 +94,8 @@ const BLOCK_RULES = {
   '<doctrine_surface>':        { always: false, dedupe: true  },
   '<skills_surface>':          { always: false, dedupe: true  },
   '<forks_rollup>':            { always: true,  dedupe: false }, // forkService already filters empty
+  '<conductor_commitments>':   { always: false, dedupe: true  }, // status_board snapshot
+  '<thread_carry_forward>':    { always: false, dedupe: true  }, // kv_store snapshot
   '<recent_doctrine>':         { always: false, dedupe: true  },
   '<relevant_memory>':         { always: false, dedupe: true  },
   '<perception_summary>':      { always: false, dedupe: true  },
