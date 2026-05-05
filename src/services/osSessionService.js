@@ -2680,6 +2680,19 @@ async function _sendMessageImpl(content, opts = {}) {
             break
           }
 
+          case 'rate_limit_event': {
+            const info = msg.rate_limit_info || {}
+            logger.info('OS Session rate_limit_event', {
+              status: info.status,
+              type: info.rateLimitType,
+              resetsAt: info.resetsAt,
+            })
+            // Nothing to act on unless the request was rejected — the SDK will
+            // surface the actual error in the 'result' message which already
+            // triggers account switching via _isUsageExhausted().
+            break
+          }
+
           default:
             // Pinnacle P1: forward unknown SDK event types so the frontend can
             // observe new event shapes without a backend deploy.
