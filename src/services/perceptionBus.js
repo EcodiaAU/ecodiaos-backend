@@ -9,8 +9,44 @@ function subscribe(fn) {
   if (typeof fn === 'function') _subscribers.push(fn)
 }
 
+// Belt-and-braces dispatcher self-init.
+//
+// Origin (5 May 2026, fork_moskfb4a_373983):
+// The server.js boot block at lines 660-666 calls perceptionDispatcher.start()
+// inside the server.listen() async callback. Empirically (24h window post 11:47
+// UTC restart) ZERO `source = 'perception_dispatcher'` rows ever appeared in
+// os_observations and ZERO `auto:*` rows ever appeared in status_board, despite
+// dozens of fork_complete events and 8+ fork_error events that should have
+// fired the error_escalation matcher. Direct node -e require + start works
+// fine, so the dispatcher module itself is sound — the boot-block invocation
+// is silently failing or being skipped.
+//
+// Fix: have perceptionBus self-bootstrap the dispatcher on first publish().
+// publish() is called from listeners (forkComplete, factorySessionComplete,
+// emailArrival, ccSessionsFailure, invoicePaymentState, statusBoardDrift) and
+// from forkService directly, so first event after boot guarantees the
+// dispatcher gets wired even when server.js boot block doesn't reach it.
+//
+// start() is idempotent (guarded by _started flag in perceptionDispatcher.js)
+// so the explicit call from server.js stays safe; this just ensures
+// subscription happens via either path.
+let _dispatcherEnsured = false
+function _ensureDispatcher() {
+  if (_dispatcherEnsured) return
+  _dispatcherEnsured = true
+  try {
+    require('./perceptionDispatcher').start()
+  } catch (err) {
+    logger.warn('perceptionBus: dispatcher autostart failed', { error: err.message })
+  }
+}
+
 async function publish({ source, kind, data, ts, confidence = 1.0 }) {
   if (!source || !kind) return
+
+  // Lazy-init the in-process dispatcher. First publish wires the matcher
+  // subscription before this very event reaches the for-loop below.
+  _ensureDispatcher()
 
   const observed_at = ts ? new Date(ts) : new Date()
   const event = { source, kind, data: data || null, confidence, observed_at }
