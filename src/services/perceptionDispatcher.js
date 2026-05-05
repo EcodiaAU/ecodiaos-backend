@@ -237,7 +237,11 @@ const MATCHERS = [
     domain: 'security_incident',
     test(event) {
       const kind = (event.kind || '').toLowerCase()
+      const source = (event.source || '').toLowerCase()
       const dataStr = JSON.stringify(event.data || {}).toLowerCase()
+      // Source-based: canonical security publishes from securityIncidentResponse
+      // (5 May 2026 fix — closes the fireIncident → matcher loop).
+      if (source === 'security' || source === 'security_incident') return true
       // Strong-signal kinds first (high precision):
       if (/auth_(fail|denied|invalid)|oauth_(expired|invalid|revoked)|cred(_| )?rotat|rls_violation|hmac_(fail|invalid)|tier3_gate_denied|signature_(fail|invalid)/i.test(kind)) return true
       // Lower-precision data-string match (catches free-form telemetry):

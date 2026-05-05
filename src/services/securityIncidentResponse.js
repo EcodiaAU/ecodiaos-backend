@@ -92,6 +92,23 @@ async function fireIncident({
   const incidentRow = await _logIncident({ incident_class, trigger_source, session_id, details })
   const incidentId = incidentRow?.id || null
 
+  // Publish to perceptionBus so the security_incident matcher
+  // (perceptionDispatcher.js, 6th matcher, shipped 5 May 2026) sees the
+  // canonical security signal and auto-creates a P1 status_board row. Without
+  // this, fireIncident is the canonical incident source but the matcher never
+  // gets the signal and only synthetic test events have ever fired it.
+  // See drafts/proposed-design-fixes/02-security-incident-publishes-to-bus.md
+  // and drafts/listener-audit-worker3-2026-05-05.md §3.2.
+  // Best-effort publish: never block the response chain on perception bus.
+  try {
+    require('./perceptionBus').publish({
+      source: 'security_incident',
+      kind: incident_class,
+      data: { trigger_source, session_id, details, incident_id: incidentId },
+      confidence: 1.0,
+    }).catch(() => {})
+  } catch {}
+
   // Capture emergency state BEFORE setEmergencyMode runs so we can decide
   // whether the SMS represents a real transition or just a re-fire of an
   // already-known incident class. SMS only goes out on the transition from
