@@ -11,7 +11,15 @@
 // replay run flips them to `validated_v1` per
 // ~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md
 //
+// Mac-via-RDP branch (6 May 2026):
+// When the capture window-set indicates a MacinCloud / Remote Desktop
+// Connection (mstsc.exe) target, the emitter switches to pixel-only replay
+// mode. UIA selectors traverse the Win mstsc shell, NOT the Mac Aqua
+// surface, so no UIA selector below the RDP boundary is meaningful for
+// replay. See ~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md
+//
 // Origin: Tate verbatim 6 May 2026 15:32 AEST.
+// Mac-RDP branch origin: Tate verbatim 6 May 2026 20:32 AEST.
 
 'use strict';
 
@@ -95,6 +103,143 @@ function timestampSuffix(date = new Date()) {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}-${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}`;
 }
 
+// ---------- Mac-via-RDP detection + noise filter --------------------------
+
+const RDP_WINDOW_TITLE_RE = /(Remote Desktop Connection|MacinCloud_Full_Screen)/i;
+const RDP_FOREGROUND_EXE = 'mstsc.exe';
+const RDP_INPUT_CAPTURE_NAME = 'Input Capture Window';
+const RDP_INPUT_CAPTURE_CLASS = 'IHWindowClass';
+
+/**
+ * Inspect a single event for any Mac-via-RDP signal.
+ */
+function eventLooksMacRdp(ev) {
+  if (!ev) return false;
+  if (ev.foreground_app_exe === RDP_FOREGROUND_EXE) return true;
+  if (ev.window_title && RDP_WINDOW_TITLE_RE.test(ev.window_title)) return true;
+  if (ev.uia_selector_hint && (
+    ev.uia_selector_hint.includes(RDP_INPUT_CAPTURE_CLASS) ||
+    ev.uia_selector_hint.includes(`name="${RDP_INPUT_CAPTURE_NAME}"`)
+  )) return true;
+  if (ev.target_uia_selector) {
+    const sel = ev.target_uia_selector;
+    if (sel.class_name === RDP_INPUT_CAPTURE_CLASS) return true;
+    if (sel.name === RDP_INPUT_CAPTURE_NAME) return true;
+  }
+  return false;
+}
+
+/**
+ * Detect whether the WHOLE capture is a Mac-via-RDP target.
+ *
+ * A capture is Mac-via-RDP iff any event OR any window-metadata entry signals
+ * the RDP boundary. This is the gating switch for pixel-only replay frontmatter
+ * + the Replay constraints section + the noise-filter pass.
+ *
+ * Cross-ref: ~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md
+ *
+ * @param {Array} events            normalised events from event-joiner
+ * @param {Array} windowMetadata    [{window_title, program}]
+ * @returns {boolean}
+ */
+function detectMacViaRdp(events = [], windowMetadata = []) {
+  if (Array.isArray(events) && events.some(eventLooksMacRdp)) return true;
+  if (Array.isArray(windowMetadata) && windowMetadata.some(w => {
+    if (!w) return false;
+    if (w.program === RDP_FOREGROUND_EXE) return true;
+    if (w.window_title && RDP_WINDOW_TITLE_RE.test(w.window_title)) return true;
+    return false;
+  })) return true;
+  return false;
+}
+
+/**
+ * Decide whether an event is a CANONICAL Mac-RDP flow step.
+ *
+ * Canonical: foreground_app_exe is mstsc.exe AND (UIA enrichment is absent
+ * OR UIA hits the canonical RDP input-capture pane). Anything else at the
+ * sequence boundaries is treated as session noise (e.g. the user clicking
+ * around in EcodiaOS Chrome before flipping focus to the RDP window, or
+ * accidentally clicking a Chrome tab strip overlapping the RDP canvas).
+ *
+ * Note: the brief's literal phrasing was `foreground_app_exe != mstsc.exe
+ * AND not on the canonical Mac flow's window`. The brief example calls out
+ * BOTH a chrome.exe-foreground event (step 1) AND an mstsc-foreground event
+ * whose UIA selector points to a Chrome tab outside the RDP pane (step 6)
+ * as noise. The OR-shape below matches the example; either signal alone is
+ * enough to mark a boundary event as off-flow.
+ */
+function isCanonicalMacRdpEvent(ev) {
+  if (!ev) return false;
+  if (ev.foreground_app_exe !== RDP_FOREGROUND_EXE) return false;
+  // If we have UIA enrichment, require it to point at the canonical RDP pane.
+  if (ev.target_uia_selector) {
+    const sel = ev.target_uia_selector;
+    if (sel.class_name === RDP_INPUT_CAPTURE_CLASS) return true;
+    if (sel.name === RDP_INPUT_CAPTURE_NAME) return true;
+    return false;
+  }
+  if (ev.uia_selector_hint) {
+    if (ev.uia_selector_hint.includes(RDP_INPUT_CAPTURE_CLASS)) return true;
+    if (ev.uia_selector_hint.includes(`name="${RDP_INPUT_CAPTURE_NAME}"`)) return true;
+    return false;
+  }
+  // No UIA at all - the RDP canvas is opaque to UIA, so this is the common
+  // case for a real Mac-side click. Accept it.
+  return true;
+}
+
+/**
+ * Tag boundary events (first/last contiguous runs of off-flow events) as
+ * noise. Mutates events in place: each tagged event gains
+ * `noise_filtered: true` and a short `noise_reason`.
+ *
+ * Returns the partition for downstream emit.
+ *
+ * @param {Array} events
+ * @returns {{replayEvents: Array, noiseEvents: Array}}
+ */
+function applyMacRdpNoiseFilter(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return { replayEvents: [], noiseEvents: [] };
+  }
+
+  // Walk forward from start
+  let i = 0;
+  while (i < events.length && !isCanonicalMacRdpEvent(events[i])) {
+    events[i].noise_filtered = true;
+    events[i].noise_reason = 'session_boundary_pre_flow';
+    i++;
+  }
+
+  // Walk backward from end (only into the still-untagged region)
+  let j = events.length - 1;
+  while (j > i - 1 && !isCanonicalMacRdpEvent(events[j])) {
+    if (events[j].noise_filtered) break; // already tagged from the head walk
+    events[j].noise_filtered = true;
+    events[j].noise_reason = 'session_boundary_post_flow';
+    j--;
+  }
+
+  const replayEvents = events.filter(e => !e.noise_filtered);
+  const noiseEvents = events.filter(e => e.noise_filtered);
+  return { replayEvents, noiseEvents };
+}
+
+/**
+ * Produce a fresh copy of events with replay step numbers re-sequenced
+ * starting at 1. Original step numbers are preserved on `original_step_number`.
+ */
+function renumberReplayEvents(events) {
+  return events.map((ev, idx) => ({
+    ...ev,
+    original_step_number: ev.step_number,
+    step_number: idx + 1,
+  }));
+}
+
+// ---------- Main emit ----------------------------------------------------
+
 /**
  * Emit a 10-section markdown recipe.
  *
@@ -124,6 +269,16 @@ function emitRecipe({
 
   const triggers = buildTriggers(flow_slug, window_metadata);
 
+  // ---- Mac-via-RDP gating --------------------------------------------
+  const macRdp = detectMacViaRdp(events, window_metadata);
+  let replayEvents = events;
+  let noiseEvents = [];
+  if (macRdp) {
+    const partition = applyMacRdpNoiseFilter(events);
+    replayEvents = renumberReplayEvents(partition.replayEvents);
+    noiseEvents = partition.noiseEvents;
+  }
+
   // ---- Frontmatter ----------------------------------------------------
   const frontmatterLines = [
     '---',
@@ -133,6 +288,17 @@ function emitRecipe({
     `flow_slug: ${flow_slug}`,
     'status: untested_spec',
   ];
+
+  // Replay-method tags. Mac-RDP forces pixel-only; everything else is open.
+  if (macRdp) {
+    frontmatterLines.push('replay_method: pixel_only_screenshot_verify');
+    frontmatterLines.push('capture_substrate: corazon-recorder-mac-via-rdp');
+    frontmatterLines.push('uia_reliable: false');
+    frontmatterLines.push('pixel_coords_reliable: true_if_rdp_window_layout_matches');
+  } else {
+    frontmatterLines.push('replay_method: uia_or_pixel');
+  }
+
   for (const [k, v] of Object.entries(extra || {})) {
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
       frontmatterLines.push(`${k}: ${v}`);
@@ -161,27 +327,43 @@ function emitRecipe({
       ? '- (none captured)\n'
       : window_metadata.map(w => `- ${w.window_title || '(unknown window)'}${w.program ? ` (program: ${w.program})` : ''}`).join('\n') + '\n');
 
+  // ---- Mac-RDP-only Replay constraints section ------------------------
+  const replayConstraints = macRdp
+    ? sectionHeader('Replay constraints') +
+      'This recipe is captured via Corazon recorder on a Mac-via-RDP target. ' +
+      'UIA selectors describe the RDP shell (mstsc.exe), not Mac UI elements; ' +
+      'do NOT use them for replay. Replay protocol: pixel coordinates + ' +
+      'cropped-screenshot post-verify per step. ' +
+      'See ~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md.\n'
+    : '';
+
   // ---- Section 4: Verified coordinates table --------------------------
   const sec4 = sectionHeader('Verified coordinates table') +
-    coordsTable(events) +
+    coordsTable(replayEvents) +
     '\n<!-- Coordinates above were captured at recording time. Re-verify against the live UI before codifying as `validated_v1`. -->\n';
 
   // ---- Section 5: Step-by-step procedure ------------------------------
   const sec5 = sectionHeader('Step-by-step procedure') +
-    stepByStepProcedure(events);
+    stepByStepProcedure(replayEvents) +
+    (noiseEvents.length > 0
+      ? '\n### Noise events (excluded from replay)\n\n' +
+        '_Captured at session boundaries but not part of the canonical Mac-side flow. ' +
+        'Tagged `noise_filtered: true` by the Mac-via-RDP noise filter._\n\n' +
+        noiseEvents.map(formatNoiseEvent).join('\n\n') + '\n'
+      : '');
 
   // ---- Section 6: Verification protocol -------------------------------
   const sec6 = sectionHeader('Verification protocol') +
     '<!-- TODO: per-step pre/post-verify probes (see ~/ecodiaos/patterns/gui-step-verify-protocol.md). -->\n\n' +
     '| Step | Pre-verify (must hold before action) | Action | Post-verify (must hold within budget) | Budget |\n' +
     '|---|---|---|---|---|\n' +
-    perStepVerifyTable(events);
+    perStepVerifyTable(replayEvents);
 
   // ---- Section 7: Fast-path checklist ---------------------------------
   const sec7 = sectionHeader('Fast-path checklist') +
     '<!-- TODO: optimised cmd-by-cmd run with verified end-to-end target timing. After validation, replace this stub with the codified fast path. -->\n\n' +
     '```\n' +
-    fastPathStub(events) +
+    fastPathStub(replayEvents) +
     '```\n';
 
   // ---- Section 8: Speed wins identified -------------------------------
@@ -200,22 +382,29 @@ function emitRecipe({
   const sec10 = sectionHeader('Anti-patterns') +
     '- Pixel-click first when UI Automation works on the target. Walk the tree, prefer `InvokePattern`/`ValuePattern`/`TogglePattern` mutation.\n' +
     '- Authoring coords from imagination - this recipe was captured from a real run; do NOT amend coords without a fresh recording or live UIA enumeration.\n' +
-    '- Marking this recipe `validated_v1` without a real replay. The capture proves the flow happened once; it does NOT prove the codified replay path works.\n';
+    '- Marking this recipe `validated_v1` without a real replay. The capture proves the flow happened once; it does NOT prove the codified replay path works.\n' +
+    (macRdp
+      ? '- Trusting UIA selectors below the RDP boundary - mstsc.exe exposes only its own shell to UIA. Mac Aqua elements are pixel-only.\n'
+      : '');
 
   // ---- Cross-references ----------------------------------------------
   const crossRefs = '\n## Cross-references\n\n' +
     '- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` - the meta-doctrine this recipe instantiates.\n' +
     '- `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - status flips to `validated_v1` only after a real replay run.\n' +
     `- \`~/ecodiaos/patterns/macro-capture-via-${method}.md\` - capture-method-specific doctrine.\n` +
-    '- `~/ecodiaos/patterns/gui-step-verify-protocol.md` - the per-step pre/post-verify protocol all recipes implement.\n';
+    '- `~/ecodiaos/patterns/gui-step-verify-protocol.md` - the per-step pre/post-verify protocol all recipes implement.\n' +
+    (macRdp
+      ? '- `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md` - replay-method gating for Mac-via-RDP captures.\n'
+      : '');
 
+  // Section ordering: 1, 2, 3, [Replay constraints if Mac-RDP], 4..10
   return [
     frontmatterLines.join('\n'),
     title,
     '',
-    sec1, sec2, sec3, sec4, sec5, sec6, sec7, sec8, sec9, sec10,
+    sec1, sec2, sec3, replayConstraints, sec4, sec5, sec6, sec7, sec8, sec9, sec10,
     crossRefs,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 /**
@@ -231,6 +420,23 @@ function sectionHeader(name) {
 function formatWindowList(windowMetadata) {
   if (!windowMetadata || windowMetadata.length === 0) return '';
   return windowMetadata.map(w => w.window_title || '(unknown)').join(', ');
+}
+
+/**
+ * Format a single noise event as a markdown bullet block. Includes the
+ * original step number so the recorded sequence remains traceable.
+ */
+function formatNoiseEvent(ev) {
+  const orig = ev.original_step_number || ev.step_number || '?';
+  const reason = ev.noise_reason || 'session_boundary';
+  const win = ev.window_title ? ` in **${ev.window_title}**` : '';
+  const exe = ev.foreground_app_exe ? ` (foreground: \`${ev.foreground_app_exe}\`)` : '';
+  const target = ev.target_text ? ` on **${ev.target_text}**` : '';
+  const coords = (ev.x !== null && ev.x !== undefined) ? ` at \`(${ev.x}, ${ev.y})\`` : '';
+  const ts = ev.timestamp ? ` (\`${ev.timestamp}\`)` : '';
+  let line = `- Original step ${orig} (excluded - ${reason}): ${ev.type || 'event'}${target}${win}${exe}${coords}${ts}`;
+  if (ev.uia_selector_hint) line += `\n  - UIA: \`${ev.uia_selector_hint}\``;
+  return line;
 }
 
 /**
@@ -361,6 +567,10 @@ module.exports = {
   slugify,
   timestampSuffix,
   humaniseSlug,
+  // Mac-via-RDP detection + noise filter (exposed for tests / external callers)
+  detectMacViaRdp,
+  isCanonicalMacRdpEvent,
+  applyMacRdpNoiseFilter,
   // exposed for unit-style introspection
   _internal: {
     coordsTable,
@@ -369,5 +579,8 @@ module.exports = {
     fastPathStub,
     describeActionShort,
     escapeMd,
+    eventLooksMacRdp,
+    renumberReplayEvents,
+    formatNoiseEvent,
   },
 };
