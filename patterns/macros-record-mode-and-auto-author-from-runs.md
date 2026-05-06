@@ -89,6 +89,17 @@ Once the agent has run enough macros, the same kind of flow will start appearing
 
 **Phase 3 ship gate:** the meta-cron, run against a synthetic runs corpus with three deliberately-similar sequences, drafts a handler that on promotion executes the original flow.
 
+## Implementation: shipped 6 May 2026
+
+Phase 2's record-mode substrate landed on 6 May 2026 in two paired versions, both emitting through the shared `~/ecodiaos/macros/lib/recipe-emitter.js` (10-section recipe anatomy, frontmatter `status: untested_spec`):
+
+- **v1 (psr.exe wrapper):** `~/ecodiaos/patterns/macro-capture-via-psr-exe.md`. Parser at `~/ecodiaos/macros/parsers/psr-exe-parser.js`, glue at `~/ecodiaos/macros/parsers/psr-exe-to-recipe.js`. Win-builtin, no install, captures UIA element name + screenshot only (no raw X/Y).
+- **v2 (custom OS hook recorder):** `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md`. AHK at `D:\.code\eos-laptop-agent\macros\macro-recorder.ahk`, UIA probe at `D:\.code\eos-laptop-agent\macros\uia-probe.ps1`, joiner at `~/ecodiaos/macros/lib/event-joiner.js`, vision pass at `~/ecodiaos/macros/lib/vision-enrich.js` (Anthropic claude-sonnet-4-7), glue at `~/ecodiaos/macros/parsers/recording-to-recipe.js`. Hotkey-toggle (Ctrl+Shift+R), captures raw X/Y + modifier state + UIA selector + per-event vision-language semantic description.
+
+Phase 1 (hand-coded handlers) and Phase 3 (auto-author from runs) remain as roadmap items. The v1+v2 ship gives Phase 2 ("record-mode by Tate") an end-to-end substrate that produces 10-section recipes ready for replay validation.
+
+Origin: Tate verbatim 6 May 2026 15:32 AEST "this is an insanely important capability for you so we need to give it the attention it deserves. Always on was a bit far, yeah. Lets do the full v1 and v2." Manager fork `fork_motmiokr_ed2e9c` decomposed the ship into 5 worker sub-forks.
+
 ## Cross-references
 
 - `corazon-is-a-peer-not-a-browser-via-http.md` - the peer paradigm. Macros are the natural compression of peer-paradigm flows.
