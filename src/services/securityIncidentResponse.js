@@ -109,6 +109,25 @@ async function fireIncident({
     }).catch(() => {})
   } catch {}
 
+  // ── Observation-only incidents skip the kill chain ────────────────
+  // credential_redaction_burst fires whenever credentials appear in output
+  // streams and get redacted. This is the SYSTEM WORKING CORRECTLY, not a
+  // security breach. During normal fork operation, credentials routinely
+  // appear in tool output and get redacted, which increments the counter
+  // and fires the burst. Halting forks for this is circular: forks produce
+  // output → credentials redacted → forks killed.
+  //
+  // These incidents are still logged, published to perceptionBus, and
+  // surface as status_board P1 rows via the perceptionDispatcher matcher
+  // — giving the conductor full visibility without killing work.
+  const OBSERVATION_ONLY = Object.freeze(['credential_redaction_burst'])
+  if (OBSERVATION_ONLY.includes(incident_class)) {
+    logger.info('securityIncidentResponse: observation-only incident (no kill chain)', {
+      incident_class, incidentId,
+    })
+    return incidentRow
+  }
+
   // Capture emergency state BEFORE setEmergencyMode runs so we can decide
   // whether the SMS represents a real transition or just a re-fire of an
   // already-known incident class. SMS only goes out on the transition from

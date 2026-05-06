@@ -230,7 +230,7 @@ const envSchema = z.object({
   // DeepSeek V4 Pro fallback - final tier after both Max accounts exhausted.
   // Uses native Anthropic-compatible endpoint; no SDK changes required.
   DEEPSEEK_FALLBACK_ENABLED: z.string().default('false'),
-  DEEPSEEK_FALLBACK_BASE_URL: z.string().default('https://api.deepseek.com/anthropic'),
+  DEEPSEEK_FALLBACK_BASE_URL: z.string().default('http://127.0.0.1:19721/anthropic'),
   // Supabase Storage
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),

@@ -267,7 +267,7 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
 // refactor there doesn't silently change fork behaviour. Kept narrow on
 // purpose: forks should match the conductor's tool surface (minus session
 // lifecycle), not balloon their own.
-const FORK_CONDUCTOR_SERVERS = ['neo4j', 'scheduler', 'factory', 'supabase']
+const FORK_CONDUCTOR_SERVERS = ['neo4j', 'scheduler', 'factory', 'supabase', 'forks']
 const FORK_SUBAGENT_DOMAINS = {
   comms:   ['google-workspace', 'crm', 'sms'],
   finance: ['bookkeeping', 'supabase'],
@@ -493,6 +493,7 @@ You are a capable autonomous agent. Default to action on routine ops (queries, w
 - scheduler (schedule_*) - DB-backed cron/delayed/chained tasks
 - factory (start_cc_session, etc.) - dispatch coding work to Factory
 - supabase (db_*, storage_*) - DB queries/writes, file storage
+- forks (spawn_fork, list_forks, abort_fork, send_message) - spawn sub-forks for parallel work, especially when MANAGER: true
 - Agent - delegate to comms/finance/ops/social subagent for domain work
 
 You do NOT have: os-session lifecycle (restart/compact/handover) - that's main's only.`
@@ -574,7 +575,7 @@ function _resolveProviderForFork() {
 
   if (best.isDeepseekFallback) {
     provider = 'deepseek'
-    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'http://127.0.0.1:19721/anthropic'
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
@@ -708,6 +709,18 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   // the fork-specific brief.
   const allConfigs = _getAllMcpConfigs(cwd)
   const mcpServers = _conductorMcp(allConfigs)
+  // Register the in-process forkConductorTool (spawn_fork, list_forks,
+  // abort_fork, send_message) so spawned forks can also spawn sub-forks.
+  // This is what enables the MANAGER: true pattern.
+  try {
+    const { getForkConductorMcpServer } = require('./forkConductorTool')
+    const forksServer = await getForkConductorMcpServer()
+    if (forksServer) mcpServers.forks = forksServer
+  } catch (err) {
+    logger.warn('forkService: failed to register forkConductorTool for fork', {
+      fork_id, error: err.message,
+    })
+  }
   const systemPrompt = _buildForkSystemPrompt(cwd, fork_id, brief)
 
   const options = {
