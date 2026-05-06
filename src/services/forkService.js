@@ -729,6 +729,40 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     agents: _buildForkAgents(allConfigs),
     abortController: abort,
     env: sessionEnv,
+    // ── Stop hook: enforce [FORK_REPORT] before allowing the fork to stop ──
+    // Tate verbatim 6 May 2026 13:40 AEST: "we really need to fix the no
+    // fork reports.... we should be doing a hook or something at the end of
+    // a fork so that it actually writes the report every time it should be
+    // writing it." Phantom-bail (FALLBACK_MARKER) was a passive marker -
+    // this hook is the active enforcement.
+    //
+    // Behaviour: when the SDK agent decides to stop, inspect state.transcript
+    // for a [FORK_REPORT] tag. If found, allow stop. If not, return decision
+    // 'block' with a reason — SDK feeds the reason as a user message and
+    // resumes the agent for one more turn. Bounded retry (max 1 block) so
+    // a confused agent that genuinely can't emit the tag doesn't loop forever
+    // (the FALLBACK_MARKER path still catches that case after the retry).
+    hooks: {
+      Stop: [{
+        matcher: '*',
+        hooks: [async (_input, _ctx, _meta) => {
+          const transcript = state.transcript.join('\n')
+          if (/\[FORK_REPORT\]/i.test(transcript)) {
+            return { continue: true }
+          }
+          state.stop_hook_retries = (state.stop_hook_retries || 0) + 1
+          if (state.stop_hook_retries > 1) {
+            // Already asked once — let it stop and hit FALLBACK_MARKER path.
+            return { continue: true }
+          }
+          return {
+            continue: false,
+            decision: 'block',
+            reason: 'You have not emitted [FORK_REPORT] yet. Before stopping, emit ONE final message tagged [FORK_REPORT] summarizing: deliverables shipped (commit SHAs, paths, files changed), deferred items, blockers if any. Then optionally [NEXT_STEP] for the conductor. This is the LAST output before your fork closes.',
+          }
+        }],
+      }],
+    },
   }
 
   // ── Run loop (background) ────────────────────────────────────────────
