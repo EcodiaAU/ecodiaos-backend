@@ -83,14 +83,16 @@ let _messageQueueOverride = null       // { enqueueMessage: (...) => Promise<voi
 // makes-mistakes when we exhaust both Claude Max accounts, so we pre-empt
 // that by being slightly more conservative across the board. Floor at 2 even
 // at "critical" so the conductor is never single-threaded. Tate verbatim
-// 6 May 2026 ~10:06 AEST: "should sitll be more than 2 i rekcon". Smooth
-// degradation curve (4, 4, 3, 3, 2) replaces the prior 5, 5, 4, 2, 2 cliff.
+// 6 May 2026 13:14 AEST: "rough cap should be 4, and crit threshold ~10%
+// down to 1-2". Flat 4 across full/healthy/conserve/low, drop only at
+// critical (>90% used / <10% remaining per usageEnergyService). Replaces
+// prior smooth curve (4, 4, 3, 3, 2) and the original (5, 5, 4, 2, 2) cliff.
 const HARD_FORK_CAP = 5
 const ENERGY_FORK_CAPS = {
   full:     4,
   healthy:  4,
-  conserve: 3,
-  low:      3,
+  conserve: 4,
+  low:      4,
   critical: 2,
 }
 
