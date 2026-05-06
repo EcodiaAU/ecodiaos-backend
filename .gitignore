@@ -17,3 +17,7 @@ coverage
 id
 ARCHITECTURE.md
 .claude/worktrees/
+
+# macros/ runtime output — recordings + emitted recipes are runtime artefacts,
+# not source. Source-of-truth Corazon scripts live in macros/_corazon/ (committed).
+macros/captures/
