@@ -144,6 +144,27 @@ module.exports = {
           return
         }
 
+        // Cron-routed fork: suppress wake. Outcome reaches the conductor via
+        // <forks_rollup> on the next natural turn, NOT as a forced turn fire.
+        // is_cron is plumbed into the pg_notify payload by migration 088
+        // (eos_listener_notify_compact extended for the os_forks branch).
+        // Tate verbatim 7 May 2026 09:15 AEST: "it should jsut be handled by
+        // a fork that you can ignore unless needed."
+        // The matching messageQueue suppression lives in
+        // forkService._enqueueForkReport - together they keep cron-fork
+        // reports off the conductor turn substrate entirely.
+        // Genuine emergencies still surface: cron forks that write a P1
+        // status_board row hit perceptionBus + the status-board-write surface,
+        // both of which remain wired. This guard ONLY suppresses the
+        // forkComplete-listener-driven wake on success-with-FORK_REPORT.
+        // Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
+        if (row.is_cron === true) {
+          logger.info('forkComplete: cron-routed fork done with [FORK_REPORT] (silent, substrate-only - no wake)', {
+            forkId, resultLen: result.length,
+          })
+          return
+        }
+
         // Real successful completion with FORK_REPORT body - wake conductor.
         // Wake POST runs in 'direct' mode → drainIntoDirectMessage prepends
         // any queued fork_report rows already in messageQueue, so the

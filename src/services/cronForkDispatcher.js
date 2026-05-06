@@ -275,9 +275,19 @@ async function dispatchCronAsFork(cronTask) {
 
   let forkSnapshot
   try {
+    // is_cron: true marks the os_forks row so its [FORK_REPORT] routes to
+    // passive substrate (forks_rollup + perceptionBus + status_board) but
+    // never enqueues into messageQueue and never wakes the conductor via
+    // the forkComplete listener. The conductor sees outcomes on the next
+    // natural turn (meta-loop, Tate-typed message, stale-heartbeat alert).
+    // Tate verbatim 7 May 2026 09:15 AEST: "it should jsut be handled by a
+    // fork that you can ignore unless needed."
+    // Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
+    // Migration: 088_os_forks_is_cron.sql
     forkSnapshot = await forkService.spawnFork({
       brief: cronTask.prompt,
       context_mode: 'brief',
+      is_cron: true,
     })
   } catch (err) {
     // Refund - spawn never happened.

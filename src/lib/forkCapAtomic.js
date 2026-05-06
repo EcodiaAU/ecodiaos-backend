@@ -27,6 +27,11 @@ const ACTIVE_STATUSES = Object.freeze(['spawning', 'running', 'reporting'])
  * @param {number} params.hard_cap
  * @param {number} [params.energy_cap]
  * @param {number} [params.goal_id] - optional goal ID for per-goal fork budget enforcement
+ * @param {boolean} [params.is_cron=false] - true when spawned by cronForkDispatcher.
+ *   Persisted on the os_forks row so listeners/forkComplete.js + _enqueueForkReport
+ *   can suppress the messageQueue enqueue + conductor wake (cron forks emit reports
+ *   into the passive forks_rollup substrate only, never force a conductor turn).
+ *   Migration 088. Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
  * @returns {Promise<object>} inserted os_forks row
  */
 async function tryReserveForkSlot({
@@ -38,6 +43,7 @@ async function tryReserveForkSlot({
   hard_cap,
   energy_cap,
   goal_id,
+  is_cron = false,
 }) {
   if (!fork_id || typeof fork_id !== 'string') {
     throw Object.assign(new Error('fork_id required'), { code: 'invalid_params' })
@@ -73,6 +79,12 @@ async function tryReserveForkSlot({
     ? hard_cap
     : (Number.isFinite(energy_cap) ? Math.min(hard_cap, Math.max(0, energy_cap)) : hard_cap)
 
+  // Coerce is_cron to boolean so undefined/null/string truthiness can't slip
+  // through into the DB. Belt-and-braces - the column has NOT NULL DEFAULT
+  // false (migration 088), but explicit-coerce keeps the call-site contract
+  // honest from JS callers that might pass the param in non-boolean form.
+  const isCronBool = is_cron === true
+
   const rows = useTreeCap
     ? await db`
         WITH locked AS (
@@ -86,10 +98,10 @@ async function tryReserveForkSlot({
         ),
         attempted AS (
           INSERT INTO os_forks
-            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode)
+            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode, is_cron)
           SELECT
             ${fork_id}, ${parent_id}, ${effectiveRoot}, ${brief}, 'spawning', NOW(),
-            ${context_mode}
+            ${context_mode}, ${isCronBool}
           FROM tree_count, locked
           WHERE tree_count.n < ${effectiveCap}
           RETURNING *
@@ -109,10 +121,10 @@ async function tryReserveForkSlot({
         ),
         attempted AS (
           INSERT INTO os_forks
-            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode)
+            (fork_id, parent_id, root_fork_id, brief, status, started_at, context_mode, is_cron)
           SELECT
             ${fork_id}, ${parent_id}, ${effectiveRoot}, ${brief}, 'spawning', NOW(),
-            ${context_mode}
+            ${context_mode}, ${isCronBool}
           FROM live_count, locked
           WHERE live_count.n < ${effectiveCap}
           RETURNING *

@@ -207,11 +207,37 @@ function _isCleanNoop(report, brief) {
   return CLEAN_NOOP_PATTERNS.some(p => p.test(report))
 }
 
-async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult }) {
+async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult, is_cron = false }) {
   // Suppress clean no-op reports from cron-spawned forks — they pollute main chat
   if (_isCleanNoop(report, brief)) {
     logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
     return { enqueued: false, reason: 'suppressed_clean_noop' }
+  }
+
+  // Cron-routed forks: substrate-only routing.
+  // Tate verbatim 7 May 2026 09:15 AEST: "is it not a deeper problem bro...
+  // it should jsut be handled by a fork that you can ignore unless needed."
+  // Cron forks (is_cron=true on the os_forks row, set at INSERT by
+  // cronForkDispatcher) emit reports into the passive substrate only:
+  //   - <forks_rollup> context block (forksRollup() reads os_forks directly,
+  //     surfaces last 15 min finished forks on every natural conductor turn)
+  //   - status_board P-row (if the fork wrote one - genuine emergencies still
+  //     surface via status_board → perception_dispatcher → existing wake path)
+  //   - perceptionBus 'fork_complete' event (forkService publishes this for
+  //     every successful fork at lines ~979-996, regardless of is_cron)
+  // What is suppressed: the messageQueue.enqueueMessage path that drains as
+  // a [SYSTEM: fork_report ...] queue message on the next conductor turn.
+  // That drain is what forces the conductor into "Idle." reply turns when
+  // a cron fires with nothing actionable. The forkComplete listener-side
+  // wake suppression is the sibling half of this fix; together they keep
+  // cron-fork reports off the conductor turn substrate entirely.
+  // Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
+  // Origin: Migration 088, fork_mouofp9r_72cd3a, 7 May 2026.
+  if (is_cron) {
+    logger.info('forkService: cron-routed fork_report substrate-only (no messageQueue enqueue)', {
+      fork_id, parent_id, had_report: report !== null,
+    })
+    return { enqueued: false, reason: 'cron_routed_substrate_only' }
   }
 
   const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
@@ -604,7 +630,15 @@ function _resolveProviderForFork() {
 //   Any other fork_id = sub-fork (manager/worker hierarchy).
 //   Sub-forks count against the parent tree's per-tree cap, not the global cap.
 //   Sub-fork [FORK_REPORT] messages route to the parent fork's inbox, not main's.
-async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'main' } = {}) {
+//
+// is_cron (default false): true ONLY when called by cronForkDispatcher.
+//   Cron-routed forks emit [FORK_REPORT] into the passive substrate
+//   (<forks_rollup>, perceptionBus, status_board) but NOT into the
+//   conductor's messageQueue and they do NOT trigger the forkComplete
+//   listener wake. The conductor sees outcomes via context-stitching on
+//   the next natural turn (meta-loop, Tate-typed message, stale-heartbeat).
+//   Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
+async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'main', is_cron = false } = {}) {
   if (!brief || typeof brief !== 'string' || !brief.trim()) {
     throw Object.assign(new Error('brief is required'), { httpStatus: 400, code: 'invalid_brief' })
   }
@@ -643,6 +677,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     root_fork_id: effectiveRoot,
     hard_cap: HARD_FORK_CAP,
     energy_cap: eCap,
+    is_cron: !!is_cron,
   })
 
   const cwd = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
@@ -665,6 +700,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     parent_id: parent_fork_id,
     root_fork_id: effectiveRoot,
     is_manager,
+    is_cron: !!is_cron,
     brief,
     context_mode,
     status: 'spawning',
@@ -1019,6 +1055,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         report,
         nextStep,
         fallbackResult: state.result,
+        is_cron: state.is_cron,
       })
     } catch (err) {
       // Close the prompt stream and drain pending resolvers so the generator
