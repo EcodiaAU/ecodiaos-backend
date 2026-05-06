@@ -228,6 +228,14 @@ async function _validateAccessToken(accessToken) {
 // ─── Per-account refresh logic ──────────────────────────────────────────────
 
 async function refreshAccount(account, { force = false } = {}) {
+  const envTokenVar = account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' :
+                      account === 'claude_max_2' ? 'CLAUDE_CODE_OAUTH_TOKEN_CODE' :
+                      null
+  if (envTokenVar && process.env[envTokenVar]) {
+    logger.debug('Token refresh: account uses long-lived env-token, skipping refresh', { account, envTokenVar })
+    return { skipped: true, reason: 'long_lived_env_token', envTokenVar }
+  }
+
   const result = _readCredentials(account)
   if (!result) {
     logger.debug('Token refresh: no credentials for account', { account })
@@ -443,6 +451,14 @@ function getTokenHealth() {
   for (const account of ['claude_max', 'claude_max_2']) {
     if (account === 'claude_max_2' && !process.env.CLAUDE_CONFIG_DIR_2) continue
 
+    const envTokenVar = account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' :
+                        account === 'claude_max_2' ? 'CLAUDE_CODE_OAUTH_TOKEN_CODE' :
+                        null
+    if (envTokenVar && process.env[envTokenVar]) {
+      health[account] = { status: 'healthy_via_env_token', envTokenVar, hoursUntilExpiry: null, hasRefreshToken: false, isLongLived: true }
+      continue
+    }
+
     const result = _readCredentials(account)
     if (!result) {
       health[account] = { status: 'no_credentials' }
@@ -500,19 +516,6 @@ async function _runCheckCycle() {
 
 function start() {
   if (_checkTimer) return  // already running
-
-  // If long-lived OAuth tokens are in use (from `claude setup-token`), the
-  // refresh service is a no-op - these tokens are valid for ~1 year and
-  // don't rotate. Running refresh anyway causes race conditions where the
-  // rotating-token refresh path writes garbage over the long-lived token.
-  const hasLongLivedTokens = !!(
-    process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE ||
-    process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
-  )
-  if (hasLongLivedTokens) {
-    logger.info('Claude token refresh service disabled - long-lived OAuth tokens detected')
-    return
-  }
 
   logger.info('Claude token refresh service starting', {
     intervalMinutes: CHECK_INTERVAL_MS / 60_000,
