@@ -100,10 +100,76 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     })
     // Must NOT carry the phantom-bail tag - FORK_REPORT WAS found, body was just empty.
     expect(body).not.toMatch(/no_report_emitted=true/)
+    // Empty-body case carries its own diagnostic tag for telemetry.
+    expect(body).toMatch(/empty_body=true/)
     // Must show the empty-body explanation in the Report line.
     expect(body).toMatch(/Report: \(empty body/)
     // Must still include next step.
     expect(body).toMatch(/Next step suggested: Merge the PR\./)
+  })
+
+  test('clean path - empty report body WITH transcriptTail surfaces tail for diagnosis', () => {
+    // Origin: Tate verbatim 6 May 2026 21:44 AEST: "We need to fix the empty
+    // fork reports and bail managers once and for all please". Pre-fix the
+    // empty-body case rendered just '(empty body - FORK_REPORT immediately
+    // followed by NEXT_STEP)' with no diagnostic context, leaving the
+    // conductor blind to what the fork was doing right before the bare marker
+    // fired. This test locks in the post-fix shape: when report is empty AND
+    // transcriptTail is provided, the body includes both the explanation and
+    // the tail content.
+    const tail = 'final tool call: db_query SELECT count(*) FROM tenants WHERE archived_at IS NULL\nresult: 7'
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_empty_with_tail',
+      brief: 'recon tenants',
+      report: '',
+      nextStep: null,
+      fallbackResult: null,
+      transcriptTail: tail,
+    })
+    // Empty-body diagnostic tag fires.
+    expect(body).toMatch(/^\[SYSTEM: fork_report fork_test_empty_with_tail empty_body=true\]$/m)
+    // Standard "marker emitted but no content" explanation.
+    expect(body).toMatch(/Report: \(empty body - FORK_REPORT marker emitted but no content/)
+    // Transcript tail section header is present.
+    expect(body).toMatch(/Transcript tail \(last 500 chars before marker\):/)
+    // Actual tail content surfaces.
+    expect(body).toContain('db_query SELECT count(*) FROM tenants')
+    expect(body).toContain('result: 7')
+    // No phantom-bail tag - this is path (a2), not path (b).
+    expect(body).not.toMatch(/no_report_emitted=true/)
+  })
+
+  test('clean path - empty body with no transcriptTail uses (no transcript captured) placeholder', () => {
+    // When the caller does not pass transcriptTail (older test seams, edge cases
+    // where transcript was not captured), the diagnostic body still renders
+    // gracefully with a (no transcript captured) placeholder so the parseable
+    // shape stays consistent.
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_empty_no_tail',
+      brief: 'b',
+      report: '',
+      nextStep: null,
+      fallbackResult: null,
+    })
+    expect(body).toMatch(/empty_body=true/)
+    expect(body).toMatch(/\(no transcript captured\)/)
+  })
+
+  test('clean path - empty body with long transcriptTail truncates to last 500 chars', () => {
+    const longTail = 'A'.repeat(2000) + '_END_TAIL_'
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_empty_long_tail',
+      brief: 'b',
+      report: '',
+      nextStep: null,
+      fallbackResult: null,
+      transcriptTail: longTail,
+    })
+    expect(body).toMatch(/empty_body=true/)
+    expect(body).toContain('_END_TAIL_')
+    expect(body).toMatch(/…A+_END_TAIL_/)
+    // Hard size guarantee - body stays under 2KB even with multi-KB tail input.
+    expect(body.length).toBeLessThan(2048)
   })
 
   test('phantom_bail path - emits no_report_emitted=true tag and tight body (<1KB)', () => {

@@ -126,17 +126,45 @@ function _isPhantomBail(result) {
 // loop.
 //
 // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
-function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult }) {
+function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult, transcriptTail }) {
   // report is null when regex did NOT match (truly no FORK_REPORT).
   // report is '' when regex matched but body was empty
   // (e.g. [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP]).
   // Both cases must be distinguished - empty body is still a valid report.
   if (report !== null) {
+    // PATH (a) - regex matched.
+    // Sub-case (a1) - non-empty body: surface verbatim. Done.
+    // Sub-case (a2) - empty body: marker emitted but no content. Pre-2026-05-06
+    // we just rendered "(empty body - FORK_REPORT immediately followed by
+    // NEXT_STEP)" which left the conductor blind to what the fork actually did.
+    // Tate verbatim 6 May 2026 21:44 AEST: "We need to fix the empty fork
+    // reports and bail managers once and for all please". This commit makes
+    // (a2) as diagnostic as path (b) by also surfacing the transcript tail
+    // when the report body is empty. Diagnosis without the body is impossible;
+    // the tail almost always shows what the fork was doing right before the
+    // marker fired, which is enough to recover the lost work or root-cause why
+    // the model emitted a bare marker.
+    if (report) {
+      return [
+        `[SYSTEM: fork_report ${fork_id}]`,
+        `Brief: ${brief}`,
+        '',
+        `Report: ${report}`,
+        nextStep ? `\nNext step suggested: ${nextStep}` : '',
+      ].filter(Boolean).join('\n')
+    }
+    // Empty body case - include transcript tail for diagnostic context.
+    const tail = transcriptTail && transcriptTail.length > 500
+      ? `…${transcriptTail.slice(-500)}`
+      : (transcriptTail || '(no transcript captured)')
     return [
-      `[SYSTEM: fork_report ${fork_id}]`,
+      `[SYSTEM: fork_report ${fork_id} empty_body=true]`,
       `Brief: ${brief}`,
       '',
-      `Report: ${report || '(empty body - FORK_REPORT immediately followed by NEXT_STEP)'}`,
+      `Report: (empty body - FORK_REPORT marker emitted but no content between marker and end / NEXT_STEP)`,
+      '',
+      `Transcript tail (last 500 chars before marker):`,
+      tail,
       nextStep ? `\nNext step suggested: ${nextStep}` : '',
     ].filter(Boolean).join('\n')
   }
@@ -213,14 +241,14 @@ function _isCleanNoop(report, brief) {
   return CLEAN_NOOP_PATTERNS.some(p => p.test(report))
 }
 
-async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult }) {
+async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult, transcriptTail }) {
   // Suppress clean no-op reports from cron-spawned forks - they pollute main chat
   if (_isCleanNoop(report, brief)) {
     logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
     return { enqueued: false, reason: 'suppressed_clean_noop' }
   }
 
-  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
+  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult, transcriptTail })
 
   // Sub-fork routing: if parent_id is a live fork (not 'main'), inject the report
   // directly into the parent fork's message stream. The parent aggregates sub-reports
@@ -1040,6 +1068,19 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       //
       // Routed through _enqueueForkReport so the test seam (_messageQueueOverride)
       // applies on the success path too, matching the recoverStaleForks pattern.
+      // Compute transcript tail for empty-body diagnostic surfacing in path (a).
+      // We strip the FORK_REPORT marker line and everything after so the tail
+      // captures what the fork was DOING just before it emitted the bare marker.
+      // For path (b) (no marker), _buildForkReportBody uses fallbackResult which
+      // already has its own tail extraction and ignores this param.
+      let transcriptTail = ''
+      if (reportMatch && fullText.length > 0) {
+        const markerIdx = fullText.lastIndexOf('[FORK_REPORT]')
+        const beforeMarker = markerIdx >= 0 ? fullText.slice(0, markerIdx) : fullText
+        transcriptTail = beforeMarker.length > 500
+          ? beforeMarker.slice(-500)
+          : beforeMarker
+      }
       await _enqueueForkReport({
         fork_id,
         parent_id: state.parent_id,
@@ -1047,6 +1088,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         report,
         nextStep,
         fallbackResult: state.result,
+        transcriptTail,
       })
     } catch (err) {
       // Close the prompt stream and drain pending resolvers so the generator
