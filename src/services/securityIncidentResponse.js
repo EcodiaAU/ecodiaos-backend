@@ -119,7 +119,7 @@ async function fireIncident({
   //
   // These incidents are still logged, published to perceptionBus, and
   // surface as status_board P1 rows via the perceptionDispatcher matcher
-  // — giving the conductor full visibility without killing work.
+  //   giving the conductor full visibility without killing work.
   const OBSERVATION_ONLY = Object.freeze(['credential_redaction_burst'])
   if (OBSERVATION_ONLY.includes(incident_class)) {
     logger.info('securityIncidentResponse: observation-only incident (no kill chain)', {

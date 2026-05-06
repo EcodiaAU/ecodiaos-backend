@@ -82,6 +82,22 @@ If a future Xcode version moves these coords, re-walk via UIAutomation tree agai
 
 ## Step-by-step procedure
 
+### Phase 0a — Keychain unlock + codesign partition-list grant (REQUIRED EVERY RUN)
+
+The login keychain on SY094 re-locks periodically + the codesign access grant in the key partition list expires. Without this step every framework codesign during Phase I (Archive) will fail with `errSecInternalComponent`. Symptom seen 6 May 2026 19:50 AEST AND again 21:52 AEST during back-to-back release attempts; the unlock state from the prior attempt does NOT persist across the gap.
+
+Run in SY094 Terminal.app BEFORE Phase I (Archive). Recipe pre-flight should run this every time, not reactively after K-1 fires.
+
+```bash
+# In SY094 Terminal.app. Password = kv_store.creds.macincloud.password.
+security unlock-keychain -p '<macincloud-password>' ~/Library/Keychains/login.keychain-db
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k '<macincloud-password>' ~/Library/Keychains/login.keychain-db
+```
+
+The first command unlocks. The second command grants `codesign`, `apple-tool`, and `apple` access to all login-keychain keys without firing a per-key GUI prompt. Output is verbose (dumps each key the partition list was updated on); both commands exit 0 on success.
+
+Verified 6 May 2026 19:50 AEST + 21:52 AEST: same recipe, same fix, applied twice in two hours. Recurring class — the partition-list state is per-session, not per-machine.
+
 ### Phase 0 — Version bump (MARKETING_VERSION, only when shipping a new train)
 
 If the previous **MARKETING_VERSION** (`CFBundleShortVersionString` in `ios/App/App.xcodeproj/project.pbxproj`) has already shipped to ASC, you must bump it BEFORE archiving. Apple closes the prior train when a build is approved, and any subsequent upload at the same MARKETING_VERSION fails with `Invalid Pre-Release Train. The train version 'X.Y' is closed for new build submissions` — see Failure mode K-12.

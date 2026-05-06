@@ -1509,7 +1509,7 @@ async function _sendMessageImpl(content, opts = {}) {
       options.resume = ccSessionId
     }
     const sessionEnv = { ...process.env }
-    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'https://api.deepseek.com/anthropic'
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'http://127.0.0.1:19721/anthropic'
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
