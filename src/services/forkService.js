@@ -76,16 +76,21 @@ let _queryOverride = null
 let _execGitOverride = null            // (args:string[], cwd:string) => Promise<{stdout, stderr}>
 let _messageQueueOverride = null       // { enqueueMessage: (...) => Promise<void> }
 
-// ── Caps (raised 2026-04-27 — Tate's directive: conductor self-spawns up to 5) ─
-// Hard cap is the absolute concurrency ceiling. Energy soft caps step down
-// proportionally as the weekly budget tightens — at "low" we still allow 2
-// forks so the conductor isn't single-threaded just because we're past 70%.
+// ── Caps (tuned 2026-05-06: Tate's directive, default 4, minimum 2) ──────────
+// Hard cap is the absolute concurrency ceiling (5, unchanged). Energy soft
+// caps step down proportionally as the weekly budget tightens. The full=4
+// default (down from 5) buys more weekly runway because deepseek-fallback-
+// makes-mistakes when we exhaust both Claude Max accounts, so we pre-empt
+// that by being slightly more conservative across the board. Floor at 2 even
+// at "critical" so the conductor is never single-threaded. Tate verbatim
+// 6 May 2026 ~10:06 AEST: "should sitll be more than 2 i rekcon". Smooth
+// degradation curve (4, 4, 3, 3, 2) replaces the prior 5, 5, 4, 2, 2 cliff.
 const HARD_FORK_CAP = 5
 const ENERGY_FORK_CAPS = {
-  full:     5,
-  healthy:  5,
-  conserve: 4,
-  low:      2,
+  full:     4,
+  healthy:  4,
+  conserve: 3,
+  low:      3,
   critical: 2,
 }
 
