@@ -110,7 +110,7 @@ Script-internal total: 6.4s. Mac desktop is NOT actually rendered when the scrip
 **Verified working fast-path (23.6s total):**
 
 Speed checklist for next time (verified working 4 May 2026 20:24 AEST, 23.6s total):
-- **Skip the Show-desktop step entirely.** `Start-Process` invokes the .rdp file regardless of foreground; the security warning dialog spawns over whatever app was active. The 4 May 19:43 AEST procedure listed Show-desktop as Step 1 but the verified fast-path bypasses it.
+- **Skip the Show-desktop step entirely** — *only when starting from a passive desktop state*. See "Foreground-busy branch" below for when this skip is WRONG. `Start-Process` invokes the .rdp file regardless of foreground; the security warning dialog spawns somewhere — but if the prior foreground app is fullscreen and absorbing focus (e.g. Tate is actively typing in EcodiaOS chat in fullscreen Chrome), the dialog may spawn Z-buried behind that app and clicks at the dialog's nominal coords land on the wrong window. The 4 May 19:43 AEST procedure listed Show-desktop as Step 1 but the 20:24 AEST fast-path bypassed it because Tate was passive at codification time. Real-world drives must check Tate-foreground first.
 - Read creds from kv_store ONCE: `SELECT value::jsonb -> 'username', value::jsonb -> 'password' FROM kv_store WHERE key='creds.macincloud'`.
 - Use `shell.shell` with `Start-Process ([System.IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'MacinCloud_Full_Screen.rdp'))`. ONE call. No double-click coordinate hunt.
 - Sleep 3s for the security warning dialog to render.
@@ -122,6 +122,70 @@ Speed checklist for next time (verified working 4 May 2026 20:24 AEST, 23.6s tot
 - Skip any UI Automation enumeration unless a step fails - the coords above are stable on 1366×768 Corazon.
 
 If the resolution changes, re-enumerate via `C:\Users\Public\enum2.ps1` (the recursive ControlViewWalker script written 4 May; preserves BoundingRectangle X/Y/W/H for every dialog pane).
+
+## Foreground-busy branch — when the fast-path "skip show-desktop" is WRONG
+
+The 23.6s fast-path was codified on 4 May 2026 in a state where Tate was passive (not at the keyboard). The codified flow's "skip Show-desktop entirely" works in that case because the security-warning dialog spawns and naturally takes foreground over a passive Chrome.
+
+**It does not work when Tate is actively typing in another app.** When Tate is foreground in EcodiaOS chat (or any other app receiving live keyboard input), Windows correctly suppresses programmatic focus-steal — the security-warning dialog spawns BEHIND Tate's app, and pixel-clicks at the dialog's verified coords `(683, 347)`, `(683, 367)`, `(822, 442)` land on whatever app IS foreground at those screen coords (typically Chrome content). All three clicks fail silently; the recipe appears to "not work" while actually every click was correct in isolation but landed on the wrong window.
+
+This was the 6 May 2026 ~11:13 AEST flail mode. ~5 minutes wasted on chained blind clicks + PowerShell `SetForegroundWindow` / `AppActivate` / `AttachThreadInput` C# tricks (all correctly suppressed by Windows because Tate held foreground), before screenshotting and discovering the dialog wasn't visible at all.
+
+### The corrected branch — pre-step verify Tate-foreground BEFORE skipping show-desktop
+
+```powershell
+# Step 0 from cowork-no-focus-collision.md — get Tate's foreground identity
+$h = [FgWin]::GetForegroundWindow()
+$pid = 0; [void][FgWin]::GetWindowThreadProcessId($h, [ref]$pid)
+$proc = (Get-Process -Id $pid).ProcessName
+$title = ...  # window title
+```
+
+Decision:
+
+| Tate's foreground | Action |
+|---|---|
+| `Progman` / `WorkerW` (desktop) | Fast-path. Skip show-desktop. Launch .rdp directly. |
+| `chrome.exe` with title NOT containing "EcodiaOS" (Tate has Chrome open but isn't actively in our chat) | Probe recent-input-time. Idle >30s → safe to fast-path. Active <30s → branch as Tate-active. |
+| `chrome.exe` with title containing "EcodiaOS" / Tate-active in our chat | **Tate-active branch** — defer or run show-desktop FIRST. |
+| Any other app receiving recent input | **Tate-active branch.** |
+
+### Tate-active branch — correct sequence
+
+1. Surface to conductor: "Tate is foreground in <app>. Recipe will minimise everything via show-desktop sliver before proceeding. Confirm or defer."
+2. If proceeding: click show-desktop sliver `(1364, 766)`. Sleep 500ms.
+3. **Pre-verify:** foreground-window probe MUST return `Progman` or `WorkerW`. If not, the show-desktop click failed (Tate's app re-grabbed foreground); abort and surface.
+4. NOW launch the .rdp via `Start-Process`. The dialog spawns over the desktop and IS foreground.
+5. **Pre-verify each click coord:** before clicking WebAuthn `(683, 347)`, capture a 100×100 px crop at `(633, 297)–(733, 397)` and confirm the checkbox row pixels match the expected pattern (white-pane + label text). If the crop doesn't match, the dialog isn't where coords expect — abort and surface.
+6. Post-verify each click: cropped diff before/after, OR re-walk UIA tree to confirm dialog still present and Connect button still enumerable until the final Connect click; final click's post-verify is "security-warning dialog window is GONE within 3s."
+7. Continue to step 6 (creds entry) only after Connect's post-verify confirms dialog dismiss.
+
+### Anti-pattern from 6 May 2026
+
+The 4 chained `input.click` calls fired at `(683, 347)`, `(683, 367)`, `(822, 442)`, then a fourth attempt — all without pre/post verify — landed on Chrome content at those coords because the dialog was Z-buried behind Tate's foreground EcodiaOS chat. The conductor then escalated to PowerShell `Add-Type` C# `SetForegroundWindow` / `AttachThreadInput` / `AppActivate` tricks (all returned `True`, all suppressed by Windows because Tate held real foreground). Only after 4–5 minutes did the conductor screenshot and see the dialog wasn't visible at all.
+
+What should have happened: pre-step verify (Tate-foreground probe) at step 1 caught Tate-active in <500ms, branched to Tate-active sequence, surfaced "blocked on Tate-foreground; show-desktop required to proceed." Total cost of correct flow: ~3s. Total cost of failure: ~5min + Tate's confidence.
+
+See `~/ecodiaos/patterns/gui-step-verify-protocol.md` for the canonical step-verify discipline this branch implements.
+
+## Step verification protocol
+
+This recipe's steps must be driven via the step-verify-protocol from `~/ecodiaos/patterns/gui-step-verify-protocol.md`. Per-step pre/post-verify table:
+
+| Recipe step | Pre-verify (must hold before action) | Action | Post-verify (must hold within budget) | Budget |
+|---|---|---|---|---|
+| 0. Foreground check | n/a | `GetForegroundWindow` + window-title query | foreground identity captured into recipe-state | 1s |
+| 1a. Show-desktop (Tate-active branch only) | foreground != `Progman`/`WorkerW` | click `(1364, 766)` | foreground == `Progman` or `WorkerW` | 2s |
+| 1b. Launch .rdp | foreground == `Progman`/`WorkerW` OR Tate-passive Chrome | `Start-Process MacinCloud_Full_Screen.rdp` | `mstsc.exe` process running AND `Remote Desktop Connection security warning` window foreground | 3s |
+| 2. WebAuthn checkbox click | dialog window foreground AND cropped 100×100 at `(633, 297)–(733, 397)` shows pane row | `input.click (683, 347)` | cropped diff at same region shows blue tick OR pane has tick visual | 1s |
+| 3. Clipboard checkbox click | dialog still foreground AND cropped 100×100 at `(633, 317)–(733, 417)` shows pane row | `input.click (683, 367)` | cropped diff at same region shows blue tick | 1s |
+| 4. Connect button click (UIA Invoke preferred) | dialog still foreground AND `Connect` button enumerable in UIA tree | `InvokePattern.Invoke()` on Connect, OR `input.click (822, 442)` fallback | dialog window GONE from window list | 3s |
+| 5. macOS login screen render wait | `mstsc.exe` foreground AND RDP container `TscShellContainerClass` enumerable | n/a (probe loop) | cropped pixel sample at `(685, 275)` shows white text-field background | 5s budget |
+| 6. Name field click + type | RDP container foreground | `input.click (685, 275)` then `SendKeys` username | UIA `ValuePattern` on name field shows username OR cropped diff at field shows characters | 2s |
+| 7. Tab + password type + Enter | name field has value | `Tab` + `SendKeys` password + `Enter` | RDP shows "Authenticating..." then macOS desktop within 8s | 10s |
+| 8. macOS desktop ready | n/a | n/a (probe loop) | cropped pixel sample at `(10, 5)` matches macOS dark menu bar gray | 8s budget |
+
+If any step's post-verify fails within budget: **ABORT**, do not retry blind. Branch to foreground-recovery (Tier 1–4 from `gui-step-verify-protocol.md` (D)). Surface to conductor with foreground identity, last screenshot path, and recipe step number.
 
 ## Exiting fullscreen RDP — hover top to reveal control bar
 

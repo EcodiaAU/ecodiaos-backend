@@ -46,6 +46,19 @@ Every recipe file has these sections, in this order:
 
 A recipe missing any of these sections is incomplete. The verification protocol and failure modes sections are particularly load-bearing; without them the recipe is read-only doctrine, not a runnable procedure.
 
+### Per-step verify is mandatory (6 May 2026 addition)
+
+Section 6 (Verification protocol) above is NOT just an outer "did the recipe work end-to-end" check. Every codified recipe MUST include explicit per-step pre/post-verify probes for each load-bearing step in the procedure. A pre-verify confirms the click target is reachable BEFORE the input fires; a post-verify confirms the action LANDED after. Without per-step verify, recipe drivers chain blind inputs and fail silently when the target window is Z-buried, hidden, or not foreground.
+
+Mandate: every recipe's verification protocol section (or a sub-table inside the step-by-step procedure) MUST list per-step preconditions and postconditions in the format:
+
+| Step | Pre-verify (must hold before action) | Action | Post-verify (must hold within budget) | Budget |
+|---|---|---|---|---|
+
+See `~/ecodiaos/patterns/gui-step-verify-protocol.md` for the canonical protocol — sections (A) pre-step verify, (B) post-step verify, (C) time budget, (D) foreground-recovery sub-protocol, (E) cropped visual-diff verification, (F) step-drive loop template. The first worked instance is the per-step verify table in `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` (Step verification protocol section). New recipes must follow that shape; existing recipes must add the per-step table on next re-verification pass.
+
+Origin (6 May 2026, ~5min flail driving the MIC RDP recipe): the recipe's outer verification ("screenshot Finder visible") was correct but never reached because the inner steps chained blindly when Tate held foreground in another app. Pre/post per-step verify catches the Z-buried-dialog failure mode in <500ms; without it the conductor wasted ~5 minutes on chained focus-steal tricks.
+
 ## The 5-step authoring workflow (first run of a new recipe)
 
 1. **Walk before guessing.** Run UI Automation enumeration on the target window or dialog. Get exact `BoundingRectangle` X/Y/W/H for every interactive element. Do not pixel-hunt by trial-and-error. **If UIA returns nothing for the load-bearing controls (XAML / Canvas / DirectComposition / browser-rendered): switch first-run authoring driver to Computer Use (Path B) instead of conductor verify-then-click — see substrate selection below.**
@@ -145,6 +158,7 @@ Each of these is now a generalised step in the authoring/optimisation workflows 
 ## Cross-references
 
 - `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - the worked example this doctrine is generalised from
+- `~/ecodiaos/patterns/gui-step-verify-protocol.md` - the canonical step-verify protocol (pre/post-verify, time budgets, foreground-recovery tiers, cropped visual-diff, step-drive loop template) that all recipes must implement. Added 6 May 2026 after the MIC RDP drive flail.
 - `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - never codify from imagination; always validate live
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - Corazon's full tool surface (input.*, screenshot.*, shell.shell, etc) is what recipes call
 - `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` - Chrome-driving subset of GUI recipes
