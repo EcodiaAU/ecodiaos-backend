@@ -1,5 +1,5 @@
 ---
-triggers: tailscale, macro, gui-recipe, ui-driving, laptop-agent, corazon, cowork-replacement, input-dot-star, screenshot-dot-star, shell-dot-shell, canonical-ui-substrate, tailscale-macro, deprecated-cowork, ui-driving-default
+triggers: tailscale, macro, gui-recipe, ui-driving, laptop-agent, corazon, cowork-replacement, input-dot-star, screenshot-dot-star, shell-dot-shell, canonical-ui-substrate, tailscale-macro, deprecated-cowork, ui-driving-default, drive ui, drive saas ui, drive web app, ui driving substrate, macro substrate, compose input.* and screenshot.*, drive a logged-in webapp, drive logged-in chrome, single substrate, replace cowork, what substrate for ui
 priority: critical
 canonical: true
 ---

@@ -1,5 +1,5 @@
 ---
-triggers: sy094-gui, sy094-rdp, macincloud-desktop-app, macincloud-rdp, MacinCloud_Full_Screen.rdp, mac-rdp-shortcut, mac-gui-entry, sy094-login, macincloud-rdp-security-warning, rdp-resource-checkboxes, rdp-WebAuthn, rdp-Clipboard, mac-gui-procedure, sy094-into-desktop, sy094-ui-driving, mac-xcode-gui, mac-simulator-gui
+triggers: sy094-gui, sy094-rdp, macincloud-desktop-app, macincloud-rdp, MacinCloud_Full_Screen.rdp, mac-rdp-shortcut, mac-gui-entry, sy094-login, macincloud-rdp-security-warning, rdp-resource-checkboxes, rdp-WebAuthn, rdp-Clipboard, mac-gui-procedure, sy094-into-desktop, sy094-ui-driving, mac-xcode-gui, mac-simulator-gui, open macincloud, launch macincloud, connect to macincloud, macincloud instance, open the macincloud, get into macincloud, macincloud, sy094, mstsc, open rdp, launch rdp, open mac gui, open the mac, get to the mac, into the mac, drive macincloud, screenshot macincloud, click macincloud
 ---
 
 # SY094 GUI entry via the MacinCloud RDP shortcut on Corazon's desktop

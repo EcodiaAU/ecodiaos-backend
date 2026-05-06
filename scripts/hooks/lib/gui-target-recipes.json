@@ -1,0 +1,280 @@
+{
+  "version": "1",
+  "last_updated": "2026-05-06",
+  "_doc": "Single source of truth for GUI-target keyword to recipe-path mapping. All PreToolUse/PostToolUse hooks scanning content for GUI intent read from this file. Adding a new GUI recipe? (1) Author the recipe with comprehensive triggers frontmatter. (2) Add a target entry here. (3) Regenerate INDEX.md. The triggers frontmatter on the recipe drives doctrineSurface (Tate-message + cron-fire layers); this JSON drives the hook layer (fork/factory/Bash/Edit dispatch).",
+  "_authoring_protocol": "See ~/ecodiaos/patterns/gui-macro-discovery-protocol.md for the full discovery doctrine.",
+  "targets": [
+    {
+      "label": "macincloud-rdp",
+      "keywords": [
+        "macincloud",
+        "sy094",
+        "macincloud_full_screen.rdp",
+        "macincloud full screen.rdp",
+        "open macincloud",
+        "launch macincloud",
+        "connect to macincloud",
+        "macincloud gui",
+        "macincloud instance",
+        "rdp shortcut",
+        "mstsc",
+        "open rdp",
+        "launch rdp",
+        "open mac gui"
+      ],
+      "recipe": "~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md",
+      "summary": "RDP-shortcut entry to SY094 macOS GUI on Corazon (Microsoft RDP, NOT Citrix, NOT SSH)",
+      "verified_runtime": "23.6s end-to-end (4 May 2026)"
+    },
+    {
+      "label": "ssh-sy094-forbidden",
+      "keywords": [
+        "sshpass sy094",
+        "sshpass macincloud",
+        "ssh sy094",
+        "ssh macincloud",
+        "ssh user276189",
+        "user276189@sy094",
+        "user276189@macincloud"
+      ],
+      "recipe": "~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md",
+      "summary": "SSH on SY094 is forbidden (5 May 2026); RDP-shortcut is canonical. Anti-pattern surface.",
+      "verified_runtime": "n/a (anti-pattern)"
+    },
+    {
+      "label": "ios-release",
+      "keywords": [
+        "ios release",
+        "asc upload",
+        "app store connect upload",
+        "appstoreconnect.apple.com",
+        "asc dashboard",
+        "coexist ios",
+        "capacitor ios",
+        "xcode archive",
+        "xcode export archive",
+        "ship ios build",
+        "ipa export",
+        "testflight upload",
+        "transporter upload"
+      ],
+      "recipe": "~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md",
+      "summary": "End-to-end iOS release: version bump, capacitor sync, Xcode archive + manual signing, ASC upload",
+      "verified_runtime": "~10min end-to-end (4 May 2026, of which ~5min is Apple-side latency)"
+    },
+    {
+      "label": "drive-chrome",
+      "keywords": [
+        "drive chrome",
+        "open chrome",
+        "tate's chrome",
+        "tate chrome",
+        "screenshot chrome",
+        "screenshot tate's browser",
+        "click chrome",
+        "open chrome on corazon",
+        "address bar",
+        "ctrl+l",
+        "ctrl-l",
+        "type into chrome",
+        "navigate chrome",
+        "click on chrome"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "Drive Tate's existing Chrome via input.* + screenshot.*, NOT browser.*/CDP/spawn",
+      "verified_runtime": "n/a (procedural)"
+    },
+    {
+      "label": "corazon-peer",
+      "keywords": [
+        "corazon",
+        "100.114.219.69",
+        "laptop-agent",
+        "laptop agent",
+        "tailscale corazon",
+        "tate's laptop",
+        "tate laptop",
+        "drive corazon",
+        "open corazon",
+        "screenshot corazon"
+      ],
+      "recipe": "~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md",
+      "summary": "Corazon is a peer with 69 tools across 9 modules (shell, filesystem, input, screenshot, process, browser, macro). NOT a browser-via-HTTP wrapper.",
+      "verified_runtime": "n/a (procedural)"
+    },
+    {
+      "label": "tailscale-macro-substrate",
+      "keywords": [
+        "tailscale macro",
+        "ui driving substrate",
+        "drive ui",
+        "drive saas ui",
+        "drive web app",
+        "macro substrate",
+        "compose input.* and screenshot.*"
+      ],
+      "recipe": "~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md",
+      "summary": "The Tailscale laptop-agent is the universal UI-driving substrate. Cowork era deprecated 5 May 2026.",
+      "verified_runtime": "n/a (meta-doctrine)"
+    },
+    {
+      "label": "cowork-deprecated",
+      "keywords": [
+        "cowork",
+        "claude cowork",
+        "side panel",
+        "ctrl+e",
+        "ctrl-e",
+        "cowork-dispatch",
+        "claude desktop"
+      ],
+      "recipe": "~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md",
+      "summary": "DEPRECATED 5 May 2026. Indexed historically so the conductor doesn't accidentally reach for Cowork. Use Tailscale laptop-agent direct path instead. Redirect to tailscale-macro-replaces-cowork.md.",
+      "verified_runtime": "n/a (deprecated)"
+    },
+    {
+      "label": "recipe-authoring",
+      "keywords": [
+        "author a gui recipe",
+        "write a gui recipe",
+        "codify a gui flow",
+        "recipe anatomy",
+        "10-section recipe",
+        "verify a gui recipe",
+        "optimise a gui recipe",
+        "fast-path recipe"
+      ],
+      "recipe": "~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md",
+      "summary": "Meta-doctrine: 10-section recipe anatomy, 5-step authoring, 7-step optimisation, verification tier hierarchy.",
+      "verified_runtime": "n/a (meta-doctrine)"
+    },
+    {
+      "label": "saas-ui-stripe",
+      "keywords": [
+        "stripe dashboard",
+        "stripe.com",
+        "stripe ui",
+        "click stripe",
+        "open stripe",
+        "screenshot stripe"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Default to drive-chrome via input.* on Tate's logged-in Chrome.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-vercel",
+      "keywords": [
+        "vercel dashboard",
+        "vercel.com",
+        "vercel ui",
+        "click vercel",
+        "open vercel",
+        "screenshot vercel",
+        "vercel deployments page"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Default to drive-chrome via input.* on Tate's logged-in Chrome. Note: vercel CLI / vercel API tools handle most automation without GUI.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-bitbucket",
+      "keywords": [
+        "bitbucket web",
+        "bitbucket.org ui",
+        "bitbucket dashboard",
+        "click bitbucket",
+        "open bitbucket web"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Bitbucket REST API handles most cases; GUI fallback uses drive-chrome.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-supabase-dashboard",
+      "keywords": [
+        "supabase dashboard",
+        "supabase.com/dashboard",
+        "supabase ui",
+        "click supabase",
+        "open supabase dashboard"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Supabase MCP (db_query, db_execute) covers most needs; dashboard GUI is fallback.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-xero",
+      "keywords": [
+        "xero web",
+        "xero.com",
+        "xero ui",
+        "click xero",
+        "open xero dashboard"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. xero_* MCP tools cover most flows; web UI is fallback.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-google-cloud-console",
+      "keywords": [
+        "google cloud console",
+        "console.cloud.google.com",
+        "gcp console",
+        "firebase console",
+        "open gcp"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Default to drive-chrome via input.* on Tate's logged-in Chrome.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-play-console",
+      "keywords": [
+        "play console",
+        "play.google.com/console",
+        "google play console",
+        "android release"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Default to drive-chrome via input.* on Tate's logged-in Chrome.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-zernio",
+      "keywords": [
+        "zernio dashboard",
+        "app.zernio.com",
+        "zernio ui",
+        "click zernio"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. zernio_* MCP tools cover most flows; web UI is fallback.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-canva",
+      "keywords": [
+        "canva editor",
+        "canva.com",
+        "open canva",
+        "click canva"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Canva is fundamentally GUI-only; default to drive-chrome.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    },
+    {
+      "label": "saas-ui-resend",
+      "keywords": [
+        "resend dashboard",
+        "resend.com",
+        "open resend"
+      ],
+      "recipe": "~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md",
+      "summary": "No bespoke recipe yet. Resend API handles email send; dashboard GUI is fallback.",
+      "verified_runtime": "n/a (use default chrome-driving)"
+    }
+  ]
+}

@@ -181,6 +181,46 @@ Grep command: `Grep triggers: ~/ecodiaos/patterns/ -A 1` - returns each pattern'
 | [xero-oauth-redirect-uri-mismatch.md](xero-oauth-redirect-uri-mismatch.md) | xero, xero-oauth, xero-callback, redirect-uri, oauth-404, xero-tokens, bank-feeds, bookkeeping-pipeline, finance-callback, oauth-silent-fail |
 | [zernio-twitter-length-limit.md](zernio-twitter-length-limit.md) | zernio, twitter, x, crosspost, post-too-long, social-media-queue, zernio-create-post, multi-platform-publish, tweet-280-chars, publish-failed, partial-status |
 
+## GUI Recipes (intent-to-macro discovery surface)
+
+The conductor must grep this section (or `~/ecodiaos/patterns/` generally) before reaching for any GUI-driving primitive (ssh, sshpass, mstsc, cu.*, input.*, mouse.*, keyboard.*, browser.*, screenshot.*). See [`gui-macro-discovery-protocol.md`](gui-macro-discovery-protocol.md) for the full doctrine + the registry-driven mechanical hook.
+
+**Source of truth:** `~/ecodiaos/scripts/hooks/lib/gui-target-recipes.json`. When a new GUI recipe is authored, BOTH the recipe's `triggers:` frontmatter AND the registry get updated. The frontmatter drives the user-message and cron-fire surfacing layers (via `doctrineSurface.surfaceDoctrineBlock`); the registry drives the PreToolUse hook layer (via `gui-macro-discovery-surface.sh`).
+
+| Target | Recipe | Verified runtime |
+|---|---|---|
+| **macincloud / sy094 GUI entry** | [`sy094-gui-entry-via-desktop-rdp-shortcut.md`](sy094-gui-entry-via-desktop-rdp-shortcut.md) | 23.6s end-to-end (4 May 2026) |
+| **iOS release end-to-end** | [`sy094-coexist-ios-release-recipe.md`](sy094-coexist-ios-release-recipe.md) | ~10min end-to-end (4 May 2026) |
+| **Drive Tate's Chrome** | [`drive-chrome-via-input-tools-not-browser-tools.md`](drive-chrome-via-input-tools-not-browser-tools.md) | n/a (procedural; default for any logged-in webapp UI) |
+| **Corazon as a peer** | [`corazon-is-a-peer-not-a-browser-via-http.md`](corazon-is-a-peer-not-a-browser-via-http.md) | n/a (procedural; 69 tools across 9 modules) |
+| **Tailscale macro substrate** | [`tailscale-macro-replaces-cowork.md`](tailscale-macro-replaces-cowork.md) | n/a (meta-doctrine; default UI substrate) |
+| **SSH on SY094 forbidden (anti-pattern)** | [`never-use-ssh-on-macincloud-rdp-only.md`](never-use-ssh-on-macincloud-rdp-only.md) | n/a (anti-pattern, redirects to RDP recipe) |
+| **Cowork (DEPRECATED 5 May 2026)** | [`claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md`](claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md) | n/a (indexed historically) |
+| **Recipe authoring meta-doctrine** | [`gui-recipes-authoring-optimisation-and-verification.md`](gui-recipes-authoring-optimisation-and-verification.md) | n/a (meta-doctrine) |
+
+### Injection-point coverage
+
+The discovery surface fires at SIX content-bearing dispatch points (a-f). All six read content for GUI-target keywords; layers (a)/(b) read pattern triggers, layers (c)-(f) read the registry JSON. One source of truth per layer, hand-curated coherence between them:
+
+| Layer | Where | Tool / event | Source | Status |
+|---|---|---|---|---|
+| (a) Tate-message arrival | `src/services/osSessionService.js _sendMessageImpl` → `skillsSurfaceService.surfaceSkillsBlock` | (incoming user message) | `~/ecodiaos/patterns/*.md` `triggers:` frontmatter | LIVE - unlocked by triggers audit on the 6 GUI recipes (this commit) |
+| (b) Cron-fire prompts | `src/services/schedulerPollerService.js` line 153 → `doctrineSurface.surfaceDoctrineBlock` | scheduled-task fire | same as (a) | LIVE - same path as (a) |
+| (c) Fork dispatch | `mcp__forks__spawn_fork` brief | PreToolUse hook | `gui-target-recipes.json` | LIVE - new hook |
+| (d) Factory dispatch | `mcp__factory__start_cc_session` prompt | PreToolUse hook | same as (c) | LIVE - new hook |
+| (e) Bash / shell_exec | command argument | PreToolUse hook | same as (c) | LIVE - catches ssh / sshpass / mstsc fumbles + curl-to-laptop-agent for `input.*`/`screenshot.*`/etc | 
+| (f) Write / Edit / MultiEdit | content / new_string argument | PreToolUse hook | same as (c) | LIVE - catches plan-authoring / spec-writing that mentions GUI work |
+
+**Hook script:** `~/ecodiaos/scripts/hooks/gui-macro-discovery-surface.sh`. Registered as PreToolUse in `~/.claude/settings.json` with matcher `Bash|Edit|Write|MultiEdit|mcp__vps__shell_exec|mcp__forks__spawn_fork|mcp__factory__start_cc_session`. Warn-only, never blocks. Tag-line filtering per `hooks-must-not-fire-inside-applied-pattern-tags.md`.
+
+### Adding a new GUI recipe
+
+1. Author the recipe under `~/ecodiaos/patterns/<slug>.md` per `gui-recipes-authoring-optimisation-and-verification.md` (10-section anatomy).
+2. Frontmatter `triggers:` MUST include user-intent verbs ("open X", "drive X", "click X", "screenshot X"), not just internal keywords. This is what unlocks layers (a) and (b).
+3. Add a target entry to `~/ecodiaos/scripts/hooks/lib/gui-target-recipes.json` with `label`, `keywords` (lowercase, including user-intent verbs), `recipe` path, `summary`, `verified_runtime`.
+4. Update the table above in this INDEX section.
+5. Verify: `echo '{"tool_name":"Bash","tool_input":{"command":"<intent verb>"}}' | ~/ecodiaos/scripts/hooks/gui-macro-discovery-surface.sh` MUST emit `[GUI-MACRO HINT] target=<label>`.
+
 ## Authoring rules
 
 - **One file per pattern.** Don't bundle.
