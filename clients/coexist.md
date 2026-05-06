@@ -92,6 +92,49 @@ Auto-deploys from main branch. Push to GitHub, Vercel handles the rest.
 
 ---
 
+## Billing Register — READ BEFORE ANY INVOICE WORK
+
+Co-Exist is on a **substrate-tracked recurring billing schedule** (live 7 May 2026). Do NOT render invoices ad-hoc - read the schedule first, generate via `billingScheduleEngine`, persist the run to `client_billing_generations`.
+
+**Schedule:** `client_billing_schedules` row WHERE `client_slug = 'coexist'`. Authored by `fork_mouoh2fb_fcd4f2` on 2026-05-07.
+- `schedule_type`: `monthly_combined`
+- `frequency`: monthly, `day_of_month` = 7
+- `starts_on`: 2026-05-01, `ends_on`: NULL (perpetual; retainer line self-expires)
+- `next_due_date`: **2026-06-07** (May was already manually fired as INV-2026-003 by `fork_mouo5of7_d112d2` on 2026-05-07; June is the first cron-driven fire)
+
+**Line items (3):**
+1. **Operational retainer** - $1,000.00 ex-GST. 3-month window (May/Jun/Jul 2026 only). Origin: Tate verbatim 2026-04-27 SMS "1k/month do 3 months". Line auto-drops after July fires (`schedule_window.max_count=3`).
+2. **Monthly licensing fee** - $200.00 ex-GST. Perpetual until contract termination per the IP & Licence Model section below. No `schedule_window`.
+3. **Managed 3rd party costs** - variable per month (Vercel Pro share + Supabase Pro share + M365 share). May was $82 fixed. Engine resolves via `passthrough_query.fallback_amount_cents` until bk_ledger pull is wired.
+
+**GST:** applicable (10%). Total May = $1,410.20 incl GST ($1,282 + $130.20).
+
+**Bill-to block (canonical, embedded in schedule row):**
+- Co-Exist Australia Ltd
+- ABN: 39 660 776 983 (looked up via ABR.business.gov.au by `fork_mouoh2fb_fcd4f2` after Tate flagged the missing ABN on the v1 INV-2026-003 render)
+- Australian Public Company, QLD 4551
+
+**Payment block:**
+- Bank Australia, BSB 313-140, Account 12579148, Name "Ecodia Pty Ltd"
+- Reference template: `{invoice_number}` (e.g. INV-2026-004)
+
+**Cron:** `recurring-billing-monthly` (daily 09:00 AEST). Silent on no-due-rows days. On a due row: dispatches a fork that drafts via `billingScheduleEngine.draftInvoice`, renders PDF via `renderDraftPdf` (with `--no-pdf-header-footer` so the file path footer never appears), uploads to Supabase, sends test-to-Tate with PDF attached, and writes a `client_billing_generations` row.
+
+**Hard guardrail:** the cron never auto-sends to Co-Exist. Test-to-Tate first, then Tate "send it" -> forward. Per `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md`.
+
+**Audit trail:** `SELECT invoice_number, total_cents, status, generated_at FROM client_billing_generations cbg JOIN client_billing_schedules cbs ON cbs.id = cbg.schedule_id WHERE cbs.client_slug = 'coexist' ORDER BY generated_at DESC;`
+
+**Doctrine:** `~/ecodiaos/patterns/recurring-billing-must-be-substrate-tracked-not-ad-hoc.md` (canonical), `~/ecodiaos/patterns/invoice-line-items-durable-doctrine.md`, `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md`.
+
+**Invoice register (manual log, mirror of `client_billing_generations`):**
+- INV-2026-001 (April 2026): build fee + first month licence + passthrough + tech assistance. PDF: `public/invoice-coexist-2026-001.pdf`.
+- INV-2026-002 (??): not present on disk; investigate before next render to avoid number collision.
+- INV-2026-003 (May 2026, **month 1 of 3 retainer**): $1,000 retainer + $200 licence + $82 passthrough = $1,282 ex-GST + $130.20 GST = $1,410.20. v2 PDF (with ABN + footer fix): `documents/invoices/inv-coexist-2026-003-FINAL-v2-2026-05-07.pdf`. Test-to-Tate gmail message id `19dff9aa78dccdf3` (sent 2026-05-07 by `fork_mouoh2fb_fcd4f2`). Awaiting Tate "send it" before forwarding to hello@coexistaus.org.
+- INV-2026-004 (June 2026, month 2 of 3): auto-draft 2026-06-07 via cron.
+- INV-2026-005 (July 2026, month 3 of 3): auto-draft 2026-07-07 via cron. After this fires, retainer line drops; INV-2026-006+ are licence + passthrough only.
+
+---
+
 ## IP & Licence Model — READ BEFORE ANY EXTERNAL ARTEFACT
 
 **Recalibrated 2026-04-27 per Tate. See `~/ecodiaos/patterns/coexist-vs-platform-ip-separation.md`.**
