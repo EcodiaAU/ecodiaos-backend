@@ -702,6 +702,21 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   // the fork-specific brief.
   const allConfigs = _getAllMcpConfigs(cwd)
   const mcpServers = _conductorMcp(allConfigs)
+
+  // Wire the in-process `forks` MCP server (spawn_fork / list_forks / abort_fork)
+  // into this fork's MCP surface, mirroring osSessionService.js (lines 1322-1328).
+  // Without this, forkService.spawnFork only loads STDIO subprocess MCP servers
+  // from .mcp.json and the manager-fork primitive (a fork dispatching sub-forks)
+  // silently degrades — managers can describe sub-fork plans but cannot actually
+  // trigger them. Failure here is non-fatal — fork proceeds without fork tools.
+  try {
+    const { getForkConductorMcpServer } = require('./forkConductorTool')
+    const forksServer = await getForkConductorMcpServer()
+    if (forksServer) mcpServers.forks = forksServer
+  } catch (err) {
+    logger.warn('forkService: fork conductor MCP server unavailable for sub-fork', { error: err?.message })
+  }
+
   const systemPrompt = _buildForkSystemPrompt(cwd, fork_id, brief)
 
   const options = {
