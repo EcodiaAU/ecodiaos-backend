@@ -8,11 +8,20 @@
  *   (b) status in ['running', 'spawning', 'reporting'] AND last_heartbeat
  *       is more than 10 minutes old - implies the fork has hung
  *
- * Wake-on-failure-only contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST,
- * extended to terminal failures Tate 5 May 2026 12:40 AEST):
- *   - status='done' is SILENT. Logs to DB + publishes perception, no wake POST.
- *     Parent dispatchers know what they queued and probe the DB on their next turn.
- *   - status='aborted' or status='error' is ALSO SILENT now. Logs to DB +
+ * Wake contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST,
+ * extended to terminal failures Tate 5 May 2026 12:40 AEST,
+ * autonomy-gap clarification Tate 6 May 2026 ~10:29 AEST):
+ *   - status='done' WITH a real [FORK_REPORT] body → WAKE the conductor
+ *     (autonomy delivery path). Without this wake, queued fork_reports sit
+ *     in messageQueue until the next Tate-typed message or scheduled cron
+ *     tick (meta-loop, hourly), which breaks fork-driven autonomous chains.
+ *     The wake POST runs in 'direct' mode, so drainIntoDirectMessage prepends
+ *     any queued fork_reports already in messageQueue to the same turn.
+ *   - status='done' with EMPTY result OR phantom-bail marker → SILENT.
+ *     Phantom-bails are forks that closed without emitting [FORK_REPORT];
+ *     the inbox already shows them with no_report_emitted=true via the
+ *     forkService enqueue path. Waking on those would just spam.
+ *   - status='aborted' or status='error' is SILENT. Logs to DB +
  *     publishes perception. The conductor sees fork failures via <forks_rollup>
  *     context-stitching on the next natural turn — no chat-stream pollution.
  *     See ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md.
@@ -37,6 +46,17 @@ const STALE_HEARTBEAT_MS = 10 * 60 * 1000  // 10 minutes
 
 const TERMINAL_STATUSES = new Set(['done', 'aborted', 'error'])
 const RUNNING_STATUSES = new Set(['running', 'spawning', 'reporting'])
+
+// Phantom-bail fingerprint — must match FALLBACK_MARKER in forkService.js.
+// forkService stores result as "(no [FORK_REPORT] emitted; last N chars of
+// transcript follow)\n\n${tail}" when a fork closes without emitting the
+// closing tag. Treating those as "real reports" and waking the conductor
+// would just spam — they have no actionable summary, only transcript tail.
+// Brief: literal `result.includes('[FORK_REPORT]')` check would invert this
+// (phantom-bail strings DO contain '[FORK_REPORT]' as part of the marker text;
+// clean reports DON'T because forkService strips the tag during regex extract).
+// Implemented per the brief's spirit: empty/phantom-bail = silent, otherwise wake.
+const FALLBACK_MARKER_PREFIX = '(no [FORK_REPORT] emitted'
 
 // Dedupe stale-heartbeat alerts: once alerted for a given fork_id, do not
 // re-alert until the fork reaches a terminal state (which clears the entry).
@@ -92,21 +112,60 @@ module.exports = {
       // Clear stale-alert dedup on terminal transition - fork is done
       _staledForks.delete(forkId)
 
-      // Silent path: successful completion. Log to DB only, no wake.
-      // Parent dispatchers know what they queued and will probe DB on next turn.
-      // Avoids flooding conductor context per silent-ears architecture
-      // (Tate 30 Apr 2026 13:18 AEST).
+      // Terminal-success path. Two sub-cases:
+      //   (a) result is empty OR starts with phantom-bail marker → SILENT.
+      //       Phantom-bail forks closed without emitting [FORK_REPORT];
+      //       forkService already enqueued a no_report_emitted=true SYSTEM
+      //       message (forkService.js:177-183). Waking on those would spam.
+      //   (b) result is a real FORK_REPORT body → WAKE the conductor
+      //       (autonomy delivery path, Tate 6 May 2026 ~10:29 AEST).
+      //       Without this wake, queued fork_reports drain only on next
+      //       Tate-typed message or scheduled cron tick, breaking
+      //       fork-driven autonomous chains.
+      //
+      // Note: forkService.spawnFork already publishes a richer fork_complete
+      // event with tokens/duration/parent_id at terminal-success
+      // (forkService.js:929-945, source='fork:<id>'). Do not re-publish here
+      // from the db:event observation path — it would duplicate every
+      // successful fork in os_observations and double-count in
+      // perception_summary. See drafts/proposed-design-fixes/01-dedupe-fork-complete-publishes.md.
+      // The aborted/error publish below is retained because forkService
+      // publishes only on success; this listener is the single emitter for
+      // terminal-failure events.
       if (status === 'done') {
-        logger.info('forkComplete: terminal done (silent, no wake)', { forkId })
-        // Note: forkService.spawnFork already publishes a richer fork_complete
-        // event with tokens/duration/parent_id at terminal-success
-        // (forkService.js:929-945, source='fork:<id>'). Do not re-publish here
-        // from the db:event observation path — it would duplicate every
-        // successful fork in os_observations and double-count in
-        // perception_summary. See drafts/proposed-design-fixes/01-dedupe-fork-complete-publishes.md.
-        // The aborted/error publish below is retained because forkService
-        // publishes only on success; this listener is the single emitter for
-        // terminal-failure events.
+        const result = (row.result || '').toString()
+        const isEmpty = !result.trim()
+        const isPhantomBail = result.startsWith(FALLBACK_MARKER_PREFIX)
+
+        if (isEmpty || isPhantomBail) {
+          logger.info('forkComplete: terminal done with no FORK_REPORT body (silent, no wake)', {
+            forkId, isEmpty, isPhantomBail,
+          })
+          return
+        }
+
+        // Real successful completion with FORK_REPORT body — wake conductor.
+        // Wake POST runs in 'direct' mode → drainIntoDirectMessage prepends
+        // any queued fork_report rows already in messageQueue, so the
+        // conductor sees the full queued report PLUS this brief wake header
+        // in a single turn. The wake body itself is short (excerpt-only) to
+        // minimise overlap with the queue-drained content.
+        const excerpt = result.length > 400 ? result.slice(0, 400) + '…' : result
+        const wakeMessage = [
+          `[SYSTEM: fork_report ${forkId} wake_on_done=true]`,
+          `Fork completed with [FORK_REPORT]. Full report (if enqueued via messageQueue) drained on this same wake.`,
+          '',
+          `Report excerpt:`,
+          excerpt,
+        ].join('\n')
+
+        logger.info('forkComplete: terminal done with [FORK_REPORT], wake POST sending', {
+          forkId, resultLen: result.length,
+        })
+        // Fire-and-forget — _wakeOsSession has its own try/catch + 5s timeout,
+        // and never throws. Do not await: the listener handler should not
+        // block on HTTP for the wake.
+        _wakeOsSession(wakeMessage, forkId)
         return
       }
 
