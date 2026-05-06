@@ -50,6 +50,7 @@ const logger = require('../config/logger')
 const usageEnergy = require('./usageEnergyService')
 const { broadcast } = require('../websocket/wsManager')
 const secretSafety = require('./secretSafetyService')
+const credentialFilter = require('../lib/credentialFilter')
 const forkFinalizer = require('./forkFinalizer')
 const { tryReserveForkSlot } = require('../lib/forkCapAtomic')
 
@@ -874,6 +875,15 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
                     txt = block.content.filter(b => b.type === 'text').map(b => b.text).join('\n')
                   }
                   if (txt.length > 1500) txt = txt.slice(0, 1500) + '\n… (truncated)'
+                  // Pre-broadcast credential redaction (matches osSessionService
+                  // line ~2209 main-session path). Without this, fork tool_use_result
+                  // content (anything from `Bash env`, db_query, MCP errors, etc.)
+                  // can carry raw `sbp_*` Supabase tokens or service_role JWTs into
+                  // the WS broadcast envelope. wsManager._redactEnvelope catches it
+                  // at the sink, but counting at the source attributes the leak
+                  // correctly (and is cheaper than scanning the whole envelope twice).
+                  // Origin: fork_moujifrz_fdea76 service_key WS leak investigation.
+                  txt = credentialFilter.redact(txt, 'forkService.toolResultEmit')
                   _emitForkOutput(fork_id, {
                     type: block.is_error ? 'tool_use_error' : 'tool_use_result',
                     tool_use_id: block.tool_use_id,

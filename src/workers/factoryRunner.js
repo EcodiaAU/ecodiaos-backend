@@ -9,6 +9,7 @@ const kg = require('../services/knowledgeGraphService')
 const kgHooks = require('../services/kgIngestionHooks')
 const secretSafety = require('../services/secretSafetyService')
 const bridge = require('../services/factoryBridge')
+const credentialFilter = require('../lib/credentialFilter')
 
 // ═══════════════════════════════════════════════════════════════════════
 // FACTORY RUNNER - Standalone PM2 process for CC session execution
@@ -54,12 +55,21 @@ function writeStdinSafe(proc, data) {
 // Factory runner has no WebSocket server. All WS broadcasts relay
 // through Redis → ecodia-api → connected clients.
 
+// Pre-bridge credential redaction. Factory CC CLI subprocess stdout lines
+// (`parsed` SDK messages with tool_result blocks) can carry raw `sbp_*`
+// Supabase tokens or service_role JWTs sourced from the CC subprocess env or
+// tool output. wsManager._redactEnvelope already catches these at the sink in
+// the API process, but redacting at the publish point in this process means
+// the leak is closed before crossing the Redis bridge — and the counter
+// attribution lands on `factoryRunner.broadcast` instead of an opaque
+// `wsManager.broadcast` source, which makes future cred_redaction_burst
+// triage faster. Origin: fork_moujifrz_fdea76 service_key WS leak fix.
 function broadcastToSession(sessionId, type, data) {
-  bridge.publishWsBroadcast(sessionId, type, data)
+  bridge.publishWsBroadcast(sessionId, type, credentialFilter.redactDeep(data, 'factoryRunner.broadcastToSession'))
 }
 
 function broadcast(type, data) {
-  bridge.publishWsBroadcast(null, type, data)
+  bridge.publishWsBroadcast(null, type, credentialFilter.redactDeep(data, 'factoryRunner.broadcast'))
 }
 
 // ─── Context Bundle Builder (moved from ccService.js) ───────────────
