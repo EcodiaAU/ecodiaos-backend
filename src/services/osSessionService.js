@@ -1,5 +1,5 @@
 /**
- * OS Session Service - manages a persistent Claude Code session as the OS brain.
+ * OS Session Service — manages a persistent Claude Code session as the OS brain.
  *
  * Uses the Agent SDK (query()) instead of spawning CLI processes.
  * The SDK gives us:
@@ -12,7 +12,7 @@
  *
  * Provider fallback chain (smart selection via usageEnergyService.getBestProvider()):
  *   1. Healthiest Claude Max account (whichever has more weekly + 5h headroom)
- *   2. The other Claude Max account (if first is capped - weekly OR 5h session)
+ *   2. The other Claude Max account (if first is capped — weekly OR 5h session)
  *   3. DeepSeek V4 (final fallback when both Max accounts are exhausted, if enabled)
  *   See ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md (Tate 5 May 2026 12:40 AEST).
  */
@@ -33,7 +33,7 @@ const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const perceptionBus = require('./perceptionBus')
 const turnInjection = require('./turnInjectionService')
-// docs/PROMPT_ASSEMBLY_SPEC.md §3 - consolidated prompt envelope + 4-breakpoint
+// docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
 // cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
 // this service's v1 path and diffs are written fire-and-forget to
 // prompt_assembly_audit. Canary/full flip happens via env flag after 48h of
@@ -53,11 +53,11 @@ const {
 } = require('../lib/untrustedInput')
 
 // Fire quota-checks for BOTH accounts on startup to get real usage % immediately.
-// Log failure - if both accounts are misconfigured, the first user message fails
+// Log failure — if both accounts are misconfigured, the first user message fails
 // with an opaque error. Knowing this at boot is the difference between 10s
 // diagnosis and reading PM2 logs.
 // Boot-time refreshAllAccounts() was crashing the api process mid-fetch
-// (exit code 0, no error logged - likely a Node 20 fetch + simultaneous
+// (exit code 0, no error logged — likely a Node 20 fetch + simultaneous
 // AbortController interaction). Disabled 2026-05-05. The router still works
 // from "no_data" defaults (score 30 → claude_max picked) and real SDK turns
 // populate state via _switchAfterExhaustion on 429. The reset watcher arms
@@ -69,7 +69,7 @@ logger.info('Claude energy: boot probe disabled (state populates from SDK turns)
 // accounts. When it fires and a Claude account is healthy again, it emits
 // 'claude-available'. We invalidate the cached provider state so the NEXT
 // sendMessage() picks up Claude via getBestProvider(). We do NOT interrupt
-// an in-flight turn - the Claude switch happens at the next turn boundary,
+// an in-flight turn — the Claude switch happens at the next turn boundary,
 // where the existing claude_max / claude_max_2 branches already handle
 // stripping DEEPSEEK env, restoring OAuth tokens, and clearing ccSessionId.
 usageEnergy.on('claude-available', ({ provider, reason }) => {
@@ -77,7 +77,7 @@ usageEnergy.on('claude-available', ({ provider, reason }) => {
   // but a defensive check keeps this idempotent if it ever fires spuriously.
   if (_currentProvider !== 'deepseek') return
 
-  logger.info('Claude reset detected - scheduling switch-back at next turn boundary', {
+  logger.info('Claude reset detected — scheduling switch-back at next turn boundary', {
     provider, reason, currentProvider: _currentProvider,
   })
   // Invalidate so getEnergy()/getBestProvider() rebuild from fresh state.
@@ -218,7 +218,7 @@ function buildSubagentConfigs(allConfigs) {
         '- Auto-categorize transactions using rules (bk_list_rules) before falling back to manual categorization.',
         '- Report back concise financial summaries, not raw data dumps.',
       ].join('\n'),
-      // Sonnet default - conductor can override via Agent tool `model` param.
+      // Sonnet default — conductor can override via Agent tool `model` param.
       model: 'sonnet',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.finance),
       permissionMode: 'bypassPermissions',
@@ -238,7 +238,7 @@ function buildSubagentConfigs(allConfigs) {
         '- Report service health clearly: what is running, what is not, any error patterns.',
         '- Use db_query via supabase for diagnostic queries when needed.',
       ].join('\n'),
-      // Sonnet default - conductor can override via Agent tool `model` param.
+      // Sonnet default — conductor can override via Agent tool `model` param.
       model: 'sonnet',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.ops),
       permissionMode: 'bypassPermissions',
@@ -257,7 +257,7 @@ function buildSubagentConfigs(allConfigs) {
         '- For Vercel deploys, verify the deployment status after triggering.',
         '- Report analytics concisely with key metrics highlighted.',
       ].join('\n'),
-      // Sonnet default - conductor can override via Agent tool `model` param.
+      // Sonnet default — conductor can override via Agent tool `model` param.
       model: 'sonnet',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.social),
       permissionMode: 'bypassPermissions',
@@ -276,14 +276,14 @@ function buildProgrammaticHooks() {
   // Reason: it injected "Think like a CEO..." every turn, which (a) is redundant
   // with CLAUDE.md, and (b) breaks the prompt cache boundary by inserting fresh
   // content between the cached system prompt and conversation, forcing full re-bill
-  // of the system prompt each turn. Anthropic prompt caching is prefix-based - 
+  // of the system prompt each turn. Anthropic prompt caching is prefix-based —
   // any insertion invalidates the cache from that point down.
   //
   // Dead hook removed:
-  // - `Write|Edit` PostToolUse: conductor's allowedTools only includes
+  //   - `Write|Edit` PostToolUse: conductor's allowedTools only includes
   //     mcp__*__* and Agent. Write/Edit never fire at the conductor level.
   //
-  // NOTE: neo4j PostToolUse matcher retained - the VPS ~/ecodiaos/.mcp.json
+  // NOTE: neo4j PostToolUse matcher retained — the VPS ~/ecodiaos/.mcp.json
   // DOES include a neo4j server (confirmed by OS Session using graph_merge_node
   // and graph_create_relationship in active sessions). Local d:/.code/EcodiaOS/.mcp.json
   // is drifted and missing neo4j; the VPS copy is authoritative. If you edit
@@ -313,7 +313,7 @@ function buildProgrammaticHooks() {
 
   return {
     PreToolUse: [
-      // Context injection before high-leverage tools - runs fusedSearch against
+      // Context injection before high-leverage tools — runs fusedSearch against
       // Neo4j and surfaces the top 3 relevant Patterns/Decisions/Episodes before
       // the tool call so the model sees them in the tool-result area.
       {
@@ -382,7 +382,7 @@ function buildProgrammaticHooks() {
     ],
 
     PostToolUse: [
-      // Factory dispatch oversight - fires only when Factory session is kicked off
+      // Factory dispatch oversight — fires only when Factory session is kicked off
       {
         matcher: 'mcp__factory__start_cc_session',
         hooks: [async (_input) => ({
@@ -393,7 +393,7 @@ function buildProgrammaticHooks() {
         })],
         timeout: 3,
       },
-      // Scheduler quality check - fires only on schedule creation
+      // Scheduler quality check — fires only on schedule creation
       {
         matcher: 'mcp__scheduler__schedule_cron|mcp__scheduler__schedule_delayed|mcp__scheduler__schedule_chain',
         hooks: [async (_input) => ({
@@ -404,7 +404,7 @@ function buildProgrammaticHooks() {
         })],
         timeout: 3,
       },
-      // Neo4j memory quality - fires on graph writes
+      // Neo4j memory quality — fires on graph writes
       {
         matcher: 'mcp__neo4j__graph_reflect|mcp__neo4j__graph_merge_node',
         hooks: [async (_input) => ({
@@ -427,18 +427,18 @@ function buildProgrammaticHooks() {
 }
 
 // ─── Custom system prompt builder ───────────────────────────────────────────
-// Context-burn investigation 2026-04-11 - verified in SDK v0.2.92 cli.js that
+// Context-burn investigation 2026-04-11 — verified in SDK v0.2.92 cli.js that
 // when `systemPrompt` is omitted OR `{type:'preset'}` is passed without a string,
 // the CLI loads the full `GW()` default section array (~5-6k tokens of Claude
 // Code CLI scaffolding: output style, tool permission guidance, tone rules,
 // coding instructions, session guidance, env info, auto-memory scanner, etc.).
 //
 // By passing a plain STRING systemPrompt, `Lx()` in cli.js bypasses the entire
-// default array - we get only the string we provide. That saves ~5k input tokens
+// default array — we get only the string we provide. That saves ~5k input tokens
 // per turn AND preserves the prompt cache boundary (since our string is stable).
 //
 // We inline CLAUDE.md ourselves so `settingSources: ['project']` can be dropped
-// (which also disables auto-memory file scanning - another per-turn cost).
+// (which also disables auto-memory file scanning — another per-turn cost).
 let _cachedSystemPrompt = null
 let _cachedSystemPromptCwd = null
 
@@ -465,10 +465,10 @@ function buildCustomSystemPrompt(cwd) {
   //
   // Loaded as its own block so it can become an independent Anthropic
   // prompt-cache breakpoint later (PROMPT_ASSEMBLY_SPEC §4). Missing file
-  // is non-fatal - logged and skipped.
+  // is non-fatal — logged and skipped.
   //
   // Lookup order (first hit wins):
-  //   1. cwd/SELF.md - alongside CLAUDE.md (production layout on VPS
+  //   1. cwd/SELF.md  - alongside CLAUDE.md (production layout on VPS
   //      where cwd = ~/ecodiaos and SELF.md is tracked in the backend repo)
   //   2. cwd/.claude/SELF.md - legacy / local-workspace layout
   let selfMd = ''
@@ -487,13 +487,13 @@ function buildCustomSystemPrompt(cwd) {
     }
   }
   if (!selfMd) {
-    logger.info('SELF.md not found in any candidate path - running without first-person self-context', {
+    logger.info('SELF.md not found in any candidate path — running without first-person self-context', {
       cwd,
       candidates: selfMdCandidates,
     })
   }
 
-  // Minimal environment context - replaces the SDK's verbose default env block
+  // Minimal environment context — replaces the SDK's verbose default env block
   const today = new Date().toISOString().slice(0, 10)
   const envBlock = `# Environment
 Working directory: ${cwd}
@@ -501,54 +501,54 @@ Platform: linux
 Date: ${today}
 You are powered by Claude (Anthropic's model). Running inside the EcodiaOS conductor via the Claude Agent SDK.`
 
-  // Minimal tone/behavior rules - only the non-obvious things the model needs.
+  // Minimal tone/behavior rules — only the non-obvious things the model needs.
   // Everything else is either in CLAUDE.md or is default model behavior.
   const behaviorBlock = `# Behavior
-- You are a conductor. Delegate domain work (email, finance, ops, social) to the subagent with the right tools via the Agent tool. Do not try to do that work yourself - you don't have those tools.
+- You are a conductor. Delegate domain work (email, finance, ops, social) to the subagent with the right tools via the Agent tool. Do not try to do that work yourself — you don't have those tools.
 - Keep responses terse. The user can read tool outputs; don't restate them.
 - When referencing files, use markdown links like [file.js:42](path/to/file.js#L42).
 - All text you output outside of tool use is shown to the user.`
 
-  // Fork-mode doctrine. The conductor IS the parallelism decider - it has
+  // Fork-mode doctrine. The conductor IS the parallelism decider — it has
   // the spawn_fork tool and is expected to use it whenever work can run in
   // parallel. The conductor stays the goals/positions/results/next-step
   // layer; forks do the actual work.
-  const forkBlock = `# Forks (parallel sub-sessions) - YOU DECIDE PARALLELISM
+  const forkBlock = `# Forks (parallel sub-sessions) — YOU DECIDE PARALLELISM
 
 You have three tools that let you run work in parallel:
- - mcp__forks__spawn_fork({ brief, context_mode? }) - spawn a parallel sub-session
- - mcp__forks__list_forks() - see what's running
- - mcp__forks__abort_fork({ fork_id, reason? }) - kill a fork
+  - mcp__forks__spawn_fork({ brief, context_mode? })  — spawn a parallel sub-session
+  - mcp__forks__list_forks()                          — see what's running
+  - mcp__forks__abort_fork({ fork_id, reason? })      — kill a fork
 
-A fork is a fresh OS instance running on its own SDK stream, in parallel with you. It has the same conductor toolset and the same four subagents (comms, finance, ops, social). It does NOT share state with you after spawn - it cannot talk to you while it works.
+A fork is a fresh OS instance running on its own SDK stream, in parallel with you. It has the same conductor toolset and the same four subagents (comms, finance, ops, social). It does NOT share state with you after spawn — it cannot talk to you while it works.
 
-## When to fork (use the tool - don't just describe forking)
+## When to fork (use the tool — don't just describe forking)
 
 - Whenever Tate gives you a request that decomposes into 2+ independent pieces of work, fork the independent ones.
-- Whenever Tate sends a new request mid-turn that doesn't supersede your current work - fork it instead of queueing.
+- Whenever Tate sends a new request mid-turn that doesn't supersede your current work — fork it instead of queueing.
 - Whenever a subtask will take more than ~10 seconds AND can run while you do something else (research, audits, deploys, big report runs).
-- For "I'd love this done in parallel" or "do these all at once" requests - fork them out and then immediately call list_forks at the end of your message so Tate sees you're managing them.
+- For "I'd love this done in parallel" or "do these all at once" requests — fork them out and then immediately call list_forks at the end of your message so Tate sees you're managing them.
 
 ## Caps
 
-- Hard cap: 5 concurrent forks (+ you = 6 streams). spawn_fork returns an error when the cap is reached - read it and adapt (wait, do it yourself, or queue with a follow-up).
+- Hard cap: 5 concurrent forks (+ you = 6 streams). spawn_fork returns an error when the cap is reached — read it and adapt (wait, do it yourself, or queue with a follow-up).
 - Energy soft cap: tightens as the weekly Claude Max budget burns down. healthy=5, conserve=4, low=2, critical=0. Don't fight a critical-energy reject.
 
 ## Discipline (this is the load-bearing thing)
 
 You are the goals/positions/results/next-step layer. You do NOT execute fork work yourself once you've spawned one. Specifically:
- - You do NOT see forks' transcripts. You see only the <forks_rollup> block on each turn (positions, current tool, age) and the [SYSTEM: fork_report ...] message that arrives in your inbox when each fork finishes.
- - When you spawn a fork, IMMEDIATELY return to the main thread of work, or end your turn. Do NOT sit and wait for the fork - you cannot see its progress mid-stream.
- - When [FORK_REPORT] messages arrive on later turns, integrate their results into your view of the world: act on next_step, update Tate, kick off follow-ups.
+  - You do NOT see forks' transcripts. You see only the <forks_rollup> block on each turn (positions, current tool, age) and the [SYSTEM: fork_report ...] message that arrives in your inbox when each fork finishes.
+  - When you spawn a fork, IMMEDIATELY return to the main thread of work, or end your turn. Do NOT sit and wait for the fork — you cannot see its progress mid-stream.
+  - When [FORK_REPORT] messages arrive on later turns, integrate their results into your view of the world: act on next_step, update Tate, kick off follow-ups.
 
 ## Writing a good brief
 
-The fork has none of your context unless you give it. A fork brief should read like a message you'd send to a fresh OS instance: state the goal, the constraints, what counts as done. context_mode="recent" inherits the recent conversation tail (default - usually right). context_mode="brief" gives the fork only your brief and nothing else (use when the brief is fully self-contained).
+The fork has none of your context unless you give it. A fork brief should read like a message you'd send to a fresh OS instance: state the goal, the constraints, what counts as done. context_mode="recent" inherits the recent conversation tail (default — usually right). context_mode="brief" gives the fork only your brief and nothing else (use when the brief is fully self-contained).
 
 ## When NOT to fork
 
-- Trivial questions you can answer in one turn - don't burn a stream slot.
-- Work that needs your context to make decisions and can't be expressed as a clean brief - do it yourself.
+- Trivial questions you can answer in one turn — don't burn a stream slot.
+- Work that needs your context to make decisions and can't be expressed as a clean brief — do it yourself.
 - When you've already got 4–5 forks live; finish those first or you'll thrash the energy budget.`
 
   // §2.1 untrusted-input system clause - tells the conductor to treat
@@ -563,7 +563,7 @@ ${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
 
   // Assembly order matters for prompt cache stability:
   //   1. claudeMd - most stable (only changes on deliberate Tate edits)
-  //   2. selfMd - stable within the week (weekly self-review cadence)
+  //   2. selfMd   - stable within the week (weekly self-review cadence)
   //   3. env/behavior/fork/untrusted - stable across sessions
   // The less-stable per-turn data (relevant_memory, forks_rollup, etc.)
   // is appended downstream in the user-message path, not here.
@@ -577,7 +577,7 @@ ${UNTRUSTED_INPUT_SYSTEM_CLAUSE}`
   return _cachedSystemPrompt
 }
 
-// Token tracking (informational only - SDK/CLI handles its own context management;
+// Token tracking (informational only — SDK/CLI handles its own context management;
 // we track tokens purely for the frontend usage bar display.)
 let handoverInProgress = false
 
@@ -591,7 +591,7 @@ let ccSessionId = null          // CC's internal session_id (for resume)
 let sessionTokenUsage = { input: 0, output: 0 }
 let _currentProvider = 'claude_max'  // tracks which provider the current session is using
 
-// Auto-handover compact threshold - provider-aware. DeepSeek V4 Flash has a
+// Auto-handover compact threshold — provider-aware. DeepSeek V4 Flash has a
 // 1M context window vs Claude's 200K, so reusing the same 120K
 // threshold there compacted ~6x more aggressively than necessary and made
 // long DeepSeek fallback turns chop themselves off. The DeepSeek-specific
@@ -604,7 +604,7 @@ function _compactThreshold() {
   return parseInt(env.OS_SESSION_COMPACT_THRESHOLD || '120000', 10)
 }
 
-// Message queue - prevents concurrent sendMessage calls from racing and clobbering
+// Message queue — prevents concurrent sendMessage calls from racing and clobbering
 // each other's queries. Each sendMessage waits for the previous one to finish.
 let _sendQueue = Promise.resolve()
 
@@ -791,10 +791,10 @@ function _isUsageExhausted(text) {
 }
 
 // Detect auth failures that a token refresh might fix.
-// The Claude CLI is annoying about this - sometimes the message is rich
+// The Claude CLI is annoying about this — sometimes the message is rich
 // ("Failed to authenticate. API Error: 401 ..."), sometimes it's just
 // "claude CLI exit 1: " with empty stderr. We treat any empty/cryptic
-// CLI exit as *suspect* - the caller will then live-validate the token
+// CLI exit as *suspect* — the caller will then live-validate the token
 // to confirm before paying for a full refresh round-trip.
 function _DEAD_isAuthFailure(text) {
   const t = (text || '').toLowerCase()
@@ -809,12 +809,12 @@ function _DEAD_isAuthFailure(text) {
 }
 
 // Heuristic: the SDK / CLI silently failed before producing usable output.
-// Triggers a token validation as a likely root cause - auth is the #1 reason
+// Triggers a token validation as a likely root cause — auth is the #1 reason
 // the CLI exits early without explanation on this VPS.
 function _DEAD_isSuspectSilentFailure({ collectedText, errMsg, hadResultMessage }) {
   if (errMsg && /claude cli exit \d+\s*:?\s*$/i.test(errMsg)) return true
   if (errMsg && errMsg.length > 0 && errMsg.length < 5) return true
-  // SDK exited the for-await loop with no result message AND no text - something
+  // SDK exited the for-await loop with no result message AND no text — something
   // ate the response before we could see it. Auth is the prime suspect.
   if (!hadResultMessage && (!collectedText || collectedText.length === 0)) return true
   return false
@@ -824,10 +824,10 @@ function _DEAD_isSuspectSilentFailure({ collectedText, errMsg, hadResultMessage 
 // produced a working token, false otherwise.
 //
 // `mode` controls how we decide to refresh:
-// - 'force'     : refresh unconditionally (caller already saw a 401)
-// - 'validate'  : live-check the current token first; only refresh if API rejects it
+//   - 'force'     : refresh unconditionally (caller already saw a 401)
+//   - 'validate'  : live-check the current token first; only refresh if API rejects it
 //                   (used for *suspect* failures like empty CLI exits where auth is
-//                   plausible but unconfirmed - avoids wasting a refresh on a healthy
+//                   plausible but unconfirmed — avoids wasting a refresh on a healthy
 //                   token when the real bug was something else)
 async function _DEAD_tryTokenRefresh(mode = 'force') {
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST.
@@ -838,26 +838,26 @@ async function _DEAD_tryTokenRefresh(mode = 'force') {
     if (mode === 'validate') {
       const check = await tokenRefresh.validateAccount(account)
       if (check.valid) {
-        logger.warn('OS Session: silent CLI failure but token validates - not auth', { account })
+        logger.warn('OS Session: silent CLI failure but token validates — not auth', { account })
         return false  // not an auth issue; caller should treat as generic error
       }
-      logger.warn('OS Session: silent CLI failure + token rejected by API - refreshing', {
+      logger.warn('OS Session: silent CLI failure + token rejected by API — refreshing', {
         account, status: check.status, reason: check.reason,
       })
     } else {
-      logger.warn('OS Session: auth failure detected - forcing token refresh', { account })
+      logger.warn('OS Session: auth failure detected — forcing token refresh', { account })
     }
 
     const result = await tokenRefresh.refreshAccount(account, { force: true })
     if (result.refreshed) {
-      logger.info('OS Session: token refresh succeeded - retrying', { account })
+      logger.info('OS Session: token refresh succeeded — retrying', { account })
       return true
     }
     if (result.deadOnArrival) {
-      logger.error('OS Session: refresh produced a dead token - refresh_token may be on the way out', { account })
+      logger.error('OS Session: refresh produced a dead token — refresh_token may be on the way out', { account })
     }
     if (result.isRevoked) {
-      logger.error('OS Session: REFRESH TOKEN REVOKED - manual login required', { account })
+      logger.error('OS Session: REFRESH TOKEN REVOKED — manual login required', { account })
     }
     return false
   } catch (err) {
@@ -876,7 +876,7 @@ function _switchAfterExhaustion() {
   // Re-probe to see what's available
   const best = usageEnergy.getBestProvider()
   if (best.provider === _currentProvider) {
-    // getBestProvider returned the same one (best-effort) - no real alternative
+    // getBestProvider returned the same one (best-effort) — no real alternative
     return null
   }
   osIncident.log({
@@ -942,7 +942,7 @@ function _isTransientDbError(err) {
   if (['CONNECTION_CLOSED', 'CONNECTION_ENDED', 'CONNECTION_DESTROYED', 'NOT_TAGGED_CALL'].includes(code)) return true
   // Postgres SQLSTATE classes for connection failures (class 08)
   if (typeof code === 'string' && code.startsWith('08')) return true
-  // Message fallback - postgres.js sometimes surfaces errors without a code
+  // Message fallback — postgres.js sometimes surfaces errors without a code
   const msg = (err.message || '').toLowerCase()
   if (msg.includes('connection') && (msg.includes('closed') || msg.includes('terminated') || msg.includes('reset'))) return true
   return false
@@ -957,7 +957,7 @@ async function _dbRetry(label, fn) {
     } catch (err) {
       lastErr = err
       // Fast-fail on non-transient errors (unique violation, syntax, permission)
-      // - retry can never succeed, only delays the inevitable.
+      // — retry can never succeed, only delays the inevitable.
       if (!_isTransientDbError(err)) {
         logger.warn(`DB write failed (non-transient, not retrying)`, { label, code: err.code, error: err.message })
         throw err
@@ -1019,9 +1019,9 @@ function extractTextFromContent(content) {
 //
 // opts.suppressOutput = true: suppress WebSocket broadcast (used for internal handover brief generation)
 
-// Internal implementation - callers use sendMessage() which serializes through _sendQueue
+// Internal implementation — callers use sendMessage() which serializes through _sendQueue
 //
-// opts._retryDepth - bounded recursion guard. Incremented on every automatic
+// opts._retryDepth — bounded recursion guard. Incremented on every automatic
 // retry path (stale session, account switch, inactivity timeout). Hard cap
 // of MAX_RETRY_DEPTH prevents the stack-overflow recursion bomb we used to
 // have when a hang on the fallback provider triggered another fallback.
@@ -1175,7 +1175,7 @@ async function _injectConductorCommitments() {
     if (ownRows.length > 0) {
       const lines = ownRows.map(r => {
         const p = r.priority ? `[P${r.priority}] ` : ''
-        const action = r.next_action ? ` - ${String(r.next_action).slice(0, 120)}` : ''
+        const action = r.next_action ? ` — ${String(r.next_action).slice(0, 120)}` : ''
         const status = r.status ? ` [${String(r.status).slice(0, 40)}]` : ''
         return `- ${p}${r.name}${action}${status}`
       })
@@ -1185,7 +1185,7 @@ async function _injectConductorCommitments() {
       const lines = blockedRows.map(r => {
         const p = r.priority ? `[P${r.priority}] ` : ''
         const by = r.next_action_by ? `[by ${r.next_action_by}] ` : ''
-        const action = r.next_action ? ` - ${String(r.next_action).slice(0, 100)}` : ''
+        const action = r.next_action ? ` — ${String(r.next_action).slice(0, 100)}` : ''
         return `- ${p}${by}${r.name}${action}`
       })
       parts.push(`<conductor_blocked_on>\n${blockedRows.length} blocker${blockedRows.length === 1 ? '' : 's'}:\n${lines.join('\n')}\n</conductor_blocked_on>`)
@@ -1221,7 +1221,7 @@ async function _injectThreadCarryForward() {
     const v = row.value
     if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) return null
 
-    // Stale-guard: if updated_at older than 12h, skip - a stale orchestration
+    // Stale-guard: if updated_at older than 12h, skip — a stale orchestration
     // pointer is worse than no pointer (it pulls the conductor toward dead work).
     if (row.updated_at) {
       const ageMs = Date.now() - new Date(row.updated_at).getTime()
@@ -1249,7 +1249,7 @@ async function _sendMessageImpl(content, opts = {}) {
   const retryDepth = opts._retryDepth || 0
   const queryFn = await getQuery()
 
-  // Kill any active query - SDK query() is one-shot, so each message needs a new call.
+  // Kill any active query — SDK query() is one-shot, so each message needs a new call.
   // Session continuity is maintained via options.resume + ccSessionId.
   _abortActiveQuery('new_turn_starting')
 
@@ -1264,11 +1264,11 @@ async function _sendMessageImpl(content, opts = {}) {
     isResume = true
     ccSessionId = session.cc_cli_session_id
   } else if (session) {
-    // Row exists but no CC session ID - reuse it, start fresh CC session on same DB record
+    // Row exists but no CC session ID — reuse it, start fresh CC session on same DB record
     ccSessionId = null
     await updateOSSession(session.id, { status: 'running' })
   } else {
-    // No OS session row at all - create one
+    // No OS session row at all — create one
     session = await createOSSession()
   }
 
@@ -1277,7 +1277,7 @@ async function _sendMessageImpl(content, opts = {}) {
     emitStatus('streaming', { sessionId: dbSessionId })
 
     // Emit current energy level so frontend knows if thinking mode is active.
-    // FIRE-AND-FORGET - must never block turn startup. Production incident
+    // FIRE-AND-FORGET — must never block turn startup. Production incident
     // 2026-04-23: an Anthropic headers probe inside getEnergy() stalled
     // indefinitely and froze the whole OS between the "streaming" status emit
     // and the first logger.info("OS Session starting") line, so the UI saw
@@ -1303,7 +1303,7 @@ async function _sendMessageImpl(content, opts = {}) {
 
   // Session memory auto-injection DISABLED 2026-04-09
   // Reason: When context window fills and SDK compresses, stale memory chunks
-  // became the only "context" left - causing the model to hallucinate tasks from
+  // became the only "context" left — causing the model to hallucinate tasks from
   // previous sessions. Neo4j MCP tool is available for on-demand memory recall
   // instead of blind pre-injection.
   const promptWithMemory = content
@@ -1318,7 +1318,7 @@ async function _sendMessageImpl(content, opts = {}) {
   // exposing spawn_fork / list_forks / abort_fork. This is what makes the
   // conductor capable of self-spawning parallel sub-sessions; without it the
   // conductor can only describe parallelism, not actually trigger it.
-  // Failure here is non-fatal - turn proceeds without fork tools.
+  // Failure here is non-fatal — turn proceeds without fork tools.
   try {
     const { getForkConductorMcpServer } = require('./forkConductorTool')
     const forksServer = await getForkConductorMcpServer()
@@ -1328,7 +1328,7 @@ async function _sendMessageImpl(content, opts = {}) {
   }
 
   // Energy level is still tracked for logging + provider routing, but no longer
-  // gates thinking - the conductor thinks on every turn now (see thinking block
+  // gates thinking — the conductor thinks on every turn now (see thinking block
   // below). Provider routing still honours energy (DeepSeek fallback when both
   // Max accounts are exhausted; Bedrock forbidden per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md).
@@ -1337,10 +1337,10 @@ async function _sendMessageImpl(content, opts = {}) {
   const energyLevel = energy?.level || 'healthy'
 
   // Build the custom system prompt (cached per-cwd). This replaces the SDK's
-  // default ~5-6k-token scaffolding entirely - see buildCustomSystemPrompt docs.
+  // default ~5-6k-token scaffolding entirely — see buildCustomSystemPrompt docs.
   //
   // IMPORTANT: keep this STABLE across turns. The SDK's prompt cache keys on
-  // the system prompt - a single byte of churn busts the cache and we re-pay
+  // the system prompt — a single byte of churn busts the cache and we re-pay
   // the full system-prompt cost every turn. Any per-turn addendum (like the
   // restart recovery block below) goes into the USER message instead, where
   // it's expected to vary.
@@ -1392,21 +1392,21 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.debug('Breadcrumb read failed (non-fatal)', { error: err.message })
   }
 
-  // recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 - the SDK replays
+  // recent_exchanges removed per PROMPT_ASSEMBLY_SPEC §5 — the SDK replays
   // session history via session_id, making the tail injection pure duplication.
 
   const options = {
     cwd,
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
-    // SDK auto-detect picks musl binary on Ubuntu (glibc) - override to the
+    // SDK auto-detect picks musl binary on Ubuntu (glibc) — override to the
     // globally installed CLI which always works.
     pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || undefined,
-    // settingSources intentionally omitted - we inline CLAUDE.md ourselves via
+    // settingSources intentionally omitted — we inline CLAUDE.md ourselves via
     // buildCustomSystemPrompt. Setting it would trigger the CLI's auto-memory
     // subsystem (bl8 in cli.js) on top of our own inlined copy.
     includePartialMessages: true,      // stream_event messages for real-time text
-    // includeHookEvents intentionally omitted - the frontend doesn't render hook
+    // includeHookEvents intentionally omitted — the frontend doesn't render hook
     // lifecycle events, and having them on adds events to the conversation stream
     // that the SDK persists in history, bloating resume payloads.
     //
@@ -1428,17 +1428,17 @@ async function _sendMessageImpl(content, opts = {}) {
       ? (/\[1m\]$/i.test(env.OS_SESSION_MODEL) ? env.OS_SESSION_MODEL : `${env.OS_SESSION_MODEL}[1m]`)
       : undefined,
     // NOTE: `compactionControl` option was removed 2026-04-11. Verified against SDK
-    // v0.2.92 sdk.mjs - the option is destructured in HL() but never forwarded to
+    // v0.2.92 sdk.mjs — the option is destructured in HL() but never forwarded to
     // the CLI subprocess transport (only BetaToolRunner uses it, which is a
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Extended thinking - unconditional, maximum budget. Tate's directive:
+    // Extended thinking — unconditional, maximum budget. Tate's directive:
     // the conductor should be the absolute smartest it can be on every turn.
     // Previous energy-gated tiers (5k/10k/off) were trading quality for weekly
     // budget; weekly-budget pressure is now handled upstream via account
     // routing + DeepSeek fallback, so there's no reason to throttle reasoning.
-    // 10k was empirically the right ceiling before - keeping it as the cap to
+    // 10k was empirically the right ceiling before — keeping it as the cap to
     // avoid eating into the response budget on turns that need long output.
     thinking: {
       type: 'enabled',
@@ -1452,10 +1452,10 @@ async function _sendMessageImpl(content, opts = {}) {
       ...Object.keys(mcpServers).map(name => `mcp__${name}__*`),
       'Agent',
     ],
-    // Domain subagents - each gets its own MCP servers inline (not inherited).
+    // Domain subagents — each gets its own MCP servers inline (not inherited).
     // The conductor never sees these tools in its context window.
     agents: buildSubagentConfigs(allConfigs),
-    // Programmatic hooks - factory dispatch oversight, scheduler quality,
+    // Programmatic hooks — factory dispatch oversight, scheduler quality,
     // subagent completion review. UserPromptSubmit + dead matchers removed
     // 2026-04-11 to preserve prompt cache boundary across turns.
     hooks: buildProgrammaticHooks(),
@@ -1475,7 +1475,7 @@ async function _sendMessageImpl(content, opts = {}) {
   const prevProvider = _currentProvider
 
   if (best.isDeepseekFallback) {
-    // DeepSeek V4 Pro fallback - native Anthropic-compatible endpoint.
+    // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
     // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
     // Model must be set explicitly: unknown names silently map to deepseek-v4-flash.
     // Final tier of the fallback chain. Bedrock forbidden per Tate 5 May 2026 12:40 AEST,
@@ -1488,7 +1488,7 @@ async function _sendMessageImpl(content, opts = {}) {
       const trulyExhausted = (acct1?.pctUsed >= 0.85) || (acct2?.pctUsed >= 0.85) ||
         acct1?.rateLimitStatus === 'rejected' || acct2?.rateLimitStatus === 'rejected'
       if (!trulyExhausted) {
-        logger.warn('DeepSeek fallback triggered but no account is near-exhausted - likely spurious', {
+        logger.warn('DeepSeek fallback triggered but no account is near-exhausted — likely spurious', {
           reason: best.reason,
           acct1PctUsed: acct1?.pctUsed,
           acct2PctUsed: acct2?.pctUsed,
@@ -1504,12 +1504,15 @@ async function _sendMessageImpl(content, opts = {}) {
         db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
       }
       delete options.resume
-      emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted - falling back to DeepSeek V4 Flash.` })
+      emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
     } else if (ccSessionId) {
       options.resume = ccSessionId
     }
     const sessionEnv = { ...process.env }
-    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || 'http://127.0.0.1:19721/anthropic'
+    // Route through local proxy that strips thinking blocks from requests/responses.
+    // Direct-to-DeepSeek fails when SDK echoes prior Claude thinking blocks.
+    const deepseekProxy = require('./deepseekProxyService')
+    sessionEnv.ANTHROPIC_BASE_URL = env.DEEPSEEK_FALLBACK_BASE_URL || deepseekProxy.getBaseUrl()
     sessionEnv.ANTHROPIC_API_KEY  = env.DEEPSEEK_API_KEY
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
@@ -1539,7 +1542,7 @@ async function _sendMessageImpl(content, opts = {}) {
     options.env = sessionEnv
     if (prevProvider !== 'claude_max_2') {
       delete options.resume
-      emitOutput({ type: 'system', content: `⚡ Switching to account 2 - ${best.reason}` })
+      emitOutput({ type: 'system', content: `⚡ Switching to account 2 — ${best.reason}` })
     }
   } else {
     _currentProvider = 'claude_max'
@@ -1558,7 +1561,7 @@ async function _sendMessageImpl(content, opts = {}) {
     options.env = sessionEnv
     if (prevProvider && prevProvider !== 'claude_max') {
       delete options.resume
-      emitOutput({ type: 'system', content: `Returning to account 1 - ${best.reason}` })
+      emitOutput({ type: 'system', content: `Returning to account 1 — ${best.reason}` })
     }
   }
 
@@ -1598,12 +1601,12 @@ async function _sendMessageImpl(content, opts = {}) {
   // ─── Per-tool watchdog ─────────────────────────────────────────────────
   // An MCP server can crash mid-tool-call (stdio pipe breaks, process dies,
   // remote API hangs). When that happens the SDK sits waiting for a
-  // tool_result that will never arrive - the inactivity timer doesn't fire
+  // tool_result that will never arrive — the inactivity timer doesn't fire
   // because the SDK is still receiving its own internal heartbeats.
   //
   // Track every tool_use id we see in assistant messages; clear on matching
   // tool_result. If a tool sits outstanding past PER_TOOL_TIMEOUT_MS, treat
-  // it as a hung MCP and abort the whole query - the outer retry / account-
+  // it as a hung MCP and abort the whole query — the outer retry / account-
   // switch logic then takes over.
   // 2026-04-23 hot-fix: per-tool watchdog was aborting OS turns at 60s on
   // healthy but slow tools (Factory dispatches, large git ops, nested MCP
@@ -1632,13 +1635,13 @@ async function _sendMessageImpl(content, opts = {}) {
       const ageSec = Math.round((Date.now() - oldest) / 1000)
       const abortEnabled = (process.env.TURN_TOOL_WATCHDOG_ABORT_ENABLED || 'false').toLowerCase() === 'true'
       if (abortEnabled) {
-        logger.error('OS Session: tool watchdog fired - tool outstanding past timeout, aborting query', {
+        logger.error('OS Session: tool watchdog fired — tool outstanding past timeout, aborting query', {
           tool_use_id: oldestId, ageSec, outstanding: _toolStartedAt.size,
         })
         _toolWatchdogAborted = true
         _abortActiveQuery('tool_watchdog')
       } else {
-        logger.warn('OS Session: tool watchdog fired - abort suppressed (TURN_TOOL_WATCHDOG_ABORT_ENABLED=false)', {
+        logger.warn('OS Session: tool watchdog fired — abort suppressed (TURN_TOOL_WATCHDOG_ABORT_ENABLED=false)', {
           tool_use_id: oldestId, ageSec, outstanding: _toolStartedAt.size,
         })
         // Reschedule so we keep tracking; single setTimeout fires once otherwise.
@@ -1674,13 +1677,13 @@ async function _sendMessageImpl(content, opts = {}) {
       const abortEnabled = (process.env.TURN_INACTIVITY_ABORT_ENABLED || 'false').toLowerCase() === 'true'
       const elapsedSec = Math.round(INACTIVITY_TIMEOUT_MS / 1000)
       if (abortEnabled) {
-        logger.error(`OS Session: inactivity timeout (${elapsedSec}s no messages) - aborting query`, {
+        logger.error(`OS Session: inactivity timeout (${elapsedSec}s no messages) — aborting query`, {
           currentProvider: _currentProvider,
         })
         _inactivityAborted = true
         _abortActiveQuery('inactivity_timeout')
       } else {
-        logger.warn(`OS Session: inactivity timeout (${elapsedSec}s no messages) - abort suppressed (TURN_INACTIVITY_ABORT_ENABLED=false)`, {
+        logger.warn(`OS Session: inactivity timeout (${elapsedSec}s no messages) — abort suppressed (TURN_INACTIVITY_ABORT_ENABLED=false)`, {
           currentProvider: _currentProvider,
         })
         _resetInactivityTimer()
@@ -1690,7 +1693,7 @@ async function _sendMessageImpl(content, opts = {}) {
 
   // ─── Liveness heartbeat (5s tick while the turn is in flight) ──────────
   // The frontend expects `os-session:status` with status='live' every 5s so
-  // it can render "thinking - Ns" or "running tool X - Ns" instead of a
+  // it can render "thinking — Ns" or "running tool X — Ns" instead of a
   // silent spinner during long tool chains. Without this, the UI goes quiet
   // for 30-60s stretches and feels dead even when the OS is working hard.
   let _livenessTimer = null
@@ -1720,7 +1723,7 @@ async function _sendMessageImpl(content, opts = {}) {
         runningSec: Math.round((Date.now() - oldest) / 1000),
         outstanding: _toolStartedAt.size,
       }
-      // name is opportunistic - _toolStartedAt may not have it for pre-P1 paths.
+      // name is opportunistic — _toolStartedAt may not have it for pre-P1 paths.
       if (!oldestName) detail.name = oldestId || 'tool'
     }
     if (!suppressOutput) {
@@ -1740,7 +1743,7 @@ async function _sendMessageImpl(content, opts = {}) {
     _livenessTurnStartedAt = Date.now()
     // First tick at ~2s so the UI gets a signal quickly after send, then 5s cadence.
     // Tracked so _stopLiveness can cancel the initial delay if the turn ends
-    // before it fires - otherwise the setInterval gets armed for a dead turn.
+    // before it fires — otherwise the setInterval gets armed for a dead turn.
     _livenessInitialTimer = setTimeout(() => {
       _livenessInitialTimer = null
       if (!_livenessTurnStartedAt) return
@@ -1779,7 +1782,7 @@ async function _sendMessageImpl(content, opts = {}) {
   // turn. Block goes between <now> and <restart_recovery> so it reads as
   // "current context" before any session recovery state.
   //
-  // TIMEOUT-WRAPPED - a paused/unavailable Neo4j Aura instance would otherwise
+  // TIMEOUT-WRAPPED — a paused/unavailable Neo4j Aura instance would otherwise
   // hang the entire turn at the `await _memoryBlockPromise` below. 2026-04-23
   // incident: Aura paused (free tier), every turn stalled indefinitely with no
   // logs because the memory lookup never resolved. 5s hard cap → fall through
@@ -1787,7 +1790,7 @@ async function _sendMessageImpl(content, opts = {}) {
   const _withTimeout = (p, ms, label) => Promise.race([
     p,
     new Promise(resolve => setTimeout(() => {
-      logger.warn(`OS Session: ${label} timed out after ${ms}ms - proceeding without it (Neo4j health?)`)
+      logger.warn(`OS Session: ${label} timed out after ${ms}ms — proceeding without it (Neo4j health?)`)
       resolve(null)
     }, ms)),
   ])
@@ -1801,7 +1804,7 @@ async function _sendMessageImpl(content, opts = {}) {
     5000,
     'doctrine injection',
   )
-  // Forks rollup - ambient awareness of parallel sub-sessions. Cheap (in-memory
+  // Forks rollup — ambient awareness of parallel sub-sessions. Cheap (in-memory
   // Map + at most one bounded DB query). Capped at 2s since it should always
   // be fast; if the DB hiccups we'd rather skip it than block the user turn.
   const _forksRollupPromise = _withTimeout(
@@ -1819,7 +1822,7 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'perception summary',
   )
-  // Proactivity engine state - cheap (in-memory + 3 DB queries), capped at 2s.
+  // Proactivity engine state — cheap (in-memory + 3 DB queries), capped at 2s.
   // Injects <proactivity_signal> into BP4 so the conductor knows what the engine
   // would suggest next, without the engine having to enqueue a message.
   const _proactivityPromise = _withTimeout(
@@ -1843,7 +1846,7 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'proactivity signal',
   )
-  // Conductor commitments + thread carry-forward - fork_mos3hwpk_9fbdc5 5 May 2026.
+  // Conductor commitments + thread carry-forward — fork_mos3hwpk_9fbdc5 5 May 2026.
   // Cheap (status_board + kv_store reads, <100ms each), capped at 2s.
   const _commitmentsPromise = _withTimeout(
     _injectConductorCommitments().catch(() => null),
@@ -1866,7 +1869,7 @@ async function _sendMessageImpl(content, opts = {}) {
   // Await memory + doctrine results and splice after <now>, before restart_recovery
   // Order: <now> (idx 0), <recent_doctrine>, <relevant_memory>, <perception_summary>, <restart_recovery>
   // Splice in reverse so the later insertions push earlier ones down correctly.
-  // Log failures at debug - these fail silently on Neo4j flakiness and the
+  // Log failures at debug — these fail silently on Neo4j flakiness and the
   // turn proceeds without injected context, but we want a breadcrumb for
   // "why was the OS responding without its usual memory" post-hoc analysis.
   let _memoryBlock = null
@@ -1952,7 +1955,7 @@ async function _sendMessageImpl(content, opts = {}) {
     }
   }
   // ─── turnInjectionService: dedupe + relevance-gate + telemetry ───────────
-  // Centralised gating logic - replaces the splice-based assembly that used
+  // Centralised gating logic — replaces the splice-based assembly that used
   // to live here. Each candidate block is passed through processBlocks, which
   // applies per-block hard caps (already applied upstream by the producers),
   // dedupe vs previous turn (kv_store ledger keyed by sessionId), and the
@@ -2053,7 +2056,7 @@ async function _sendMessageImpl(content, opts = {}) {
     const _mode = promptAssembler.resolveMode(env.PROMPT_ASSEMBLY_V2, dbSessionId)
     if (_mode.audit) {
       // Rebuild the turn_context the assembler needs from the blocks v1 just
-      // computed. Keeps duplication local to this block - the assembler is
+      // computed. Keeps duplication local to this block — the assembler is
       // blind to osSessionService's internals by design.
       const _v2TurnContext = {
         user_content: content,
@@ -2072,7 +2075,7 @@ async function _sendMessageImpl(content, opts = {}) {
         turn_context: _v2TurnContext,
       })
       // Comparison baseline: v1 system prompt + the continuity envelope (not
-      // including the raw user message - the assembler doesn't own that).
+      // including the raw user message — the assembler doesn't own that).
       const _v1Text = customSystemPrompt +
         (continuityParts.length > 0 ? '\n\n' + continuityParts.join('\n\n') : '')
       // Emit per-breakpoint byte metric for /ops dashboard. JSON log line
@@ -2144,7 +2147,7 @@ async function _sendMessageImpl(content, opts = {}) {
         logger.debug('OS Session SDK message', { type: msg.type, subtype: msg.subtype })
 
         switch (msg.type) {
-          // ─── System init - capture session_id + log actual model ─
+          // ─── System init — capture session_id + log actual model ─
           case 'system': {
             if (msg.subtype === 'init') {
               // SDK reports the real model it locked in (including SDK default
@@ -2172,13 +2175,13 @@ async function _sendMessageImpl(content, opts = {}) {
             break
           }
 
-          // ─── User message - contains tool_result blocks after tool calls ─
+          // ─── User message — contains tool_result blocks after tool calls ─
           case 'user': {
             const content = msg.message?.content
             if (!Array.isArray(content)) break
             for (const block of content) {
               if (block.type === 'tool_result') {
-                // Clear the watchdog for this tool_use_id - it completed.
+                // Clear the watchdog for this tool_use_id — it completed.
                 _markToolCompleted(block.tool_use_id)
                 try {
                   await osConversationLog.logTurn({
@@ -2232,7 +2235,7 @@ async function _sendMessageImpl(content, opts = {}) {
             break
           }
 
-          // ─── Full assistant message - extract text, broadcast ─
+          // ─── Full assistant message — extract text, broadcast ─
           case 'assistant': {
             // If compaction was in-flight and we received the next assistant turn,
             // treat that as an implicit compaction-end signal (singular boundary case).
@@ -2262,7 +2265,7 @@ async function _sendMessageImpl(content, opts = {}) {
             }
 
             // Track tool_use starts for the per-tool watchdog, regardless
-            // of suppressOutput - we still want to protect against MCP hangs
+            // of suppressOutput — we still want to protect against MCP hangs
             // on background turns.
             const toolUses = blocks.filter(b => b.type === 'tool_use')
             for (const t of toolUses) _markToolStarted(t.id, t.name)
@@ -2313,7 +2316,7 @@ async function _sendMessageImpl(content, opts = {}) {
                   ) ?? 0,
                 }).catch(() => {})
               }
-              // Live token usage broadcast - surfaces context-fill progress in the UI
+              // Live token usage broadcast — surfaces context-fill progress in the UI
               // so Tate can see the session approaching the compact threshold rather
               // than being surprised by a silent handover. Fire-and-forget; don't care
               // if the broadcast fails.
@@ -2321,7 +2324,7 @@ async function _sendMessageImpl(content, opts = {}) {
                 try {
                   const handoverThreshold = _compactThreshold()
                   const total = sessionTokenUsage.input + sessionTokenUsage.output
-                  // Also surface the "context size" signal - for resumed sessions the
+                  // Also surface the "context size" signal — for resumed sessions the
                   // SDK's per-turn input_tokens is roughly how much context we're
                   // sending each turn, i.e. effective session size.
                   broadcast('os-session:tokens', {
@@ -2366,7 +2369,7 @@ async function _sendMessageImpl(content, opts = {}) {
             // assistant text and record them for async verification. The
             // verifier worker (src/workers/claimVerifierWorker.js) picks
             // pending rows up on a 30s cadence and dispatches per-action
-            // verifiers. Failures here are non-blocking - a broken claim
+            // verifiers. Failures here are non-blocking — a broken claim
             // parser must not break turn emission.
             if (safeText && safeText.trim()) {
               try {
@@ -2392,7 +2395,7 @@ async function _sendMessageImpl(content, opts = {}) {
             break
           }
 
-          // ─── Streaming partial - real-time text + thinking deltas + tool lifecycle ──
+          // ─── Streaming partial — real-time text + thinking deltas + tool lifecycle ──
           // Pinnacle P1: emits full event fidelity (assistant_message_starting,
           // tool_use_starting, tool_use_input_complete) from streaming events
           // before the full assistant message arrives.
@@ -2450,7 +2453,7 @@ async function _sendMessageImpl(content, opts = {}) {
             break
           }
 
-          // ─── Result - session complete, capture final usage ───
+          // ─── Result — session complete, capture final usage ───
           case 'result': {
             sawResultMessage = true
             // Compaction must be done by the time a result arrives.
@@ -2464,7 +2467,7 @@ async function _sendMessageImpl(content, opts = {}) {
               // That's effectively the "context-window fill" signal we want for
               // the compaction threshold. Capture it for the post-turn check.
               //
-              // We deliberately do NOT overwrite sessionTokenUsage here - that
+              // We deliberately do NOT overwrite sessionTokenUsage here — that
               // double-accounted against the `assistant` event accumulation and
               // made the cumulative total reflect only the latest turn, which is
               // why the 800k compact threshold never actually fired historically.
@@ -2476,7 +2479,7 @@ async function _sendMessageImpl(content, opts = {}) {
             if (msg.is_error) {
               const errTexts = (msg.errors || []).join(' ') + ' ' + (msg.result || '') + ' ' + (msg.stop_reason || '')
 
-              // Stale resume ID - CC CLI no longer has this session (e.g. after PM2 restart).
+              // Stale resume ID — CC CLI no longer has this session (e.g. after PM2 restart).
               // Clear it and retry fresh, once.
               if (!opts._staleCleaned && (
                 errTexts.includes('No conversation found') ||
@@ -2488,7 +2491,7 @@ async function _sendMessageImpl(content, opts = {}) {
                   kind: 'context_reset',
                   severity: 'warn',
                   component: 'os_session',
-                  message: 'stale resume ID in result - CC CLI lost the session, restarting fresh',
+                  message: 'stale resume ID in result — CC CLI lost the session, restarting fresh',
                   context: { trigger: 'stale_retry_in_result', staleCcSessionId: ccSessionId },
                 })
                 ccSessionId = null
@@ -2505,7 +2508,7 @@ async function _sendMessageImpl(content, opts = {}) {
                 //   "resets 11am (UTC)"
                 //   "resets Mon at 3pm UTC"
                 // Best-effort: if parsing fails, account is still marked rejected,
-                // just without a watcher target - switch-back falls back to the
+                // just without a watcher target — switch-back falls back to the
                 // next user message or heartbeat.
                 _parseAndStampResetFromError(errTexts, _currentProvider)
                 const next = _switchAfterExhaustion()
@@ -2513,8 +2516,8 @@ async function _sendMessageImpl(content, opts = {}) {
                   ccSessionId = null
                   activeQuery = null
                   activeAbort = null
-                  logger.warn(`OS Session ${_currentProvider} exhausted - switching to ${next.provider}`, { reason: next.reason })
-                  emitOutput({ type: 'system', content: `⚡ ${_currentProvider} limit hit - switching to ${next.provider}.` })
+                  logger.warn(`OS Session ${_currentProvider} exhausted — switching to ${next.provider}`, { reason: next.reason })
+                  emitOutput({ type: 'system', content: `⚡ ${_currentProvider} limit hit — switching to ${next.provider}.` })
                   throw { _accountRetry: true, message: content }
                 }
               }
@@ -2624,7 +2627,7 @@ async function _sendMessageImpl(content, opts = {}) {
                 // size that tripped compaction) + reason. Fire-and-forget; we
                 // stash the inserted id on outer-scope vars so the matching
                 // 'end' branch can close it. On table-not-exists or any other
-                // failure we just drop the row - observability is best-effort.
+                // failure we just drop the row — observability is best-effort.
                 ;(async () => {
                   try {
                     const dbModule = require('../config/db')
@@ -2690,7 +2693,7 @@ async function _sendMessageImpl(content, opts = {}) {
               type: info.rateLimitType,
               resetsAt: info.resetsAt,
             })
-            // Nothing to act on unless the request was rejected - the SDK will
+            // Nothing to act on unless the request was rejected — the SDK will
             // surface the actual error in the 'result' message which already
             // triggers account switching via _isUsageExhausted().
             break
@@ -2712,7 +2715,7 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
 
-    // Session complete - clear timers and refresh real usage %
+    // Session complete — clear timers and refresh real usage %
     if (_inactivityTimer) clearTimeout(_inactivityTimer)
     if (_toolWatchdog) clearTimeout(_toolWatchdog)
     if (_compactBoundaryTimer) { clearTimeout(_compactBoundaryTimer); _compactBoundaryTimer = null }
@@ -2728,7 +2731,7 @@ async function _sendMessageImpl(content, opts = {}) {
 
     // If the loop ended due to inactivity timeout or a hung tool call,
     // treat it as a hang and try switching accounts. Direct-call
-    // _sendMessageImpl (NOT sendMessage) - we're already inside the
+    // _sendMessageImpl (NOT sendMessage) — we're already inside the
     // serialized queue, so going through the queue again would deadlock.
     // Depth-guarded to prevent the recursion bomb.
     if (_inactivityAborted || _toolWatchdogAborted) {
@@ -2738,7 +2741,7 @@ async function _sendMessageImpl(content, opts = {}) {
       // A hung MCP tool or a silent SDK means the current PROVIDER is fine;
       // something downstream is stuck. Previously we called
       // _switchAfterExhaustion() here, which marked the provider rejected
-      // and flipped us to a fallback - that's how a neo4j outage could end up
+      // and flipped us to a fallback — that's how a neo4j outage could end up
       // marking a healthy 35%-quota Max account as exhausted unnecessarily.
       //
       // New policy: a hang retries on the SAME provider (fresh session_id)
@@ -2747,11 +2750,11 @@ async function _sendMessageImpl(content, opts = {}) {
       // provider switch.
       if (retryDepth < MAX_RETRY_DEPTH) {
         ccSessionId = null  // can't resume a dead session; start fresh
-        logger.warn(`OS Session: ${hangReason} - retrying on same provider ${_currentProvider}`, { retryDepth })
+        logger.warn(`OS Session: ${hangReason} — retrying on same provider ${_currentProvider}`, { retryDepth })
         emitOutput({ type: 'system', content: `⚡ Retrying (${hangReason})…` })
         return _sendMessageImpl(content, { ...opts, _retryDepth: retryDepth + 1 })
       }
-      logger.error(`OS Session: ${hangReason} at max retry depth - surfacing error`, { retryDepth, provider: _currentProvider })
+      logger.error(`OS Session: ${hangReason} at max retry depth — surfacing error`, { retryDepth, provider: _currentProvider })
       osIncident.log({
         kind: _toolWatchdogAborted ? 'tool_hung' : 'turn_failure',
         severity: 'error',
@@ -2775,17 +2778,17 @@ async function _sendMessageImpl(content, opts = {}) {
 
     // If the SDK for-await loop ended with no result and no text, retry ONCE
     // on a fresh session_id. Most "empty stream" cases are stale ccSessionId
-    // where the CC CLI no longer has the session on disk - same-provider
+    // where the CC CLI no longer has the session on disk — same-provider
     // retry with null resume fixes it. If it still empty-streams on the
     // retry, that's a real CLI / auth issue; surface it.
     if (!sawResultMessage && collectedText.length === 0) {
       if (retryDepth < MAX_RETRY_DEPTH && ccSessionId) {
-        logger.warn('OS Session: empty SDK stream - retrying with fresh session_id', { retryDepth, provider: _currentProvider })
+        logger.warn('OS Session: empty SDK stream — retrying with fresh session_id', { retryDepth, provider: _currentProvider })
         osIncident.log({
           kind: 'context_reset',
           severity: 'warn',
           component: 'os_session',
-          message: 'empty SDK stream - ccSessionId nulled, retrying fresh',
+          message: 'empty SDK stream — ccSessionId nulled, retrying fresh',
           context: { trigger: 'empty_stream_retry', provider: _currentProvider, retryDepth },
         })
         ccSessionId = null
@@ -2823,7 +2826,7 @@ async function _sendMessageImpl(content, opts = {}) {
             cc_session_id: ccSessionId,
             provider: _currentProvider,
             user_tail: userTail,
-            assistant_tail: `[empty_sdk_stream - turn failed to produce a response]`,
+            assistant_tail: `[empty_sdk_stream — turn failed to produce a response]`,
             tokens: sessionTokenUsage.input + sessionTokenUsage.output,
             failed: true,
           })
@@ -2849,10 +2852,10 @@ async function _sendMessageImpl(content, opts = {}) {
     //
     // Bounded ~1.5KB (two 600-char tails) so it can't bloat context. We
     // deliberately skip:
-    // - suppressed turns (sendTask / background handover generation)
-    // - heartbeat turns (they'd overwrite real user context with
+    //   - suppressed turns (sendTask / background handover generation)
+    //   - heartbeat turns (they'd overwrite real user context with
     //     "nothing pressing" self-replies and destroy continuity)
-    // - scheduled-cron turns (same reasoning)
+    //   - scheduled-cron turns (same reasoning)
     // The last genuine user→assistant exchange is what's worth recovering.
     const isHeartbeatTurn = content.startsWith('[HEARTBEAT]')
     const isScheduledTurn = content.startsWith('[SCHEDULED:')
@@ -2862,7 +2865,7 @@ async function _sendMessageImpl(content, opts = {}) {
         const TAIL_CHARS = 600
         const userTail = content.length > TAIL_CHARS ? '…' + content.slice(-TAIL_CHARS) : content
         const asstTail = lastAssistant.length > TAIL_CHARS ? '…' + lastAssistant.slice(-TAIL_CHARS) : lastAssistant
-        // JSON.stringify explicitly - the live kv_store has been observed as
+        // JSON.stringify explicitly — the live kv_store has been observed as
         // both TEXT and JSONB on different DB versions. A stringified JSON
         // object works for both (JSONB accepts JSON-string input; TEXT takes
         // it as-is). Passing a bare JS object to TEXT writes "[object Object]".
@@ -2882,14 +2885,14 @@ async function _sendMessageImpl(content, opts = {}) {
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
           `
         } catch (dbErr) {
-          logger.warn('breadcrumb write failed - next restart will lose context', { error: dbErr.message })
+          logger.warn('breadcrumb write failed — next restart will lose context', { error: dbErr.message })
           try {
             const osIncident = require('./osIncidentService')
             osIncident.log({
               kind: 'context_reset',
               severity: 'warn',
               component: 'os_session',
-              message: 'breadcrumb write failed - context will not survive restart',
+              message: 'breadcrumb write failed — context will not survive restart',
               context: { error: dbErr.message, sessionId: dbSessionId },
             })
           } catch {}
@@ -2913,7 +2916,7 @@ async function _sendMessageImpl(content, opts = {}) {
     const contextFill = _lastTurnInputTokens || 0
     const shouldHandover = contextFill > handoverThreshold && !suppressOutput
     if (shouldHandover) {
-      logger.info('OS Session: auto-handover threshold hit - signalling before complete', {
+      logger.info('OS Session: auto-handover threshold hit — signalling before complete', {
         contextFill, threshold: handoverThreshold,
       })
       // Tell the UI *now*, before os-session:complete flips it to idle.
@@ -2933,7 +2936,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // Auto-deliver any pending queued messages now that the turn is done.
     // Fire-and-forget: deliverPending is idempotent (no-op when queue empty)
     // and its sendMessage call goes through _sendQueue, so it waits behind any
-    // other in-flight work. Only runs for user-visible turns - background
+    // other in-flight work. Only runs for user-visible turns — background
     // turns (handover brief generation, heartbeats) must not drain the queue
     // since that would trigger mid-handover delivery loops.
     if (!suppressOutput && !shouldHandover) {
@@ -2947,7 +2950,7 @@ async function _sendMessageImpl(content, opts = {}) {
       }
     }
 
-    // Quota check fires in background for both accounts - updates energy state from real headers
+    // Quota check fires in background for both accounts — updates energy state from real headers
     usageEnergy.refreshAllAccounts()
       .then(() => usageEnergy.getEnergy())
       .then(energy => { if (!suppressOutput) broadcast('os-session:energy', energy) })
@@ -2995,14 +2998,14 @@ async function _sendMessageImpl(content, opts = {}) {
     // ─── _accountRetry sentinel (thrown from result handler at line ~932) ───
     // The result-message handler throws this when it detects usage exhaustion
     // and has already switched provider. Retry the turn on the new provider.
-    // Direct-call _sendMessageImpl (NOT sendMessage) - we're inside the queue.
+    // Direct-call _sendMessageImpl (NOT sendMessage) — we're inside the queue.
     // Depth-guarded so a repeated-exhaustion cascade can't recurse forever.
     if (err && err._accountRetry) {
       if (retryDepth < MAX_RETRY_DEPTH) {
         logger.info('OS Session: retrying turn on new provider after exhaustion', { retryDepth, newProvider: _currentProvider })
         return _sendMessageImpl(err.message || content, { ...opts, _retryDepth: retryDepth + 1 })
       }
-      logger.error('OS Session: account retry at max depth - surfacing error', { retryDepth })
+      logger.error('OS Session: account retry at max depth — surfacing error', { retryDepth })
       const message = 'All providers exhausted (max retry depth reached).'
       if (!suppressOutput) {
         emitOutput({ type: 'error', content: message })
@@ -3021,7 +3024,7 @@ async function _sendMessageImpl(content, opts = {}) {
             cc_session_id: ccSessionId,
             provider: _currentProvider,
             user_tail: userTail,
-            assistant_tail: `[max_retry_depth - all providers exhausted]`,
+            assistant_tail: `[max_retry_depth — all providers exhausted]`,
             tokens: sessionTokenUsage.input + sessionTokenUsage.output,
             failed: true,
           })
@@ -3038,15 +3041,15 @@ async function _sendMessageImpl(content, opts = {}) {
     }
 
     // ─── _staleRetry sentinel (thrown from result handler when SDK reports
-    // session-not-found in the result itself - happens after PM2 restart). ───
+    // session-not-found in the result itself — happens after PM2 restart). ───
     if (err && err._staleRetry && !opts._staleCleaned) {
-      logger.warn('OS Session: stale resume ID from result - starting fresh')
+      logger.warn('OS Session: stale resume ID from result — starting fresh')
       return _sendMessageImpl(err.message || content, { ...opts, _staleCleaned: true, _retryDepth: retryDepth + 1 })
     }
 
     const errMsg = err.message || String(err)
 
-    // Stale resume ID after PM2 restart - CC CLI no longer has the session.
+    // Stale resume ID after PM2 restart — CC CLI no longer has the session.
     // Clear our stored ID and retry fresh exactly ONCE. This is cheap, safe,
     // and the only automatic retry we still do. All other failure modes
     // (auth, network, model errors) surface immediately and visibly.
@@ -3055,14 +3058,16 @@ async function _sendMessageImpl(content, opts = {}) {
       (errMsg.includes('session') && errMsg.includes('not found')) ||
       errMsg.includes('Invalid session') ||
       errMsg.includes('Invalid signature in thinking block') ||
-      errMsg.includes('invalid_signature')
+      errMsg.includes('invalid_signature') ||
+      errMsg.includes('thinking in the thinking mode must be passed back') ||
+      errMsg.includes('thinking_mode')
     )) {
-      logger.warn('OS Session: stale resume ID - starting fresh', { staleCcSessionId: ccSessionId })
+      logger.warn('OS Session: stale resume ID — starting fresh', { staleCcSessionId: ccSessionId })
       osIncident.log({
         kind: 'context_reset',
         severity: 'warn',
         component: 'os_session',
-        message: 'stale resume ID surfaced as exception - restarting fresh',
+        message: 'stale resume ID surfaced as exception — restarting fresh',
         context: { trigger: 'stale_retry_outer_catch', errMsg: errMsg.slice(0, 200) },
       })
       ccSessionId = null
@@ -3102,7 +3107,7 @@ async function _sendMessageImpl(content, opts = {}) {
   }
 }
 
-// Safe swap helper - atomically takes the current activeQuery, nulls the ref,
+// Safe swap helper — atomically takes the current activeQuery, nulls the ref,
 // then propagates cancellation via AbortController before attempting close().
 //
 // AbortController.abort() is the primary cancellation path: it propagates into
@@ -3120,7 +3125,7 @@ function _abortActiveQuery(reason) {
   activeAbort = null
   activeQuerySuppressed = false
   if (ac) {
-    // Primary cancellation - propagates into SDK tool runners and undici fetch.
+    // Primary cancellation — propagates into SDK tool runners and undici fetch.
     try { ac.abort(reason || 'aborted') } catch (e) {
       logger.debug('AbortController.abort threw', { reason, error: e?.message })
     }
@@ -3138,7 +3143,7 @@ function _abortActiveQuery(reason) {
 // naturally within 30s of an abort (e.g. a native syscall is truly wedged),
 // call process.exit(1) so PM2 respawns ecodia-api.
 //
-// Not scheduled for 'new_turn_starting' or 'priority_preempt' - those abort
+// Not scheduled for 'new_turn_starting' or 'priority_preempt' — those abort
 // one query only to immediately start the next, so lingering in _abortInProgress
 // would be wrong. All watchdog/manual aborts DO schedule the timer.
 //
@@ -3156,10 +3161,10 @@ function _scheduleAbortGraceTimer(reason) {
     if (_abortInProgress) {
       const exitEnabled = (process.env.SDK_ABORT_GRACE_EXIT_ENABLED || 'false').toLowerCase() === 'true'
       if (exitEnabled) {
-        logger.error('SDK_ABORT_GRACE_EXPIRED - process exit for PM2 respawn', { reason })
+        logger.error('SDK_ABORT_GRACE_EXPIRED — process exit for PM2 respawn', { reason })
         process.exit(1)
       } else {
-        logger.warn('SDK_ABORT_GRACE_EXPIRED - exit suppressed (SDK_ABORT_GRACE_EXIT_ENABLED=false)', { reason })
+        logger.warn('SDK_ABORT_GRACE_EXPIRED — exit suppressed (SDK_ABORT_GRACE_EXIT_ENABLED=false)', { reason })
         // Clear the in-progress flag so subsequent turns can proceed.
         _abortInProgress = false
       }
@@ -3171,7 +3176,7 @@ function _scheduleAbortGraceTimer(reason) {
 // Hard ceiling on any single turn. If _sendMessageImpl hasn't resolved within
 // this window, the global watchdog force-aborts the query, writes a failure
 // breadcrumb, emits 'error' status so the frontend unfreezes, and resolves the
-// promise so _sendQueue advances. This is the last-resort recovery path - all
+// promise so _sendQueue advances. This is the last-resort recovery path — all
 // inner timeouts (per-tool 60s, inactivity 90s) should fire first. Only kicks
 // in when everything else has failed to notice the hang.
 //
@@ -3190,19 +3195,19 @@ async function _sendMessageWithWatchdog(content, opts) {
   const watchdogPromise = new Promise((resolve) => {
     watchdogTimer = setTimeout(() => {
       watchdogFired = true
-      logger.error('OS Session: global turn watchdog fired - force-aborting', {
+      logger.error('OS Session: global turn watchdog fired — force-aborting', {
         timeoutMs, isBackground, contentLen: content?.length,
       })
       _abortActiveQuery('turn_watchdog')
 
       // RESOLVE IMMEDIATELY so the outer Promise.race unblocks and _sendQueue
-      // advances - even if the cleanup awaits below hang (e.g., DB contention,
+      // advances — even if the cleanup awaits below hang (e.g., DB contention,
       // logger backpressure). Prior version awaited a DB breadcrumb write
       // BEFORE resolving; when Postgres got contended, the watchdog itself
       // wedged and the queue locked forever (2026-04-23 incident).
       resolve({ sessionId: null, ccCliSessionId: null, code: 1, text: 'Error: turn watchdog timeout', watchdogged: true })
 
-      // Fire-and-forget cleanup - runs in the background, never blocks the
+      // Fire-and-forget cleanup — runs in the background, never blocks the
       // queue's forward progress.
       ;(async () => {
         try {
@@ -3229,7 +3234,7 @@ async function _sendMessageWithWatchdog(content, opts) {
             VALUES ('session.last_breadcrumb', ${JSON.stringify({
               ts: Date.now(),
               user_tail: userTail,
-              assistant_tail: '[turn_watchdog - global timeout fired, turn force-aborted]',
+              assistant_tail: '[turn_watchdog — global timeout fired, turn force-aborted]',
               provider: _currentProvider,
               failed: true,
             })})
@@ -3249,7 +3254,7 @@ async function _sendMessageWithWatchdog(content, opts) {
       watchdogPromise,
     ])
     if (watchdogFired) {
-      // Watchdog won the race - _sendMessageImpl may still resolve later.
+      // Watchdog won the race — _sendMessageImpl may still resolve later.
       // We've already aborted the query; its eventual resolution is a no-op.
       return result
     }
@@ -3259,7 +3264,7 @@ async function _sendMessageWithWatchdog(content, opts) {
   }
 }
 
-// Serialized wrapper - all sendMessage calls queue through this so they never
+// Serialized wrapper — all sendMessage calls queue through this so they never
 // race or clobber each other's queries. This prevents scheduler crons, factory
 // completions, and user messages from interrupting each other mid-stream.
 //
@@ -3279,7 +3284,7 @@ async function sendMessage(content, opts = {}) {
     retryDepth: opts._retryDepth || 0,
   })
 
-  // Input size guard - reject pathologically huge prompts at the door. The
+  // Input size guard — reject pathologically huge prompts at the door. The
   // SDK technically accepts them but they cause unpredictable tool/CLI
   // behaviour and make debugging "it just froze" nearly impossible. 200KB
   // covers any legitimate paste + generous margin.
@@ -3292,14 +3297,14 @@ async function sendMessage(content, opts = {}) {
 
   if (opts.priority && activeQuery) {
     // If the task we're about to kill was a suppressed background task
-    // (sendTask), don't broadcast an interrupt to the frontend - the user
+    // (sendTask), don't broadcast an interrupt to the frontend — the user
     // was never seeing it, so finalising it as an assistant message would
     // leak internal work into the chat. This was the source of the
     // "half-sentences from KG consolidation appear mid-conversation" bug.
     const wasSuppressed = activeQuerySuppressed
-    logger.info('Priority message - aborting active query to deliver immediately', { wasSuppressed })
+    logger.info('Priority message — aborting active query to deliver immediately', { wasSuppressed })
     _abortActiveQuery('priority_preempt')
-    // Flush the queue - stale system messages shouldn't fire after a user interrupt
+    // Flush the queue — stale system messages shouldn't fire after a user interrupt
     _sendQueue = Promise.resolve()
     if (!wasSuppressed) {
       // Broadcast interrupt only for user-facing streams, so the frontend
@@ -3333,8 +3338,8 @@ async function sendMessage(content, opts = {}) {
 // Auto-heals zombie sessions: if the DB row says `running` but no activeQuery
 // is set in memory (process restarted mid-turn, or watchdog fired but DB was
 // contended), mark the row complete so the UI doesn't report a ghost turn
-// forever. Runs opportunistically per status call - no dedicated cron needed.
-const ZOMBIE_SESSION_MAX_AGE_MS = 20 * 60 * 1000 // 20 min - past the 15-min user watchdog
+// forever. Runs opportunistically per status call — no dedicated cron needed.
+const ZOMBIE_SESSION_MAX_AGE_MS = 20 * 60 * 1000 // 20 min — past the 15-min user watchdog
 
 async function getStatus() {
   const session = await getOSSession()
@@ -3349,7 +3354,7 @@ async function getStatus() {
         ageMs,
         startedAt: session.started_at,
       })
-      // Fire-and-forget - never block status reply on a DB write
+      // Fire-and-forget — never block status reply on a DB write
       updateOSSession(session.id, { status: 'complete' }).catch(err => {
         logger.debug('OS Session: zombie auto-heal DB update failed', { error: err.message })
       })
@@ -3375,12 +3380,12 @@ async function getStatus() {
   }
 }
 
-// ── Restart - kill current, start fresh ──
+// ── Restart — kill current, start fresh ──
 
 async function restart() {
   _abortActiveQuery('manual_restart')
   ccSessionId = null
-  _currentProvider = 'claude_max'  // reset - smart selection will re-evaluate on next message
+  _currentProvider = 'claude_max'  // reset — smart selection will re-evaluate on next message
   usageEnergy.setProvider('claude_max')
   // Refresh both accounts so the next message gets fresh data
   usageEnergy.refreshAllAccounts().catch(() => {})
@@ -3404,13 +3409,13 @@ async function getHistory(limit = 100) {
   return logs.reverse()
 }
 
-// ── Compact - seamlessly transition to a new session with context ──
+// ── Compact — seamlessly transition to a new session with context ──
 
-// DEPRECATED - SDK native compaction handles context management internally.
+// DEPRECATED — SDK native compaction handles context management internally.
 // This function DESTROYS the current session and starts fresh with a summary,
 // losing all conversation history. Only kept for the /compact endpoint backwards compat.
 async function compact(summary) {
-  logger.warn('compact() called - this is DEPRECATED and destroys session context. Use SDK compaction instead.')
+  logger.warn('compact() called — this is DEPRECATED and destroys session context. Use SDK compaction instead.')
   _abortActiveQuery('compact_deprecated')
 
   // Create a new session
@@ -3421,7 +3426,7 @@ async function compact(summary) {
   ccSessionId = null
 
   // Send the summary as the first message to establish context in the new session
-  const contextMessage = `[CONTEXT FROM PREVIOUS SESSION]\n\n${summary}\n\n[END CONTEXT]\n\nYou are continuing an ongoing conversation. The above is a summary of what was discussed and decided. Continue seamlessly - the human should not notice the session transition.`
+  const contextMessage = `[CONTEXT FROM PREVIOUS SESSION]\n\n${summary}\n\n[END CONTEXT]\n\nYou are continuing an ongoing conversation. The above is a summary of what was discussed and decided. Continue seamlessly — the human should not notice the session transition.`
 
   logger.info('OS Session compacting', { newSessionId: newSession.id, summaryLength: summary.length })
 
@@ -3432,19 +3437,19 @@ async function compact(summary) {
   return { sessionId: newSession.id, ...result }
 }
 
-// ── Auto-handover - self-initiated seamless session transition ──
+// ── Auto-handover — self-initiated seamless session transition ──
 //
 // Design goals:
 //  1. Only fires at end of a complete turn (natural pause in conversation)
 //  2. Asks the current session to write its own detailed handover brief
 //  3. Warms the new session with that brief + instructs it to read CLAUDE.md/docs
 //  4. Signals frontend with last-N messages so UI can do a seamless dissolve
-//  5. Never interrupts an active stream - deferred until turn completes
+//  5. Never interrupts an active stream — deferred until turn completes
 
 // Hard ceiling on the entire handover flow. If brief-generation + warmup takes
 // longer than this, the handover watchdog force-resets state so the OS can
 // accept new messages again. Without this guard, a hung brief call could
-// leave handoverInProgress=true forever - next call returns immediately,
+// leave handoverInProgress=true forever — next call returns immediately,
 // effectively disabling the whole session until PM2 restart.
 const HANDOVER_WATCHDOG_MS = 10 * 60 * 1000
 
@@ -3457,8 +3462,8 @@ async function autoHandover(recentMessages) {
   const handoverStartedAt = Date.now()
 
   // Watchdog: if the whole flow exceeds HANDOVER_WATCHDOG_MS, force-reset.
-  // Doesn't interrupt running calls - they'll continue and resolve/error on
-  // their own - but ensures the session isn't permanently wedged.
+  // Doesn't interrupt running calls — they'll continue and resolve/error on
+  // their own — but ensures the session isn't permanently wedged.
   const handoverWatchdog = setTimeout(() => {
     if (handoverInProgress) {
       logger.error('autoHandover: watchdog fired, force-resetting', {
@@ -3469,7 +3474,7 @@ async function autoHandover(recentMessages) {
           kind: 'context_reset',
           severity: 'error',
           component: 'os_session',
-          message: 'handover watchdog fired - force-reset handoverInProgress',
+          message: 'handover watchdog fired — force-reset handoverInProgress',
           context: { elapsedMs: Date.now() - handoverStartedAt, trigger: 'handover_watchdog' },
         })
       } catch {}
@@ -3496,7 +3501,7 @@ async function autoHandover(recentMessages) {
       kind: 'context_reset',
       severity: 'warn',
       component: 'os_session',
-      message: `auto-handover triggered at ${tokensAtHandover} tokens - ccSessionId nulled, warm brief generated`,
+      message: `auto-handover triggered at ${tokensAtHandover} tokens — ccSessionId nulled, warm brief generated`,
       context: { tokens: tokensAtHandover, trigger: 'auto_handover' },
     })
 
@@ -3509,7 +3514,7 @@ async function autoHandover(recentMessages) {
 
     // Ask current session to write its own handover brief.
     // This runs in the CURRENT session context so it has full conversation history.
-    const briefRequest = `[SYSTEM: Context refresh needed - session approaching token limit]
+    const briefRequest = `[SYSTEM: Context refresh needed — session approaching token limit]
 
 Please write a comprehensive handover brief for a fresh session that will continue this conversation. The brief must be detailed enough that the new session can continue seamlessly without the user noticing any gap.
 
@@ -3527,7 +3532,7 @@ Format the brief exactly as follows:
 [If any code/system work is in progress: what's done, what's next, what files were changed]
 
 ### Personality & tone notes
-[How this conversation has been going - user's communication style, any preferences expressed]
+[How this conversation has been going — user's communication style, any preferences expressed]
 
 ### Critical context
 [Anything else the new session MUST know to continue without confusion]
@@ -3535,10 +3540,10 @@ Format the brief exactly as follows:
 ### Last few exchanges (verbatim if important)
 [The most recent 2-3 turns summarised precisely]
 
-Write this now. Be thorough - this brief is the only continuity between sessions.`
+Write this now. Be thorough — this brief is the only continuity between sessions.`
 
     emitStatus('handover_preparing', { phase: 'generating_brief' })
-    // Suppress output during brief generation - this is an internal turn, not a user-visible response
+    // Suppress output during brief generation — this is an internal turn, not a user-visible response
     const briefResult = await sendMessage(briefRequest, { suppressOutput: true })
     const brief = briefResult.text || ''
 
@@ -3562,7 +3567,7 @@ Write this now. Be thorough - this brief is the only continuity between sessions
     const cwd = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
 
     // Warm message: brief + instruction to read CLAUDE.md and relevant docs
-    const warmMessage = `[NEW SESSION - HANDOVER BRIEF FROM PREVIOUS SESSION]
+    const warmMessage = `[NEW SESSION — HANDOVER BRIEF FROM PREVIOUS SESSION]
 
 ${brief}
 
@@ -3572,7 +3577,7 @@ You are a fresh session continuing the above conversation. Before responding to 
 
 1. Read CLAUDE.md in the current working directory (${cwd}) for your identity, capabilities, and OS context
 2. Quickly scan the relevant spec files in .claude/ for any system context that applies to the current work
-3. Then continue the conversation as if there was no interruption - the user should not notice the session transition at all
+3. Then continue the conversation as if there was no interruption — the user should not notice the session transition at all
 
 The handover is complete when you've read the docs and are ready to continue. Do NOT mention the session transition unless directly asked.`
 
@@ -3581,7 +3586,7 @@ The handover is complete when you've read the docs and are ready to continue. Do
       briefLength: brief.length,
     })
 
-    // Run the warm message - starts the new session, loads CLAUDE.md/docs.
+    // Run the warm message — starts the new session, loads CLAUDE.md/docs.
     // Suppressed from frontend: this is an internal context-loading turn, not a chat response.
     const warmResult = await sendMessage(warmMessage, { suppressOutput: true })
 
@@ -3622,7 +3627,7 @@ function getTokenUsage() {
   }
 }
 
-// ── Recover missed response - returns assistant text after a timestamp ──
+// ── Recover missed response — returns assistant text after a timestamp ──
 
 async function recoverResponse(sinceTs) {
   const session = await getOSSession()
@@ -3657,7 +3662,7 @@ async function recoverResponse(sinceTs) {
   }
 }
 
-// ── Abort - kill the active query immediately ──
+// ── Abort — kill the active query immediately ──
 
 async function abort() {
   if (!activeQuery) {
@@ -3702,13 +3707,13 @@ async function abort() {
 function _isQueueBusy() {
   if (activeQuery) return true
   // _sendQueue is always a resolved Promise when idle (after .catch()).
-  // We treat handoverInProgress as busy too - anything queuing during a
+  // We treat handoverInProgress as busy too — anything queuing during a
   // handover would be orphaned by the queue flush.
   if (handoverInProgress) return true
   return false
 }
 
-// Test-only hooks - expose abort internals for unit tests without touching production paths.
+// Test-only hooks — expose abort internals for unit tests without touching production paths.
 function _getAbortGraceTimerForTest() { return abortGraceTimer }
 function _isAbortInProgressForTest() { return _abortInProgress }
 function _setActiveAbortForTest(ac) { activeAbort = ac }
