@@ -146,4 +146,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, buildWindowMetadata, resolveAnthropicKey };
+module.exports = { main, buildWindowMetadata };
