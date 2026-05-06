@@ -140,6 +140,11 @@ app.use('/api/canva', canvaRoutes)
 app.use('/api/message-queue', require('./routes/messageQueue'))
 app.use('/api/os-session', require('./routes/osSession'))
 app.use('/api/sms', require('./routes/smsWebhook'))
+// iMessage inbound webhook - SY094 Messages.app AppleScript handler POSTs
+// here on every Tate-originated incoming message. HMAC-validated, then
+// queued onto /api/os-session/message. See src/routes/imessageInbound.js.
+// Authored 6 May 2026 by fork_moum5ry1_25c72b (status_board f5589865).
+app.use('/api/imessage', require('./routes/imessageInbound'))
 app.use('/api/docs', require('./routes/documents'))
 app.use('/api/dashboard', require('./routes/dashboard'))
 app.use('/api/rescue', require('./routes/rescue'))
