@@ -1,15 +1,28 @@
 // vision-enrich.js
 //
 // Adds a one-sentence `semantic_description` to each click event in a
-// joined-event stream by sending pre + post screenshots through the Anthropic
-// vision API (Claude Sonnet 4.7). Per
+// joined-event stream by sending pre + post screenshots through the
+// canonical OS Anthropic client (see ~/ecodiaos/src/services/anthropicMessagesClient.js).
+//
+// Provider chain (mirrors osSessionService / forkService for one-shot calls):
+//   claude_max -> claude_max_2 -> deepseek (text-only; vision skipped here)
+// Per ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+//
+// Refactor 6 May 2026 (fork_motuvu0q_de7349): replaced the local raw
+// `x-api-key` /v1/messages POST + ANTHROPIC_API_KEY surface with
+// anthropicMessagesClient.createMessage, which uses the long-lived OAuth
+// bearer + `anthropic-beta: oauth-2025-04-20` header and falls back across
+// claude_max -> claude_max_2 -> deepseek. Per
 // ~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md
-// we hit api.anthropic.com directly: no proxy, no custom vision shim.
+// the local single-vendor postMessages was parallel infrastructure to the
+// OS provider chain - this rewires through the canonical client.
 //
 // Public API:
-//   await enrichWithVision({events, sessionDir, anthropicKey, model?, maxConcurrency?})
-//     -> mutates `events[i].semantic_description` (or .vision_error / .vision_skipped_reason)
-//     -> returns { enriched, skipped, errored, total }
+//   await enrichWithVision({events, sessionDir, model?, maxConcurrency?,
+//                          messagesClient?})
+//     -> mutates `events[i].semantic_description` (or .vision_error /
+//        .vision_skipped_reason)
+//     -> returns { enriched, skipped, errored, total, aborted?, abort_reason? }
 //
 // Cost guard:
 //   - Hard abort with `vision_skipped_reason = "event_count_exceeded_100"`
@@ -18,21 +31,30 @@
 // Concurrency:
 //   - Default 4 in-flight requests at once.
 //
-// Retry:
-//   - 3 attempts with exponential backoff on 429 / 5xx / network errors.
+// Vision-on-deepseek:
+//   - DeepSeek's Anthropic-compat proxy returns "[Unsupported Image]" for
+//     image content blocks (verified empirically 2026-05-06). When the
+//     canonical client has fallen to deepseek, createMessage returns
+//     { vision_unsupported: true } and we mark events
+//     `vision_skipped_reason = "deepseek_no_vision_support"`.
 //
 // Origin: Worker B3 brief, fork-spawned 6 May 2026 ~05:50 AEST.
+// Provider-chain refactor: fork_motuvu0q_de7349, 6 May 2026 ~19:25 AEST,
+// codifies the OS provider chain for vision rather than carrying its own
+// API-key surface.
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 
-const DEFAULT_MODEL = 'claude-sonnet-4-7-20251022';
+// Default sonnet model on the OAuth chain. Verified live 2026-05-06 via
+// /v1/models: claude-sonnet-4-7-20251022 returns 404 on the OAuth chain;
+// claude-sonnet-4-6 is the current sonnet ID. Override via
+// ANTHROPIC_VISION_MODEL env or `model` arg if a newer ID rolls out.
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const DEFAULT_MAX_CONCURRENCY = 4;
 const HARD_EVENT_CAP = 100;
-const MAX_ATTEMPTS = 3;
 
 const SYSTEM_PROMPT =
   'You analyze GUI recordings. Given a pre-state screenshot, post-state ' +
@@ -41,61 +63,6 @@ const SYSTEM_PROMPT =
   'speculate beyond visible evidence. Format: "<verb> the <semantic role of ' +
   'click target>; <observed UI change>". Example: "Clicked the File menu; ' +
   'submenu opened with New, Open, Save".';
-
-/**
- * POST a JSON payload to api.anthropic.com /v1/messages.
- * Returns the parsed JSON response on 2xx, or throws an Error tagged with
- * .status / .retryable for the caller's retry loop.
- */
-function postMessages({ apiKey, payload }) {
-  const body = JSON.stringify(payload);
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      method: 'POST',
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(body),
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-    }, (res) => {
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        const status = res.statusCode || 0;
-        if (status >= 200 && status < 300) {
-          try { resolve({ status, json: JSON.parse(data) }); }
-          catch (err) {
-            const e = new Error(`json parse failed: ${err.message}`);
-            e.status = status;
-            e.retryable = false;
-            reject(e);
-          }
-          return;
-        }
-        const err = new Error(`anthropic api ${status}: ${data.slice(0, 500)}`);
-        err.status = status;
-        err.retryable = status === 429 || status >= 500;
-        reject(err);
-      });
-    });
-    req.on('error', (err) => {
-      err.retryable = true;
-      reject(err);
-    });
-    // 60s timeout per request
-    req.setTimeout(60_000, () => {
-      req.destroy(Object.assign(new Error('anthropic api request timeout'), { retryable: true }));
-    });
-    req.write(body);
-    req.end();
-  });
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /**
  * Read a screenshot file as base64. Returns null if missing.
@@ -167,11 +134,15 @@ function extractText(json) {
 }
 
 /**
- * Process one event with retry. Mutates event.semantic_description /
- * event.vision_error in place.
+ * Process one event via the canonical messages client. Mutates
+ * event.semantic_description / event.vision_error / event.vision_skipped_reason
+ * in place.
+ *
+ * Special-case: if the canonical client returns { vision_unsupported: true }
+ * (the chain fell through to deepseek), mark a skip reason rather than an
+ * error - the recipe is still useful without per-event vision.
  */
-async function processOne({ event, sessionDir, apiKey, model }) {
-  // Skip events without any screenshot; vision adds nothing.
+async function processOne({ event, sessionDir, model, messagesClient }) {
   const hasPre = event.screenshot_pre_path && fs.existsSync(resolveScreenshotPath(sessionDir, event.screenshot_pre_path));
   const hasPost = event.screenshot_post_path && fs.existsSync(resolveScreenshotPath(sessionDir, event.screenshot_post_path));
   if (!hasPre && !hasPost) {
@@ -179,34 +150,34 @@ async function processOne({ event, sessionDir, apiKey, model }) {
     return { skipped: true };
   }
 
-  const payload = {
-    model,
-    max_tokens: 200,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: buildUserContent({ event, sessionDir }) }],
-  };
+  const messages = [{ role: 'user', content: buildUserContent({ event, sessionDir }) }];
 
-  let lastErr = null;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    try {
-      const { json } = await postMessages({ apiKey, payload });
-      const text = extractText(json);
-      if (text) {
-        event.semantic_description = text;
-        return { ok: true };
-      }
-      event.vision_error = 'empty_response';
-      return { errored: true };
-    } catch (err) {
-      lastErr = err;
-      if (!err.retryable || attempt === MAX_ATTEMPTS) break;
-      const backoffMs = 500 * Math.pow(2, attempt - 1);
-      await sleep(backoffMs);
+  try {
+    const result = await messagesClient.createMessage({
+      messages,
+      system: SYSTEM_PROMPT,
+      model,
+      max_tokens: 200,
+      allowVision: true,
+    });
+
+    if (result.vision_unsupported) {
+      event.vision_skipped_reason = 'deepseek_no_vision_support';
+      return { skipped: true, deepseekFallback: true };
     }
-  }
 
-  event.vision_error = lastErr ? (lastErr.message || String(lastErr)) : 'unknown_error';
-  return { errored: true };
+    const text = extractText(result.json);
+    if (text) {
+      event.semantic_description = text;
+      event.vision_provider_used = result.providerUsed;
+      return { ok: true };
+    }
+    event.vision_error = 'empty_response';
+    return { errored: true };
+  } catch (err) {
+    event.vision_error = err && err.message ? err.message : String(err);
+    return { errored: true };
+  }
 }
 
 /**
@@ -224,8 +195,10 @@ async function runPool(items, worker, concurrency) {
       catch (err) { results[i] = { errored: true, error: err }; }
     }
   }
-  const runners = Array.from({ length: Math.max(1, concurrency) }, runner);
-  await Promise.all(runners.map(r => r()));
+  const runnerCount = Math.max(1, concurrency);
+  const runners = [];
+  for (let n = 0; n < runnerCount; n += 1) runners.push(runner());
+  await Promise.all(runners);
   return results;
 }
 
@@ -233,26 +206,24 @@ async function runPool(items, worker, concurrency) {
  * Public: enrich joined events in-place with semantic_description.
  *
  * Mutates event objects. Returns counters.
+ *
+ * messagesClient is injectable for tests; defaults to the canonical OS
+ * client at ~/ecodiaos/src/services/anthropicMessagesClient.js.
  */
 async function enrichWithVision({
   events,
   sessionDir,
-  anthropicKey,
   model = DEFAULT_MODEL,
   maxConcurrency = DEFAULT_MAX_CONCURRENCY,
+  messagesClient = null,
 }) {
   if (!Array.isArray(events)) throw new Error('enrichWithVision: events array required');
   if (!sessionDir) throw new Error('enrichWithVision: sessionDir required');
 
-  const out = { enriched: 0, skipped: 0, errored: 0, total: events.length, aborted: false };
+  // Late-require so tests can stub before any module init side-effect.
+  const client = messagesClient || require('../../src/services/anthropicMessagesClient');
 
-  if (!anthropicKey) {
-    for (const ev of events) ev.vision_skipped_reason = 'no_anthropic_key';
-    out.skipped = events.length;
-    out.aborted = true;
-    out.abort_reason = 'no_anthropic_key';
-    return out;
-  }
+  const out = { enriched: 0, skipped: 0, errored: 0, total: events.length, aborted: false };
 
   // Only click-shaped events benefit from vision pre/post diffing
   const visualisable = events.filter(ev => ['click', 'rightclick', 'doubleclick'].includes(ev.type));
@@ -266,7 +237,7 @@ async function enrichWithVision({
 
   const results = await runPool(
     visualisable,
-    (ev) => processOne({ event: ev, sessionDir, apiKey: anthropicKey, model }),
+    (ev) => processOne({ event: ev, sessionDir, model, messagesClient: client }),
     maxConcurrency,
   );
 
@@ -293,5 +264,5 @@ module.exports = {
   // exposed for tests
   DEFAULT_MODEL,
   HARD_EVENT_CAP,
-  _internal: { postMessages, buildUserContent, extractText, runPool, resolveScreenshotPath },
+  _internal: { buildUserContent, extractText, runPool, resolveScreenshotPath },
 };

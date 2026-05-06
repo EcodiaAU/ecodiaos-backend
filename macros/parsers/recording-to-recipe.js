@@ -11,12 +11,19 @@
 // Usage:
 //   node recording-to-recipe.js <session-dir> <flow-slug> [--no-vision]
 //
-// Anthropic key resolution order:
-//   1. kv_store.creds.anthropic.api_key (read via VPS_API_BASE if available)
-//   2. env ANTHROPIC_API_KEY
-//   3. else: vision skipped gracefully, recipe still emitted
+// Vision auth: routes through the canonical OS Anthropic client
+// (~/ecodiaos/src/services/anthropicMessagesClient.js) which uses the
+// long-lived OAuth bearer chain (claude_max -> claude_max_2 -> deepseek)
+// the same way osSessionService / forkService do for agent loops. No
+// ANTHROPIC_API_KEY env var is required - tokens come from
+// CLAUDE_CODE_OAUTH_TOKEN_TATE / CLAUDE_CODE_OAUTH_TOKEN_CODE / file-based
+// .credentials.json. DeepSeek does not support multimodal images, so if
+// the chain falls to deepseek the events get
+// vision_skipped_reason=deepseek_no_vision_support and the recipe still
+// emits cleanly.
 //
 // Origin: Worker B3 brief, fork-spawned 6 May 2026 ~05:50 AEST.
+// Provider-chain refactor: fork_motuvu0q_de7349, 6 May 2026 ~19:25 AEST.
 
 'use strict';
 
@@ -33,22 +40,6 @@ function usage() {
     'Usage: node recording-to-recipe.js <session-dir> <flow-slug> [--no-vision]\n',
   );
   process.exit(2);
-}
-
-/**
- * Best-effort kv_store.creds.anthropic.api_key resolution by shelling out to
- * the local supabase psql via the env-injected DATABASE_URL or a CURL to the
- * VPS API. We avoid a hard dep by reading from env first; kv_store is only
- * tried when ANTHROPIC_API_KEY is absent.
- */
-function resolveAnthropicKey() {
-  if (process.env.ANTHROPIC_API_KEY) {
-    return { key: process.env.ANTHROPIC_API_KEY, source: 'env' };
-  }
-  // No kv_store route from a plain Node CLI without bringing in supabase
-  // client. Caller (conductor / fork brief) is expected to inject
-  // ANTHROPIC_API_KEY via env when running this CLI. Document the gap.
-  return { key: null, source: 'missing' };
 }
 
 /**
@@ -94,17 +85,18 @@ async function main(argv) {
   const { events, manifest, warnings } = joinSession({ sessionDir });
   for (const w of warnings) process.stderr.write(`joiner-warning: ${w}\n`);
 
-  // 2. Vision (optional)
+  // 2. Vision (optional). Auth is handled by the canonical OS Anthropic
+  //    client - no anthropicKey arg required. If the OS provider chain
+  //    falls to deepseek, vision-enrich marks events
+  //    vision_skipped_reason=deepseek_no_vision_support automatically.
   let visionStats = { enriched: 0, skipped: 0, errored: 0, total: events.length, aborted: true, abort_reason: 'flag_no_vision' };
-  let keySource = 'skipped';
+  let visionAuthSource = 'skipped';
   if (!noVision) {
-    const { key, source } = resolveAnthropicKey();
-    keySource = source;
+    visionAuthSource = 'os_oauth_chain';
     visionStats = await enrichWithVision({
       events,
       sessionDir,
-      anthropicKey: key,
-      model: process.env.ANTHROPIC_VISION_MODEL || 'claude-sonnet-4-7-20251022',
+      model: process.env.ANTHROPIC_VISION_MODEL || undefined,
     });
   } else {
     for (const ev of events) ev.vision_skipped_reason = 'flag_no_vision';
@@ -125,7 +117,7 @@ async function main(argv) {
       vision_enriched_count: visionStats.enriched,
       vision_errored_count: visionStats.errored,
       vision_skipped_count: visionStats.skipped,
-      anthropic_key_source: keySource,
+      vision_auth_source: visionAuthSource,
       session_id: (manifest && manifest.session_id) || path.basename(sessionDir),
     },
   });
@@ -143,7 +135,7 @@ async function main(argv) {
   process.stdout.write(`vision_errored: ${visionStats.errored}\n`);
   process.stdout.write(`vision_skipped: ${visionStats.skipped}\n`);
   process.stdout.write(`vision_aborted: ${visionStats.aborted ? `yes (${visionStats.abort_reason})` : 'no'}\n`);
-  process.stdout.write(`anthropic_key_source: ${keySource}\n`);
+  process.stdout.write(`vision_auth_source: ${visionAuthSource}\n`);
   process.stdout.write(`warnings: ${warnings.length}\n`);
 }
 
