@@ -134,7 +134,17 @@ Two remote machines via HTTP API. Your physical bodies.
 
 Cross-refs: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`. Live tool inventory + Chrome profile + SSH state: `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md`.
 
-**GUI recipes (codified GUI flows) are governed by `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property → tree walk → process check → filesystem → cropped pixel → full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18× speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
+**GUI recipes (codified GUI flows) are governed by `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property -> tree walk -> process check -> filesystem -> cropped pixel -> full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18x speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Sister recipe for Android: `~/ecodiaos/patterns/play-console-android-release-recipe.md` - Co-Exist Android release flow on Play Console, paired with the iOS recipe for the cross-platform release pipeline. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
+
+**GUI doctrine cluster (5-6 May 2026):** the GUI-recipes meta-doctrine is supported by an interlocking pattern set authored across the macro-recorder ship-out window. Read these together when authoring or driving any GUI flow:
+- `~/ecodiaos/patterns/gui-step-verify-protocol.md` (verify each step lands before proceeding)
+- `~/ecodiaos/patterns/gui-fast-path-primitives.md` (the cheap-first verification ladder for known coords)
+- `~/ecodiaos/patterns/gui-macro-discovery-protocol.md` (probe registry/handlers before authoring duplicates)
+- `~/ecodiaos/patterns/consolidate-ui-primitives-do-not-add-parallel-ones.md` (single substrate rule, no parallel UI tool surfaces)
+- `~/ecodiaos/patterns/probe-vendor-pat-before-planning-gui-route.md` (check API key / PAT path before committing to a GUI route)
+- `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md` (semantic review complement to heuristic hook surfacing)
+
+**Authoring substrate while Tate is at the keyboard:** GUI recipes can be hand-authored, but the PRIMARY substrate is Tate-recordings. While Tate is available, ask him to record the flow with `Ctrl+Shift+R` on Corazon; the v1 (psr.exe + UIA) and v2 (custom AHK + UIA + per-event vision-language enrichment) recorders both emit a 10-section recipe at `D:\.code\eos-laptop-agent\macros\handlers\proposed\<name>.js` with `status: untested_spec`. Promote with `macro.promote({name})` after smoke-testing. Doctrine: `~/ecodiaos/patterns/tate-recordings-are-primary-gui-learning-substrate.md`. Recording mechanics: `~/ecodiaos/patterns/macro-capture-via-psr-exe.md` (v1) and `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md` (v2). Parent multi-phase architecture: `~/ecodiaos/patterns/macros-record-mode-and-auto-author-from-runs.md`.
 
 ### Tailscale laptop-agent is the universal UI-driving substrate (5 May 2026)
 
@@ -340,7 +350,7 @@ Read triggers, pick matching files, read in full. Same protocol as patterns/. 30
 |-----|------|--------|--------|
 | `creds.laptop_agent` | Corazon agent bearer token | object | [laptop-agent.md](docs/secrets/laptop-agent.md) |
 | `creds.laptop_passkey` | Windows unlock for Corazon. Drives Windows Hello / passkey 2FA via `input.type`. Used by 5-point check before any `next_action_by='tate'` | string (current `6969`) | [laptop-passkey.md](docs/secrets/laptop-passkey.md) |
-| `creds.macincloud` | SY094 SSH password + machine metadata | object | [macincloud.md](docs/secrets/macincloud.md) |
+| `creds.macincloud` | SY094 RDP host metadata + agent_token (SSH password retained but SSH path is forbidden per `never-use-ssh-on-macincloud-rdp-only.md`; canonical access is RDP from Corazon) | object | [macincloud.md](docs/secrets/macincloud.md) |
 | `creds.bitbucket_api_token` | Atlassian API key (all Bitbucket: [redacted] `[redacted]`, Ecodia repos). NOT a personal access token (those don't exist anymore - Atlassian switched to API keys 2026) | string `ATATT...` | [bitbucket.md](docs/secrets/bitbucket.md) |
 | `creds.bitbucket_account_email` | Which Atlassian account the API key belongs to | `code@ecodia.au` | [bitbucket.md](docs/secrets/bitbucket.md) |
 
@@ -542,19 +552,21 @@ See `~/CLAUDE.md` "Fork dispatch is demand-driven" for canonical doctrine, Tate-
 
 Cross-refs: `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` (corrected interpretation: stay alert to incoming demand, do NOT manufacture work), `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (on-main-vs-fork choice once work queued), `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (slot-fill forks ARE symbolic activity), `~/ecodiaos/patterns/no-self-prompting-from-queued-kv-store-plans.md` (kv_store-queue-as-prompt failure mode: queueing followups in kv_store and self-firing them next turn is slot-fill in a different costume; demand is external), `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`, `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` (lost forks: redispatch briefs check existing deliverables BEFORE re-doing), `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md`, `~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md` (fork-result classification: forks closing without `[FORK_REPORT]` write a fallback-marker prefix that the rollup surfaces as `phantom_bail`, and the always-enqueue path keeps the fork in the inbox past the 15-min rollup window).
 
-### Fork hierarchy — Manager forks (5 May 2026)
+### Fork hierarchy - Manager forks (5 May 2026)
+
+**Substrate note (Decision 6 May 2026 09:23 AEST):** regular SDK fork sub-sessions are TERMINAL in the fork tree. They do NOT have `mcp__forks__spawn_fork` in their MCP tool surface and cannot dispatch sub-forks. Only manager-flagged forks (brief contains `MANAGER: true`) get the spawn primitive wired through. Cron-fired forks running daily reflection / audit / policy work are regular forks and must surface follow-up work to status_board for the conductor (main) to pick up, not attempt to spawn nested forks. See `~/ecodiaos/patterns/manager-forks-for-multi-worker-decomposition.md` for the manager-fork primitive.
 
 The conductor can spawn MANAGER forks that in turn spawn WORKER sub-forks. This keeps the conductor's context pristine: instead of 5 fork_reports cluttering the inbox, the manager aggregates N worker reports into 1 consolidated [FORK_REPORT].
 
 **How it works:**
-- `spawn_fork({ brief: "MANAGER: true\n...", context_mode: "brief" })` — the brief contains `MANAGER: true`, signalling the fork to enter project-manager mode
+- `spawn_fork({ brief: "MANAGER: true\n...", context_mode: "brief" })` - the brief contains `MANAGER: true`, signalling the fork to enter project-manager mode
 - The manager decomposes its task, spawns sub-forks with `parent_fork_id` = its own fork_id
 - Sub-fork [FORK_REPORT]s route to the MANAGER's stream (never the conductor's inbox)
 - The manager consolidates, retries failures, verifies deliverables, then emits ONE [FORK_REPORT] to the conductor
 
-**Caps:** Sub-forks count against a per-tree cap (5 per tree root), NOT the conductor's global cap. Total system parallelism: 5 managers × 5 workers = 30 parallel streams.
+**Caps:** Sub-forks count against a per-tree cap (5 per tree root), NOT the conductor's global cap. Total system parallelism: 5 managers x 5 workers = 30 parallel streams.
 
-**When to use:** Any task decomposing into 2+ independent workers. Pipeline tasks (build→test→deploy→verify). Multi-step processes needing coordination. Default to manager forks for non-trivial work.
+**When to use:** Any task decomposing into 2+ independent workers. Pipeline tasks (build -> test -> deploy -> verify). Multi-step processes needing coordination. Default to manager forks for non-trivial work.
 
 **Conductor discipline:** You see the manager in `<forks_rollup>` tagged `[manager, N sub]` with sub-forks indented beneath it. Wait for the manager's consolidated [FORK_REPORT]. Do NOT reach into the manager's subtree. Trust the manager or abort the whole tree.
 
@@ -562,7 +574,9 @@ The conductor can spawn MANAGER forks that in turn spawn WORKER sub-forks. This 
 
 ## Session Orientation - Wake-Up Checklist
 
-Substantial session start:
+**BEFORE any of the orientation steps below:** if `<perception_summary>` / `<forks_rollup>` / `<restart_recovery>` / `<last_turn_breadcrumb>` shows pending work, fork it FIRST (after the single canonical status_board query, step 1). The orientation steps 2-7 below are for the FORK to run, not main. Main does ONE query, then dispatches. See `~/ecodiaos/patterns/fork-pending-work-at-session-start-not-after-probing-on-main.md`.
+
+Substantial session start (the fork runs steps 2-7 when there is pending work; main runs all 7 only on a clean wake with nothing queued):
 
 1. **status_board** (FIRST): full query above
 2. **Overdue:** `SELECT name, next_action_due, next_action FROM status_board WHERE next_action_due < NOW() AND archived_at IS NULL`
@@ -659,6 +673,8 @@ for f in ~/.claude/settings.json; do jq -r '.. | objects | .command? // empty' "
 Anything prints → narrate as MISSING, don't claim active. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md`. Origin: 30 Apr hook-stack drift audit found `post-action-applied-tag-check.sh`, `episode-resurface.sh`, `cowork-first-check.sh`, `anthropic-first-check.sh`, `macro-runbook-write-surface.sh` silently absent on main HEAD because commits live on unmerged `feat/phase-d-failure-classifier-2026-04-29` branch.
 
 **Hooks must not fire inside `[APPLIED]` / `[NOT-APPLIED]` tag lines.** Every keyword-scanning hook MUST strip lines beginning with `[APPLIED]`, `[NOT-APPLIED]`, `[BRIEF-CHECK WARN]`, `[CONTEXT-SURFACE WARN/PRIMARY/ALSO]`, `[CRED-SURFACE WARN]`, `[FORCING WARN]`, etc. before keyword regex. Otherwise hook fires on its own forcing-function output. 6+ false positives 21:00-21:12 AEST 29 Apr 2026 across `cred-mention-surface.sh`. Filter tag lines first, then scan. Shared helper: `~/ecodiaos/scripts/hooks/lib/strip-tag-lines.sh`. Full: `~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md`.
+
+**Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
 
 ### Phase C (Layer 3) - applied-pattern-tag forcing function (LIVE)
 
