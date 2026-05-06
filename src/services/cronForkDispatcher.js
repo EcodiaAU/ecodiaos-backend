@@ -141,27 +141,49 @@ async function _refundBudget(cost) {
   }
 }
 
-// ── Status board row for budget-exhausted defer ─────────────────────────────
+// ── kv_store flag for budget-exhausted defer ───────────────────────────────
+//
+// Per fork fork_mouk37gd_056cc1 (2026-05-06): replaced the status_board INSERT
+// with a kv_store flag write. Each cron has ONE rotating kv_store key
+// `cron.budget_skip.<cron_name>` (rather than N status_board rows over time)
+// that records the latest skip + a same-day count. This keeps status_board
+// clean while still preserving the telemetry for drift-audit / observability.
+// Budget-recovery surfaces via successful spawns (logger.info on dispatch),
+// not status_board archives.
 
-async function _writeBudgetExhaustedStatusRow(cronName, gate) {
+async function _writeBudgetSkipFlag(cronName, gate) {
   try {
-    const name = `Cron budget exhausted - ${cronName} deferred`
-    const context = JSON.stringify({
+    const key = `cron.budget_skip.${cronName}`
+    const nowIso = new Date().toISOString()
+    const today = nowIso.slice(0, 10) // YYYY-MM-DD
+    let countToday = 1
+    try {
+      const rows = await db`SELECT value FROM kv_store WHERE key = ${key}`
+      if (rows.length > 0) {
+        const raw = rows[0].value
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (parsed?.day === today && Number.isFinite(Number(parsed?.count_today))) {
+          countToday = Number(parsed.count_today) + 1
+        }
+      }
+    } catch {
+      // fall through with countToday = 1
+    }
+    const payload = JSON.stringify({
       cron: cronName,
+      skipped_at: nowIso,
+      day: today,
       tier: gate.tier,
       reason: gate.reason,
-      defer_at: new Date().toISOString(),
-    }).slice(0, 500)
+      count_today: countToday,
+    })
     await db`
-      INSERT INTO status_board (entity_type, name, status, next_action, next_action_by, priority, context)
-      SELECT 'task', ${name}, 'deferred', ${'cron will retry next cycle when budget refreshes (midnight UTC)'},
-             'ecodiaos', 3, ${context}
-      WHERE NOT EXISTS (
-        SELECT 1 FROM status_board WHERE name = ${name} AND archived_at IS NULL
-      )
+      INSERT INTO kv_store (key, value)
+      VALUES (${key}, ${payload})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
     `
   } catch (err) {
-    logger.warn('cronForkDispatcher: failed to write budget-exhausted status row', { cron: cronName, error: err.message })
+    logger.warn('cronForkDispatcher: failed to write budget-skip kv_store flag', { cron: cronName, error: err.message })
   }
 }
 
@@ -227,7 +249,7 @@ async function dispatchCronAsFork(cronTask) {
   })
 
   if (!gate.allow) {
-    await _writeBudgetExhaustedStatusRow(cronTask.name, gate)
+    await _writeBudgetSkipFlag(cronTask.name, gate)
     logger.info('cronForkDispatcher: cron deferred by budget gate', {
       cron: cronTask.name,
       route,
