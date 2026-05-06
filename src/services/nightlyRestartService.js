@@ -1,5 +1,5 @@
 /**
- * Nightly Restart — scheduled `pm2 restart ecodia-api` with OS heads-up.
+ * Nightly Restart - scheduled `pm2 restart ecodia-api` with OS heads-up.
  *
  * Why: guaranteed daily reset absorbs slow leaks (RAM creep, orphan sockets,
  * stuck MCP stdio, stale pools). The OS itself survives restarts cleanly
@@ -7,13 +7,13 @@
  *
  * Flow:
  *   T-5min (02:55 AEST by default):
- *     - broadcast `os-session:pending_restart` to WS (frontend banner)
- *     - inject a [SYSTEM] message into the OS inbox so it sees the warning
+ * - broadcast `os-session:pending_restart` to WS (frontend banner)
+ * - inject a [SYSTEM] message into the OS inbox so it sees the warning
  *       in-turn and can checkpoint/finish gracefully
  *   T-0min (03:00 AEST):
- *     - snapshot handoff state (fire-and-forget)
- *     - if OS is busy, wait up to NIGHTLY_RESTART_GRACE_MIN minutes for idle
- *     - spawn `pm2 restart ecodia-api` detached + unref
+ * - snapshot handoff state (fire-and-forget)
+ * - if OS is busy, wait up to NIGHTLY_RESTART_GRACE_MIN minutes for idle
+ * - spawn `pm2 restart ecodia-api` detached + unref
  *
  * Disable with NIGHTLY_RESTART_ENABLED=false.
  */
@@ -45,7 +45,7 @@ function _nextRestartAt() {
 }
 
 async function _sendWarning(scheduledFor) {
-  // WS broadcast — frontend banner. Never throw.
+  // WS broadcast - frontend banner. Never throw.
   try {
     const { broadcast } = require('../websocket/wsManager')
     broadcast('os-session:pending_restart', {
@@ -59,10 +59,10 @@ async function _sendWarning(scheduledFor) {
 
   // In-turn message so the OS sees it and can wrap up. Posted via the normal
   // /message endpoint so it queues behind any active turn (priority:false
-  // default in the route) — we do NOT want to preempt mid-stream work.
+  // default in the route) - we do NOT want to preempt mid-stream work.
   try {
     const body = JSON.stringify({
-      message: `[SYSTEM: nightly_restart] ecodia-api will restart in ${WARN_MIN} minutes at ${scheduledFor.toISOString()}. If you're mid-turn, finish or checkpoint now — your handoff state will be saved and you resume automatically on the new process.`,
+      message: `[SYSTEM: nightly_restart] ecodia-api will restart in ${WARN_MIN} minutes at ${scheduledFor.toISOString()}. If you're mid-turn, finish or checkpoint now - your handoff state will be saved and you resume automatically on the new process.`,
     })
     await fetch(`http://127.0.0.1:${API_PORT}/api/os-session/message`, {
       method: 'POST',

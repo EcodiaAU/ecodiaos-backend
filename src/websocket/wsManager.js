@@ -26,7 +26,7 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 const credentialFilter = require('../lib/credentialFilter')
 
-// Envelope metadata keys that must never be redacted — they're either
+// Envelope metadata keys that must never be redacted - they're either
 // deterministic (seq, ts, epoch, type) or already scrubbed (sessionId).
 // Everything else on the envelope (data, content, payload) is user/tool
 // text and must be redacted.
@@ -55,7 +55,7 @@ const wsTickets = new Map()
 // All active WS connections
 const clients = new Set()
 
-// In-process subscribers — listeners that receive broadcast events without a WS connection.
+// In-process subscribers - listeners that receive broadcast events without a WS connection.
 // Map<eventType, Set<handler>>. Populated via subscribe(). Zero impact on existing WS path.
 const _inProcessSubscribers = new Map()
 
@@ -166,7 +166,7 @@ function _sendRaw(message) {
 // Monotonic integer stamped on every emitted WS message. Resets to 0 when a
 // new OS session begins OR when the Node process restarts. Pair it with a
 // UUID epoch so the frontend can distinguish "new session, seq=0" from
-// "same session, process restarted mid-turn" — both look like seq going down
+// "same session, process restarted mid-turn" - both look like seq going down
 // but only one warrants silent re-sync. (crypto already required at top.)
 let _sessionSeq = 0
 let _sessionEpoch = crypto.randomUUID()
@@ -182,7 +182,7 @@ function getSessionEpoch() {
 
 // ─── Event ring buffer (last 500 events for reconnect recovery) ───────────
 // Populated by every broadcast call. Supports GET /api/os-session/recover?since_seq=N.
-// Bumped from 100 to 500 — a tool-heavy turn can emit 40-60 events, so 100
+// Bumped from 100 to 500 - a tool-heavy turn can emit 40-60 events, so 100
 // aged out mid-conversation if a tab was backgrounded for more than a turn.
 const RING_BUFFER_SIZE = 500
 const _eventRing = []
@@ -208,7 +208,7 @@ function getEventsSince(sinceSeq) {
 // Flush on window expiry OR when any non-delta event arrives (to preserve
 // ordering - tool_use, status, complete must flush pending text first).
 // Terminal events (turn_complete, os-session:complete) also flush via the
-// TERMINAL_EVENT_TYPES list below — no explicit flush call needed.
+// TERMINAL_EVENT_TYPES list below - no explicit flush call needed.
 const COALESCE_WINDOW_MS = 10
 let _pendingDeltas = null   // { extra, extraKey, parts: [] }
 let _coalesceTimer = null
@@ -217,7 +217,7 @@ let _coalesceTimer = null
 // terminal turn events never leave text stranded in the coalescer buffer.
 const TERMINAL_EVENT_TYPES = new Set([
   'os-session:complete',
-  // Status transitions that mark turn boundaries — if the turn ends or
+  // Status transitions that mark turn boundaries - if the turn ends or
   // errors out, any half-buffered text must ship first or it's lost.
   // Filtered further by _isTerminalEvent based on the status value.
   'os-session:status',
@@ -313,7 +313,7 @@ function broadcast(type, payload) {
   _sendRaw(JSON.stringify(envelope))
   _fanOut(type, envelope)
 
-  // If this was a terminal event, assert-flush afterwards too — catches the
+  // If this was a terminal event, assert-flush afterwards too - catches the
   // edge case where a late delta lands in the same tick but after us.
   if (_isTerminalEvent(type, payload) && _pendingDeltas) _flushDeltas()
 }

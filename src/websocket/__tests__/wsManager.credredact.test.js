@@ -54,7 +54,7 @@ describe('wsManager.broadcast redacts credentials in envelope payload', () => {
     })
     wsManager.broadcast('os-session:output', {
       sessionId: 'sess-c',
-      data: { type: 'text_delta', content: ' — please rotate' },
+      data: { type: 'text_delta', content: ' - please rotate' },
     })
     // Coalesce window is 10ms; wait longer than that then verify.
     setTimeout(() => {

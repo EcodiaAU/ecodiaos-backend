@@ -39,7 +39,7 @@ router.get('/stats', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/meta/posts — publish post
+// POST /api/meta/posts - publish post
 router.post('/posts', async (req, res, next) => {
   try {
     const { pageId, message, link, imageUrl } = req.body
@@ -53,7 +53,7 @@ router.delete('/posts/:id', async (req, res, next) => {
   try { res.json(await metaService.deletePost(req.params.id)) } catch (err) { next(err) }
 })
 
-// POST /api/meta/conversations/:id/message — send message
+// POST /api/meta/conversations/:id/message - send message
 router.post('/conversations/:id/message', async (req, res, next) => {
   try {
     if (!req.body.message) return res.status(400).json({ error: 'message required' })
@@ -61,7 +61,7 @@ router.post('/conversations/:id/message', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/meta/conversations/:id/messages — get messages
+// GET /api/meta/conversations/:id/messages - get messages
 router.get('/conversations/:id/messages', async (req, res, next) => {
   try {
     const db = require('../config/db')
@@ -82,7 +82,7 @@ router.post('/comments/:id/reply', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/meta/sync — trigger full sync
+// POST /api/meta/sync - trigger full sync
 router.post('/sync', async (_req, res, next) => {
   try {
     await metaService.poll()
@@ -90,7 +90,7 @@ router.post('/sync', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/meta/triage — triage pending conversations
+// POST /api/meta/triage - triage pending conversations
 router.post('/triage', async (_req, res, next) => {
   try {
     await metaService.triagePendingConversations()

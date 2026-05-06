@@ -1,20 +1,20 @@
 /**
- * os_self_check — one call, the OS gets a structured picture of its own health.
+ * os_self_check - one call, the OS gets a structured picture of its own health.
  *
  * Every subsystem probe runs in parallel with a short timeout. A probe that
  * times out returns as 'unknown' rather than blocking the self-check. Total
  * wall time is bounded by the slowest probe or the overall deadline (8s).
  *
  * Designed for the OS to consume, not a human dashboard:
- *   - Fixed structure with stable keys
- *   - Every probe returns { ok: bool, detail: {...} } so the OS can branch
- *   - Rolls up to a single top-level `status` ('healthy'|'degraded'|'critical')
- *   - Includes the recent-incident summary so patterns are visible in one shot
+ * - Fixed structure with stable keys
+ * - Every probe returns { ok: bool, detail: {...} } so the OS can branch
+ * - Rolls up to a single top-level `status` ('healthy'|'degraded'|'critical')
+ * - Includes the recent-incident summary so patterns are visible in one shot
  *
  * This is the primary introspection surface. The OS should call it:
- *   - On heartbeat wake when something feels off
- *   - After a turn that had retries
- *   - When a user SMS asks "is everything ok"
+ * - On heartbeat wake when something feels off
+ * - After a turn that had retries
+ * - When a user SMS asks "is everything ok"
  */
 
 const db = require('../config/db')
@@ -32,7 +32,7 @@ function _withTimeout(promise, ms, fallback) {
 }
 
 // ─── Individual probes ──────────────────────────────────────────────────
-// Each returns { ok, detail } — never throws.
+// Each returns { ok, detail } - never throws.
 
 async function _probeDb() {
   try {
@@ -233,7 +233,7 @@ async function selfCheck() {
     checkedAt: new Date().toISOString(),
     durationMs: Date.now() - started,
     subsystems,
-    // Hints for the OS — one-line actionable summary so it doesn't have
+    // Hints for the OS - one-line actionable summary so it doesn't have
     // to reason about every subsystem when it just wants the bottom line.
     summary: _summarize(subsystems, status),
   }

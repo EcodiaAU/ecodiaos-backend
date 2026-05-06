@@ -1,5 +1,5 @@
 /**
- * Google Drive + Docs + Sheets MCP tools — full CRUD.
+ * Google Drive + Docs + Sheets MCP tools - full CRUD.
  */
 import { z } from 'zod'
 import { getDriveClient, primaryAccount } from './auth.js'

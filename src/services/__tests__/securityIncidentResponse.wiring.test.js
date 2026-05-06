@@ -14,7 +14,7 @@ jest.mock('../../config/logger', () => ({
   info: () => {}, warn: () => {}, error: () => {}, debug: () => {},
 }))
 
-// DB mock — the module's _logIncident() INSERTs and RETURNING *; we
+// DB mock - the module's _logIncident() INSERTs and RETURNING *; we
 // just need to return a row so fire() can move on.
 jest.mock('../../config/db', () => {
   return (strings, ...values) => Promise.resolve([{ id: 42 }])

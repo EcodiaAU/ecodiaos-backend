@@ -1,6 +1,6 @@
 // ─── Capability Bootstrap ─────────────────────────────────────────────
 // Requiring this file registers all capabilities into the registry.
-// Call once at server startup. Order doesn't matter — capabilities
+// Call once at server startup. Order doesn't matter - capabilities
 // are looked up by name, not position.
 //
 // To add a new capability domain: create the file, add it here.
@@ -49,6 +49,6 @@ const total = registry.list().length
 const failed = registry.getFailedDomains()
 logger.info(`CapabilityRegistry: ${total} capabilities registered across ${
   [...new Set(registry.list().map(c => c.domain))].join(', ')
-}${failed.length > 0 ? ` — FAILED domains: ${failed.join(', ')} (will auto-recover on first use)` : ''}`)
+}${failed.length > 0 ? ` - FAILED domains: ${failed.join(', ')} (will auto-recover on first use)` : ''}`)
 
 module.exports = registry

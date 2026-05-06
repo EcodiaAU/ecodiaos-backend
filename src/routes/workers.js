@@ -5,7 +5,7 @@ const db = require('../config/db')
 const router = express.Router()
 router.use(auth)
 
-// GET /api/workers/status — returns last-run timestamps for all workers
+// GET /api/workers/status - returns last-run timestamps for all workers
 router.get('/status', async (_req, res, next) => {
   try {
     const rows = await db`
@@ -28,7 +28,7 @@ router.get('/status', async (_req, res, next) => {
   }
 })
 
-// GET /api/workers/vitals — full system vitals (DB, Neo4j, memory, CPU, PM2, event loop lag)
+// GET /api/workers/vitals - full system vitals (DB, Neo4j, memory, CPU, PM2, event loop lag)
 router.get('/vitals', async (_req, res, next) => {
   try {
     const vitals = require('../services/vitalSignsService')
@@ -38,7 +38,7 @@ router.get('/vitals', async (_req, res, next) => {
   }
 })
 
-// GET /api/workers/errors — recent application errors grouped by pattern
+// GET /api/workers/errors - recent application errors grouped by pattern
 router.get('/errors', async (req, res, next) => {
   try {
     const hours = Math.min(parseInt(req.query.hours) || 24, 168)
@@ -67,7 +67,7 @@ router.get('/errors', async (req, res, next) => {
   }
 })
 
-// GET /api/workers/pm2 — PM2 process state
+// GET /api/workers/pm2 - PM2 process state
 router.get('/pm2', async (_req, res, next) => {
   try {
     const vitals = require('../services/vitalSignsService')

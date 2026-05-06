@@ -6,14 +6,14 @@
  * Subscribes to db:event for os_forks UPDATE transitions and fires queued
  * dispatch_queue rows whose trigger matches and whose depends_on row has
  * fired-and-succeeded. Replaces the timed-cascade pattern with event-driven
- * dispatch — conductor enqueues "when F6 ships clean, fire F7" once and
+ * dispatch - conductor enqueues "when F6 ships clean, fire F7" once and
  * walks away.
  *
  * Doctrine: ~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md
  *   Layer 1 (producer):     forkService writes os_forks status='done'
  *   Layer 2 (trigger):      pg_notify on os_forks UPDATE (eos_listener_events)
  *   Layer 3 (bridge):       dbBridge.js fans pg_notify → wsManager.publish('db:event')
- *   Layer 4 (listener):     THIS FILE — relevanceFilter + handle
+ *   Layer 4 (listener):     THIS FILE - relevanceFilter + handle
  *   Layer 5 (side-effect):  dispatch_payload executed via internal HTTP / mcp tool
  *
  * Origin: fork_mos3hwpk_9fbdc5, 5 May 2026.
@@ -63,7 +63,7 @@ async function _executeDispatch(qrow, sourceEventId) {
   const payload = qrow.dispatch_payload || {}
   switch (qrow.dispatch_type) {
     case 'spawn_fork': {
-      // Call forkService.spawnFork() directly — it's the canonical primitive.
+      // Call forkService.spawnFork() directly - it's the canonical primitive.
       // Listeners are allowed to import forkService (the registry-load-time
       // ban is on osSessionService specifically).
       try {
@@ -172,7 +172,7 @@ module.exports = {
     if (d.action !== 'UPDATE') return false
     if (!d.row) return false
     const status = d.row.status
-    // Match terminal transitions only — keeps work bounded.
+    // Match terminal transitions only - keeps work bounded.
     return status === 'done' || status === 'aborted' || status === 'error'
   },
 

@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — scope constants, allowlists, and requireScope helper.
+ * Cowork V2 MCP - scope constants, allowlists, and requireScope helper.
  *
  * The single bearer at `kv_store.creds.cowork_mcp_bearer` carries an
  * embedded `scopes` array. Each route handler asserts the required scope

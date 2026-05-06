@@ -6,11 +6,11 @@
  *   ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
  *
  * Endpoints:
- *   GET  /api/telemetry/decision-quality?days=7   - 4-panel dashboard
- *   GET  /api/telemetry/drift                     - active drift flags
- *   POST /api/telemetry/consume                   - one-shot trigger of the
+ *   GET  /api/telemetry/decision-quality?days=7 - 4-panel dashboard
+ *   GET  /api/telemetry/drift - active drift flags
+ *   POST /api/telemetry/consume - one-shot trigger of the
  *                                                   batch consumer (admin/cron use)
- *   POST /api/telemetry/infer-outcomes            - one-shot trigger of the
+ *   POST /api/telemetry/infer-outcomes - one-shot trigger of the
  *                                                   outcome inferrer (admin/cron use)
  *
  * All routes require auth (Bearer token / MCP_INTERNAL_TOKEN). The dashboard
@@ -69,7 +69,7 @@ router.post('/infer-outcomes', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// ─── Phase F (Layer 7) — Episode resurfacing ────────────────────────────
+// ─── Phase F (Layer 7) - Episode resurfacing ────────────────────────────
 
 // GET /api/telemetry/episode-resurface?days=7
 // Layer-7 dashboard: resurface frequency by hook + repeated-failure rate.

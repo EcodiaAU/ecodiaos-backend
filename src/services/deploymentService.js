@@ -52,7 +52,7 @@ async function deploySession(sessionId) {
     // 1. Git commit
     const hasChanges = git(['status', '--porcelain'], repoPath)
     if (!hasChanges) {
-      logger.info(`No changes to deploy for session ${sessionId} — syncing HEAD state`)
+      logger.info(`No changes to deploy for session ${sessionId} - syncing HEAD state`)
       try {
         const headSha = git(['rev-parse', 'HEAD'], repoPath)
         const shortSha = headSha.slice(0, 7)
@@ -64,7 +64,7 @@ async function deploySession(sessionId) {
           currentBranch = 'main'
         }
 
-        // Defensive push origin <branch> — sync local commits that may have landed via parallel sessions
+        // Defensive push origin <branch> - sync local commits that may have landed via parallel sessions
         let pushed = false
         try {
           git(['push', 'origin', currentBranch], repoPath)
@@ -76,10 +76,10 @@ async function deploySession(sessionId) {
               git(['push', 'origin', currentBranch], repoPath)
               pushed = true
             } catch (retryErr) {
-              logger.warn(`no_changes push failed after rebase — local commits intact`, { sessionId, error: retryErr.message })
+              logger.warn(`no_changes push failed after rebase - local commits intact`, { sessionId, error: retryErr.message })
             }
           } else {
-            logger.warn(`no_changes push failed — local commits intact`, { sessionId, error: pushErr.message })
+            logger.warn(`no_changes push failed - local commits intact`, { sessionId, error: pushErr.message })
           }
         }
 
@@ -87,7 +87,7 @@ async function deploySession(sessionId) {
         logger.info(`no_changes branch: HEAD synced to ${shortSha}, pushed: ${pushed}`, { sessionId })
         return { status: 'no_changes_head_synced', commit_sha: shortSha, branch: currentBranch, pushed }
       } catch (syncErr) {
-        logger.warn(`no_changes HEAD sync failed — returning legacy status`, { sessionId, error: syncErr.message })
+        logger.warn(`no_changes HEAD sync failed - returning legacy status`, { sessionId, error: syncErr.message })
         await db`UPDATE cc_sessions SET pipeline_stage = 'complete', deploy_status = 'deployed' WHERE id = ${sessionId}`
         return { status: 'no_changes' }
       }
@@ -177,13 +177,13 @@ async function deploySession(sessionId) {
     `
     deploymentId = deployment.id
 
-    // 2. Git push — pull rebase first to handle remote-ahead (e.g. another Factory
+    // 2. Git push - pull rebase first to handle remote-ahead (e.g. another Factory
     //    session or manual push landed while this session was running)
     try {
       git(['push', 'origin', branch], repoPath)
     } catch (pushErr) {
       if (/non-fast-forward|rejected|fetch first/.test(pushErr.message)) {
-        logger.info('Push rejected (remote ahead) — rebasing and retrying', { branch, repoPath })
+        logger.info('Push rejected (remote ahead) - rebasing and retrying', { branch, repoPath })
         git(['pull', '--rebase', 'origin', branch], repoPath)
         commitSha = git(['rev-parse', 'HEAD'], repoPath) // SHA may change after rebase
         await db`UPDATE cc_sessions SET commit_sha = ${commitSha} WHERE id = ${sessionId}`
@@ -197,7 +197,7 @@ async function deploySession(sessionId) {
     const isSelfMod = !!(session.self_modification || session.context_bundle?.selfModification)
     if (isSelfMod) {
       try {
-        // Check if the commit actually touched migration files — avoids running
+        // Check if the commit actually touched migration files - avoids running
         // migrate.js on every self-mod deploy (was causing 14+ "Skipping" log entries per 48h)
         const diffFiles = git(['diff', '--name-only', 'HEAD~1', 'HEAD'], repoPath)
         const hasMigrationChanges = diffFiles.split('\n').some(f => f.startsWith('src/db/migrations/'))
@@ -208,13 +208,13 @@ async function deploySession(sessionId) {
         }
       } catch (err) {
         logger.error('Self-modification: migration failed', { error: err.message, sessionId })
-        // Escalate migration failures — they can leave the DB in inconsistent state
+        // Escalate migration failures - they can leave the DB in inconsistent state
         await db`
           INSERT INTO notifications (type, message, metadata)
           VALUES ('migration_failed', ${'Migration failed during self-mod deploy: ' + err.message.slice(0, 200)},
                   ${JSON.stringify({ sessionId, commitSha, error: err.message })})
         `.catch(notifErr => logger.warn('Migration failure notification failed', { error: notifErr.message }))
-        // Don't fail the deploy — migrations might not exist or already applied
+        // Don't fail the deploy - migrations might not exist or already applied
       }
     }
 
@@ -233,14 +233,14 @@ async function deploySession(sessionId) {
           })
           logger.info(`Python dependencies installed for ${session.codebase_name}`)
         } catch (pipErr) {
-          logger.warn(`pip install failed for ${session.codebase_name} — continuing`, { error: pipErr.message })
+          logger.warn(`pip install failed for ${session.codebase_name} - continuing`, { error: pipErr.message })
         }
       }
     }
 
     if (deployTarget === 'pm2' && pm2Name) {
       // Check if the changes actually require a PM2 restart.
-      // Config files, docs, specs, and migration-only changes don't need a restart —
+      // Config files, docs, specs, and migration-only changes don't need a restart - 
       // restarting PM2 on every deploy kills the maintenance worker's 15s startup
       // cooldown and prevents it from ever running a cycle.
       const NO_RESTART_PATTERNS = [
@@ -255,7 +255,7 @@ async function deploySession(sessionId) {
       const needsRestart = changedFiles.length === 0 || changedFiles.some(f => !NO_RESTART_PATTERNS.some(p => p.test(f)))
 
       if (!needsRestart) {
-        logger.info(`Deploy: skipping PM2 restart — only non-server files changed: ${changedFiles.join(', ')}`)
+        logger.info(`Deploy: skipping PM2 restart - only non-server files changed: ${changedFiles.join(', ')}`)
         await db`UPDATE deployments SET deploy_status = 'deployed', duration_ms = ${Date.now() - startTime} WHERE id = ${deploymentId}`
         await db`UPDATE cc_sessions SET deploy_status = 'deployed', pipeline_stage = 'complete' WHERE id = ${sessionId}`
         broadcastToSession(sessionId, 'cc:status', { status: 'deployed', commitSha })
@@ -274,25 +274,25 @@ async function deploySession(sessionId) {
       }
 
       // Self-mod: CC sessions now run in the separate ecodia-factory process.
-      // Restarting ecodia-api no longer kills CC sessions — this was the entire
+      // Restarting ecodia-api no longer kills CC sessions - this was the entire
       // motivation for the factoryRunner extraction. No drain needed.
 
       if (isSelfMod) {
         // Self-mod restart: mark deploy as successful BEFORE restarting, then fire-and-forget.
         // execFileSync('pm2', ['restart', ...]) was failing because PM2 sends SIGTERM to THIS
-        // process mid-exec — the calling process IS the one being restarted. Use a detached
+        // process mid-exec - the calling process IS the one being restarted. Use a detached
         // child process so the restart survives the parent's death.
         if (deploymentId) {
           await db`UPDATE deployments SET deploy_status = 'deployed', duration_ms = ${Date.now() - startTime} WHERE id = ${deploymentId}`
         }
         await db`UPDATE cc_sessions SET deploy_status = 'deployed', pipeline_stage = 'complete' WHERE id = ${sessionId}`
-        logger.info(`Self-modification deploy complete — firing detached PM2 restart for ${pm2Name}`)
+        logger.info(`Self-modification deploy complete - firing detached PM2 restart for ${pm2Name}`)
         const restartProc = spawn('pm2', ['restart', pm2Name], {
           detached: true,
           stdio: 'ignore',
         })
         restartProc.unref()
-        // The process will be killed by PM2 shortly — return immediately.
+        // The process will be killed by PM2 shortly - return immediately.
         // Health check will run on the NEW process's startup via the orphan cleanup path.
         return { status: 'deployed_self_restart', commitSha }
       }
@@ -302,7 +302,7 @@ async function deploySession(sessionId) {
       } catch (restartErr) {
         // Self-healing: if PM2 restart fails on self-modification, revert and try again
         if (isSelfMod) {
-          logger.error(`Self-modification PM2 restart failed — self-healing: reverting and restarting`, { error: restartErr.message })
+          logger.error(`Self-modification PM2 restart failed - self-healing: reverting and restarting`, { error: restartErr.message })
           try {
             git(['reset', '--hard', 'HEAD'], repoPath) // clean state before revert
             git(['revert', '--no-edit', commitSha], repoPath)
@@ -327,7 +327,7 @@ async function deploySession(sessionId) {
             logger.error('CRITICAL: Self-healing also failed', { error: healErr.message })
             await db`
               INSERT INTO notifications (type, message, metadata)
-              VALUES ('deployment_revert_failed', 'CRITICAL: Self-mod PM2 restart and self-heal both failed — manual intervention needed',
+              VALUES ('deployment_revert_failed', 'CRITICAL: Self-mod PM2 restart and self-heal both failed - manual intervention needed',
                       ${JSON.stringify({ sessionId, commitSha, deploymentId, error: healErr.message })})
             `.catch(notifErr => logger.error('CRITICAL: Failed to even record self-heal failure notification', { error: notifErr.message }))
           }
@@ -340,7 +340,7 @@ async function deploySession(sessionId) {
         await new Promise(r => setTimeout(r, 15_000))
       }
     }
-    // Vercel deploys automatically on push — no action needed
+    // Vercel deploys automatically on push - no action needed
 
     await db`UPDATE deployments SET deploy_status = 'health_check' WHERE id = ${deploymentId}`
 
@@ -357,7 +357,7 @@ async function deploySession(sessionId) {
         return { status: 'reverted', commitSha, reason: 'Health check failed' }
       }
     } else {
-      // No health check URL — assume success
+      // No health check URL - assume success
       await db`UPDATE deployments SET deploy_status = 'deployed', duration_ms = ${Date.now() - startTime} WHERE id = ${deploymentId}`
       await db`UPDATE cc_sessions SET deploy_status = 'deployed', pipeline_stage = 'complete' WHERE id = ${sessionId}`
       broadcastToSession(sessionId, 'cc:status', { status: 'deployed', commitSha })
@@ -414,7 +414,7 @@ async function revertDeployment(deploymentId, sessionId, repoPath, commitSha, br
   logger.warn(`Reverting deployment ${deploymentId}`, { commitSha })
 
   try {
-    // Ensure clean state before reverting — a dirty working dir will block git revert
+    // Ensure clean state before reverting - a dirty working dir will block git revert
     const status = git(['status', '--porcelain'], repoPath)
     if (status) {
       git(['reset', '--hard', 'HEAD'], repoPath)
@@ -465,7 +465,7 @@ async function revertDeployment(deploymentId, sessionId, repoPath, commitSha, br
     logger.error(`Failed to revert deployment ${deploymentId}`, { error: err.message })
     await db`
       INSERT INTO notifications (type, message, metadata)
-      VALUES ('deployment_revert_failed', 'CRITICAL: Auto-revert failed — manual intervention needed',
+      VALUES ('deployment_revert_failed', 'CRITICAL: Auto-revert failed - manual intervention needed',
               ${JSON.stringify({ sessionId, commitSha, deploymentId, error: err.message })})
     `
   }

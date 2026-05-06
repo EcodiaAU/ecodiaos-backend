@@ -6,7 +6,7 @@
  * Loads all listener modules from this directory, registers them with the
  * in-process wsManager subscriber, and returns the registry instance.
  *
- * On any failure: logs at error, returns null — server stays up.
+ * On any failure: logs at error, returns null - server stays up.
  */
 
 const logger = require('../../config/logger')

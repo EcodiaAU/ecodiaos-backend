@@ -1,5 +1,5 @@
 /**
- * Rescue routes — /api/rescue/*
+ * Rescue routes - /api/rescue/*
  *
  * Served by ecodia-api. All actions proxy to the ecodia-rescue process
  * via Redis.
@@ -85,7 +85,7 @@ router.post('/abort', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Reset — drop the current cc session so next message starts fresh.
+// Reset - drop the current cc session so next message starts fresh.
 // Also clears the api-side transcript.
 router.post('/reset', async (_req, res, next) => {
   try {

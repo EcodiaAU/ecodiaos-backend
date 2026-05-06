@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * skillsSurfaceService — parallel retrieval shim that reads from
+ * skillsSurfaceService - parallel retrieval shim that reads from
  * .claude/skills/<slug>/SKILL.md and returns a matched-patterns block
  * in the same format doctrineSurface.surfaceDoctrineBlock produces.
  *
@@ -11,16 +11,16 @@
  * once parity-or-better is confirmed, PR 6 deletes doctrineSurface.
  *
  * Retrieval logic (keyword-match on Skill descriptions):
- *   - Parse each SKILL.md's description frontmatter at load time.
- *   - Tokenise description into lowercased words.
- *   - For an incoming turn content, score each skill by the number of
+ * - Parse each SKILL.md's description frontmatter at load time.
+ * - Tokenise description into lowercased words.
+ * - For an incoming turn content, score each skill by the number of
  *     description tokens that appear (as substrings) in the content.
- *   - Return top-k by score, formatted as <skills_surface>...</skills_surface>.
+ * - Return top-k by score, formatted as <skills_surface>...</skills_surface>.
  *
  * This is a deliberate keyword-match shim, NOT a semantic retrieval layer.
  * §1.6 of ANTHROPIC_NATIVE_LEVERAGE describes a skillRanker with pgvector
  * embeddings; that's a separate PR. The shim is a drop-in replacement for
- * doctrineSurface's keyword grep — comparable semantics, comparable signal,
+ * doctrineSurface's keyword grep - comparable semantics, comparable signal,
  * same shape block so shadow comparison is meaningful.
  */
 
@@ -144,7 +144,7 @@ function surfaceSkillsBlock(turnContent, options = {}) {
 
 /**
  * Report which skills matched the turn content for the 3-day comparison
- * metric vs doctrineSurface. Does not produce a formatted block — just
+ * metric vs doctrineSurface. Does not produce a formatted block - just
  * the matched names. Called in shadow mode alongside doctrineSurface to
  * populate skills_vs_doctrine_surface_hit_count.
  */

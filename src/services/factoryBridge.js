@@ -2,7 +2,7 @@ const logger = require('../config/logger')
 const { getRedisClient } = require('../config/redis')
 
 // ═══════════════════════════════════════════════════════════════════════
-// FACTORY BRIDGE — Redis communication between ecodia-api and ecodia-factory
+// FACTORY BRIDGE - Redis communication between ecodia-api and ecodia-factory
 //
 // ecodia-api publishes session requests → ecodia-factory consumes them.
 // ecodia-factory publishes session completions/status → ecodia-api consumes.
@@ -10,13 +10,13 @@ const { getRedisClient } = require('../config/redis')
 // to connected clients on behalf of the factory process.
 //
 // Channels:
-//   factory:session:request    — new session to start (api → factory)
-//   factory:session:complete   — session finished (factory → api)
-//   factory:session:status     — real-time status updates (factory → api)
-//   factory:ws:broadcast       — WS broadcast relay (factory → api → clients)
-//   factory:session:send       — send message to running session (api → factory)
-//   factory:session:stop       — stop a running session (api → factory)
-//   factory:session:resume     — resume a paused session (api → factory)
+//   factory:session:request - new session to start (api → factory)
+//   factory:session:complete - session finished (factory → api)
+//   factory:session:status - real-time status updates (factory → api)
+//   factory:ws:broadcast - WS broadcast relay (factory → api → clients)
+//   factory:session:send - send message to running session (api → factory)
+//   factory:session:stop - stop a running session (api → factory)
+//   factory:session:resume - resume a paused session (api → factory)
 // ═══════════════════════════════════════════════════════════════════════
 
 const CHANNELS = {
@@ -27,7 +27,7 @@ const CHANNELS = {
   SESSION_SEND: 'factory:session:send',
   SESSION_STOP: 'factory:session:stop',
   SESSION_RESUME: 'factory:session:resume',
-  // Background LLM jobs — short fire-and-forget prompts for KG consolidation,
+  // Background LLM jobs - short fire-and-forget prompts for KG consolidation,
   // gmail triage, goal scoring, etc. Runs on the factory process using its
   // OWN credentials dir (CLAUDE_CONFIG_DIR_2) so it can never race ecodia-api
   // chat for the chat OAuth credentials.
@@ -40,7 +40,7 @@ const CHANNELS = {
 function publish(channel, data) {
   const redis = getRedisClient()
   if (!redis) {
-    logger.warn('factoryBridge.publish: no Redis client — message dropped', { channel })
+    logger.warn('factoryBridge.publish: no Redis client - message dropped', { channel })
     return false
   }
   redis.publish(channel, JSON.stringify(data))
@@ -85,7 +85,7 @@ function _ensureBgCompleteSubscription() {
   _bgCompleteSubscribed = true
   subscribe(CHANNELS.BG_COMPLETE, (payload) => {
     const entry = _pendingBgJobs.get(payload.jobId)
-    if (!entry) return  // unknown — may have already timed out
+    if (!entry) return  // unknown - may have already timed out
     _pendingBgJobs.delete(payload.jobId)
     clearTimeout(entry.timer)
     if (payload.ok) entry.resolve(payload.text || '')
@@ -95,10 +95,10 @@ function _ensureBgCompleteSubscription() {
 
 /**
  * Dispatch a short LLM prompt to the factory and await the result.
- * @param {string} prompt — single flat prompt string
+ * @param {string} prompt - single flat prompt string
  * @param {object} opts
- * @param {string} opts.module — tag for logging/usage tracking (default 'background')
- * @param {number} opts.timeoutMs — default 5 min
+ * @param {string} opts.module - tag for logging/usage tracking (default 'background')
+ * @param {number} opts.timeoutMs - default 5 min
  * @returns {Promise<string>} the model's text response
  */
 function runBackgroundJob(prompt, { module: mod = 'background', timeoutMs = 5 * 60 * 1000 } = {}) {
@@ -117,7 +117,7 @@ function runBackgroundJob(prompt, { module: mod = 'background', timeoutMs = 5 * 
     if (!published) {
       clearTimeout(timer)
       _pendingBgJobs.delete(jobId)
-      reject(new Error('background job dispatch failed — no Redis connection'))
+      reject(new Error('background job dispatch failed - no Redis connection'))
     }
   })
 }
@@ -159,7 +159,7 @@ function _getSubscriber() {
 function subscribe(channel, callback) {
   const sub = _getSubscriber()
   if (!sub) {
-    logger.warn('factoryBridge.subscribe: no Redis client — subscription skipped', { channel })
+    logger.warn('factoryBridge.subscribe: no Redis client - subscription skipped', { channel })
     return
   }
   sub.subscribe(channel, (err) => {
@@ -180,7 +180,7 @@ function subscribe(channel, callback) {
 function subscribeMany(handlerMap) {
   const sub = _getSubscriber()
   if (!sub) {
-    logger.warn('factoryBridge.subscribeMany: no Redis client — subscriptions skipped')
+    logger.warn('factoryBridge.subscribeMany: no Redis client - subscriptions skipped')
     return
   }
   const channels = Object.keys(handlerMap)
@@ -206,7 +206,7 @@ function subscribeMany(handlerMap) {
 // This checks if the runner is alive.
 
 const RUNNER_HEARTBEAT_KEY = 'factory:runner:heartbeat'
-const RUNNER_HEARTBEAT_TTL = 90 // seconds — stale after 90s (3 missed beats)
+const RUNNER_HEARTBEAT_TTL = 90 // seconds - stale after 90s (3 missed beats)
 
 async function setRunnerHeartbeat() {
   const redis = getRedisClient()

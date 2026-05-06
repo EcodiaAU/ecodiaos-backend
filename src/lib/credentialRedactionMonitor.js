@@ -12,7 +12,7 @@
  * redaction total fires `credential_redaction_burst`. Before the window
  * closes, counters are observed but do not fire.
  *
- * Bootstrap window defaults to 2 hours — long enough for any startup
+ * Bootstrap window defaults to 2 hours - long enough for any startup
  * log flush, listener warm-up, and initial session resumes to complete.
  */
 
@@ -38,7 +38,7 @@ function _sumCounters() {
 /**
  * Returns a 24h-ish snapshot for /api/ops/metrics. Since counters are
  * in-process and reset on restart, "24h" here is effectively "since boot"
- * — accurate because emergency-mode procedure requires a manual restart
+ * - accurate because emergency-mode procedure requires a manual restart
  * anyway. Include bootstrap window status so the dashboard can badge.
  */
 function snapshot() {

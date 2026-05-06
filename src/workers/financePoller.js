@@ -5,17 +5,17 @@ const { createNotification } = require('../db/queries/transactions')
 const { recordHeartbeat } = require('./heartbeat')
 
 // ═══════════════════════════════════════════════════════════════════════
-// FINANCE POLLER — Adaptive loop
+// FINANCE POLLER - Adaptive loop
 //
 // Transaction sync adapts to activity:
-//   - Active day (new transactions found) → poll every 1 hour
-//   - Quiet period → poll every 4 hours
+// - Active day (new transactions found) → poll every 1 hour
+// - Quiet period → poll every 4 hours
 //
 // Token heartbeat: every 6 hours (Xero tokens expire after 60 days of
 // non-use; 6-hour keep-alive is safe and responsive).
 // ═══════════════════════════════════════════════════════════════════════
 
-logger.info('Finance poller worker started — adaptive loop')
+logger.info('Finance poller worker started - adaptive loop')
 
 let running = true
 let pollTimer = null
@@ -33,10 +33,10 @@ async function poll() {
     const newTx = result?.newTransactions ?? result?.count ?? 0
     if (newTx > 0) nextDelayMs = 60 * 60_000
   } catch (e) {
-    // If Xero isn't connected yet, log quietly — not a system error
+    // If Xero isn't connected yet, log quietly - not a system error
     const isNotConnected = e.message?.includes('No Xero tokens') || e.message?.includes('OAuth flow')
     if (isNotConnected) {
-      logger.debug('Finance poller skipped — Xero not connected', { error: e.message })
+      logger.debug('Finance poller skipped - Xero not connected', { error: e.message })
       await recordHeartbeat('finance', 'inactive', e.message)
     } else {
       logger.error('Finance poller failed', { error: e.message, stack: e.stack })
@@ -61,10 +61,10 @@ async function heartbeat() {
   } catch (e) {
     const isNotConnected = e.message?.includes('No Xero tokens') || e.message?.includes('OAuth flow')
     if (!isNotConnected) {
-      logger.error('Xero token heartbeat failed — may need to re-authenticate', { error: e.message })
+      logger.error('Xero token heartbeat failed - may need to re-authenticate', { error: e.message })
       await createNotification({
         type: 'system',
-        message: 'Xero token heartbeat failed — re-authentication may be required',
+        message: 'Xero token heartbeat failed - re-authentication may be required',
         link: '/settings',
         metadata: { error: e.message },
       }).catch(notifErr => logger.error('Failed to create heartbeat notification', { error: notifErr.message }))

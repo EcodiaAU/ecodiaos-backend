@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CRM MCP Server — exposes the full CRM system to the OS Session.
+ * CRM MCP Server - exposes the full CRM system to the OS Session.
  *
  * Thin HTTP wrapper over the EcodiaOS CRM API routes.
  * Covers clients, projects, tasks, notes, contacts, timeline, intelligence.
@@ -74,7 +74,7 @@ server.tool('crm_get_client',
 )
 
 server.tool('crm_get_intelligence',
-  'Rich client intelligence — projects, contacts, recent emails, open tasks, active sessions, revenue, activity timeline. The most complete client view available.',
+  'Rich client intelligence - projects, contacts, recent emails, open tasks, active sessions, revenue, activity timeline. The most complete client view available.',
   { id: z.string().describe('Client UUID') },
   async ({ id }) => {
     const { ok: success, data } = await api('GET', `/api/crm/clients/${id}/intelligence`)
@@ -84,7 +84,7 @@ server.tool('crm_get_intelligence',
 )
 
 server.tool('crm_get_timeline',
-  'Unified activity timeline for a client — emails, notes, tasks, sessions, payments, stage changes in chronological order.',
+  'Unified activity timeline for a client - emails, notes, tasks, sessions, payments, stage changes in chronological order.',
   {
     id:    z.string().describe('Client UUID'),
     limit: z.number().optional().describe('Max events (default 50)'),
@@ -128,7 +128,7 @@ server.tool('crm_update_stage',
 )
 
 server.tool('crm_add_note',
-  'Add a note to a client record — meetings, calls, decisions, anything worth recording.',
+  'Add a note to a client record - meetings, calls, decisions, anything worth recording.',
   {
     id:      z.string().describe('Client UUID'),
     content: z.string().describe('Note content'),
@@ -225,7 +225,7 @@ server.tool('crm_create_project',
 // ── Pipeline & Analytics ──────────────────────────────────────────────
 
 server.tool('crm_pipeline',
-  'Pipeline overview — clients by stage with counts and deal values.',
+  'Pipeline overview - clients by stage with counts and deal values.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/crm/pipeline')
@@ -235,7 +235,7 @@ server.tool('crm_pipeline',
 )
 
 server.tool('crm_dashboard',
-  'Full CRM dashboard — pipeline summary, recent activity, open tasks, revenue overview.',
+  'Full CRM dashboard - pipeline summary, recent activity, open tasks, revenue overview.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/crm/dashboard')
@@ -245,7 +245,7 @@ server.tool('crm_dashboard',
 )
 
 server.tool('crm_revenue',
-  'Revenue overview — invoiced, received, outstanding by client.',
+  'Revenue overview - invoiced, received, outstanding by client.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/crm/revenue')

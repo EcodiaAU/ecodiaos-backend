@@ -1,5 +1,5 @@
 /**
- * LinkedIn MCP tools — DMs, posts, connections.
+ * LinkedIn MCP tools - DMs, posts, connections.
  * Note: LinkedIn doesn't have a proper API for DMs. These tools call
  * the EcodiaOS backend API which uses browser automation under the hood.
  */

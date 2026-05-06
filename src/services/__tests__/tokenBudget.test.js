@@ -1,17 +1,17 @@
 'use strict'
 
 /**
- * Tests for tokenBudget — priority-tiered allocator with per-block caps
+ * Tests for tokenBudget - priority-tiered allocator with per-block caps
  * and FIFO truncation for history-tail blocks.
  *
  * Covers (from PROMPT_ASSEMBLY_SPEC §3.4 + §8.1-8.2):
- *   - estimateTokens uses a ~4-chars/token approximation, over-estimating
- *   - Critical blocks always survive even if they'd push past budget
- *   - High-priority blocks respect per-block caps
- *   - Medium-priority blocks get what's left after high
- *   - Low-priority history shrinks via FIFO truncation
- *   - Block shrinker callbacks are honoured when provided
- *   - Oversized input: total stays under budget; critical sections preserved
+ * - estimateTokens uses a ~4-chars/token approximation, over-estimating
+ * - Critical blocks always survive even if they'd push past budget
+ * - High-priority blocks respect per-block caps
+ * - Medium-priority blocks get what's left after high
+ * - Low-priority history shrinks via FIFO truncation
+ * - Block shrinker callbacks are honoured when provided
+ * - Oversized input: total stays under budget; critical sections preserved
  */
 
 jest.mock('../../config/logger', () => ({

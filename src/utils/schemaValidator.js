@@ -10,7 +10,7 @@ const EXPECTED_ENUMS = {
 /**
  * Queries pg_constraint CHECK constraints for cc_sessions and compares
  * allowed values against hardcoded expected values from application code.
- * Non-fatal, advisory only — logs warnings for mismatches.
+ * Non-fatal, advisory only - logs warnings for mismatches.
  */
 async function validateSchemaConstraints(db) {
   try {
@@ -26,7 +26,7 @@ async function validateSchemaConstraints(db) {
     `
 
     if (constraints.length === 0) {
-      logger.warn('[schema-validator] No CHECK constraints found on cc_sessions — cannot validate enums')
+      logger.warn('[schema-validator] No CHECK constraints found on cc_sessions - cannot validate enums')
       return
     }
 

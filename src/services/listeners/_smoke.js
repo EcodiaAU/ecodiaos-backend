@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Smoke listener — proves the registry pipeline end-to-end.
+ * Smoke listener - proves the registry pipeline end-to-end.
  * relevanceFilter always returns false so handle() is never invoked in production.
  */
 

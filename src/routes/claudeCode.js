@@ -44,7 +44,7 @@ router.get('/sessions', async (req, res, next) => {
   }
 })
 
-// POST /api/cc/sessions — start new CC session
+// POST /api/cc/sessions - start new CC session
 const createSessionSchema = z.object({
   projectId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
@@ -166,7 +166,7 @@ router.get('/sessions/:id/pipeline', async (req, res, next) => {
     `
     if (!session) return res.status(404).json({ error: 'Session not found' })
 
-    // Active session info now lives in factoryRunner — query via DB heartbeat
+    // Active session info now lives in factoryRunner - query via DB heartbeat
     const isActive = session.pipeline_stage === 'executing' &&
       session.last_heartbeat_at && (Date.now() - new Date(session.last_heartbeat_at).getTime() < 120_000)
 
@@ -174,7 +174,7 @@ router.get('/sessions/:id/pipeline', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/cc/sessions/:id/resume — resume a completed/paused session with a new message
+// POST /api/cc/sessions/:id/resume - resume a completed/paused session with a new message
 const resumeSchema = z.object({
   content: z.string().min(1),
 })
@@ -206,7 +206,7 @@ router.post('/sessions/:id/stop', async (req, res, next) => {
   }
 })
 
-// GET /api/cc/health — session health monitoring (stall detection)
+// GET /api/cc/health - session health monitoring (stall detection)
 router.get('/health', async (_req, res, next) => {
   try {
     const bridge = require('../services/factoryBridge')
@@ -246,7 +246,7 @@ router.get('/health', async (_req, res, next) => {
   }
 })
 
-// GET /api/cc/analytics — Factory performance analytics
+// GET /api/cc/analytics - Factory performance analytics
 router.get('/analytics', async (req, res, next) => {
   try {
     const days = Math.min(parseInt(req.query.days) || 30, 90)
@@ -382,7 +382,7 @@ router.get('/analytics', async (req, res, next) => {
   }
 })
 
-// ── Factory Review / Approve / Reject — called by Factory MCP server ──
+// ── Factory Review / Approve / Reject - called by Factory MCP server ──
 
 // GET /api/cc/sessions/:id/review
 router.get('/sessions/:id/review', async (req, res, next) => {

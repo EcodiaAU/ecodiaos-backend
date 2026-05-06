@@ -11,21 +11,21 @@
  * Wake contract (silent-ears architecture, Tate 30 Apr 2026 13:18 AEST,
  * extended to terminal failures Tate 5 May 2026 12:40 AEST,
  * autonomy-gap clarification Tate 6 May 2026 ~10:29 AEST):
- *   - status='done' WITH a real [FORK_REPORT] body → WAKE the conductor
+ * - status='done' WITH a real [FORK_REPORT] body → WAKE the conductor
  *     (autonomy delivery path). Without this wake, queued fork_reports sit
  *     in messageQueue until the next Tate-typed message or scheduled cron
  *     tick (meta-loop, hourly), which breaks fork-driven autonomous chains.
  *     The wake POST runs in 'direct' mode, so drainIntoDirectMessage prepends
  *     any queued fork_reports already in messageQueue to the same turn.
- *   - status='done' with EMPTY result OR phantom-bail marker → SILENT.
+ * - status='done' with EMPTY result OR phantom-bail marker → SILENT.
  *     Phantom-bails are forks that closed without emitting [FORK_REPORT];
  *     the inbox already shows them with no_report_emitted=true via the
  *     forkService enqueue path. Waking on those would just spam.
- *   - status='aborted' or status='error' is SILENT. Logs to DB +
+ * - status='aborted' or status='error' is SILENT. Logs to DB +
  *     publishes perception. The conductor sees fork failures via <forks_rollup>
- *     context-stitching on the next natural turn — no chat-stream pollution.
+ *     context-stitching on the next natural turn - no chat-stream pollution.
  *     See ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md.
- *   - Stale-heartbeat (no progress signal for 10+ minutes) STILL WAKES — a hung
+ * - Stale-heartbeat (no progress signal for 10+ minutes) STILL WAKES - a hung
  *     fork is not otherwise visible in <forks_rollup>.
  *
  * Stale-heartbeat alerts are deduplicated per fork_id (in-memory Set).
@@ -36,7 +36,7 @@
 const logger = require('../../config/logger')
 const axios = require('axios')
 // Note: §2.1 untrusted-input wrapping for fork-emitted free text is no longer
-// needed in this listener — terminal failures (status='aborted'/'error') now
+// needed in this listener - terminal failures (status='aborted'/'error') now
 // publish to perception only and do NOT compose a conductor-chat message.
 // Stale-heartbeat path emits a fixed-format message that contains no
 // fork-emitted free text. See ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md.
@@ -47,11 +47,11 @@ const STALE_HEARTBEAT_MS = 10 * 60 * 1000  // 10 minutes
 const TERMINAL_STATUSES = new Set(['done', 'aborted', 'error'])
 const RUNNING_STATUSES = new Set(['running', 'spawning', 'reporting'])
 
-// Phantom-bail fingerprint — must match FALLBACK_MARKER in forkService.js.
+// Phantom-bail fingerprint - must match FALLBACK_MARKER in forkService.js.
 // forkService stores result as "(no [FORK_REPORT] emitted; last N chars of
 // transcript follow)\n\n${tail}" when a fork closes without emitting the
 // closing tag. Treating those as "real reports" and waking the conductor
-// would just spam — they have no actionable summary, only transcript tail.
+// would just spam - they have no actionable summary, only transcript tail.
 // Brief: literal `result.includes('[FORK_REPORT]')` check would invert this
 // (phantom-bail strings DO contain '[FORK_REPORT]' as part of the marker text;
 // clean reports DON'T because forkService strips the tag during regex extract).
@@ -126,7 +126,7 @@ module.exports = {
       // Note: forkService.spawnFork already publishes a richer fork_complete
       // event with tokens/duration/parent_id at terminal-success
       // (forkService.js:929-945, source='fork:<id>'). Do not re-publish here
-      // from the db:event observation path — it would duplicate every
+      // from the db:event observation path - it would duplicate every
       // successful fork in os_observations and double-count in
       // perception_summary. See drafts/proposed-design-fixes/01-dedupe-fork-complete-publishes.md.
       // The aborted/error publish below is retained because forkService
@@ -144,7 +144,7 @@ module.exports = {
           return
         }
 
-        // Real successful completion with FORK_REPORT body — wake conductor.
+        // Real successful completion with FORK_REPORT body - wake conductor.
         // Wake POST runs in 'direct' mode → drainIntoDirectMessage prepends
         // any queued fork_report rows already in messageQueue, so the
         // conductor sees the full queued report PLUS this brief wake header
@@ -162,7 +162,7 @@ module.exports = {
         logger.info('forkComplete: terminal done with [FORK_REPORT], wake POST sending', {
           forkId, resultLen: result.length,
         })
-        // Fire-and-forget — _wakeOsSession has its own try/catch + 5s timeout,
+        // Fire-and-forget - _wakeOsSession has its own try/catch + 5s timeout,
         // and never throws. Do not await: the listener handler should not
         // block on HTTP for the wake.
         _wakeOsSession(wakeMessage, forkId)
@@ -172,7 +172,7 @@ module.exports = {
       // Silent path: terminal failure (aborted or error).
       // Per ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md
       // (Tate 5 May 2026 12:40 AEST), terminal failures publish to perception
-      // and log to the DB only — never POST to /api/os-session/message.
+      // and log to the DB only - never POST to /api/os-session/message.
       // The conductor sees the failure via <forks_rollup> context-stitching
       // on the next natural turn, not as a chat message. Avoids duplicating
       // a signal the conductor already has into chat-stream pollution.

@@ -1,21 +1,21 @@
 'use strict'
 
-// Unit tests for forkService._buildForkReportBody and _enqueueForkReport —
+// Unit tests for forkService._buildForkReportBody and _enqueueForkReport - 
 // the always-enqueue fork_report path shipped 2026-05-03 (fork_mopb0usj_110087,
 // SELF-EVOLUTION rotation A).
 //
 // Background
 // ──────────
 // Pre-fix the success-path enqueue at end of spawnFork's stream loop was gated
-// `if (report)` — when a fork's transcript closed without emitting a
+// `if (report)` - when a fork's transcript closed without emitting a
 // [FORK_REPORT] tag, the message-queue enqueue was skipped entirely. The fork
 // only surfaced via forks_rollup for ~15min before dropping off the conductor's
 // view. Phantom-bail forks could ship real work and the conductor never saw a
 // durable inbox record.
 //
 // Post-fix the enqueue is unconditional. Two body shapes, one path:
-//   (a) clean — fork emitted [FORK_REPORT]; body wraps report verbatim.
-//   (b) phantom_bail — body explicitly tagged `no_report_emitted=true`,
+//   (a) clean - fork emitted [FORK_REPORT]; body wraps report verbatim.
+//   (b) phantom_bail - body explicitly tagged `no_report_emitted=true`,
 //       carries state.result (FALLBACK_MARKER prefix + transcript tail) so
 //       the conductor can verify-then-act with something to anchor probes to.
 //
@@ -53,7 +53,7 @@ function makeMq() {
 
 // ──────────────────────────────────────────────────────────────────────────────
 describe('forkService._buildForkReportBody (pure helper)', () => {
-  test('clean path — wraps captured report verbatim with [SYSTEM: fork_report]', () => {
+  test('clean path - wraps captured report verbatim with [SYSTEM: fork_report]', () => {
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_clean_001',
       brief: 'fix line 42 in foo.js',
@@ -71,7 +71,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).not.toMatch(/irrelevant on clean path/)
   })
 
-  test('clean path — omits Next step line when nextStep is null', () => {
+  test('clean path - omits Next step line when nextStep is null', () => {
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_clean_002',
       brief: 'docs update',
@@ -83,10 +83,10 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).not.toMatch(/Next step suggested/)
   })
 
-  test('clean path — empty report string (FORK_REPORT + NEXT_STEP on adjacent lines) does NOT phantom_bail', () => {
+  test('clean path - empty report string (FORK_REPORT + NEXT_STEP on adjacent lines) does NOT phantom_bail', () => {
     // Regression: test for the exact regex extraction bug found 5 May 2026.
     // When a fork writes [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP],
-    // the lazy [\s\S]*? captures only the newlines — .trim() gives "".
+    // the lazy [\s\S]*? captures only the newlines - .trim() gives "".
     //
     // OLD code used `if (report)` which treated "" as falsy → phantom_bail fallback.
     // FIXED code uses `if (report !== null)` so "" is correctly treated as a valid
@@ -98,7 +98,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
       nextStep: 'Merge the PR.',
       fallbackResult: 'should never be reached',
     })
-    // Must NOT carry the phantom-bail tag — FORK_REPORT WAS found, body was just empty.
+    // Must NOT carry the phantom-bail tag - FORK_REPORT WAS found, body was just empty.
     expect(body).not.toMatch(/no_report_emitted=true/)
     // Must show the empty-body explanation in the Report line.
     expect(body).toMatch(/Report: \(empty body/)
@@ -106,7 +106,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).toMatch(/Next step suggested: Merge the PR\./)
   })
 
-  test('phantom_bail path — emits no_report_emitted=true tag and tight body (<1KB)', () => {
+  test('phantom_bail path - emits no_report_emitted=true tag and tight body (<1KB)', () => {
     const fallback = `${FALLBACK_MARKER}; last 1500 chars of transcript follow)\n\n... lots of tool-call narration ...`
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_bail_001',
@@ -127,7 +127,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).not.toContain(FALLBACK_MARKER)
   })
 
-  test('phantom_bail path — long brief is truncated to first 200 chars with ellipsis', () => {
+  test('phantom_bail path - long brief is truncated to first 200 chars with ellipsis', () => {
     const longBrief = 'A'.repeat(2000) + '_TAIL_'
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_bail_long',
@@ -144,7 +144,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body.length).toBeLessThan(1024)
   })
 
-  test('phantom_bail path — long transcript tail is truncated to last 500 chars with ellipsis prefix', () => {
+  test('phantom_bail path - long transcript tail is truncated to last 500 chars with ellipsis prefix', () => {
     const longTail = 'X'.repeat(50) + 'Y'.repeat(2000) + '_END_'
     const fallback = `${FALLBACK_MARKER}; last ${longTail.length} chars of transcript follow)\n\n${longTail}`
     const body = forkService._buildForkReportBody({
@@ -161,7 +161,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body.length).toBeLessThan(1024)
   })
 
-  test('phantom_bail path — handles null fallbackResult without crashing', () => {
+  test('phantom_bail path - handles null fallbackResult without crashing', () => {
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_bail_empty',
       brief: 'brief here',
@@ -175,7 +175,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
     expect(body).toMatch(/^\(empty\)$/m)
   })
 
-  test('phantom_bail path — handles empty-string fallbackResult', () => {
+  test('phantom_bail path - handles empty-string fallbackResult', () => {
     const body = forkService._buildForkReportBody({
       fork_id: 'fork_test_bail_blank',
       brief: 'brief here',
@@ -205,7 +205,7 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
 
 // ──────────────────────────────────────────────────────────────────────────────
 describe('forkService._enqueueForkReport (mq integration)', () => {
-  test('clean path — enqueues to message queue with fork:<id> source and queue mode', async () => {
+  test('clean path - enqueues to message queue with fork:<id> source and queue mode', async () => {
     const mq = makeMq()
     forkService._setMessageQueueForTest(mq)
 
@@ -226,7 +226,7 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
     expect(mq.enqueued[0].body).toMatch(/Report: r/)
   })
 
-  test('phantom_bail path — STILL enqueues (the regression guard for the 2026-05-03 fix)', async () => {
+  test('phantom_bail path - STILL enqueues (the regression guard for the 2026-05-03 fix)', async () => {
     const mq = makeMq()
     forkService._setMessageQueueForTest(mq)
 
@@ -246,7 +246,7 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
     expect(mq.enqueued[0].body).toContain('the tail')
   })
 
-  test('mq.enqueueMessage throws — returns enqueued=false but does not throw outward', async () => {
+  test('mq.enqueueMessage throws - returns enqueued=false but does not throw outward', async () => {
     const mq = {
       enqueueMessage: jest.fn(async () => { throw new Error('db dead') }),
     }
@@ -286,7 +286,7 @@ describe('integration: phantom_bail body shape (5 May 2026 tight version)', () =
   // classification now hangs off the SYSTEM-tag line (`no_report_emitted=
   // true`), NOT a substring search for FALLBACK_MARKER on the body.
   // The marker constant is still the single source of truth for state.result
-  // (the os_forks column writer) and forksRollup() — both unchanged.
+  // (the os_forks column writer) and forksRollup() - both unchanged.
   test('phantom_bail body shape: tight + parseable + bounded under 1KB', () => {
     const tail = 'aaa'.repeat(700)
     const sliced = tail.length > 2000 ? tail.slice(-2000) : tail

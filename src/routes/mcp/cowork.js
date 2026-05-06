@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — peerage substrate route file.
+ * Cowork V2 MCP - peerage substrate route file.
  *
  * Mount: /api/mcp/cowork in src/app.js (after /api/hands).
  * Auth:  bearer from kv_store.creds.cowork_mcp_bearer via coworkAuth middleware.
@@ -49,7 +49,7 @@ router.get('/_health', (_req, res) => {
   })
 })
 
-// MCP JSON-RPC root mount — BEFORE coworkAuth so discovery handshake
+// MCP JSON-RPC root mount - BEFORE coworkAuth so discovery handshake
 // (initialize / tools/list / prompts/list / resources/list /
 // notifications/initialized / ping) flows publicly per MCP spec.
 // The shim itself enforces bearer auth for tools/call only.
@@ -778,7 +778,7 @@ router.post('/cowork.log_session', scope.requireScope('write.cowork.session_log'
         outcome_reason = COALESCE(EXCLUDED.outcome_reason, cowork_sessions.outcome_reason)
     `
 
-    const episodeName = `Cowork session ${b.cowork_session_id} — ${b.outcome || 'completed'}`
+    const episodeName = `Cowork session ${b.cowork_session_id} - ${b.outcome || 'completed'}`
     const props = {
       name: episodeName,
       description: (b.transcript_summary || '').slice(0, 4000),
@@ -1022,7 +1022,7 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
       cowork_session_id: b.cowork_session_id,
       affected_substrate: 'gmail',
       affected_row_ref: result.message_id,
-      // Body excluded from audit log — only to/subject/length recorded.
+      // Body excluded from audit log - only to/subject/length recorded.
       request_summary: {
         from: fromInbox, to: toSummary, subject: b.subject,
         body_chars: b.body.length,
@@ -1057,7 +1057,7 @@ function _stripFiller(msg) {
 }
 
 function _isUnicode(str) {
-  // GSM-7 alphabet check — anything outside basic ASCII + the GSM extension
+  // GSM-7 alphabet check - anything outside basic ASCII + the GSM extension
   // forces UCS-2 encoding (70 chars/segment instead of 160).
   return /[^\x00-\x7F]/.test(str)
 }
@@ -1096,7 +1096,7 @@ router.post('/sms.tate', scope.requireScope('write.sms.tate'), async (req, res) 
       if (lastBody === stripped && Date.now() - lastTs < SMS_DEDUPE_WINDOW_MS && urgency !== 'critical') {
         return res.status(409).json({
           error: 'dedupe_hit',
-          message: 'identical body sent within 6h window — pass urgency=critical to override',
+          message: 'identical body sent within 6h window - pass urgency=critical to override',
           details: { last_sent_at: last.timestamp, body: stripped },
         })
       }
@@ -1108,7 +1108,7 @@ router.post('/sms.tate', scope.requireScope('write.sms.tate'), async (req, res) 
     if (count >= scope.RATE_CAPS.sms_tate_per_day && urgency !== 'critical') {
       return res.status(429).json({
         error: 'rate_cap',
-        message: 'sms.tate day cap reached — pass urgency=critical to override',
+        message: 'sms.tate day cap reached - pass urgency=critical to override',
         details: { cap: scope.RATE_CAPS.sms_tate_per_day, window: '24h', current: count },
       })
     }
@@ -1304,7 +1304,7 @@ router.post('/scheduler.list', scope.requireScope('read.scheduler.list'), async 
     const b = req.body || {}
     const filter = b.filter || {}
     const limit = Math.max(1, Math.min(200, parseInt(b.limit) || 50))
-    // Default to cowork-owned (name starts with cowork.) — pass name_prefix='*' for unfiltered
+    // Default to cowork-owned (name starts with cowork.) - pass name_prefix='*' for unfiltered
     const namePrefix = filter.name_prefix === '*' ? null
                      : (filter.name_prefix || COWORK_NAME_PREFIX)
     const status = filter.status || null

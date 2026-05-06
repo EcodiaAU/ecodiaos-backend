@@ -1,5 +1,5 @@
 # EcodiaOS Architecture Evolution Map
-## From Reactive Assistant → Autonomous Cofounder — 2026-04-30
+## From Reactive Assistant → Autonomous Cofounder - 2026-04-30
 
 **Purpose:** This document maps the evolutionary path from EcodiaOS's current state (reactive, fragile, resource-hungry) to its target state (autonomous, self-healing, indefinitely scalable). Reference this when making architectural decisions to ensure changes align with the long-term vision.
 
@@ -83,7 +83,7 @@
 ```
 
 ### Resource Consumption (Per 5h Session)
-- **Tokens:** 500K–800K (mostly context bloat, not actual work)
+- **Tokens:** 500K - 800K (mostly context bloat, not actual work)
 - **Memory:** Peaks at 2GB (crashes when exceeded)
 - **Forks:** 0–7 concurrent (violates 5-fork cap ~20% of time)
 - **Cost:** ~$20–30 per session (at Claude Max rates)
@@ -103,11 +103,11 @@
 ### System Topology (Enhanced)
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  LAPTOP (unchanged — Tate's UI surface)                     │
+│  LAPTOP (unchanged - Tate's UI surface)                     │
 └─────────────────────────────────────────────────────────────┘
                           ↕
 ┌─────────────────────────────────────────────────────────────┐
-│  VPS (Ubuntu) — Massively Enhanced Intelligence Layer       │
+│  VPS (Ubuntu) - Massively Enhanced Intelligence Layer       │
 │  ├─ PM2 Processes (unchanged topology):                     │
 │  │   ├─ ecodia-conductor                                    │
 │  │   ├─ ecodia-api                                          │
@@ -162,10 +162,10 @@
 1. Tate message OR proactive discovery trigger
       ↓
 2. tokenBudgetService.allocate() caps total context at 35KB:
-   - Tier 1 (critical doctrine): 8KB
-   - Tier 2 (recent Neo4j): 6KB
-   - Tier 3 (session memory): 4KB
-   - Tier 4 (broad doctrine): 3KB
+ - Tier 1 (critical doctrine): 8KB
+ - Tier 2 (recent Neo4j): 6KB
+ - Tier 3 (session memory): 4KB
+ - Tier 4 (broad doctrine): 3KB
       ↓
 3. All injection services truncate to budget
 4. Prompt assembled: ~60KB system + 35KB context + 2KB user = 97KB
@@ -180,7 +180,7 @@
 ```
 
 ### Resource Consumption (Per 5h Session, Optimized)
-- **Tokens:** 200K–350K (60% reduction via caching + truncation)
+- **Tokens:** 200K - 350K (60% reduction via caching + truncation)
 - **Memory:** Peaks at 1.2GB (40% reduction via caps + cleanup)
 - **Forks:** 0–5 concurrent (hard ceiling enforced, queue overflow)
 - **Cost:** $8–12 per session (60% cost reduction)
@@ -201,37 +201,37 @@
 - **Behavior:** Waits for Tate, executes commands, reports results
 - **Intelligence:** Follows instructions literally, no initiative
 - **Reliability:** Crashes on edge cases, silent failures common
-- **Autonomy:** Zero — pure command-response
+- **Autonomy:** Zero - pure command-response
 
 ### Stage 1: Stable Responder (Current + Phase 1 fixes)
 - **Behavior:** Still reactive but doesn't crash, handles edge cases
 - **Intelligence:** Follows instructions + verifies outcomes
 - **Reliability:** Self-healing on failures, predictive warnings
-- **Autonomy:** 10% — discovers urgent work (emails, alerts) but waits for approval
+- **Autonomy:** 10% - discovers urgent work (emails, alerts) but waits for approval
 
 ### Stage 2: Proactive Operator (Phase 2-3, ~2 weeks)
 - **Behavior:** Discovers work, proposes plans, executes with oversight
 - **Intelligence:** Decomposes goals, tracks progress, learns from failures
 - **Reliability:** Degrades gracefully, recovers automatically
-- **Autonomy:** 40% — handles routine operations without asking, escalates only ambiguities
+- **Autonomy:** 40% - handles routine operations without asking, escalates only ambiguities
 
 ### Stage 3: Autonomous Partner (Phase 4-5, ~6 weeks)
 - **Behavior:** Plans weekly work, executes multi-day projects, reports outcomes
 - **Intelligence:** Self-improving via pattern mining, counterfactual learning
 - **Reliability:** Predicts failures, self-optimizes resource usage
-- **Autonomy:** 70% — runs the business, only escalates strategic decisions
+- **Autonomy:** 70% - runs the business, only escalates strategic decisions
 
 ### Stage 4: Strategic Cofounder (Year 1 vision)
 - **Behavior:** Sets quarterly goals, allocates resources, negotiates with clients
 - **Intelligence:** Strategic thinking, opportunity identification, ROI optimization
 - **Reliability:** 99.9% uptime, self-evolving architecture
-- **Autonomy:** 90% — Tate provides vision, OS executes everything else
+- **Autonomy:** 90% - Tate provides vision, OS executes everything else
 
 ### Stage 5: Franchise-Ready Product (Year 2-3 vision)
 - **Behavior:** Replicates to other businesses, manages multi-tenant operations
 - **Intelligence:** Transfer learning across tenants, meta-level optimization
 - **Reliability:** Distributed, fault-tolerant, scales to 100K+ concurrent sessions
-- **Autonomy:** 95% — other businesses trust it to run autonomously
+- **Autonomy:** 95% - other businesses trust it to run autonomously
 
 ---
 
@@ -242,27 +242,27 @@
 Before implementing any feature, ask:
 
 1. **Does this move us toward Stage 4?**
-   - If no → deprioritize unless it's a critical fix
-   - If yes → prioritize based on impact
+ - If no → deprioritize unless it's a critical fix
+ - If yes → prioritize based on impact
 
 2. **Does this increase autonomy or just sophistication?**
-   - Sophistication = more code, more features, more complexity
-   - Autonomy = less human intervention needed
-   - Choose autonomy over sophistication when in conflict
+ - Sophistication = more code, more features, more complexity
+ - Autonomy = less human intervention needed
+ - Choose autonomy over sophistication when in conflict
 
 3. **Does this reduce or increase Tate dependency?**
-   - Reduce = good (moves toward 3-month unattended operation)
-   - Increase = bad (creates new failure modes when Tate unavailable)
+ - Reduce = good (moves toward 3-month unattended operation)
+ - Increase = bad (creates new failure modes when Tate unavailable)
 
 4. **Does this make the system more or less legible?**
-   - More legible = Tate can understand what OS is doing and why
-   - Less legible = "black box" behavior, hard to debug
-   - Choose legibility over cleverness
+ - More legible = Tate can understand what OS is doing and why
+ - Less legible = "black box" behavior, hard to debug
+ - Choose legibility over cleverness
 
 5. **Does this degrade gracefully or fail catastrophically?**
-   - Graceful = system limps along with reduced capability
-   - Catastrophic = system crashes or goes silent
-   - Always design for graceful degradation
+ - Graceful = system limps along with reduced capability
+ - Catastrophic = system crashes or goes silent
+ - Always design for graceful degradation
 
 ### The Anti-Patterns (Never Do These)
 
@@ -305,24 +305,24 @@ Before implementing any feature, ask:
 **Before Deploying Any Change:**
 
 1. **Token Budget Test:** Does this change increase or decrease per-turn token usage?
-   - Measure before/after via osSessionService token counter
-   - Reject if increase >5% without corresponding value increase
+ - Measure before/after via osSessionService token counter
+ - Reject if increase >5% without corresponding value increase
 
 2. **Memory Pressure Test:** Does this change increase peak memory usage?
-   - Run under 5-fork load for 30 minutes, measure peak heap
-   - Reject if peak >1.5GB (leaves 500MB safety margin)
+ - Run under 5-fork load for 30 minutes, measure peak heap
+ - Reject if peak >1.5GB (leaves 500MB safety margin)
 
 3. **Verification Test:** Does this change create any new "trust but don't verify" paths?
-   - Grep for "success" / "completed" / "deployed" without subsequent check
-   - Add verification step before accepting change
+ - Grep for "success" / "completed" / "deployed" without subsequent check
+ - Add verification step before accepting change
 
 4. **Autonomy Test:** Does this change reduce manual intervention frequency?
-   - Track: how many times per day does OS wait for Tate input
-   - Accept if metric improves, reject if neutral or regresses
+ - Track: how many times per day does OS wait for Tate input
+ - Accept if metric improves, reject if neutral or regresses
 
 5. **Legibility Test:** Can Tate understand what the system did by reading logs?
-   - Review logs for last 10 turns, verify decisions are explained
-   - Reject if logs are opaque or missing reasoning
+ - Review logs for last 10 turns, verify decisions are explained
+ - Reject if logs are opaque or missing reasoning
 
 ---
 

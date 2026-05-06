@@ -6,7 +6,7 @@ const logger = require('../config/logger')
 const router = Router()
 router.use(auth)
 
-// GET /api/settings — returns system config + status
+// GET /api/settings - returns system config + status
 router.get('/', async (req, res, next) => {
   try {
     const [xeroToken] = await db`SELECT expires_at, updated_at FROM xero_tokens LIMIT 1`
@@ -27,12 +27,12 @@ router.get('/', async (req, res, next) => {
 
 // POST /api/settings/workers/:name/trigger
 //
-// Only KG operations are exposed here — they are targeted, stateless ops
+// Only KG operations are exposed here - they are targeted, stateless ops
 // that can be useful to invoke directly (e.g. force-embed before a query).
 //
 // Factory maintenance (audit, scan, sweep, self_improvement) is NOT exposed.
 // Those are decided by the AutonomousMaintenanceWorker, not by the user.
-// If you need maintenance to run, tell Cortex — it will dispatch a Factory session.
+// If you need maintenance to run, tell Cortex - it will dispatch a Factory session.
 //
 // Supported: kg_embed, kg_consolidation, maintenance_cycle
 router.post('/workers/:name/trigger', async (req, res, next) => {
@@ -41,7 +41,7 @@ router.post('/workers/:name/trigger', async (req, res, next) => {
 
     if (name === 'kg_embed') {
       const kgService = require('../services/knowledgeGraphService')
-      logger.info('Manual trigger: KG embedding — starting')
+      logger.info('Manual trigger: KG embedding - starting')
       kgService.embedStaleNodes()
         .then(result => {
           logger.info('KG embedding complete', { embedded: result?.embedded, skipped: result?.skipped })
@@ -52,12 +52,12 @@ router.post('/workers/:name/trigger', async (req, res, next) => {
             stack: err.stack?.split('\n').slice(0, 8).join('\n'),
           })
         })
-      return res.json({ ok: true, message: 'KG embedding started — check logs for completion' })
+      return res.json({ ok: true, message: 'KG embedding started - check logs for completion' })
     }
 
     if (name === 'kg_consolidation') {
       const kgConsolidation = require('../services/kgConsolidationService')
-      logger.info('Manual trigger: KG consolidation — starting')
+      logger.info('Manual trigger: KG consolidation - starting')
       kgConsolidation.runConsolidationPipeline({ dryRun: false })
         .then(result => {
           logger.info('KG consolidation complete', {
@@ -72,15 +72,15 @@ router.post('/workers/:name/trigger', async (req, res, next) => {
             stack: err.stack?.split('\n').slice(0, 8).join('\n'),
           })
         })
-      return res.json({ ok: true, message: 'KG consolidation started — check logs for completion' })
+      return res.json({ ok: true, message: 'KG consolidation started - check logs for completion' })
     }
 
     if (name === 'maintenance_cycle') {
-      // Force one maintenance cycle immediately — useful for testing/debugging
+      // Force one maintenance cycle immediately - useful for testing/debugging
       const maintenance = require('../workers/autonomousMaintenanceWorker')
       maintenance.runCycle().catch(() => {})
       logger.info('Manual trigger: autonomous maintenance cycle')
-      return res.json({ ok: true, message: 'Maintenance cycle started — the mind will decide what to do' })
+      return res.json({ ok: true, message: 'Maintenance cycle started - the mind will decide what to do' })
     }
 
     return res.status(400).json({
@@ -109,7 +109,7 @@ router.get('/enums', (_req, res) => {
   })
 })
 
-// POST /api/settings/linkedin-cookies — direct cookie setter, no AI needed
+// POST /api/settings/linkedin-cookies - direct cookie setter, no AI needed
 router.post('/linkedin-cookies', async (req, res, next) => {
   try {
     const { li_at, JSESSIONID, li_a } = req.body
@@ -134,7 +134,7 @@ router.post('/linkedin-cookies', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/settings/claude-tokens — token health status for both accounts
+// GET /api/settings/claude-tokens - token health status for both accounts
 router.get('/claude-tokens', async (req, res, next) => {
   try {
     const tokenRefresh = require('../services/claudeTokenRefreshService')
@@ -143,7 +143,7 @@ router.get('/claude-tokens', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/settings/claude-tokens/refresh — force refresh all tokens now
+// POST /api/settings/claude-tokens/refresh - force refresh all tokens now
 router.post('/claude-tokens/refresh', async (req, res, next) => {
   try {
     const tokenRefresh = require('../services/claudeTokenRefreshService')

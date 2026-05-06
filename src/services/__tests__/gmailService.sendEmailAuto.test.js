@@ -4,15 +4,15 @@
  * Integration tests for the gmailService auto-token send path.
  *
  * Covers:
- *   - sendEmailAuto: pattern match → token issued → sendEmailGated path
- *   - sendEmailAuto: no pattern match → pending_otp returned, NO send
- *   - sendReplyToThread: routes through sendEmailAuto with thread context
- *   - sendNewEmail: routes through sendEmailAuto with optional opts
- *   - _buildSendTarget: deterministic shape across issuer and verifier
+ * - sendEmailAuto: pattern match → token issued → sendEmailGated path
+ * - sendEmailAuto: no pattern match → pending_otp returned, NO send
+ * - sendReplyToThread: routes through sendEmailAuto with thread context
+ * - sendNewEmail: routes through sendEmailAuto with optional opts
+ * - _buildSendTarget: deterministic shape across issuer and verifier
  *
  * Per §3.2/§3.3 threat model, every external-recipient send must go
  * through the composite gate. Previously sendReplyToThread and
- * sendNewEmail bypassed it — this test locks in the wire-up.
+ * sendNewEmail bypassed it - this test locks in the wire-up.
  */
 
 process.env.GMAIL_ENABLED = 'true'
@@ -62,7 +62,7 @@ jest.mock('../timeSenseService', () => ({
 
 const gmailService = require('../gmailService')
 
-describe('gmailService.sendEmailAuto — auto-issue token path', () => {
+describe('gmailService.sendEmailAuto - auto-issue token path', () => {
   beforeEach(() => {
     mockIssueToken.mockReset()
     mockVerifyAndConsume.mockReset()
@@ -172,7 +172,7 @@ describe('gmailService.sendEmailAuto — auto-issue token path', () => {
       })
       const issueTarget = mockIssueToken.mock.calls[0][0].target
       const verifyTarget = mockVerifyAndConsume.mock.calls[0][0].target
-      // Every key/value must match — the HMAC depends on byte-for-byte equivalence.
+      // Every key/value must match - the HMAC depends on byte-for-byte equivalence.
       expect(verifyTarget).toEqual(issueTarget)
     } finally {
       gmailService.sendEmail = originalSendEmail
@@ -180,7 +180,7 @@ describe('gmailService.sendEmailAuto — auto-issue token path', () => {
   })
 })
 
-describe('gmailService.sendReplyToThread — routes through sendEmailAuto', () => {
+describe('gmailService.sendReplyToThread - routes through sendEmailAuto', () => {
   beforeEach(() => {
     mockIssueToken.mockReset()
     mockVerifyAndConsume.mockReset()
@@ -247,7 +247,7 @@ describe('gmailService.sendReplyToThread — routes through sendEmailAuto', () =
   })
 })
 
-describe('gmailService.sendNewEmail — routes through sendEmailAuto', () => {
+describe('gmailService.sendNewEmail - routes through sendEmailAuto', () => {
   beforeEach(() => {
     mockIssueToken.mockReset()
     mockVerifyAndConsume.mockReset()

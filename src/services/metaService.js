@@ -326,7 +326,7 @@ Respond as JSON:
         }).catch(() => {})
       }
 
-      // Code work detection — if the DM contains a code/feature request, bridge to Factory
+      // Code work detection - if the DM contains a code/feature request, bridge to Factory
       const hasCodeWork = triage.isCodeWorkRequest === true
         && typeof triage.factoryPrompt === 'string'
         && triage.factoryPrompt.trim().length >= 10

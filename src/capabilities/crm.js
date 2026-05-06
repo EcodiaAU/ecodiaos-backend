@@ -1,6 +1,6 @@
 const registry = require('../services/capabilityRegistry')
 
-// Resolve a client by UUID or name — lets capabilities accept either
+// Resolve a client by UUID or name - lets capabilities accept either
 async function resolveClientId(params) {
   if (params.clientId && /^[0-9a-f-]{36}$/i.test(params.clientId)) return params.clientId
   const name = params.clientName || params.clientId // treat non-UUID clientId as a name
@@ -25,7 +25,7 @@ registry.registerMany([
 
   {
     name: 'create_lead',
-    description: 'Create a new CRM client record from lead data — name, contact info, source signal',
+    description: 'Create a new CRM client record from lead data - name, contact info, source signal',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -67,7 +67,7 @@ registry.registerMany([
 
   {
     name: 'update_client',
-    description: 'Update client fields — contact info, company, tags, email domains, ABN. Accepts UUID or client name.',
+    description: 'Update client fields - contact info, company, tags, email domains, ABN. Accepts UUID or client name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -107,7 +107,7 @@ registry.registerMany([
 
   {
     name: 'update_crm_status',
-    description: 'Move a CRM client to a new pipeline status — lead, proposal, contract, development, live, ongoing, archived. Accepts UUID or client name.',
+    description: 'Move a CRM client to a new pipeline status - lead, proposal, contract, development, live, ongoing, archived. Accepts UUID or client name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -162,7 +162,7 @@ registry.registerMany([
 
   {
     name: 'create_task',
-    description: 'Create a task — anything that needs doing, tied to a client or project or free-standing. Accepts client UUID or name.',
+    description: 'Create a task - anything that needs doing, tied to a client or project or free-standing. Accepts client UUID or name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -245,7 +245,7 @@ registry.registerMany([
 
   {
     name: 'add_client_note',
-    description: 'Add a note to a CRM client record — logged to activity timeline. Accepts UUID or client name.',
+    description: 'Add a note to a CRM client record - logged to activity timeline. Accepts UUID or client name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -281,7 +281,7 @@ registry.registerMany([
 
   {
     name: 'get_client_intelligence',
-    description: 'Get comprehensive client intelligence — projects, emails, tasks, sessions, activity timeline, revenue, contacts. The full picture. Accepts UUID or client name.',
+    description: 'Get comprehensive client intelligence - projects, emails, tasks, sessions, activity timeline, revenue, contacts. The full picture. Accepts UUID or client name.',
     tier: 'read',
     domain: 'crm',
     priority: 'critical',
@@ -298,7 +298,7 @@ registry.registerMany([
 
   {
     name: 'get_client_timeline',
-    description: 'Get the unified activity timeline for a client — every interaction from every channel. Accepts UUID or client name.',
+    description: 'Get the unified activity timeline for a client - every interaction from every channel. Accepts UUID or client name.',
     tier: 'read',
     domain: 'crm',
     params: {
@@ -319,7 +319,7 @@ registry.registerMany([
 
   {
     name: 'add_client_contact',
-    description: 'Add a contact person to a client — supports multiple stakeholders per client. Accepts UUID or client name.',
+    description: 'Add a contact person to a client - supports multiple stakeholders per client. Accepts UUID or client name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -361,7 +361,7 @@ registry.registerMany([
 
   {
     name: 'create_project',
-    description: 'Create a project for a client — tracks work, deals, tech stack, repo. Accepts client UUID or name.',
+    description: 'Create a project for a client - tracks work, deals, tech stack, repo. Accepts client UUID or name.',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -403,7 +403,7 @@ registry.registerMany([
 
   {
     name: 'get_revenue_overview',
-    description: 'Get revenue overview — pipeline value, realized revenue, outstanding invoices, by stage',
+    description: 'Get revenue overview - pipeline value, realized revenue, outstanding invoices, by stage',
     tier: 'read',
     domain: 'crm',
     params: {
@@ -417,7 +417,7 @@ registry.registerMany([
 
   {
     name: 'update_project_deal',
-    description: 'Update deal/contract information on a project — value, contract date, payment status, invoice ref. Accepts project UUID, project name, or client name (uses first active project).',
+    description: 'Update deal/contract information on a project - value, contract date, payment status, invoice ref. Accepts project UUID, project name, or client name (uses first active project).',
     tier: 'write',
     domain: 'crm',
     params: {
@@ -435,7 +435,7 @@ registry.registerMany([
       const db = require('../config/db')
       const crmService = require('../services/crmService')
 
-      // Resolve project — by ID, name, or client's first active project
+      // Resolve project - by ID, name, or client's first active project
       let projectId = params.projectId
       if (!projectId && params.projectName) {
         const q = `%${params.projectName.trim()}%`
@@ -495,7 +495,7 @@ registry.registerMany([
 
   {
     name: 'get_pipeline_analytics',
-    description: 'Get pipeline analytics — clients by stage, deal values, velocity, recent stage changes',
+    description: 'Get pipeline analytics - clients by stage, deal values, velocity, recent stage changes',
     tier: 'read',
     domain: 'crm',
     params: {},
@@ -523,7 +523,7 @@ registry.registerMany([
         const results = await crmService.searchClients(query)
         return { results, count: results.length }
       }
-      // No query or too short — return all active clients
+      // No query or too short - return all active clients
       const results = await db`
         SELECT c.id, c.name, c.contact_email, c.status, c.health_score,
                (SELECT count(*)::int FROM projects WHERE client_id = c.id AND status = 'active') AS active_projects,
@@ -558,7 +558,7 @@ registry.registerMany([
 
   {
     name: 'get_crm_dashboard',
-    description: 'Get a full CRM snapshot — pipeline by stage, open tasks, overdue items, recent activity, revenue overview',
+    description: 'Get a full CRM snapshot - pipeline by stage, open tasks, overdue items, recent activity, revenue overview',
     tier: 'read',
     domain: 'crm',
     params: {},

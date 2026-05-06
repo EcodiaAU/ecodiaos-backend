@@ -3,7 +3,7 @@ const logger = require('../config/logger')
 const { getRedisClient } = require('../config/redis')
 
 // ═══════════════════════════════════════════════════════════════════════
-// HANDS BRIDGE — talks to laptop-hands over Tailscale.
+// HANDS BRIDGE - talks to laptop-hands over Tailscale.
 //
 // Hands is the laptop-resident sibling of the factory: a Claude Agent SDK
 // service that listens on the user's tailnet IP and runs agentic work with
@@ -15,7 +15,7 @@ const { getRedisClient } = require('../config/redis')
 //
 // Inbound hands events get republished onto the existing factory:ws:broadcast
 // channel so they surface in the admin.ecodia.au cortex chat the same way
-// factory events do — single narration surface for the user.
+// factory events do - single narration surface for the user.
 // ═══════════════════════════════════════════════════════════════════════
 
 const HANDS_URL = process.env.HANDS_URL                 // e.g. http://100.114.219.69:7800

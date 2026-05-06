@@ -5,12 +5,12 @@ const sessionMemory = require('../services/sessionMemoryService')
 const { recordHeartbeat } = require('./heartbeat')
 
 // ═══════════════════════════════════════════════════════════════════════
-// CODEBASE INDEX WORKER — Adaptive loop
+// CODEBASE INDEX WORKER - Adaptive loop
 //
 // No fixed schedule. Interval adapts to what the last cycle found:
-//   - Files indexed or chunks embedded → check again sooner (2 min)
-//   - Nothing to do → back off (up to 30 min)
-//   - Error → retry in 5 min
+// - Files indexed or chunks embedded → check again sooner (2 min)
+// - Nothing to do → back off (up to 30 min)
+// - Error → retry in 5 min
 //
 // The autonomousMaintenanceWorker can also trigger runIndexCycle()
 // directly when the AI decides indexing is warranted.
@@ -92,7 +92,7 @@ async function loop() {
   } else if (hadWork) {
     nextMs = jitter(2 * 60_000)          // 2 min if there was work to do
   } else {
-    // Nothing found — back off up to 30 min
+    // Nothing found - back off up to 30 min
     nextMs = jitter(Math.min(30 * 60_000, (_loopTimer?._backoff ?? 5 * 60_000) * 1.5))
   }
 
@@ -103,6 +103,6 @@ async function loop() {
 // First run 30s after boot (let other workers settle)
 _loopTimer = setTimeout(loop, 30_000)
 
-logger.info('Codebase index worker started — adaptive loop')
+logger.info('Codebase index worker started - adaptive loop')
 
 module.exports = { runIndexCycle }

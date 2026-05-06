@@ -5,14 +5,14 @@
  * osSessionService.buildCustomSystemPrompt(cwd) byte-for-byte for the
  * same cwd.
  *
- * PR 1 is skeleton-only — assembler duplicates the current logic in a
+ * PR 1 is skeleton-only - assembler duplicates the current logic in a
  * new module so it can be extended for 4-breakpoint cache layout in
  * PR 2 without touching the live path. This test pins the equivalence
  * so PR 2 (and every later edit) can verify parity before flipping.
  *
  * PR 1 contract additionally asserted:
- *   - userMessage === null (no turn-context envelope yet)
- *   - cacheBreakpoints is an empty array (no cache_control markers yet)
+ * - userMessage === null (no turn-context envelope yet)
+ * - cacheBreakpoints is an empty array (no cache_control markers yet)
  */
 
 const fs = require('fs')
@@ -198,7 +198,7 @@ describe('promptAssembler.assemble (PR 1 skeleton)', () => {
   })
 
   describe('contract (PR 2: 4-breakpoint structured output)', () => {
-    // Contract assertions — the PR 1 skeleton's userMessage=null and
+    // Contract assertions - the PR 1 skeleton's userMessage=null and
     // cacheBreakpoints=[] shape was replaced in PR 2. The load-bearing
     // byte-for-byte parity above still holds; this block pins the
     // structured output shape for PR 2 onward.

@@ -23,7 +23,7 @@ registry.registerMany([
         prompt = prompt.task || prompt.description || prompt.content || JSON.stringify(prompt)
       }
       if (!prompt || typeof prompt !== 'string') {
-        throw new Error('start_cc_session requires a prompt string — received: ' + JSON.stringify(params.prompt))
+        throw new Error('start_cc_session requires a prompt string - received: ' + JSON.stringify(params.prompt))
       }
 
       const session = await triggers.dispatchFromCortex(prompt, {
@@ -36,7 +36,7 @@ registry.registerMany([
   },
   {
     name: 'get_factory_status',
-    description: 'Get the current status of Factory sessions — running, queued, recent completions',
+    description: 'Get the current status of Factory sessions - running, queued, recent completions',
     tier: 'read',
     domain: 'factory',
     params: {},
@@ -66,7 +66,7 @@ registry.registerMany([
   },
   {
     name: 'resume_cc_session',
-    description: 'Resume a completed or paused CC session with a follow-up message — continues the conversation with full context preserved',
+    description: 'Resume a completed or paused CC session with a follow-up message - continues the conversation with full context preserved',
     tier: 'write',
     domain: 'factory',
     priority: 'critical',
@@ -82,7 +82,7 @@ registry.registerMany([
   },
   {
     name: 'send_cc_message',
-    description: 'Send a message to a running CC session — for real-time intervention or guidance',
+    description: 'Send a message to a running CC session - for real-time intervention or guidance',
     tier: 'write',
     domain: 'factory',
     priority: 'critical',
@@ -126,7 +126,7 @@ registry.registerMany([
   },
   {
     name: 'get_session_progress',
-    description: 'Get a concise progress summary for one or more sessions — pipeline stage, duration, confidence, last activity, and output excerpt',
+    description: 'Get a concise progress summary for one or more sessions - pipeline stage, duration, confidence, last activity, and output excerpt',
     tier: 'read',
     domain: 'factory',
     params: {
@@ -198,7 +198,7 @@ registry.registerMany([
   },
   {
     name: 'review_factory_session',
-    description: 'Get the full review context for a completed Factory session — diff, files changed, validation results, previous learnings. Call this before approve_factory_deploy or reject_factory_session.',
+    description: 'Get the full review context for a completed Factory session - diff, files changed, validation results, previous learnings. Call this before approve_factory_deploy or reject_factory_session.',
     tier: 'read',
     domain: 'factory',
     params: {
@@ -232,13 +232,13 @@ registry.registerMany([
   },
   {
     name: 'reject_factory_session',
-    description: 'Reject a Factory session — cleans the working directory, records the reason as a learning, and marks the session as failed.',
+    description: 'Reject a Factory session - cleans the working directory, records the reason as a learning, and marks the session as failed.',
     tier: 'write',
     domain: 'factory',
     priority: 'critical',
     params: {
       sessionId: { type: 'string', required: true, description: 'CC session UUID to reject' },
-      reason: { type: 'string', required: true, description: 'Why this session is being rejected — used for learning extraction' },
+      reason: { type: 'string', required: true, description: 'Why this session is being rejected - used for learning extraction' },
     },
     handler: async (params) => {
       const oversight = require('../services/factoryOversightService')

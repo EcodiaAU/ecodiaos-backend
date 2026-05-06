@@ -5,7 +5,7 @@ const actionQueue = require('../services/actionQueueService')
 
 router.use(auth)
 
-// GET /api/actions/ — pending actions (for dashboard)
+// GET /api/actions/ - pending actions (for dashboard)
 router.get('/', async (req, res, next) => {
   try {
     const { limit, priority, source } = req.query
@@ -18,7 +18,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/stats — queue stats + decision intelligence
+// GET /api/actions/stats - queue stats + decision intelligence
 router.get('/stats', async (_req, res, next) => {
   try {
     const stats = await actionQueue.getStats()
@@ -26,7 +26,7 @@ router.get('/stats', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/recent — recently handled
+// GET /api/actions/recent - recently handled
 router.get('/recent', async (req, res, next) => {
   try {
     const { limit } = req.query
@@ -37,7 +37,7 @@ router.get('/recent', async (req, res, next) => {
 
 // ─── Decision Intelligence Endpoints ──────────────────────────────────
 
-// GET /api/actions/decisions — decision history with filtering
+// GET /api/actions/decisions - decision history with filtering
 router.get('/decisions', async (req, res, next) => {
   try {
     const { limit, source, actionType, decision } = req.query
@@ -51,7 +51,7 @@ router.get('/decisions', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/decisions/stats — aggregate decision patterns
+// GET /api/actions/decisions/stats - aggregate decision patterns
 router.get('/decisions/stats', async (_req, res, next) => {
   try {
     const stats = await actionQueue.getDecisionStats()
@@ -59,7 +59,7 @@ router.get('/decisions/stats', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/sender/:email/reputation — sender decision profile
+// GET /api/actions/sender/:email/reputation - sender decision profile
 router.get('/sender/:email/reputation', async (req, res, next) => {
   try {
     const reputation = await actionQueue.getSenderReputation(req.params.email, null)
@@ -68,7 +68,7 @@ router.get('/sender/:email/reputation', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/suppress-check — check if an item would be suppressed
+// GET /api/actions/suppress-check - check if an item would be suppressed
 // Used by triage services to pre-check before enqueuing
 router.get('/suppress-check', async (req, res, next) => {
   try {
@@ -83,7 +83,7 @@ router.get('/suppress-check', async (req, res, next) => {
 
 // ─── Feedback Loop Endpoints (before :id routes to avoid param conflict) ──
 
-// GET /api/actions/feedback/summary — aggregate quality metrics per source/type
+// GET /api/actions/feedback/summary - aggregate quality metrics per source/type
 router.get('/feedback/summary', async (req, res, next) => {
   try {
     const { source, actionType, senderEmail, days } = req.query
@@ -94,7 +94,7 @@ router.get('/feedback/summary', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/actions/feedback/recalibration — unified signals for triage improvement
+// GET /api/actions/feedback/recalibration - unified signals for triage improvement
 router.get('/feedback/recalibration', async (req, res, next) => {
   try {
     const { days } = req.query
@@ -103,7 +103,7 @@ router.get('/feedback/recalibration', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/:id/execute — approve and execute
+// POST /api/actions/:id/execute - approve and execute
 router.post('/:id/execute', async (req, res, next) => {
   try {
     const result = await actionQueue.execute(req.params.id)
@@ -111,7 +111,7 @@ router.post('/:id/execute', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/:id/dismiss — dismiss with structured reason
+// POST /api/actions/:id/dismiss - dismiss with structured reason
 router.post('/:id/dismiss', async (req, res, next) => {
   try {
     const { reason, reasonCategory, reasonDetail } = req.body || {}
@@ -120,7 +120,7 @@ router.post('/:id/dismiss', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/batch/execute — execute multiple (resource-aware)
+// POST /api/actions/batch/execute - execute multiple (resource-aware)
 router.post('/batch/execute', async (req, res, next) => {
   try {
     const { ids } = req.body
@@ -135,7 +135,7 @@ router.post('/batch/execute', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/batch/dismiss — dismiss multiple with structured reason
+// POST /api/actions/batch/dismiss - dismiss multiple with structured reason
 router.post('/batch/dismiss', async (req, res, next) => {
   try {
     const { ids, reason, reasonCategory, reasonDetail } = req.body
@@ -147,7 +147,7 @@ router.post('/batch/dismiss', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/expire — manually purge expired items
+// POST /api/actions/expire - manually purge expired items
 router.post('/expire', async (_req, res, next) => {
   try {
     const count = await actionQueue.purgeExpired()
@@ -155,7 +155,7 @@ router.post('/expire', async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/actions/:id/feedback — submit quality feedback after decision
+// POST /api/actions/:id/feedback - submit quality feedback after decision
 router.post('/:id/feedback', async (req, res, next) => {
   try {
     const { draftQuality, priorityAccuracy, relevance, overall, correction } = req.body || {}

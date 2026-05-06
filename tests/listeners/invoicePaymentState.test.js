@@ -4,13 +4,13 @@
  * invoicePaymentState listener - Jest tests.
  *
  * Mocks axios, db, and logger. Verifies:
- *   - relevanceFilter rejects irrelevant events (wrong table, non-INSERT, negative amount)
- *   - High confidence match (name + amount) inserts a match row and calls wakeOs
- *   - Medium confidence (amount only) inserts a match row and calls wakeOs
- *   - Low confidence (name only) does NOT insert a match row and does NOT call wakeOs
- *   - Empty invoices result returns silently
- *   - DB query failure on the SELECT does not crash the listener
- *   - Module shape is correct
+ * - relevanceFilter rejects irrelevant events (wrong table, non-INSERT, negative amount)
+ * - High confidence match (name + amount) inserts a match row and calls wakeOs
+ * - Medium confidence (amount only) inserts a match row and calls wakeOs
+ * - Low confidence (name only) does NOT insert a match row and does NOT call wakeOs
+ * - Empty invoices result returns silently
+ * - DB query failure on the SELECT does not crash the listener
+ * - Module shape is correct
  */
 
 jest.mock('axios')
@@ -111,7 +111,7 @@ describe('relevanceFilter', () => {
 
 // ---- handle ----
 
-describe('handle — high confidence (name + amount match)', () => {
+describe('handle - high confidence (name + amount match)', () => {
   test('inserts a match row and calls wakeOs', async () => {
     // Acme Corp: name token "acme" in description + amount 110000 matches
     db.mockResolvedValueOnce(OPEN_INVOICES)  // SELECT open invoices
@@ -133,7 +133,7 @@ describe('handle — high confidence (name + amount match)', () => {
   })
 })
 
-describe('handle — medium confidence (amount only)', () => {
+describe('handle - medium confidence (amount only)', () => {
   test('inserts a match row and calls wakeOs even without name token', async () => {
     // Description has no recognisable client name token, but amount matches exactly
     db.mockResolvedValueOnce(OPEN_INVOICES)
@@ -153,7 +153,7 @@ describe('handle — medium confidence (amount only)', () => {
   })
 })
 
-describe('handle — low confidence (name only)', () => {
+describe('handle - low confidence (name only)', () => {
   test('does NOT insert a match row and does NOT call wakeOs', async () => {
     // Description contains "acme" but amount does not match any invoice
     db.mockResolvedValueOnce(OPEN_INVOICES)
@@ -163,13 +163,13 @@ describe('handle — low confidence (name only)', () => {
 
     await listener.handle(event, ctx)
 
-    // Only 1 db call (SELECT) — no INSERT
+    // Only 1 db call (SELECT) - no INSERT
     expect(db).toHaveBeenCalledTimes(1)
     expect(axios.post).not.toHaveBeenCalled()
   })
 })
 
-describe('handle — empty open invoices', () => {
+describe('handle - empty open invoices', () => {
   test('returns silently when no open invoices exist', async () => {
     db.mockResolvedValueOnce([])  // empty result set
 
@@ -181,7 +181,7 @@ describe('handle — empty open invoices', () => {
   })
 })
 
-describe('handle — DB query failure', () => {
+describe('handle - DB query failure', () => {
   test('does not crash when the SELECT throws', async () => {
     db.mockRejectedValueOnce(new Error('connection lost'))
 
@@ -198,7 +198,7 @@ describe('handle — DB query failure', () => {
   })
 })
 
-describe('handle — wakeOs failure', () => {
+describe('handle - wakeOs failure', () => {
   test('does not throw if axios.post rejects', async () => {
     db.mockResolvedValueOnce(OPEN_INVOICES)
     db.mockResolvedValueOnce([])

@@ -9,7 +9,7 @@ const { healthCheck: neo4jHealth } = require('../config/neo4j')
 const bridge = require('./factoryBridge')
 
 // ═══════════════════════════════════════════════════════════════════════
-// VITAL SIGNS SERVICE — Self Health Monitoring
+// VITAL SIGNS SERVICE - Self Health Monitoring
 //
 // Tracks: DB, Neo4j, memory, CPU, event loop lag, PM2 processes,
 // restart storms. Per-anomaly cooldowns prevent alert spam while

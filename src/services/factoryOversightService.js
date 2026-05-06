@@ -11,29 +11,29 @@ const kgHooks = require('./kgIngestionHooks')
 //
 // session.initial_prompt audit (2026-04-30, §2.1 ship):
 //   WRAPPED at LLM-prompt boundaries:
-//     - reviewSessionWithClaude review prompt (~line 535)
-//     - generateFollowUp DeepSeek prompt (~line 710)
-//     - extractLearningPattern Claude prompt (~line 947)
-//     - recordOutcome KG ingestion content (~line 822)
+// - reviewSessionWithClaude review prompt (~line 535)
+// - generateFollowUp DeepSeek prompt (~line 710)
+// - extractLearningPattern Claude prompt (~line 947)
+// - recordOutcome KG ingestion content (~line 822)
 //   SAFE without wrap (no LLM exposure - structured/tokenized/persisted):
-//     - _extractKeywords tokenization (lines 144, 159, 172, 1039) - returns
+// - _extractKeywords tokenization (lines 144, 159, 172, 1039) - returns
 //       a token array, never concatenated into a prompt.
-//     - SELECT ... initial_prompt query (lines 149, 1416, 1423) - DB read,
+// - SELECT ... initial_prompt query (lines 149, 1416, 1423) - DB read,
 //       not prompt text.
-//     - regex match on initial_prompt (line 346) - boolean check.
-//     - notification message field (lines 420, 834) - DB row written for
+// - regex match on initial_prompt (line 346) - boolean check.
+// - notification message field (lines 420, 834) - DB row written for
 //       UI display, not consumed by an LLM.
-//     - JSON.stringify into factory_learnings.evidence (lines 1144, 1159,
+// - JSON.stringify into factory_learnings.evidence (lines 1144, 1159,
 //       1172) - persisted as structured data; if/when re-consumed by an
 //       LLM the consumer must wrap on read.
-//     - goalService.advanceFromSession({ prompt }) (line 906) - structured
+// - goalService.advanceFromSession({ prompt }) (line 906) - structured
 //       service call with a typed field; goalService is responsible for
 //       wrapping on its own LLM boundary if it has one.
-//     - computeTaskDiffAlignment(initial_prompt, ...) (lines 1537, 1566) -
+// - computeTaskDiffAlignment(initial_prompt, ...) (lines 1537, 1566) -
 //       deterministic alignment scoring, not LLM.
-//     - returned `task` field (line 1542) - data field on the review
+// - returned `task` field (line 1542) - data field on the review
 //       payload; downstream UI/LLM consumers wrap on read.
-//     - short snippets used as DB notification text or log lines (lines
+// - short snippets used as DB notification text or log lines (lines
 //       171, 1036) - human display, not LLM input.
 const {
   wrapUntrusted,
@@ -41,7 +41,7 @@ const {
 } = require('../lib/untrustedInput')
 
 // ═══════════════════════════════════════════════════════════════════════
-// FACTORY OVERSIGHT SERVICE — Freedom Edition
+// FACTORY OVERSIGHT SERVICE - Freedom Edition
 //
 // Context-aware intelligence layer that supervises the entire
 // CC → validate → deploy → monitor pipeline. Uses Claude with full
@@ -75,7 +75,7 @@ function cleanWorkingDir(repoPath) {
   // pipe stdio so stderr is captured in the thrown error instead.
   const quiet = { cwd: repoPath, encoding: 'utf-8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'] }
   try {
-    // Only abort operations that are actually in progress — skips the noisy
+    // Only abort operations that are actually in progress - skips the noisy
     // "no X in progress" throw-and-swallow loop we used to do for every op.
     const fs = require('fs')
     const path = require('path')
@@ -169,7 +169,7 @@ async function runPostSessionPipeline(sessionId) {
 
   if (!session) return
   if (session.status !== 'complete') {
-    // CC failed — but it may have made GOOD edits before failing (e.g. Neo4j down
+    // CC failed - but it may have made GOOD edits before failing (e.g. Neo4j down
     // mid-session, rate limit, OOM). Check if there are changes worth preserving.
     const hasChanges = session.repo_path ? (() => {
       try {
@@ -180,7 +180,7 @@ async function runPostSessionPipeline(sessionId) {
     })() : false
 
     if (hasChanges) {
-      // Stash the changes instead of nuking — they can be reviewed/recovered.
+      // Stash the changes instead of nuking - they can be reviewed/recovered.
       // The stash message includes the session ID so it's traceable.
       try {
         execFileSync('git', ['stash', 'push', '-m',
@@ -190,7 +190,7 @@ async function runPostSessionPipeline(sessionId) {
           repoPath: session.repo_path,
         })
       } catch (stashErr) {
-        // Stash failed — fall back to nuclear cleanup
+        // Stash failed - fall back to nuclear cleanup
         logger.debug('Stash failed, falling back to clean', { error: stashErr.message })
         cleanWorkingDir(session.repo_path)
       }
@@ -219,7 +219,7 @@ async function runPostSessionPipeline(sessionId) {
 
     // Check if similar tasks have ALSO produced no changes recently.
     // If 2+ similar no-change sessions exist in the last 7 days, this is
-    // likely a structural/unsolvable issue — force a dont_try learning
+    // likely a structural/unsolvable issue - force a dont_try learning
     // so the system stops wasting sessions on it.
     const { _extractKeywords } = require('./factoryTriggerService')
     const taskKeywords = _extractKeywords(session.initial_prompt)
@@ -246,13 +246,13 @@ async function runPostSessionPipeline(sessionId) {
     }
 
     if (isRepeatNoChange) {
-      // Force-create a dont_try learning — this task has been attempted 3+ times
+      // Force-create a dont_try learning - this task has been attempted 3+ times
       // with no results. It's structural, not fixable by more CC sessions.
-      logger.info(`Factory oversight: repeat no-change task detected (${sessionId}) — creating dont_try learning`)
+      logger.info(`Factory oversight: repeat no-change task detected (${sessionId}) - creating dont_try learning`)
       const taskSnippet = (session.initial_prompt || '').slice(0, 200)
       const keywords = _extractKeywords(session.initial_prompt)
 
-      // Insert directly — bypass Claude since we KNOW this is a pattern
+      // Insert directly - bypass Claude since we KNOW this is a pattern
       await db`
         INSERT INTO factory_learnings (
           id, codebase_id, pattern_type, pattern_description, confidence,
@@ -272,11 +272,11 @@ async function runPostSessionPipeline(sessionId) {
       `.catch(err => logger.debug('Failed to create dont_try learning', { error: err.message }))
 
       await recordOutcome(session, 'no_changes', {
-        message: 'Repeat no-change task — dont_try learning created to suppress future dispatches',
+        message: 'Repeat no-change task - dont_try learning created to suppress future dispatches',
       })
     } else {
       await recordOutcome(session, 'no_changes', {
-        message: 'Session completed but made no file changes — task may be un-actionable from this codebase',
+        message: 'Session completed but made no file changes - task may be un-actionable from this codebase',
       })
     }
     return
@@ -291,19 +291,19 @@ async function runPostSessionPipeline(sessionId) {
   // Step 1: Claude review of changes
   // Review ALWAYS runs. Under high metabolic pressure, non-self-mod reviews run
   // async (fire-and-forget to KG for learning) and we proceed on validation alone.
-  // Self-modifications always block on review — the oversight pipeline is the safety net.
+  // Self-modifications always block on review - the oversight pipeline is the safety net.
   const pressure = 0 // metabolismBridge removed (organism decoupled)
   let review = null
 
   const reviewPressureGate = parseFloat(env.FACTORY_REVIEW_PRESSURE_GATE || '0')
-  // Self-modifications NEVER get async review — mandatory review is non-negotiable.
+  // Self-modifications NEVER get async review - mandatory review is non-negotiable.
   // NaN pressure is treated as 0 (no pressure data = don't skip review).
   const safePressure = Number.isFinite(pressure) ? pressure : 0
   const asyncReviewEnabled = !isSelfMod && reviewPressureGate > 0 && safePressure > reviewPressureGate
 
   if (asyncReviewEnabled) {
     // Pressure gate configured: start review async (for KG learning) but don't wait for it
-    logger.info(`Factory oversight: pressure ${pressure.toFixed(2)} > gate ${reviewPressureGate} — running review async, not gating deploy`, { sessionId })
+    logger.info(`Factory oversight: pressure ${pressure.toFixed(2)} > gate ${reviewPressureGate} - running review async, not gating deploy`, { sessionId })
     reviewChanges(session, filesChanged).then(asyncReview => {
       if (asyncReview && session.codebase_id) {
         extractLearningPattern(session, asyncReview.approved ? 'success' : 'rejected', {
@@ -355,22 +355,22 @@ async function runPostSessionPipeline(sessionId) {
 
   // Self-modification with review concerns: always escalate, never auto-deploy
   if (isSelfMod && review?.concerns && review.concerns.length > 0) {
-    logger.info(`Factory oversight: self-modification has concerns — escalating`, { sessionId })
+    logger.info(`Factory oversight: self-modification has concerns - escalating`, { sessionId })
     await escalateToHuman(session, confidence, review, filesChanged)
     return
   }
 
-  // Bidirectional confidence blending — review signal always participates.
+  // Bidirectional confidence blending - review signal always participates.
   // Validation is the hard signal (tests/lint/typecheck). Review is the soft signal (LLM vibes).
   // Validation anchors at 70% weight; review can lift OR drag confidence.
-  // Deferred reviews (confidence: null) skip blending — validation stands alone.
+  // Deferred reviews (confidence: null) skip blending - validation stands alone.
   const VALIDATION_WEIGHT = 0.7
   const REVIEW_WEIGHT = 1.0 - VALIDATION_WEIGHT
   if (reviewConfidence !== null && (reviewConfidence >= 0 || !reviewApproved)) {
     const before = confidence
     const effectiveReviewConf = reviewApproved ? reviewConfidence : Math.min(reviewConfidence, 0.2)
     confidence = (confidence * VALIDATION_WEIGHT) + (effectiveReviewConf * REVIEW_WEIGHT)
-    // Clamp to [0, 1] — protect against NaN propagation from bad inputs
+    // Clamp to [0, 1] - protect against NaN propagation from bad inputs
     confidence = Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0
     logger.info(`Factory oversight: blended confidence ${before.toFixed(2)} → ${confidence.toFixed(2)} (validation: ${before.toFixed(2)} × ${VALIDATION_WEIGHT}, review: ${effectiveReviewConf.toFixed(2)} × ${REVIEW_WEIGHT})`, { sessionId })
     await db`UPDATE cc_sessions SET confidence_score = ${confidence} WHERE id = ${sessionId}`
@@ -422,8 +422,8 @@ async function runPostSessionPipeline(sessionId) {
   // so a prompt-injected reviewer cannot smuggle approval through.
   //
   // Behaviour:
-  //   - Shadow mode (default): record verdict on cc_sessions, never block.
-  //   - Enforce mode (opt-in via SECURITY_DUAL_REVIEWER_ENFORCE=1): a
+  // - Shadow mode (default): record verdict on cc_sessions, never block.
+  // - Enforce mode (opt-in via SECURITY_DUAL_REVIEWER_ENFORCE=1): a
   //     rejection aborts the deploy exactly like the allowlist block above.
   //
   // Failure handling: the reviewer fails closed. A network error or parse
@@ -447,7 +447,7 @@ async function runPostSessionPipeline(sessionId) {
         status = reviewApprovalToStatus(verdict.approved)
         concerns = verdict.concerns || []
       } catch (err) {
-        logger.error(`Factory oversight: Review B threw — failing closed`, {
+        logger.error(`Factory oversight: Review B threw - failing closed`, {
           sessionId,
           error: err.message,
         })
@@ -475,7 +475,7 @@ async function runPostSessionPipeline(sessionId) {
       // before the auto-deploy decision runs. Shadow verdicts are recorded
       // but never block.
       if (isEnforceMode() && !isApprovedStatus(status)) {
-        logger.warn(`Factory oversight: Review B REJECTED (enforce mode) — blocking deploy`, {
+        logger.warn(`Factory oversight: Review B REJECTED (enforce mode) - blocking deploy`, {
           sessionId,
           concerns,
         })
@@ -522,13 +522,13 @@ async function runPostSessionPipeline(sessionId) {
       const deployResult = await deploymentService.deploySession(sessionId)
 
       // Check if deploy was actually successful or self-healed/reverted
-      // no_changes means git had nothing to commit — this is NOT a failure,
+      // no_changes means git had nothing to commit - this is NOT a failure,
       // the CC session may have made changes that were already committed or
       // the changes were reverted during validation. Treat it as success.
       const wasReverted = deployResult.status === 'reverted' || deployResult.status === 'self_healed_revert'
 
       if (wasReverted) {
-        // Deploy tried but was reverted — this is a failure, not a success
+        // Deploy tried but was reverted - this is a failure, not a success
         const reason = deployResult.reason || deployResult.status
         await recordOutcome(session, 'deploy_reverted', { confidence, reason, commitSha: deployResult.commitSha })
         await trackValidationOutcome(sessionId, 'failure')
@@ -657,14 +657,14 @@ async function reviewChanges(session, filesChanged) {
     const cwd = session.repo_path
 
     if (!cwd) {
-      logger.debug('reviewChanges: no repo_path on session — returning no diff', { sessionId: session.id })
+      logger.debug('reviewChanges: no repo_path on session - returning no diff', { sessionId: session.id })
       if (session.self_modification) {
-        return { approved: false, notes: 'No repo_path for self-modification review — cannot approve blind', confidence: 0 }
+        return { approved: false, notes: 'No repo_path for self-modification review - cannot approve blind', confidence: 0 }
       }
       return { approved: true, notes: 'No repo_path available for diff review', confidence: 0 }
     }
 
-    // Get the actual diff — combine unstaged + staged for complete picture
+    // Get the actual diff - combine unstaged + staged for complete picture
     let diff = ''
     try {
       const gitDiffOpts = { cwd, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024, timeout: 30_000 }
@@ -674,10 +674,10 @@ async function reviewChanges(session, filesChanged) {
     } catch (err) {
       // If maxBuffer exceeded, try with --stat only (much smaller output)
       if (err.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || err.message?.includes('maxBuffer')) {
-        logger.warn('git diff exceeded maxBuffer — falling back to --stat', { cwd })
+        logger.warn('git diff exceeded maxBuffer - falling back to --stat', { cwd })
         try {
           diff = execFileSync('git', ['diff', '--stat'], { cwd, encoding: 'utf-8', timeout: 15_000 })
-          diff = '(Full diff too large — showing stat only)\n' + diff
+          diff = '(Full diff too large - showing stat only)\n' + diff
         } catch {}
       } else {
         logger.debug('git diff failed', { error: err.message, cwd })
@@ -703,11 +703,11 @@ async function reviewChanges(session, filesChanged) {
     }
 
     if (!diff) {
-      // No diff available despite files_changed being non-empty — something is wrong.
+      // No diff available despite files_changed being non-empty - something is wrong.
       // For self-modifications, fail closed (don't approve blindly). For normal sessions,
       // approve with low confidence so the deploy threshold gate catches it.
       if (session.self_modification) {
-        return { approved: false, notes: 'No diff available for self-modification review — cannot approve without seeing changes', confidence: 0 }
+        return { approved: false, notes: 'No diff available for self-modification review - cannot approve without seeing changes', confidence: 0 }
       }
       return { approved: true, notes: 'No diff available for review', confidence: 0.2 }
     }
@@ -728,7 +728,7 @@ async function reviewChanges(session, filesChanged) {
     } catch {}
 
     // Read full file contents for changed files (not just diff) so the reviewer
-    // can see the context around changes — callers, data flow, surrounding logic
+    // can see the context around changes - callers, data flow, surrounding logic
     let fullFileContext = ''
     const contextMaxFiles = parseInt(env.FACTORY_REVIEW_MAX_CONTEXT_FILES || '0', 10)
     for (const f of (contextMaxFiles > 0 ? filesChanged.slice(0, contextMaxFiles) : filesChanged)) {
@@ -743,7 +743,7 @@ async function reviewChanges(session, filesChanged) {
     }
 
     const selfModNote = session.self_modification
-      ? `\nThis is a self-modification — the Factory editing its own code.\n`
+      ? `\nThis is a self-modification - the Factory editing its own code.\n`
       : ''
 
     // §2.1: wrap session.initial_prompt at the boundary - it can carry
@@ -785,11 +785,11 @@ Respond as JSON:
   "concerns": ["specific concern 1", ...],
   "accomplishes_task": true/false,
   "checklist": {
-    "correctness": "pass/fail/uncertain — reason",
-    "security": "pass/fail/uncertain — reason",
-    "regression_risk": "low/medium/high — reason",
-    "error_handling": "pass/fail/uncertain — reason",
-    "data_integrity": "pass/fail/uncertain — reason"
+    "correctness": "pass/fail/uncertain - reason",
+    "security": "pass/fail/uncertain - reason",
+    "regression_risk": "low/medium/high - reason",
+    "error_handling": "pass/fail/uncertain - reason",
+    "data_integrity": "pass/fail/uncertain - reason"
   }
 }`,
     }], {
@@ -804,7 +804,7 @@ Respond as JSON:
       return { approved: true, notes: response.slice(0, 200) }
     }
   } catch (err) {
-    logger.warn('Claude review failed — treating as unapproved for safety', { error: err.message })
+    logger.warn('Claude review failed - treating as unapproved for safety', { error: err.message })
     return { approved: false, notes: 'Review unavailable (API failure)', confidence: 0 }
   }
 }
@@ -960,7 +960,7 @@ Respond as JSON:
 Action types:
 - retry: re-run with a better prompt (you learned from the failure)
 - diagnose: spawn a diagnostic session to investigate the root cause before fixing
-- self_modify: the failure reveals a bug in the Factory itself — fix the Factory
+- self_modify: the failure reveals a bug in the Factory itself - fix the Factory
 - task: file a task for later
 - escalate: notify human
 - nothing: no action needed`,
@@ -1083,10 +1083,10 @@ ${details.reason ? `Reason: ${details.reason}` : ''}`
     await extractLearningPattern(session, outcome, details)
 
     // Learning decay: evidence-based, once per day at most.
-    // Failure patterns and "dont_try" learnings are exempt — they encode hard constraints
+    // Failure patterns and "dont_try" learnings are exempt - they encode hard constraints
     // that don't become less true with time (e.g. "this column is NOT NULL").
     // Success patterns decay, but SLOWER if they've been applied many times.
-    // A learning applied 10+ times has proven its value — decay at 2%/day vs 5%/day.
+    // A learning applied 10+ times has proven its value - decay at 2%/day vs 5%/day.
     if (session.codebase_id) {
       // High-usage learnings (applied 5+ times): very slow decay (2%/day)
       await db`
@@ -1144,7 +1144,7 @@ ${details.reason ? `Reason: ${details.reason}` : ''}`
 
 async function extractLearningPattern(session, outcome, details) {
   try {
-    // Build diff context for the extraction — learnings are only valuable if grounded in actual code
+    // Build diff context for the extraction - learnings are only valuable if grounded in actual code
     let diffSnippet = ''
     if (session.repo_path) {
       try {
@@ -1155,7 +1155,7 @@ async function extractLearningPattern(session, outcome, details) {
         if (fullDiff) {
           diffSnippet = `\nCode diff (truncated):\n${fullDiff.slice(0, 3000)}`
         } else {
-          // No unstaged diff — try last commit diff (session may have already committed)
+          // No unstaged diff - try last commit diff (session may have already committed)
           const commitDiff = execFileSync('git', ['diff', 'HEAD~1', 'HEAD', '-U3', '--no-color'], { cwd: session.repo_path, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 }).trim()
           if (commitDiff) diffSnippet = `\nCode diff (last commit, truncated):\n${commitDiff.slice(0, 3000)}`
         }
@@ -1189,10 +1189,10 @@ Confidence: ${details.confidence || 'N/A'}
 Files changed: ${(session.files_changed || []).join(', ') || 'none'}${diffSnippet}${reviewNotes}
 
 Rules for good learnings:
-- MUST reference specific files, functions, patterns, or APIs — not generic advice
+- MUST reference specific files, functions, patterns, or APIs - not generic advice
 - MUST be something a future session couldn't know from reading the code alone
 - BAD: "Database migrations should be tested" (obvious)
-- GOOD: "The notifications table has a NOT NULL constraint on metadata — always pass {} not null"
+- GOOD: "The notifications table has a NOT NULL constraint on metadata - always pass {} not null"
 - GOOD: "wsManager.broadcastToSession expects string sessionId, not UUID object"
 
 Respond as JSON:
@@ -1216,7 +1216,7 @@ Rules for good failure learnings:
 - MUST explain what specifically went wrong and how to avoid it
 - MUST reference the file, function, or constraint that caused the failure
 - BAD: "Be careful with database migrations" (useless)
-- GOOD: "factoryTriggerService.resolveCodebase returns null when codebase name has trailing spaces — always trim input"
+- GOOD: "factoryTriggerService.resolveCodebase returns null when codebase name has trailing spaces - always trim input"
 - GOOD: "deploymentService.deploySession throws if git working dir has staged changes from a previous session"
 
 Respond as JSON:
@@ -1241,13 +1241,13 @@ If nothing specific is worth remembering, respond: {"pattern_type": "none", "pat
       return
     }
 
-    // Validate required fields — Claude may return nulls or wrong types
+    // Validate required fields - Claude may return nulls or wrong types
     if (!parsed || typeof parsed.pattern_description !== 'string') {
       logger.debug('Learning extraction: missing or invalid pattern_description', { parsed: JSON.stringify(parsed).slice(0, 200) })
       return
     }
 
-    // Clamp confidence to [0, 1] — protect against NaN/negative/out-of-range
+    // Clamp confidence to [0, 1] - protect against NaN/negative/out-of-range
     if (parsed.confidence != null) {
       parsed.confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5))
     }
@@ -1261,7 +1261,7 @@ If nothing specific is worth remembering, respond: {"pattern_type": "none", "pat
       if (outcome !== 'success') {
         const taskSnippet = (session.initial_prompt || '').slice(0, 150)
         const errorSnippet = (details.error || details.reason || 'unknown failure').slice(0, 150)
-        const forcedDescription = `Session failed with no specific learning extractable. Task: "${taskSnippet}" — Error: "${errorSnippet}". Do not re-attempt this exact task without a fundamentally different approach.`
+        const forcedDescription = `Session failed with no specific learning extractable. Task: "${taskSnippet}" - Error: "${errorSnippet}". Do not re-attempt this exact task without a fundamentally different approach.`
         const forcedKeywords = _extractForcedKeywords(session.initial_prompt || '', details.error || '')
 
         logger.info(`Learning extraction: forcing dont_try for failed session with no learning`, { sessionId: session.id })
@@ -1331,7 +1331,7 @@ If nothing specific is worth remembering, respond: {"pattern_type": "none", "pat
           // Merge: boost confidence, append session, keep the richer description
           const existing = similar[0]
           // Diminishing-returns merge: each additional evidence adds less.
-          // Formula: conf + (1 - conf) * increment — converges toward 1.0 but
+          // Formula: conf + (1 - conf) * increment - converges toward 1.0 but
           // never gets there from a single merge. Prevents artificial ratchet.
           const increment = (parsed.confidence || 0.5) * 0.15
           const newConfidence = Math.min(0.98, existing.confidence + (1 - existing.confidence) * increment)
@@ -1386,7 +1386,7 @@ If nothing specific is worth remembering, respond: {"pattern_type": "none", "pat
         `
       }
     } else {
-      // No OpenAI key — insert without embedding
+      // No OpenAI key - insert without embedding
       await db`
         INSERT INTO factory_learnings (codebase_id, pattern_type, pattern_description, confidence, success, session_ids, evidence)
         VALUES (${session.codebase_id || null},
@@ -1437,7 +1437,7 @@ function emitEvent(type, payload) {
 
 // ─── Event Bus Subscription: React to KG Discoveries ───────────────
 // When the KG discovers new patterns, proactively schedule Factory sessions
-// to investigate/act on them — if metabolic pressure allows.
+// to investigate/act on them - if metabolic pressure allows.
 // Guard prevents duplicate listeners if module cache is ever cleared.
 
 let _oversightListenerAttached = false
@@ -1463,7 +1463,7 @@ try {
         }
 
         _lastPatternDispatchAt = Date.now()
-        logger.info(`Factory oversight: ${count} patterns discovered (${source}) — dispatching proactive session`)
+        logger.info(`Factory oversight: ${count} patterns discovered (${source}) - dispatching proactive session`)
 
         const triggers = require('./factoryTriggerService')
         await triggers.dispatchFromKGInsight({
@@ -1549,7 +1549,7 @@ async function consolidateLearnings() {
     `
 
     // Single query to find ALL similar pairs above threshold globally.
-    // Same pattern_type required. Codebase match not required — duplicates
+    // Same pattern_type required. Codebase match not required - duplicates
     // often arise from null-codebase extractions or cross-codebase patterns.
     const similarPairs = await db`
       SELECT a.id AS id_a, b.id AS id_b,
@@ -1609,7 +1609,7 @@ async function consolidateLearnings() {
     logger.debug('Learning merge pass failed', { error: err.message })
   }
 
-  // Step 3: Hard prune — delete absorbed learnings past the retention window
+  // Step 3: Hard prune - delete absorbed learnings past the retention window
   try {
     const pruneDays = parseInt(env.FACTORY_LEARNING_PRUNE_AFTER_DAYS || '30', 10)
     const pruned = await db`
@@ -1689,7 +1689,7 @@ async function backfillMissedLearnings(batchSize = 10) {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 // Extract keywords from task+error for forced dont_try learnings.
-// Simpler than the full stemmer pipeline — just grab meaningful words.
+// Simpler than the full stemmer pipeline - just grab meaningful words.
 function _extractForcedKeywords(task, error) {
   const STOP = new Set(['the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'not', 'but', 'all', 'can', 'will', 'just', 'should', 'would', 'could', 'into', 'about', 'than', 'then', 'when', 'what', 'which', 'there', 'their', 'some', 'error', 'failed', 'investigate', 'check', 'look', 'find', 'fix', 'session'])
   const text = `${task} ${error}`.toLowerCase()
@@ -1786,7 +1786,7 @@ async function runDeployFromOSApproval(sessionId, { notes = '', confidence = nul
   if (!session) throw new Error(`Session not found: ${sessionId}`)
   if (session.pipeline_stage === 'deployed') return { alreadyDeployed: true }
 
-  // Task-diff alignment gate — catch sessions where the diff is unrelated to the stated task
+  // Task-diff alignment gate - catch sessions where the diff is unrelated to the stated task
   if (!force) {
     const { computeTaskDiffAlignment } = require('./taskDiffAlignment')
     const alignment = computeTaskDiffAlignment(session.initial_prompt, session.files_changed)
@@ -1817,7 +1817,7 @@ async function runDeployFromOSApproval(sessionId, { notes = '', confidence = nul
   broadcastToSession(sessionId, 'cc:pipeline_result', { success: true, confidence: finalConfidence, commitSha: deployResult.commitSha })
   emitEvent('factory:session_complete', { sessionId, codebaseName: session.codebase_name, confidence: finalConfidence, outcome: 'deployed' })
 
-  // Learning extraction — fire and forget
+  // Learning extraction - fire and forget
   extractLearningPattern(session, 'success', { confidence: finalConfidence, notes }).catch(() => {})
 
   return { success: true, commitSha: deployResult.commitSha }
@@ -1838,7 +1838,7 @@ async function runRejectFromOS(sessionId, { reason = 'Rejected by OS review', re
   broadcastToSession(sessionId, 'cc:pipeline_result', { success: false, error: reason, rejected: true })
   emitEvent('factory:session_complete', { sessionId, codebaseName: session.codebase_name, outcome: 'rejected', reason })
 
-  // Learning extraction for the rejection — fire and forget
+  // Learning extraction for the rejection - fire and forget
   extractLearningPattern(session, 'rejected', { reason }).catch(() => {})
 
   return { rejected: true, reason, requeued: false }

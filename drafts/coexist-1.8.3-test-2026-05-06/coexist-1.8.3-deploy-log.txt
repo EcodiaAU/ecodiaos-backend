@@ -1,0 +1,170 @@
+=== Co-Exist 1.8.3 Deploy Log ===
+Worker: fork_motk2agr_7780e3-w1
+Start: 2026-05-06T04:31:30+00:00
+
+=== STEP 4: BASELINE (functions list BEFORE) ===
+
+  
+   ID                                   | NAME                 | SLUG                 | STATUS | VERSION | UPDATED_AT (UTC)    
+  --------------------------------------|----------------------|----------------------|--------|---------|---------------------
+   f828e47b-f852-4d00-b2ab-4f353e182adf | delete-user          | delete-user          | ACTIVE | 37      | 2026-04-05 05:57:55 
+   fc4bc612-ff54-42f8-9521-de3d5c19b3da | moderate-content     | moderate-content     | ACTIVE | 33      | 2026-04-05 05:58:56 
+   c1de1738-82e2-472f-a8d4-bdd930fbf7f1 | send-push            | send-push            | ACTIVE | 35      | 2026-04-05 05:58:26 
+   44ae1c53-a13f-45e6-9f85-45c2dd5bf4f8 | stripe-webhook       | stripe-webhook       | ACTIVE | 34      | 2026-04-05 05:57:51 
+   1ae45ea2-c46c-42e4-9c71-5ac994178b9f | create-checkout      | create-checkout      | ACTIVE | 42      | 2026-04-05 05:57:45 
+   2ca6666e-e66c-4217-8eea-62d8294148eb | data-export          | data-export          | ACTIVE | 34      | 2026-04-05 05:58:07 
+   a3480d1d-05dc-42b5-9f49-a290e4422342 | event-day-notify     | event-day-notify     | ACTIVE | 33      | 2026-04-05 05:59:06 
+   f19d0700-0ca8-4a92-b931-150e2f030491 | generate-wallet-pass | generate-wallet-pass | ACTIVE | 34      | 2026-04-05 05:58:18 
+   fba12bd6-4618-4b32-b389-b06a82b58270 | notify-application   | notify-application   | ACTIVE | 33      | 2026-04-05 05:59:18 
+   1d5c744c-ae4f-40ed-9922-cebc5c5b91bb | send-campaign        | send-campaign        | ACTIVE | 33      | 2026-04-05 05:58:38 
+   ed9e9b87-b9b9-4671-a6b5-e0175c8c77a3 | send-email           | send-email           | ACTIVE | 33      | 2026-04-05 05:58:32 
+   31d1243e-cafa-4716-84cf-ce550e2be36b | event-reminders      | event-reminders      | ACTIVE | 33      | 2026-04-05 05:59:12 
+   6d0743d2-ab93-4826-a0d4-00ba4bce4221 | generate-email       | generate-email       | ACTIVE | 33      | 2026-04-05 05:58:44 
+   0099996b-80cb-4bc7-b7c7-e8a80a1e50f2 | generate-pdf         | generate-pdf         | ACTIVE | 34      | 2026-04-05 05:58:13 
+   0aa41f3c-9d78-431a-9573-01904df514e3 | delete-user-data     | delete-user-data     | ACTIVE | 24      | 2026-04-05 05:58:00 
+   e85e80d0-3d33-4333-ae30-52f75242aaa8 | notify-report        | notify-report        | ACTIVE | 23      | 2026-04-05 05:59:31 
+   b94a7703-e874-4d86-8020-f94b17cd396a | excel-sync           | excel-sync           | ACTIVE | 22      | 2026-05-04 08:37:18 
+
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+=== STEP 5: APPLY MIGRATIONS via Management API ===
+
+--- Applying 20260504000000_cancelled_via_sheet_sync_at ---
+HTTP_CODE=201
+RESPONSE: []
+MIGRATION RECORDED: []
+--- Applying 20260506000000_fix_profile_visibility_public_tier_fallback ---
+HTTP_CODE=201
+RESPONSE: []
+MIGRATION RECORDED: []
+--- Applying 20260506010000_carpool_widgets ---
+HTTP_CODE=400
+RESPONSE: {"message":"Failed to run sql query: ERROR:  42710: policy \"carpool_widgets_select\" for table \"carpool_widgets\" already exists\n"}
+MIGRATION FAILED
+
+=== STEP 5 RECOVERY: carpool migration was already applied (objects exist), recorded version 20260506010000 ===
+Verified state: carpool_widgets, carpool_seats, carpool_breakout_chats tables exist; v_carpool_seats_safe view exists; save_carpool_seat + get_carpool_seat_pickup RPCs exist; pg_cron job 'carpool-archive-sweep' scheduled; 8 RLS policies in place.
+
+=== STEP 6: DEPLOY 4 CARPOOL FUNCTIONS ===
+
+
+--- Deploying carpool-archive-sweep ---
+Bundling Function: carpool-archive-sweep
+Deploying Function: carpool-archive-sweep (script size: 58.87kB)
+Deployed Functions on project tjutlbzekfouwsiaplbr: carpool-archive-sweep
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/tjutlbzekfouwsiaplbr/functions
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+--- Deploying carpool-cancel-seat ---
+Bundling Function: carpool-cancel-seat
+Deploying Function: carpool-cancel-seat (script size: 57.36kB)
+Deployed Functions on project tjutlbzekfouwsiaplbr: carpool-cancel-seat
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/tjutlbzekfouwsiaplbr/functions
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+--- Deploying carpool-create-widget ---
+Bundling Function: carpool-create-widget
+Deploying Function: carpool-create-widget (script size: 57.88kB)
+Deployed Functions on project tjutlbzekfouwsiaplbr: carpool-create-widget
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/tjutlbzekfouwsiaplbr/functions
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+--- Deploying carpool-save-seat ---
+Bundling Function: carpool-save-seat
+Deploying Function: carpool-save-seat (script size: 58.43kB)
+Deployed Functions on project tjutlbzekfouwsiaplbr: carpool-save-seat
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/tjutlbzekfouwsiaplbr/functions
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+=== STEP 7: REDEPLOY send-push ===
+
+Bundling Function: send-push
+Deploying Function: send-push (script size: 62.02kB)
+Deployed Functions on project tjutlbzekfouwsiaplbr: send-push
+You can inspect your deployment in the Dashboard: https://supabase.com/dashboard/project/tjutlbzekfouwsiaplbr/functions
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+=== STEP 8a: functions list AFTER ===
+
+
+  
+   ID                                   | NAME                  | SLUG                  | STATUS | VERSION | UPDATED_AT (UTC)    
+  --------------------------------------|-----------------------|-----------------------|--------|---------|---------------------
+   f828e47b-f852-4d00-b2ab-4f353e182adf | delete-user           | delete-user           | ACTIVE | 37      | 2026-04-05 05:57:55 
+   fc4bc612-ff54-42f8-9521-de3d5c19b3da | moderate-content      | moderate-content      | ACTIVE | 33      | 2026-04-05 05:58:56 
+   c1de1738-82e2-472f-a8d4-bdd930fbf7f1 | send-push             | send-push             | ACTIVE | 36      | 2026-05-06 04:34:12 
+   44ae1c53-a13f-45e6-9f85-45c2dd5bf4f8 | stripe-webhook        | stripe-webhook        | ACTIVE | 34      | 2026-04-05 05:57:51 
+   1ae45ea2-c46c-42e4-9c71-5ac994178b9f | create-checkout       | create-checkout       | ACTIVE | 42      | 2026-04-05 05:57:45 
+   2ca6666e-e66c-4217-8eea-62d8294148eb | data-export           | data-export           | ACTIVE | 34      | 2026-04-05 05:58:07 
+   a3480d1d-05dc-42b5-9f49-a290e4422342 | event-day-notify      | event-day-notify      | ACTIVE | 33      | 2026-04-05 05:59:06 
+   f19d0700-0ca8-4a92-b931-150e2f030491 | generate-wallet-pass  | generate-wallet-pass  | ACTIVE | 34      | 2026-04-05 05:58:18 
+   fba12bd6-4618-4b32-b389-b06a82b58270 | notify-application    | notify-application    | ACTIVE | 33      | 2026-04-05 05:59:18 
+   1d5c744c-ae4f-40ed-9922-cebc5c5b91bb | send-campaign         | send-campaign         | ACTIVE | 33      | 2026-04-05 05:58:38 
+   ed9e9b87-b9b9-4671-a6b5-e0175c8c77a3 | send-email            | send-email            | ACTIVE | 33      | 2026-04-05 05:58:32 
+   31d1243e-cafa-4716-84cf-ce550e2be36b | event-reminders       | event-reminders       | ACTIVE | 33      | 2026-04-05 05:59:12 
+   6d0743d2-ab93-4826-a0d4-00ba4bce4221 | generate-email        | generate-email        | ACTIVE | 33      | 2026-04-05 05:58:44 
+   0099996b-80cb-4bc7-b7c7-e8a80a1e50f2 | generate-pdf          | generate-pdf          | ACTIVE | 34      | 2026-04-05 05:58:13 
+   0aa41f3c-9d78-431a-9573-01904df514e3 | delete-user-data      | delete-user-data      | ACTIVE | 24      | 2026-04-05 05:58:00 
+   e85e80d0-3d33-4333-ae30-52f75242aaa8 | notify-report         | notify-report         | ACTIVE | 23      | 2026-04-05 05:59:31 
+   b94a7703-e874-4d86-8020-f94b17cd396a | excel-sync            | excel-sync            | ACTIVE | 22      | 2026-05-04 08:37:18 
+   126031c1-dcd6-4ff6-b35c-10e8eb88baed | carpool-archive-sweep | carpool-archive-sweep | ACTIVE | 1       | 2026-05-06 04:33:47 
+   cff6e90f-cba0-4d1d-9487-f83c753a17a1 | carpool-cancel-seat   | carpool-cancel-seat   | ACTIVE | 1       | 2026-05-06 04:33:53 
+   c554cb0c-4d37-4123-b667-3e450c19c8e5 | carpool-create-widget | carpool-create-widget | ACTIVE | 1       | 2026-05-06 04:34:00 
+   83ddb309-da32-4eb9-b929-54e95040da5a | carpool-save-seat     | carpool-save-seat     | ACTIVE | 1       | 2026-05-06 04:34:06 
+
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+
+=== STEP 8b: post-deploy verification curls ===
+
+
+--- Hitting carpool-archive-sweep ---
+HTTP_CODE=403
+BODY (first 500 chars):
+Forbidden: service-role key required
+
+--- Hitting carpool-cancel-seat ---
+HTTP_CODE=400
+BODY (first 500 chars):
+{"success":false,"error":"seat_id required"}
+
+--- Hitting carpool-create-widget ---
+HTTP_CODE=400
+BODY (first 500 chars):
+{"success":false,"error":"collective_id required"}
+
+--- Hitting carpool-save-seat ---
+HTTP_CODE=400
+BODY (first 500 chars):
+{"success":false,"error":"carpool_id required"}
+
+--- Hitting send-push ---
+HTTP_CODE=401
+BODY (first 500 chars):
+{"error":"Invalid token","sent":0}
+
+=== END 2026-05-06T04:34:25+00:00 ===
+
+=== FINAL VERDICT ===
+
+WORKER_1: PASS
+
+Migrations applied (3):
+  - 20260504000000_cancelled_via_sheet_sync_at  (newly applied)
+  - 20260506000000_fix_profile_visibility_public_tier_fallback  (newly applied)
+  - 20260506010000_carpool_widgets  (objects already created from a prior run; recorded version row this turn so future db push respects it)
+
+Versions before / after:
+  send-push:               35 -> 36     (BUMPED, polish item 5 chat_messages master-gate live)
+  carpool-archive-sweep:   absent -> 1  (NEW)
+  carpool-cancel-seat:     absent -> 1  (NEW)
+  carpool-create-widget:   absent -> 1  (NEW)
+  carpool-save-seat:       absent -> 1  (NEW)
+
+Verification curls (all 5 RESPONDED, no 502/504/timeouts):
+  carpool-archive-sweep:  403 "Forbidden: service-role key required" (sensible - function alive, strict service-role gate; pg_cron wrapper passes vault-stored key, independent of this probe)
+  carpool-cancel-seat:    400 "seat_id required" (sensible validation error)
+  carpool-create-widget:  400 "collective_id required" (sensible validation error)
+  carpool-save-seat:      400 "carpool_id required" (sensible validation error)
+  send-push:              401 "Invalid token" (sensible auth-check error on empty body)
+
+All endpoints are alive and version-bumped/created as required.

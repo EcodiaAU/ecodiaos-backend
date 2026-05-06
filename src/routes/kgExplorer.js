@@ -5,7 +5,7 @@ const logger = require('../config/logger')
 
 const router = Router()
 
-// GET /kg-explorer — serve the explorer UI (no auth, page handles its own auth)
+// GET /kg-explorer - serve the explorer UI (no auth, page handles its own auth)
 router.get('/', (_req, res) => {
   res.send(EXPLORER_HTML)
 })
@@ -13,7 +13,7 @@ router.get('/', (_req, res) => {
 // API endpoints require auth
 router.use(auth)
 
-// GET /kg-explorer/status — connection health
+// GET /kg-explorer/status - connection health
 router.get('/status', async (_req, res) => {
   try {
     const connected = await healthCheck()
@@ -23,7 +23,7 @@ router.get('/status', async (_req, res) => {
   }
 })
 
-// POST /kg-explorer/query — execute a Cypher query
+// POST /kg-explorer/query - execute a Cypher query
 router.post('/query', async (req, res, next) => {
   try {
     const { cypher, params } = req.body
@@ -97,7 +97,7 @@ const EXPLORER_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KG Explorer — EcodiaOS</title>
+<title>KG Explorer - EcodiaOS</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'SF Mono', 'Fira Code', monospace; background: #0a0a0f; color: #c8c8d0; min-height: 100vh; }

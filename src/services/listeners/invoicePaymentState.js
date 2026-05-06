@@ -9,8 +9,8 @@
  * Queries the public.invoices table at fire-time for open invoices
  * (status NOT IN paid/void/cancelled) and matches the incoming payment
  * using two heuristics:
- *   - amount_cents matches invoice.total_cents exactly → amount match
- *   - description contains a significant token from invoice.client_name → name match
+ * - amount_cents matches invoice.total_cents exactly → amount match
+ * - description contains a significant token from invoice.client_name → name match
  *
  * Confidence levels:
  *   high   = amount + name both match
@@ -26,9 +26,9 @@
  * imports), so the per-fire SELECT is cheap.
  *
  * TODO (overdue check): add a separate timer/channel that fires when an open
- * invoice passes its due_date without a match — not implemented here.
+ * invoice passes its due_date without a match - not implemented here.
  *
- * Wakes the OS via HTTP POST — never imports the session service directly.
+ * Wakes the OS via HTTP POST - never imports the session service directly.
  */
 
 const logger = require('../../config/logger')

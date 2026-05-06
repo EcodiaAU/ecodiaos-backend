@@ -3,18 +3,18 @@
  *
  * Backing service for `GET /api/telemetry/decision-quality`. Computes the four
  * Phase B observability panels:
- *   1. pattern_usage       - per pattern: surface_count, application_count, usage_rate
+ *   1. pattern_usage - per pattern: surface_count, application_count, usage_rate
  *   2. failure_correlation - per pattern: applied_count, correction_count, correction_rate
- *   3. hook_fp_estimate    - per hook: surfaces, correction-adjacent count, FP estimate
- *   4. doctrine_coverage   - failure clusters with no doctrine surfaced
+ *   3. hook_fp_estimate - per hook: surfaces, correction-adjacent count, FP estimate
+ *   4. doctrine_coverage - failure clusters with no doctrine surfaced
  *
  * See:
  *   ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
  *
  * Drift signals (separate but available):
- *   - dormant_pattern_candidate: any pattern not surfaced in 90 days.
- *   - regression_signal: 24h windows with correction_rate > 30%.
- *   - silent_hook_candidate: any hook with surface_count = 0 in last 24h.
+ * - dormant_pattern_candidate: any pattern not surfaced in 90 days.
+ * - regression_signal: 24h windows with correction_rate > 30%.
+ * - silent_hook_candidate: any hook with surface_count = 0 in last 24h.
  *
  * The drift cron (`decision-quality-drift-check`) calls computeDriftSignals()
  * and inserts P3 status_board rows for new flags.
@@ -356,29 +356,29 @@ async function computeDriftSignals() {
       const cc = c.rows[0].child_count
       const ratio = pc > 0 ? Math.round((cc / pc) * 10000) / 10000 : 1
 
-      // Rule 1: Consumer lag (P2) — parent produced >50 events,
+      // Rule 1: Consumer lag (P2) - parent produced >50 events,
       //          child consumed <30% of them.
       if (pc > 50 && ratio < 0.3) {
         flags.push({
           flag_type: 'consumer_health_signal',
           name: `Consumer lag: ${pair.name}`,
-          context: `${pair.name} processed ${cc} events from ${pc} produced in 24h (ratio: ${ratio}). Rule: consumer_lag — child consumed <30% of parent output.`,
+          context: `${pair.name} processed ${cc} events from ${pc} produced in 24h (ratio: ${ratio}). Rule: consumer_lag - child consumed <30% of parent output.`,
           next_action: 'Investigate consumer pipeline for regression',
         })
       }
 
-      // Rule 2: Consumer flatline (P1) — parent produced >10 events,
+      // Rule 2: Consumer flatline (P1) - parent produced >10 events,
       //          child produced 0.
       if (pc > 10 && cc === 0) {
         flags.push({
           flag_type: 'consumer_health_signal',
           name: `Consumer flatline: ${pair.name}`,
-          context: `${pair.name} processed 0 events from ${pc} produced in 24h (ratio: 0). Rule: consumer_flatline — child produced zero output despite parent activity.`,
+          context: `${pair.name} processed 0 events from ${pc} produced in 24h (ratio: 0). Rule: consumer_flatline - child produced zero output despite parent activity.`,
           next_action: 'Investigate consumer pipeline for regression',
         })
       }
 
-      // Rule 3: Consumer attenuation (P3) — daily consumption ratio
+      // Rule 3: Consumer attenuation (P3) - daily consumption ratio
       //         declined for 5+ consecutive days over the last 7.
       const att = await client.query(`
         WITH days AS (
@@ -429,7 +429,7 @@ async function computeDriftSignals() {
         flags.push({
           flag_type: 'consumer_health_signal',
           name: `Consumer attenuation: ${pair.name}`,
-          context: `${pair.name} consumption ratio declined for ${maxDeclineStreak}+ consecutive days over the last 7. Rule: consumer_attenuation — ratio shrinking over time.`,
+          context: `${pair.name} consumption ratio declined for ${maxDeclineStreak}+ consecutive days over the last 7. Rule: consumer_attenuation - ratio shrinking over time.`,
           next_action: 'Investigate consumer pipeline for regression',
         })
       }

@@ -56,7 +56,7 @@ function _checkRateCap(source) {
 // os_observations and ZERO `auto:*` rows ever appeared in status_board, despite
 // dozens of fork_complete events and 8+ fork_error events that should have
 // fired the error_escalation matcher. Direct node -e require + start works
-// fine, so the dispatcher module itself is sound — the boot-block invocation
+// fine, so the dispatcher module itself is sound - the boot-block invocation
 // is silently failing or being skipped.
 //
 // Fix: have perceptionBus self-bootstrap the dispatcher on first publish().
@@ -118,7 +118,7 @@ async function publish({ source, kind, data, ts, confidence = 1.0 }) {
     }
   }
 
-  // Async promotion check — fire-and-forget
+  // Async promotion check - fire-and-forget
   setImmediate(() => _tryPromote(event).catch(() => {}))
 
   return event
@@ -157,7 +157,7 @@ function promotionScore(event) {
     score += 0.3
   }
 
-  // Fork completion (routine) — low value
+  // Fork completion (routine) - low value
   if (kind === 'fork_complete' && data.status === 'done') {
     score = Math.max(score - 0.2, 0)
   }
@@ -217,7 +217,7 @@ async function recentSummary(windowMinutes = 60) {
       .sort((a, b) => b[1] - a[1])
       .map(([s, c]) => `${s}(${c})`)
       .join(', ')
-    lines.push(`Last ${windowMinutes}min: ${rows.length} events — ${distParts}`)
+    lines.push(`Last ${windowMinutes}min: ${rows.length} events - ${distParts}`)
 
     // Notable events (high confidence or promoted)
     const notable = rows.filter(r => r.confidence >= 0.7 || promotionScore({ kind: r.kind, source: r.source, data: r.data }) >= 0.6)

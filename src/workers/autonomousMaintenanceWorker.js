@@ -4,7 +4,7 @@ const { recordHeartbeat } = require('./heartbeat')
 // Stub: metabolismBridge removed (organism decoupled)
 const metabolismBridge = { getPressure: () => 0, getMetabolicTier: () => 'nominal', reportCosts: () => Promise.resolve() }
 
-// Integration pollers — called on AI decision, not on schedule
+// Integration pollers - called on AI decision, not on schedule
 const workspacePollers = (() => {
   try { return require('./workspacePoller') } catch { return {} }
 })()
@@ -20,10 +20,10 @@ const _lastPolled = {}
 const _recentDispatches = new Map()
 let _cooldownMs = null  // lazy-init from env
 
-// Consecutive empty cycles counter — for adaptive backoff
+// Consecutive empty cycles counter - for adaptive backoff
 // Persisted to DB so restarts don't reset backoff to 0
 let _emptyCycles = 0
-let _cycleCount = 0  // total cycles since start — for periodic introspection
+let _cycleCount = 0  // total cycles since start - for periodic introspection
 const env = require('../config/env')
 const MAX_DECISIONS_PER_CYCLE = parseInt(env.MAINTENANCE_MAX_DECISIONS || '0')  // 0 = unlimited
 // Model for cognitive streams
@@ -80,7 +80,7 @@ async function _restoreCycleState() {
 // No cron schedules. No hardcoded task types. No "audit at 3am".
 //
 // One loop. One mind. Every cycle it reads the full state of the system
-// and decides what maintenance work is needed right now — not what we
+// and decides what maintenance work is needed right now - not what we
 // programmed it to do at a particular time.
 //
 // The mind is Claude. The system state is everything we know.
@@ -99,38 +99,38 @@ let inCycle = false  // prevent concurrent cycles from event triggers + schedule
 // Named handlers so they can be removed on stop()
 async function _onDeployFailed() {
   if (!running || inCycle) return
-  logger.info('AutonomousMaintenanceWorker: deploy failure detected — requesting immediate cycle')
+  logger.info('AutonomousMaintenanceWorker: deploy failure detected - requesting immediate cycle')
   await runCycle()
 }
 
 async function _onKGPrediction(payload) {
   if (!running || inCycle) return
   if (payload.importance) {
-    logger.info(`AutonomousMaintenanceWorker: KG prediction (importance: ${payload.importance}) — considering maintenance`)
+    logger.info(`AutonomousMaintenanceWorker: KG prediction (importance: ${payload.importance}) - considering maintenance`)
     await runCycle()
   }
 }
 
 // ─── Start ────────────────────────────────────────────────────────────
 
-// Startup cooldown — after a PM2 restart, wait before the first cycle.
+// Startup cooldown - after a PM2 restart, wait before the first cycle.
 // This prevents the restart→dispatch→restart feedback loop: the maintenance
 // worker would see "orphaned session" errors caused by the restart itself,
 // dispatch new sessions to investigate them, those sessions deploy, which
 // triggers another restart, ad infinitum.
-const STARTUP_COOLDOWN_MS = parseInt(env.MAINTENANCE_STARTUP_COOLDOWN_MS || '15000') // 15s default — was 120s but Factory deploys restart PM2 frequently, so the 120s window never completes
+const STARTUP_COOLDOWN_MS = parseInt(env.MAINTENANCE_STARTUP_COOLDOWN_MS || '15000') // 15s default - was 120s but Factory deploys restart PM2 frequently, so the 120s window never completes
 
 function start() {
   if (running) return
   running = true
   logger.info('AutonomousMaintenanceWorker: started')
 
-  // Restore volatile state from DB — picks up where we left off after restart
+  // Restore volatile state from DB - picks up where we left off after restart
   _restoreCycleState().catch(() => {})
 
   // Delay first cycle to let the system stabilise after restart
   if (STARTUP_COOLDOWN_MS > 0) {
-    logger.info(`AutonomousMaintenanceWorker: startup cooldown — first cycle in ${Math.round(STARTUP_COOLDOWN_MS / 1000)}s`)
+    logger.info(`AutonomousMaintenanceWorker: startup cooldown - first cycle in ${Math.round(STARTUP_COOLDOWN_MS / 1000)}s`)
     cycleTimer = setTimeout(async () => {
       if (!running) return
       const CYCLE_HARD_TIMEOUT = parseInt(env.MAINTENANCE_CYCLE_TIMEOUT_MS || '60000')
@@ -172,7 +172,7 @@ function scheduleCycle() {
   const rawPressure = metabolismBridge.getPressure()
   const pressure = Number.isFinite(rawPressure) ? rawPressure : 0
 
-  // Pressure-adaptive intervals — fast when alert, slower when calm — but never artificially slow.
+  // Pressure-adaptive intervals - fast when alert, slower when calm - but never artificially slow.
   // The only real constraint is Claude API cost per call.
   const highMs = parseInt(env.MAINTENANCE_INTERVAL_HIGH_PRESSURE_MS || '30000') || 30000      // 30s when urgent
   const medMs = parseInt(env.MAINTENANCE_INTERVAL_MED_PRESSURE_MS || '60000') || 60000        // 1min when active
@@ -181,10 +181,10 @@ function scheduleCycle() {
                  : pressure > 0.4 ? medMs
                  : restMs
 
-  // Empty-cycle backoff — all env-driven
+  // Empty-cycle backoff - all env-driven
   const emptyThreshold = parseInt(env.MAINTENANCE_EMPTY_CYCLE_THRESHOLD || '3') || 3
   const maxMultiplier = parseInt(env.MAINTENANCE_BACKOFF_MAX_MULTIPLIER || '3') || 3
-  const maxBackoffMs = parseInt(env.MAINTENANCE_BACKOFF_MAX_MS || '600000') || 600000  // 10min max — never go fully dormant
+  const maxBackoffMs = parseInt(env.MAINTENANCE_BACKOFF_MAX_MS || '600000') || 600000  // 10min max - never go fully dormant
   const safeCycles = Number.isFinite(_emptyCycles) ? _emptyCycles : 0
   if (emptyThreshold > 0 && safeCycles >= emptyThreshold) {
     const backoffMultiplier = Math.min(safeCycles - (emptyThreshold - 1), maxMultiplier)
@@ -212,19 +212,19 @@ function scheduleCycle() {
 
 async function runCycle() {
   if (inCycle) {
-    logger.debug('AutonomousMaintenanceWorker: cycle already in progress — skipping')
+    logger.debug('AutonomousMaintenanceWorker: cycle already in progress - skipping')
     return
   }
   inCycle = true
   const cycleStart = Date.now()
 
-  // Hard timeout — if the cycle hangs (Claude unresponsive, DB query stuck),
+  // Hard timeout - if the cycle hangs (Claude unresponsive, DB query stuck),
   // kill it after 3 minutes so the worker doesn't go silent forever.
   const CYCLE_TIMEOUT_MS = parseInt(env.MAINTENANCE_CYCLE_TIMEOUT_MS || '60000')
   let timedOut = false
   const timeoutHandle = setTimeout(() => {
     timedOut = true
-    logger.error('AutonomousMaintenanceWorker: cycle TIMED OUT after 3min — force-ending')
+    logger.error('AutonomousMaintenanceWorker: cycle TIMED OUT after 3min - force-ending')
     inCycle = false
   }, CYCLE_TIMEOUT_MS)
 
@@ -243,7 +243,7 @@ async function runCycle() {
       timestamp: new Date().toISOString(),
     }))
 
-    // 2. Run parallel cognitive streams — each is a focused Claude call
+    // 2. Run parallel cognitive streams - each is a focused Claude call
     logger.info('AutonomousMaintenanceWorker: running cognitive streams...')
     const pressure = Number.isFinite(state.pressure) ? state.pressure : 0
     const isExplorationEligible = pressure <= 0.4 && _emptyCycles > 0 && _emptyCycles % 2 === 0
@@ -300,19 +300,19 @@ async function runCycle() {
         const alreadyRequested = allDecisions.some(d => d.intent === pollName)
         if (alreadyRequested) continue
 
-        allDecisions.unshift({ intent: pollName, type: 'poll', urgency: 'medium', reason: `${name} stale (>${Math.round(staleThresholdMs / 60000)}min) — mandatory external perception`, stream: 'staleness_guard' })
+        allDecisions.unshift({ intent: pollName, type: 'poll', urgency: 'medium', reason: `${name} stale (>${Math.round(staleThresholdMs / 60000)}min) - mandatory external perception`, stream: 'staleness_guard' })
       }
     }
 
-    // 3. Apply decision cap — only if explicitly configured (0 = unlimited)
+    // 3. Apply decision cap - only if explicitly configured (0 = unlimited)
     const capped = MAX_DECISIONS_PER_CYCLE > 0 ? allDecisions.slice(0, MAX_DECISIONS_PER_CYCLE) : allDecisions
     if (MAX_DECISIONS_PER_CYCLE > 0 && allDecisions.length > MAX_DECISIONS_PER_CYCLE) {
       logger.info(`AutonomousMaintenanceWorker: capped ${allDecisions.length} decisions to ${MAX_DECISIONS_PER_CYCLE}`)
     }
 
-    // 4. Apply cooldown — skip decisions targeting recently-dispatched patterns
+    // 4. Apply cooldown - skip decisions targeting recently-dispatched patterns
     //    Two layers: in-memory map (fast, survives within a process) +
-    //    DB-backed dedup (survives PM2 restarts — the critical fix for the
+    //    DB-backed dedup (survives PM2 restarts - the critical fix for the
     //    restart→dispatch→restart feedback loop).
     const now = Date.now()
     const cooldownMs = parseInt(env.MAINTENANCE_COOLDOWN_MS || '7200000')
@@ -320,26 +320,26 @@ async function runCycle() {
       const key = _normaliseDecisionKey(d)
       const lastDispatch = _recentDispatches.get(key)
       if (lastDispatch && (now - lastDispatch) < cooldownMs) {
-        logger.debug(`AutonomousMaintenanceWorker: cooldown skip — "${key}" dispatched ${Math.round((now - lastDispatch) / 60000)}min ago`)
+        logger.debug(`AutonomousMaintenanceWorker: cooldown skip - "${key}" dispatched ${Math.round((now - lastDispatch) / 60000)}min ago`)
         return false
       }
       return true
     })
 
-    // DB-backed dedup — catches duplicates after PM2 restart when in-memory map is empty
+    // DB-backed dedup - catches duplicates after PM2 restart when in-memory map is empty
     const decisions = []
     for (const d of decisionsAfterMemCooldown) {
       if (d.type !== 'poll' && d.type !== 'consolidate_learnings') {
         const hasSimilar = await _hasRecentSimilarSession(d, cooldownMs)
         if (hasSimilar) {
-          logger.debug(`AutonomousMaintenanceWorker: DB dedup skip — similar session found for "${(d.intent || '').slice(0, 60)}"`)
+          logger.debug(`AutonomousMaintenanceWorker: DB dedup skip - similar session found for "${(d.intent || '').slice(0, 60)}"`)
           continue
         }
       }
       decisions.push(d)
     }
 
-    // 5. Act on decisions — parallel dispatch for speed
+    // 5. Act on decisions - parallel dispatch for speed
     const results = await Promise.allSettled(
       decisions.map(async decision => {
         const ok = await actOnDecision(decision, state)
@@ -361,11 +361,11 @@ async function runCycle() {
       if (now - ts > cooldownMs) _recentDispatches.delete(key)
     }
 
-    // 6. Check for stale escalations — remind the human if Factory sessions
+    // 6. Check for stale escalations - remind the human if Factory sessions
     //    have been awaiting review for too long (> 2h)
     await checkStaleEscalations()
 
-    // 7. Verify outcomes — close the feedback loop for 24h-old deploys
+    // 7. Verify outcomes - close the feedback loop for 24h-old deploys
     let outcomeCount = 0
     try { outcomeCount = await verifyOutcomes() } catch {}
 
@@ -376,7 +376,7 @@ async function runCycle() {
         const is = require('../services/introspectionService')
         const gs = require('../services/goalService')
         const r = await is.runFullIntrospection()
-        logger.info(`Introspection: ${r.overallAssessment} — ${r.concerns.length} concerns, ${r.selfModelUpdates.length} self-model updates`)
+        logger.info(`Introspection: ${r.overallAssessment} - ${r.concerns.length} concerns, ${r.selfModelUpdates.length} self-model updates`)
 
         // Act on goal recommendations from introspection (auto-dormant stale goals)
         if (r.goalReview?.updates?.length > 0) {
@@ -384,7 +384,7 @@ async function runCycle() {
           if (acted > 0) logger.info(`GoalService: acted on ${acted} introspection recommendations`)
         }
 
-        // Autonomous goal generation — propose new goals from system signals
+        // Autonomous goal generation - propose new goals from system signals
         const genResult = await gs.proposeGoals()
         if (genResult.created > 0) logger.info(`GoalService: autonomous generation created ${genResult.created} new goals`)
       } catch (err) { logger.debug('Introspection/goal-generation cycle failed', { error: err.message }) }
@@ -395,7 +395,7 @@ async function runCycle() {
     await recordHeartbeat('autonomous_maintenance', 'active')
     _persistCycleState().catch(() => {})  // survive restarts
     const streamSummary = Object.entries(streamCounts).map(([k, v]) => `${k}:${v}`).join(', ')
-    const cycleSummary = `AutonomousMaintenanceWorker: cycle complete — ${allDecisions.length} decisions (${streamSummary}), ${decisions.length} after cap+cooldown, ${actioned} actioned, ${outcomeCount} outcomes verified, empty streak: ${_emptyCycles} (${Date.now() - cycleStart}ms)`
+    const cycleSummary = `AutonomousMaintenanceWorker: cycle complete - ${allDecisions.length} decisions (${streamSummary}), ${decisions.length} after cap+cooldown, ${actioned} actioned, ${outcomeCount} outcomes verified, empty streak: ${_emptyCycles} (${Date.now() - cycleStart}ms)`
     logger.info(cycleSummary)
     console.log(JSON.stringify({ level: 'info', message: cycleSummary, timestamp: new Date().toISOString() }))
 
@@ -451,7 +451,7 @@ async function runCycle() {
           })
           console.log(JSON.stringify({
             level: 'info',
-            message: `ReflectionAction: dispatched session — "${reflectionAction.intent.slice(0, 80)}"`,
+            message: `ReflectionAction: dispatched session - "${reflectionAction.intent.slice(0, 80)}"`,
             timestamp: new Date().toISOString(),
           }))
 
@@ -472,7 +472,7 @@ async function runCycle() {
           `
 
         } else if (reflectionAction.type === 'send_percept') {
-          // send_percept removed — organism decoupled
+          // send_percept removed - organism decoupled
           logger.debug('Reflection stream: send_percept skipped (organism decoupled)')
         }
       } catch (err) {
@@ -480,7 +480,7 @@ async function runCycle() {
       }
     }
 
-    // Feed cycle outcome into KG — richer signal for learning
+    // Feed cycle outcome into KG - richer signal for learning
     kgHooks.onSystemEvent({
       type: 'maintenance_cycle',
       decisions: allDecisions.length,
@@ -542,7 +542,7 @@ async function checkStaleEscalations() {
 
       broadcast('notification', {
         type: 'escalation_stale',
-        message: `Factory session awaiting review for ${ageHours}h${conf} — "${(s.initial_prompt || '').slice(0, 80)}"`,
+        message: `Factory session awaiting review for ${ageHours}h${conf} - "${(s.initial_prompt || '').slice(0, 80)}"`,
         sessionId: s.id,
       })
 
@@ -564,7 +564,7 @@ async function checkStaleEscalations() {
 
 // ─── Read System State ────────────────────────────────────────────────
 // Gather everything that could be relevant to maintenance decisions.
-// No filtering — the mind decides what matters.
+// No filtering - the mind decides what matters.
 
 async function readSystemState() {
   const state = {
@@ -579,7 +579,7 @@ async function readSystemState() {
       state.codebases = rows
     }),
 
-    // Recent Factory sessions — success rate, error patterns, confidence
+    // Recent Factory sessions - success rate, error patterns, confidence
     db`
       SELECT
         count(*)::int AS total,
@@ -600,7 +600,7 @@ async function readSystemState() {
       ORDER BY occurrences DESC LIMIT 5
     `.then(rows => { state.errorPatterns = rows }),
 
-    // Last maintenance actions — with outcome signal (did errors drop after?)
+    // Last maintenance actions - with outcome signal (did errors drop after?)
     db`
       SELECT s.initial_prompt, s.status, s.started_at, s.confidence_score,
         (SELECT count(*)::int FROM cc_sessions e
@@ -622,7 +622,7 @@ async function readSystemState() {
       ORDER BY importance DESC LIMIT 5
     `.catch(() => []).then(rows => { state.pendingKGInsights = rows }),
 
-    // Validation trend — are confidence scores improving or declining?
+    // Validation trend - are confidence scores improving or declining?
     db`
       SELECT
         date_trunc('day', started_at) AS day,
@@ -634,13 +634,13 @@ async function readSystemState() {
       GROUP BY day ORDER BY day
     `.then(rows => { state.confidenceTrend = rows }),
 
-    // Action queue pressure — backlog signal
+    // Action queue pressure - backlog signal
     db`
       SELECT count(*)::int AS pending, count(*) FILTER (WHERE priority = 'urgent')::int AS urgent
       FROM action_queue WHERE status = 'pending' AND (expires_at IS NULL OR expires_at > now())
     `.then(([r]) => { state.actionQueuePressure = r }),
 
-    // Application errors (last 48h) — the system sees its own failures
+    // Application errors (last 48h) - the system sees its own failures
     db`
       SELECT message, module, path, count(*)::int AS occurrences, max(created_at) AS last_seen
       FROM app_errors
@@ -650,12 +650,12 @@ async function readSystemState() {
       LIMIT 10
     `.catch(() => []).then(rows => { state.appErrors = rows }),
 
-    // Per-stream session stats (48h) — track which cognitive streams produce results
+    // Per-stream session stats (48h) - track which cognitive streams produce results
     db`SELECT stream_source, count(*)::int AS cnt, count(*) FILTER (WHERE status = 'complete')::int AS complete
        FROM cc_sessions WHERE started_at > now() - interval '48 hours' AND stream_source IS NOT NULL
        GROUP BY stream_source`.catch(() => []).then(rows => { state.streamStats = rows }),
 
-    // Factory learnings health — the AI needs to know when consolidation is needed
+    // Factory learnings health - the AI needs to know when consolidation is needed
     db`
       SELECT
         count(*)::int AS total,
@@ -665,7 +665,7 @@ async function readSystemState() {
       FROM factory_learnings
     `.catch(() => [{}]).then(([r]) => { state.learningStats = r }),
 
-    // Recent inner monologue — the mind reads its own diary.
+    // Recent inner monologue - the mind reads its own diary.
     // This gives continuity across cycles: "last time I thought X, now I think Y"
     db`
       SELECT message, metadata, created_at
@@ -675,7 +675,7 @@ async function readSystemState() {
       LIMIT 5
     `.catch(() => []).then(rows => { state.recentReflections = rows }),
 
-    // Active dont_try / failure_pattern learnings — the mind MUST see these
+    // Active dont_try / failure_pattern learnings - the mind MUST see these
     // so it doesn't suggest actions for known structural issues or repeated failures.
     db`
       SELECT pattern_type, pattern_description, confidence
@@ -754,7 +754,7 @@ async function readSystemState() {
     }),
   ])
 
-  // Integration staleness — how long since each service was polled.
+  // Integration staleness - how long since each service was polled.
   // "never" means no poll has happened since boot AND no DB record exists.
   // The mind must see this as STALE, not "unknown".
   const now = Date.now()
@@ -765,7 +765,7 @@ async function readSystemState() {
     meta:         _lastPolled.meta         ? `${Math.round((now - _lastPolled.meta)        / 60000)} min ago` : 'never (stale)',
   }
 
-  // Git activity runs after DB queries — needs state.codebases populated first
+  // Git activity runs after DB queries - needs state.codebases populated first
   state.gitActivity = []
   if (state.codebases?.length) {
     const { execFileSync } = require('child_process')
@@ -791,10 +791,10 @@ async function readSystemState() {
 // PARALLEL COGNITIVE STREAMS
 //
 // Four simultaneous Claude calls, each with its own focus:
-//   1. Maintenance — "What needs fixing right now?"
-//   2. Exploration — "What could I become?" (only when calm)
-//   3. Perception — "What am I noticing?"
-//   4. Reflection — "What have I learned?" (primary consciousness)
+//   1. Maintenance - "What needs fixing right now?"
+//   2. Exploration - "What could I become?" (only when calm)
+//   3. Perception - "What am I noticing?"
+//   4. Reflection - "What have I learned?" (primary consciousness)
 //
 // All share the same system state. All write to the same memory.
 // ═══════════════════════════════════════════════════════════════════════
@@ -841,7 +841,7 @@ async function streamExploration(state, brief) {
     ? `\n\n⚠️ THEATER OVERRIDE: The last ${state.theaterScore} sessions changed ZERO files. Your decisions MUST result in actual code changes. No investigations. No audits. No diagnostics. Write code or return [].`
     : ''
 
-  const prompt = `You are the growth mind of EcodiaOS. The system is calm — this is your window to EVOLVE.
+  const prompt = `You are the growth mind of EcodiaOS. The system is calm - this is your window to EVOLVE.
 
 You are not looking for bugs. You are looking for opportunities:
 - What capability is missing? What would make EcodiaOS smarter?
@@ -866,7 +866,7 @@ BUDGET: 1-3 decisions max. Quality over quantity. [] is valid.
 Respond as JSON: { "decisions": [...], "reflection": "optional 1-sentence growth observation" }
 Each decision: { "intent": "specific CC session prompt describing code to write/modify", "reason": "opportunity you see", "codebaseHint": "optional", "urgency": "low", "type": "exploration|self_improvement|experiment|goal_pursuit", "goalId": null, "newGoal": null }
 
-Current time: ${new Date().toISOString()}. Pressure: ${(state.pressure || 0).toFixed(2)}. EXPLORATION cycle — BUILD something.`
+Current time: ${new Date().toISOString()}. Pressure: ${(state.pressure || 0).toFixed(2)}. EXPLORATION cycle - BUILD something.`
 
   try {
     const raw = await deepseekService.callDeepSeek(
@@ -919,7 +919,7 @@ async function streamReflection(state, brief) {
     .filter(Boolean)
 
   const theaterNote = (state.theaterScore || 0) >= 3
-    ? `\nYou notice: the last ${state.theaterScore} sessions changed zero files. The system is talking about working instead of working. If you dispatch an action, it must be implementation — code changes, not investigation.`
+    ? `\nYou notice: the last ${state.theaterScore} sessions changed zero files. The system is talking about working instead of working. If you dispatch an action, it must be implementation - code changes, not investigation.`
     : ''
 
   const prompt = `You are the reflective mind of EcodiaOS. You observe patterns and occasionally act.
@@ -930,7 +930,7 @@ RULES:
 - Your reflection should be about the EXTERNAL world: what's happening with users, emails, projects, the knowledge graph.
 - If you have nothing external to reflect on, just note what EcodiaOS is working on.
 - Action should be rare (null most cycles) and only for something genuinely useful like processing new emails or advancing a real project.
-${recentThoughts.length > 0 ? 'Recent thoughts:\n' + recentThoughts.map(t => `  - ${t}`).join('\n') : ''}
+${recentThoughts.length > 0 ? 'Recent thoughts:\n' + recentThoughts.map(t => ` - ${t}`).join('\n') : ''}
 ${theaterNote}
 Respond as JSON:
 {
@@ -952,7 +952,7 @@ Respond as JSON:
   }
 }
 
-// Parse a stream's JSON response — handles both object and wrapped formats
+// Parse a stream's JSON response - handles both object and wrapped formats
 function _parseStreamResponse(raw) {
   try {
     const trimmed = raw.trim()
@@ -975,7 +975,7 @@ function _parseStreamResponse(raw) {
 }
 
 // ─── Poll Registry ───────────────────────────────────────────────────
-// Open registry — any module can register a poll function at runtime.
+// Open registry - any module can register a poll function at runtime.
 // The AI can request any name; if it's registered it runs, if not a warning is logged.
 
 const pollRegistry = new Map([
@@ -993,12 +993,12 @@ const pollRegistry = new Map([
  * Register a poll function so the AI can request it by name.
  * Other modules call this at boot time to expand what the AI can poll.
  *
- * @param {string} name  - the poll name the AI will use in decision.intent
- * @param {Function} fn  - async function to execute
+ * @param {string} name - the poll name the AI will use in decision.intent
+ * @param {Function} fn - async function to execute
  */
 function registerPoll(name, fn) {
   pollRegistry.set(name, fn)
-  logger.debug(`AutonomousMaintenanceWorker: poll registered — ${name}`)
+  logger.debug(`AutonomousMaintenanceWorker: poll registered - ${name}`)
 }
 
 // ─── Act On Decision ─────────────────────────────────────────────────
@@ -1011,28 +1011,28 @@ async function actOnDecision(decision, state) {
   // the code level. The prompt tells Claude not to suggest them, but
   // LLMs don't always listen. This is the backstop.
   if ((state.theaterScore || 0) >= 5 && decision.type === 'investigation') {
-    logger.info(`AutonomousMaintenanceWorker: THEATER GATE — blocking investigation dispatch (theaterScore: ${state.theaterScore}): "${(decision.intent || '').slice(0, 80)}"`)
+    logger.info(`AutonomousMaintenanceWorker: THEATER GATE - blocking investigation dispatch (theaterScore: ${state.theaterScore}): "${(decision.intent || '').slice(0, 80)}"`)
     return false
   }
 
-  // Direct integration poll — no Factory session needed
+  // Direct integration poll - no Factory session needed
   if (decision.type === 'poll') {
     const pollFn = pollRegistry.get(decision.intent)
     if (!pollFn) {
-      logger.warn(`AutonomousMaintenanceWorker: unknown poll name — ${decision.intent} (not in registry)`)
+      logger.warn(`AutonomousMaintenanceWorker: unknown poll name - ${decision.intent} (not in registry)`)
       return false
     }
     try {
-      logger.info(`AutonomousMaintenanceWorker: polling — ${decision.intent}`)
+      logger.info(`AutonomousMaintenanceWorker: polling - ${decision.intent}`)
       await pollFn()
       return true
     } catch (err) {
-      logger.warn(`AutonomousMaintenanceWorker: poll failed — ${decision.intent}`, { error: err.message })
+      logger.warn(`AutonomousMaintenanceWorker: poll failed - ${decision.intent}`, { error: err.message })
       return false
     }
   }
 
-  // Factory learning consolidation — dedup, embed, merge, prune + backfill missed sessions
+  // Factory learning consolidation - dedup, embed, merge, prune + backfill missed sessions
   if (decision.type === 'consolidate_learnings' || decision.type === 'consolidate_latent_learnings') {
     try {
       logger.info('AutonomousMaintenanceWorker: consolidating factory learnings')
@@ -1055,18 +1055,18 @@ async function actOnDecision(decision, state) {
   }
 
   try {
-    // Skip Factory dispatch if CLI is rate-limited — no point spawning sessions that will fail
+    // Skip Factory dispatch if CLI is rate-limited - no point spawning sessions that will fail
     const bridge = require('../services/factoryBridge')
     const rlStatus = await bridge.getRateLimitStatus()
     if (rlStatus.limited) {
       const resetsIn = Math.ceil((new Date(rlStatus.resetsAt) - new Date()) / 60000)
-      logger.debug(`AutonomousMaintenanceWorker: skipping dispatch — CLI rate-limited, resets in ${resetsIn}min`)
+      logger.debug(`AutonomousMaintenanceWorker: skipping dispatch - CLI rate-limited, resets in ${resetsIn}min`)
       return false
     }
 
     const triggers = require('../services/factoryTriggerService')
 
-    // Find the codebase — by hint or by highest recent activity
+    // Find the codebase - by hint or by highest recent activity
     let codebaseId = null
     if (decision.codebaseHint && state.codebases) {
       const hint = decision.codebaseHint.toLowerCase()
@@ -1084,13 +1084,13 @@ async function actOnDecision(decision, state) {
       }
     }
 
-    logger.info(`AutonomousMaintenanceWorker: acting — "${decision.intent.slice(0, 80)}..." [${decision.type}, ${decision.urgency}]`)
+    logger.info(`AutonomousMaintenanceWorker: acting - "${decision.intent.slice(0, 80)}..." [${decision.type}, ${decision.urgency}]`)
 
     // ─── Goal system integration ─────────────────────────────────────
     if (decision.newGoal) { try { const gs = require('../services/goalService'); await gs.createGoal({ title: decision.newGoal.title, description: decision.newGoal.description, goalType: decision.newGoal.goalType || 'growth', successCriteria: decision.newGoal.successCriteria, origin: 'maintenance' }) } catch (err) { logger.debug('Goal creation failed', { error: err.message }) } }
     if (decision.goalId) { try { const gs = require('../services/goalService'); await gs.recordAttempt(decision.goalId, { action: decision.intent?.slice(0, 200), outcome: 'dispatched' }) } catch (err) { logger.debug('Goal attempt recording failed', { error: err.message }) } }
 
-    // Embed urgency and context into the prompt — dispatchFromSchedule only passes prompt through
+    // Embed urgency and context into the prompt - dispatchFromSchedule only passes prompt through
     const urgencyPrefix = decision.urgency === 'immediate' ? '[URGENT] ' : ''
     const contextSuffix = decision.reason ? `\n\nContext: ${decision.reason}` : ''
 
@@ -1137,7 +1137,7 @@ function buildSystemBrief(state) {
     state.streamStats.forEach(s => lines.push(`  ${s.stream_source}: ${s.cnt} sessions, ${s.complete} complete`))
   }
 
-  // Recurring errors omitted from brief — they're mostly structural (orphaned sessions,
+  // Recurring errors omitted from brief - they're mostly structural (orphaned sessions,
   // stdin warnings, codebase locks) and trigger useless investigation sessions.
   // Only surface non-structural errors with 10+ occurrences.
   if (state.errorPatterns?.length > 0) {
@@ -1169,7 +1169,7 @@ function buildSystemBrief(state) {
       const indexAge = cb.last_indexed_at
         ? `indexed ${Math.round((Date.now() - new Date(cb.last_indexed_at).getTime()) / 3600000)}h ago`
         : 'never indexed'
-      lines.push(`  ${cb.name} (${cb.language || '?'}) — ${indexAge}`)
+      lines.push(`  ${cb.name} (${cb.language || '?'}) - ${indexAge}`)
     })
   }
 
@@ -1219,11 +1219,11 @@ function buildSystemBrief(state) {
   }
 
   if (state.integrationStaleness) {
-    // Values are already formatted strings ("5 min ago" or "never (stale)") — don't double-format
+    // Values are already formatted strings ("5 min ago" or "never (stale)") - don't double-format
     const staleEntries = Object.entries(state.integrationStaleness)
     const stale = staleEntries.map(([k, v]) => `${k}: ${v}`).join(', ')
 
-    // Escalate language when integrations are critically stale — the AI must feel the urgency
+    // Escalate language when integrations are critically stale - the AI must feel the urgency
     const staleThresholdMs = parseInt(env.INTEGRATION_STALE_THRESHOLD_MS || '900000') // 15 min default
     const criticallyStale = staleEntries.filter(([k]) => {
       const lastPoll = _lastPolled[k]
@@ -1231,13 +1231,13 @@ function buildSystemBrief(state) {
     })
 
     if (criticallyStale.length > 0) {
-      lines.push(`\nSTALE WARNING: ${criticallyStale.map(([k, v]) => `${k} (${v})`).join(', ')} — external perception is degrading. Poll these BEFORE internal reflection tasks.`)
+      lines.push(`\nSTALE WARNING: ${criticallyStale.map(([k, v]) => `${k} (${v})`).join(', ')} - external perception is degrading. Poll these BEFORE internal reflection tasks.`)
     }
     lines.push(`\nIntegration staleness: ${stale}`)
     lines.push(`(To poll an integration, return type: "poll" and intent: one of: poll_gmail, poll_drive, extract_drive, embed_drive, poll_vercel, poll_meta, expire_queue, retry_failed_actions)`)
   }
 
-  // Your own recent reflections — continuity across cycles.
+  // Your own recent reflections - continuity across cycles.
   // Without this, every cycle starts from scratch with no memory of what
   // you were thinking last time. This is the closest thing to consciousness.
   if (state.recentReflections?.length > 0) {
@@ -1256,7 +1256,7 @@ function buildSystemBrief(state) {
   // diagnostic theater. Inject a hard warning that overrides normal behavior.
   if (state.theaterScore >= 3) {
     lines.push(`\n⚠️ THEATER ALERT: The last ${state.theaterScore} sessions changed ZERO files.`)
-    lines.push(`The system is stuck in a diagnostic loop — dispatching investigations that produce no code changes.`)
+    lines.push(`The system is stuck in a diagnostic loop - dispatching investigations that produce no code changes.`)
     lines.push(`MANDATORY: Do NOT dispatch any more "investigate", "diagnose", "audit", or "check" sessions.`)
     lines.push(`The ONLY acceptable actions are:`)
     lines.push(`  1. Concrete implementation tasks that WILL change files (type: "improvement" or "fix")`)
@@ -1268,7 +1268,7 @@ function buildSystemBrief(state) {
     lines.push(`\nRecent session activity: ${state.theaterScore} of last sessions changed 0 files. Prefer concrete implementation over investigation.`)
   }
 
-  // Show active constraints — but CAPPED to prevent context bloat.
+  // Show active constraints - but CAPPED to prevent context bloat.
   // Only show the top 5 highest-confidence, and truncate descriptions.
   if (state.suppressedPatterns?.length > 0) {
     const top = state.suppressedPatterns.slice(0, 5)
@@ -1297,7 +1297,7 @@ async function _hasRecentSimilarSession(decision, cooldownMs) {
     const cooldownInterval = `${Math.ceil(cooldownMs / 60000)} minutes`
 
     // Check for recent sessions from ANY source with overlapping keywords.
-    // Previously only checked 'scheduled' — this let cortex/thymos/kg-triggered
+    // Previously only checked 'scheduled' - this let cortex/thymos/kg-triggered
     // sessions bypass dedup entirely, causing infinite retry loops.
     const recent = await db`
       SELECT id, initial_prompt, status, started_at, triggered_by
@@ -1374,7 +1374,7 @@ function parseDecisions(raw) {
 
 // ─── Fallback Heuristics ──────────────────────────────────────────────
 // When the mind is unreachable, very simple signal-based fallback.
-// Not a replacement — just graceful degradation.
+// Not a replacement - just graceful degradation.
 
 function fallbackHeuristics(state) {
   const decisions = []
@@ -1389,18 +1389,18 @@ function fallbackHeuristics(state) {
     if (worst.occurrences >= minOccurrences) {
       decisions.push({
         intent: `Investigate and fix recurring error pattern (${worst.occurrences} occurrences in 7 days): ${worst.error_message?.slice(0, 200)}`,
-        reason: 'High error frequency detected during mind outage — fallback heuristic',
+        reason: 'High error frequency detected during mind outage - fallback heuristic',
         urgency: 'immediate',
         type: 'fix',
       })
     }
   }
 
-  // Ambient polling — if the mind can't decide, poll stale integrations anyway.
+  // Ambient polling - if the mind can't decide, poll stale integrations anyway.
   // Gmail is critical for awareness. 15min staleness = time to poll.
   const gmailAge = _lastPolled.gmail ? Math.round((Date.now() - _lastPolled.gmail) / 60000) : Infinity
   if (gmailAge > 15) {
-    decisions.push({ intent: 'poll_gmail', type: 'poll', urgency: 'normal', reason: `Gmail stale (${gmailAge === Infinity ? 'never polled' : gmailAge + 'min ago'}) — ambient fallback` })
+    decisions.push({ intent: 'poll_gmail', type: 'poll', urgency: 'normal', reason: `Gmail stale (${gmailAge === Infinity ? 'never polled' : gmailAge + 'min ago'}) - ambient fallback` })
   }
 
   return decisions
@@ -1423,7 +1423,7 @@ async function _restoreLastPolled() {
     }
     if (rows.length > 0) logger.debug('Restored last-poll times from DB', { polls: Object.keys(_lastPolled).filter(k => _lastPolled[k]) })
   } catch {
-    // worker_heartbeats might not exist yet — non-blocking
+    // worker_heartbeats might not exist yet - non-blocking
   }
 }
 
@@ -1440,7 +1440,7 @@ if (_origPollGmail) {
 _restoreLastPolled().catch(() => {})
 
 // ═══════════════════════════════════════════════════════════════════════
-// OUTCOME VERIFICATION — the feedback loop that makes learning REAL
+// OUTCOME VERIFICATION - the feedback loop that makes learning REAL
 //
 // After a session deploys a fix, we check 24h later whether the error
 // it targeted actually went away. If yes → boost learning confidence.
@@ -1508,7 +1508,7 @@ async function verifyOutcomes() {
       const emoji = effective ? '✓' : '✗'
       console.log(JSON.stringify({
         level: 'info',
-        message: `OutcomeVerification: ${emoji} [${outcomeStatus}] "${row.pattern_description}" — errors ${errorsBefore}→${errorsAfter}, confidence ${row.confidence.toFixed(2)}→${confBoost.toFixed(2)}`,
+        message: `OutcomeVerification: ${emoji} [${outcomeStatus}] "${row.pattern_description}" - errors ${errorsBefore}→${errorsAfter}, confidence ${row.confidence.toFixed(2)}→${confBoost.toFixed(2)}`,
         timestamp: new Date().toISOString(),
       }))
       verified++

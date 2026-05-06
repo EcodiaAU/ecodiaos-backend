@@ -3,14 +3,14 @@ const env = require('../config/env')
 const { recordHeartbeat } = require('./heartbeat')
 
 // LLM calls now route through osSessionService.sendTask, so no API key is
-// required at this level — just Neo4j.
+// required at this level - just Neo4j.
 if (!env.NEO4J_URI) {
-  logger.info('KG consolidation worker skipped — NEO4J_URI not set')
+  logger.info('KG consolidation worker skipped - NEO4J_URI not set')
   module.exports = {}
 } else {
   const consolidation = require('../services/kgConsolidationService')
 
-  logger.info('KG consolidation worker started — adaptive loop, no fixed schedule')
+  logger.info('KG consolidation worker started - adaptive loop, no fixed schedule')
 
   // ─── Adaptive state ────────────────────────────────────────────────
   let running = true
@@ -32,11 +32,11 @@ if (!env.NEO4J_URI) {
       const dedupBacklog = await consolidation.countDedupCandidates?.() ?? 0
 
       if (staleCount > 500 || dedupBacklog > 100) {
-        delayMs = 30 * 60 * 1000       // 30 min — high pressure
+        delayMs = 30 * 60 * 1000       // 30 min - high pressure
       } else if (staleCount > 100 || dedupBacklog > 20) {
-        delayMs = 2 * 60 * 60 * 1000  // 2 hr — moderate
+        delayMs = 2 * 60 * 60 * 1000  // 2 hr - moderate
       } else {
-        delayMs = 6 * 60 * 60 * 1000  // 6 hr — low pressure
+        delayMs = 6 * 60 * 60 * 1000  // 6 hr - low pressure
       }
     } catch {
       delayMs = 3 * 60 * 60 * 1000    // 3 hr fallback if health check fails
@@ -75,7 +75,7 @@ if (!env.NEO4J_URI) {
     const eventBus = require('../services/internalEventBusService')
     eventBus.on('kg:ingestion_spike', () => {
       if (!inCycle && running) {
-        logger.info('KG consolidation: ingestion spike detected — triggering early cycle')
+        logger.info('KG consolidation: ingestion spike detected - triggering early cycle')
         if (cycleTimer) clearTimeout(cycleTimer)
         runCycle()
       }

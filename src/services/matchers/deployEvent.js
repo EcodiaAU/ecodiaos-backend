@@ -9,14 +9,14 @@
  * GATED on Wave C publisher: a vercel-deploy-event publisher that turns
  * Vercel webhooks (or vercel-deploy-monitor cron output) into perception
  * events with kind='vercel_deployment_*'. Today vercel-deploy-monitor only
- * runs as a cron — it never publishes to the bus. THIS MATCHER WILL NOT
+ * runs as a cron - it never publishes to the bus. THIS MATCHER WILL NOT
  * FIRE until Wave C ships the publisher. Shipping the matcher now keeps
  * the registration surface stable so Wave C can verify the round-trip
  * by simply publishing one test event.
  *
  * Behaviour:
- *   - deployment.failed → P1 status_board row.
- *   - deployment.succeeded → publish go-live event (low confidence) so
+ * - deployment.failed → P1 status_board row.
+ * - deployment.succeeded → publish go-live event (low confidence) so
  *     client_mention matcher chains off it for client-site deploys.
  */
 

@@ -3,7 +3,7 @@ const logger = require('../config/logger')
 const handsBridge = require('../services/handsBridge')
 
 // ═══════════════════════════════════════════════════════════════════════
-// /api/hands — inbound callback surface for the laptop-hands service.
+// /api/hands - inbound callback surface for the laptop-hands service.
 //
 // Hands posts here every time it has progress / partial output / final
 // result / a question for the user. We verify HMAC, then hand off to
@@ -13,7 +13,7 @@ const handsBridge = require('../services/handsBridge')
 
 const router = express.Router()
 
-// We need the raw body for HMAC verification — capture it ourselves
+// We need the raw body for HMAC verification - capture it ourselves
 // instead of relying on express.json which already parsed it.
 const rawJson = express.raw({ type: 'application/json', limit: '5mb' })
 

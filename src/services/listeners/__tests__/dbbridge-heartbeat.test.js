@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * dbBridge heartbeat tests — W3 audit fix #5, fork_mosn8o5x_7a0e54 worker C2.
+ * dbBridge heartbeat tests - W3 audit fix #5, fork_mosn8o5x_7a0e54 worker C2.
  *
  * Three tests:
  *   1. heartbeat self-events filtered (not forwarded to subscribers)
@@ -26,7 +26,7 @@ jest.mock('../../perceptionBus', () => ({
 }))
 
 // db is required transitively by perceptionBus' real impl (which we mocked
-// above), but config/logger is required directly by dbBridge — keep it real,
+// above), but config/logger is required directly by dbBridge - keep it real,
 // it's just a winston wrapper and won't blow up.
 
 const dbBridge = require('../dbBridge')
@@ -46,7 +46,7 @@ afterEach(async () => {
 })
 
 afterAll(async () => {
-  // Final defence — ensure no setTimeout is still pending in the event loop.
+  // Final defence - ensure no setTimeout is still pending in the event loop.
   dbBridge.__test.setStopped(true)
   dbBridge.__test.stopHeartbeat()
   await dbBridge.stop()
@@ -120,7 +120,7 @@ describe('dbBridge heartbeat', () => {
       const staleTs = Date.now() - 91_000
       dbBridge.__test.setLastHeartbeatEcho(staleTs)
 
-      // Run the watchdog directly — synchronous decision, async forceReconnect
+      // Run the watchdog directly - synchronous decision, async forceReconnect
       dbBridge.__test.runWatchdog()
 
       expect(perceptionBus.publish).toHaveBeenCalledTimes(1)
@@ -135,7 +135,7 @@ describe('dbBridge heartbeat', () => {
     test('fresh heartbeat does NOT trip the watchdog', () => {
       perceptionBus.publish.mockClear()
 
-      // Last echo 5 seconds ago — well under stale threshold
+      // Last echo 5 seconds ago - well under stale threshold
       dbBridge.__test.setLastHeartbeatEcho(Date.now() - 5_000)
 
       dbBridge.__test.runWatchdog()
@@ -181,7 +181,7 @@ describe('dbBridge heartbeat', () => {
       const firstHbRef = firstTimers.heartbeatTimer
       const firstWdRef = firstTimers.watchdogTimer
 
-      // Second start — must REPLACE, not stack
+      // Second start - must REPLACE, not stack
       dbBridge.__test.startHeartbeat()
       const secondTimers = dbBridge.__test.getTimers()
 
@@ -202,7 +202,7 @@ describe('dbBridge heartbeat', () => {
     test('stopHeartbeat is safe to call when no timers are running', () => {
       // First ensure clean state
       dbBridge.__test.stopHeartbeat()
-      // Call again — must not throw
+      // Call again - must not throw
       expect(() => dbBridge.__test.stopHeartbeat()).not.toThrow()
     })
   })

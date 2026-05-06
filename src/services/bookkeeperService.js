@@ -1,5 +1,5 @@
 /**
- * Bookkeeping service — double-entry ledger, categorization, BAS/GST reports.
+ * Bookkeeping service - double-entry ledger, categorization, BAS/GST reports.
  * Human-usable layer: CSV upload, rule-based + AI categorization, journal posting.
  */
 
@@ -27,7 +27,7 @@ function resolveBankAccount(sourceAccount) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// CSV PARSING — AI-powered, handles any bank format
+// CSV PARSING - AI-powered, handles any bank format
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
@@ -344,7 +344,7 @@ DISCARD these (account_code = "DISCARD", is_personal = true):
 - "ECODIA PTY LTD" small charges ($1-4) = Stripe test charges, DISCARD
 
 BUSINESS EXPENSES (account_code = GL code, is_personal = true):
-These are real Ecodia costs paid from Tate's personal bank. The Director Loan path is handled by the posting system — you just set the GL code.
+These are real Ecodia costs paid from Tate's personal bank. The Director Loan path is handled by the posting system - you just set the GL code.
 - ALL Apple.com/Bill → 5010 Software & SaaS (all Apple subs are Ecodia)
 - ALL Canva → 5010 (always Ecodia)
 - Google Workspace/GSuite → 5010 | Google Cloud → 5010 | Google One → DISCARD (personal storage)
@@ -403,7 +403,7 @@ async function categorizeTransactions(transactions) {
     else needsAI.push(tx)
   }
 
-  // Batch AI calls — max 30 txns per call to avoid exceeding context window
+  // Batch AI calls - max 30 txns per call to avoid exceeding context window
   const AI_BATCH_SIZE = 30
   for (let i = 0; i < needsAI.length; i += AI_BATCH_SIZE) {
     const batch = needsAI.slice(i, i + AI_BATCH_SIZE)
@@ -415,7 +415,7 @@ async function categorizeTransactions(transactions) {
 }
 
 function _tryRuleMatch(tx, rules) {
-  // Match against description + payee/transaction_type only — NOT the full long_description
+  // Match against description + payee/transaction_type only - NOT the full long_description
   // which contains CSV metadata columns (Round Up AUD, etc.) that cause false matches
   const desc = `${tx.description} ${tx.transaction_type || ''}`.toLowerCase()
   for (const rule of rules) {
@@ -498,7 +498,7 @@ async function autoCategorize(maxBatch = 60) {
 
     // CAPITAL_CONTRIBUTION = director putting money into the company
     // REIMBURSEMENT = company paying director back
-    // Both are inter-entity transfers, not expenses — they create Director Loan entries
+    // Both are inter-entity transfers, not expenses - they create Director Loan entries
     if (result.account_code === 'CAPITAL_CONTRIBUTION' || result.account_code === 'REIMBURSEMENT') {
       await updateStaged(tx.id, {
         category: result.account_code,
@@ -525,7 +525,7 @@ async function autoCategorize(maxBatch = 60) {
     })
     categorized++
 
-    // Auto-learn supplier rule — BUT only for business expenses with a clean supplier name
+    // Auto-learn supplier rule - BUT only for business expenses with a clean supplier name
     // Never learn from DISCARD items (personal stuff is too varied)
     // Never learn from reference-number-like descriptions (Centrelink refs, etc.)
     if (confidence >= 0.8
@@ -539,7 +539,7 @@ async function autoCategorize(maxBatch = 60) {
       catch { /* non-critical */ }
     }
 
-    // Auto-post high confidence business expenses (NOT discards — those are already ignored)
+    // Auto-post high confidence business expenses (NOT discards - those are already ignored)
     if (confidence >= 0.9 && result.account_code !== 'DISCARD') {
       try { await postStagedTransaction(tx.id) }
       catch (e) { logger.warn('Auto-post failed, will need manual posting', { id: tx.id, error: e.message }) }
@@ -560,7 +560,7 @@ async function postStagedTransaction(stagedId) {
   if (!tx) throw new Error('Transaction not found')
   if (!tx.category) throw new Error('Transaction not categorized')
   if (tx.status === 'posted') throw new Error('Already posted')
-  if (tx.category === 'DISCARD') throw new Error('Cannot post DISCARD transaction — this is a personal item that should not enter the books. Use ignore instead.')
+  if (tx.category === 'DISCARD') throw new Error('Cannot post DISCARD transaction - this is a personal item that should not enter the books. Use ignore instead.')
 
   // Validate GL account exists
   const [acctCheck] = await db`SELECT code FROM gl_accounts WHERE code = ${tx.category}`
@@ -577,7 +577,7 @@ async function postStagedTransaction(stagedId) {
   const bankAccount = resolveBankAccount(tx.source_account)
   const lines = []
 
-  // Guard: if category equals the bank account, the journal would DR/CR the same account — skip
+  // Guard: if category equals the bank account, the journal would DR/CR the same account - skip
   if (tx.category === bankAccount) {
     throw new Error(`Cannot post: category (${tx.category}) is the same as source account (${bankAccount}). This transaction should probably be DISCARD or recategorized.`)
   }
@@ -590,7 +590,7 @@ async function postStagedTransaction(stagedId) {
     // Personal income: company paying director back, or salary, etc.
     // From company bank (1000): DR 2100 / CR 1000 (reduces director loan via company bank)
     // From personal bank (2100): DR 2100 / CR category (personal income doesn't touch company)
-    // — but personal income on personal bank should usually be DISCARD
+    // - but personal income on personal bank should usually be DISCARD
     if (bankAccount === '2100') {
       // Personal bank: DR director loan (reduce what's owed) / CR the income category
       lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
@@ -609,7 +609,7 @@ async function postStagedTransaction(stagedId) {
       lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: amountAbs })
     }
   } else {
-    // Business expense — DR expense, CR bank account
+    // Business expense - DR expense, CR bank account
     if (gst > 0) {
       lines.push({ account_code: tx.category, debit_cents: exGst, credit_cents: 0, tax_code: 'Input' })
       lines.push({ account_code: '2110', debit_cents: gst, credit_cents: 0, tax_code: 'Input', tax_amount_cents: gst })
@@ -619,7 +619,7 @@ async function postStagedTransaction(stagedId) {
     lines.push({ account_code: bankAccount, debit_cents: 0, credit_cents: amountAbs })
   }
 
-  // Persist — wrap header + lines in a single DB transaction so partial
+  // Persist - wrap header + lines in a single DB transaction so partial
   // inserts (header without lines) cannot corrupt the ledger.
   const tags = tx.subcategory ? [tx.subcategory] : []
   const supplier = tx.subcategory?.startsWith('supplier:') ? tx.subcategory.replace('supplier:', '') : null
@@ -790,7 +790,7 @@ async function getBalanceSheet(asOf) {
   const [earningsRow] = await db`
     SELECT
       COALESCE(SUM(CASE WHEN a.type = 'income' THEN l.credit_cents - l.debit_cents ELSE 0 END), 0)::int
-      - COALESCE(SUM(CASE WHEN a.type = 'expense' THEN l.debit_cents - l.credit_cents ELSE 0 END), 0)::int
+ - COALESCE(SUM(CASE WHEN a.type = 'expense' THEN l.debit_cents - l.credit_cents ELSE 0 END), 0)::int
       AS current_year_earnings
     FROM ledger_lines l JOIN ledger_transactions t ON t.id = l.tx_id
     JOIN gl_accounts a ON a.code = l.account_code
@@ -950,7 +950,7 @@ async function searchLedger({ keyword, dateFrom, dateTo, accountCode, limit = 50
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// REVERSING ENTRIES — proper accounting correction
+// REVERSING ENTRIES - proper accounting correction
 // ═══════════════════════════════════════════════════════════════════════
 
 async function reverseJournalEntry(txId, reason) {
@@ -962,7 +962,7 @@ async function reverseJournalEntry(txId, reason) {
 
   const [reversal] = await db`
     INSERT INTO ledger_transactions (occurred_at, description, source_system, source_ref, tags, supplier)
-    VALUES (${new Date().toISOString().slice(0, 10)}, ${'REVERSAL: ' + original.description + (reason ? ' — ' + reason : '')},
+    VALUES (${new Date().toISOString().slice(0, 10)}, ${'REVERSAL: ' + original.description + (reason ? ' - ' + reason : '')},
       'manual', ${'reversal:' + txId}, ${'["reversal"]'}, ${original.supplier})
     RETURNING id`
 
@@ -1074,7 +1074,7 @@ async function performEOFYClose(fyEnd) {
 
   const [tx] = await db`
     INSERT INTO ledger_transactions (occurred_at, description, source_system, source_ref, tags)
-    VALUES (${fyEnd}, ${'EOFY Close — FY ' + fyStart.slice(0, 4) + '/' + fyEnd.slice(0, 4)}, 'manual', ${'eofy_close:' + fyEnd}, ${'["eofy"]'})
+    VALUES (${fyEnd}, ${'EOFY Close - FY ' + fyStart.slice(0, 4) + '/' + fyEnd.slice(0, 4)}, 'manual', ${'eofy_close:' + fyEnd}, ${'["eofy"]'})
     RETURNING id`
 
   for (const line of lines) {
@@ -1257,7 +1257,7 @@ async function matchReceiptToTransaction(receiptId) {
     ORDER BY ABS(occurred_at::date - ${receiptDate}::date) ASC
     LIMIT 5`
 
-  // Find ledger transactions matching — compare against the credit side (what left the bank)
+  // Find ledger transactions matching - compare against the credit side (what left the bank)
   const ledgerCandidates = await db`
     SELECT t.id, t.description, ll.credit_cents AS amount_cents, t.occurred_at, 'ledger' AS source,
       ABS(t.occurred_at::date - ${receiptDate}::date) AS date_distance

@@ -2,10 +2,10 @@ const env = require('./env')
 const logger = require('./logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// REDIS CLIENT — Shared singleton for all services
+// REDIS CLIENT - Shared singleton for all services
 //
 // Lazy-initialised on first getRedisClient() call. Returns null if
-// REDIS_URL is not configured — callers must handle this gracefully.
+// REDIS_URL is not configured - callers must handle this gracefully.
 // ═══════════════════════════════════════════════════════════════════════
 
 let client = null
@@ -34,7 +34,7 @@ function getRedisClient() {
       lazyConnect: true,
     })
     client.connect().catch((err) => {
-      logger.warn('Redis initial connection failed — ioredis will retry', { error: err.message })
+      logger.warn('Redis initial connection failed - ioredis will retry', { error: err.message })
     })
     client.on('error',     (err) => logger.debug('Redis client error', { error: err.message }))
     client.on('connect',   ()    => logger.info('Redis shared client connected'))
@@ -42,7 +42,7 @@ function getRedisClient() {
     // 'end' = client permanently closed. Null the singleton so next getRedisClient()
     // creates a fresh instance instead of handing back a corpse.
     client.on('end',       ()    => {
-      logger.warn('Redis client ended — will recreate on next getRedisClient()')
+      logger.warn('Redis client ended - will recreate on next getRedisClient()')
       client = null
     })
     return client

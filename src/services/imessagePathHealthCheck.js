@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * imessagePathHealthCheck — backend canary for the iMessage primary path.
+ * imessagePathHealthCheck - backend canary for the iMessage primary path.
  *
  * Pings the tate-msg skill's SSH-based health probe every 6h and writes
  * the result to kv_store.health.imessage_path. If the path has been
@@ -11,8 +11,8 @@
  *
  * Crucially: this never actually messages Tate. It's a backend-only
  * health check that runs:
- *   - SSH to SY094
- *   - pgrep -lf 'Messages.app' (verifies Messages.app is running)
+ * - SSH to SY094
+ * - pgrep -lf 'Messages.app' (verifies Messages.app is running)
  * Both must succeed for ok=true.
  *
  * Cron name (per Tate brief): 'imessage-path-health-check'.
@@ -63,7 +63,7 @@ async function _writeHealth(record) {
 
 async function _raiseStatusBoardIfDegraded(currentRecord, prior) {
   if (currentRecord.ok) {
-    // Path is healthy — archive any open canary row.
+    // Path is healthy - archive any open canary row.
     try {
       await db`
         UPDATE status_board

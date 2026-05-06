@@ -4,11 +4,11 @@
  * Tests for promptAssemblyAudit.
  *
  * Covers:
- *   - buildAuditRow produces correct shape for equivalent v1/v2
- *   - buildAuditRow records divergence byte index when v1 != flat(v2)
- *   - insertRow writes to prompt_assembly_audit with proper values
- *   - dispatch() is synchronous/fire-and-forget — does not await insert
- *   - dispatch() swallows insert failures without throwing
+ * - buildAuditRow produces correct shape for equivalent v1/v2
+ * - buildAuditRow records divergence byte index when v1 != flat(v2)
+ * - insertRow writes to prompt_assembly_audit with proper values
+ * - dispatch() is synchronous/fire-and-forget - does not await insert
+ * - dispatch() swallows insert failures without throwing
  */
 
 const mockCalls = []
@@ -181,7 +181,7 @@ describe('promptAssemblyAudit.dispatch (fire-and-forget)', () => {
     expect(result).toBeUndefined()
   })
 
-  test('insert runs asynchronously — mockCalls not yet populated synchronously', () => {
+  test('insert runs asynchronously - mockCalls not yet populated synchronously', () => {
     mockResults.push([{ id: 1, assembled_at: new Date() }])
     expect(mockCalls.length).toBe(0)
     audit.dispatch({
@@ -191,7 +191,7 @@ describe('promptAssemblyAudit.dispatch (fire-and-forget)', () => {
       v2Out: fakeV2Out({ blocks: [1] }),
     })
     // The mocked db is synchronous-ish (returns a resolved promise), so call
-    // WILL have happened by now — but the key invariant is dispatch returned
+    // WILL have happened by now - but the key invariant is dispatch returned
     // undefined, not a promise the caller could await.
     expect(mockCalls.length).toBe(1)
   })

@@ -9,7 +9,7 @@
  * Companion to existing `status_board` matcher. The existing one fires only
  * when status_board is REFERENCED by an event. This one fires on heartbeat-
  * class events and surfaces ONLY the freshly-overdue rows (crossed due time
- * in the last 60min) — tighter signal than the existing "all overdue" pile.
+ * in the last 60min) - tighter signal than the existing "all overdue" pile.
  *
  * Fires immediately on pm2 restart (cron + meta_loop + turn_end already
  * publish heartbeat-class events).
@@ -22,7 +22,7 @@ const perceptionBus = require('../perceptionBus')
 module.exports = {
   domain: 'schedule_drift',
 
-  // 60min — heartbeat-class events fire many times per hour but the matcher's
+  // 60min - heartbeat-class events fire many times per hour but the matcher's
   // payload is "rows that crossed due in last 60min", so re-firing more often
   // than once an hour just resurfaces the same rows. C3 (fork_mosn8o5x_7a0e54).
   dedupeWindowMs: 60 * 60 * 1000,

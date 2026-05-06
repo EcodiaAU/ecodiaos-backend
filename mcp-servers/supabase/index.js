@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Supabase MCP Server — PostgreSQL access + Storage bucket management.
+ * Supabase MCP Server - PostgreSQL access + Storage bucket management.
  * Provides read/write SQL, schema introspection, and file storage.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -30,7 +30,7 @@ const db = postgres(process.env.DATABASE_URL, {
   connect_timeout: 10,
 })
 
-// Supabase Storage client — requires SUPABASE_URL + SUPABASE_SERVICE_KEY
+// Supabase Storage client - requires SUPABASE_URL + SUPABASE_SERVICE_KEY
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null

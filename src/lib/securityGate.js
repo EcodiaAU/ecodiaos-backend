@@ -1,9 +1,9 @@
 'use strict'
 
 /**
- * securityGate — shared helpers for the §2.2 dual-reviewer gate.
+ * securityGate - shared helpers for the §2.2 dual-reviewer gate.
  *
- * The §2.3 allowlist (selfModAllowlist.js) is a HARD deny — diffs touching
+ * The §2.3 allowlist (selfModAllowlist.js) is a HARD deny - diffs touching
  * those paths are blocked outright. Review B (§2.2) fires one ring wider:
  * whenever a CC session is flagged as self-modification OR whenever the
  * diff touches a file inside a security-sensitive directory. That catches
@@ -24,7 +24,7 @@
 // so this helper is usable from tests without the full env bootstrap.
 
 // Paths that widen the §2.3 hard deny list for Review B trigger purposes.
-// These do NOT block deploy on their own — they just tell the oversight
+// These do NOT block deploy on their own - they just tell the oversight
 // service "this diff deserves Review B even if the session isn't flagged
 // self_modification". Keep this list conservative: it's a prompt-for-review,
 // not a block.
@@ -58,7 +58,7 @@ function shouldRunReviewB({ isSelfMod, filesChanged }) {
 }
 
 function isDualReviewerEnabled() {
-  // Default ON — opt-out via explicit '0'. The gate is cheap (one Claude
+  // Default ON - opt-out via explicit '0'. The gate is cheap (one Claude
   // call per self-mod, which is already a rare event) and fails closed,
   // so the default should protect.
   const raw = process.env.SECURITY_DUAL_REVIEWER

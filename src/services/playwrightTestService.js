@@ -4,7 +4,7 @@ const fs = require('fs')
 const db = require('../config/db')
 const logger = require('../config/logger')
 
-// Playwright test runner — executes E2E tests on behalf of CC sessions.
+// Playwright test runner - executes E2E tests on behalf of CC sessions.
 // Spawns `npx playwright test` and streams output, capturing pass/fail results.
 // Stores results in playwright_runs table for historical confidence scoring.
 
@@ -110,7 +110,7 @@ function parsePlaywrightJson(stdout, stderr, exitCode, timedOut) {
 
   // Try JSON reporter output first (--reporter=json outputs to stdout)
   try {
-    // Playwright JSON output may be mixed with other output — find the JSON object
+    // Playwright JSON output may be mixed with other output - find the JSON object
     const jsonMatch = stdout.match(/(\{[\s\S]*"stats"[\s\S]*\})/)
     if (jsonMatch) {
       const report = JSON.parse(jsonMatch[1])
@@ -149,7 +149,7 @@ function parsePlaywrightJson(stdout, stderr, exitCode, timedOut) {
 
   return {
     passed: Array.from({ length: passCount }, (_, i) => `test-${i + 1}`),
-    failed: failCount > 0 ? [`${failCount} test(s) failed — see logs`] : [],
+    failed: failCount > 0 ? [`${failCount} test(s) failed - see logs`] : [],
     exitCode,
   }
 }

@@ -131,7 +131,7 @@ async function incrementalSync(calendar, calendarEmail, syncToken) {
     }
   } catch (err) {
     if (err.code === 410) {
-      // Sync token expired — full sync
+      // Sync token expired - full sync
       logger.warn(`Calendar sync token expired for ${calendarEmail}, falling back to full sync`)
       await db`UPDATE calendar_sync_state SET sync_token = null WHERE id = ${calendarEmail}`
       await fullSync(calendar, calendarEmail)
@@ -233,7 +233,7 @@ async function createEvent(calendarEmail, { summary, description, location, star
   const startIsDate = isDateOnly(startTime)
   const endIsDate = isDateOnly(endTime)
 
-  // Both must be the same type — if mismatched, coerce both to dateTime
+  // Both must be the same type - if mismatched, coerce both to dateTime
   let startField, endField
   if (startIsDate && endIsDate) {
     startField = { date: startTime }
@@ -361,7 +361,7 @@ async function getStats() {
 
 // ─── Proactive Meeting Prep ────────────────────────────────────────────
 // Surfaces upcoming meetings that might need prep work to the action queue.
-// Runs after each poll cycle — AI decides what needs attention.
+// Runs after each poll cycle - AI decides what needs attention.
 
 async function surfaceUpcomingMeetingPrep() {
   const deepseekService = require('./deepseekService')
@@ -391,7 +391,7 @@ async function surfaceUpcomingMeetingPrep() {
       const attendees = typeof event.attendees === 'string' ? JSON.parse(event.attendees) : (event.attendees || [])
       const people = attendees.filter(a => !a.self).map(a => a.name || a.email).join(', ')
 
-      const prompt = `Upcoming event for Tate — is there anything worth flagging or prepping for?
+      const prompt = `Upcoming event for Tate - is there anything worth flagging or prepping for?
 
 Event: ${event.summary}
 Time: ${new Date(event.start_time).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' })}

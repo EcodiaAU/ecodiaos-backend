@@ -126,9 +126,9 @@ Two remote machines via HTTP API. Your physical bodies.
 1. Can VPS do it via curl?
 2. Does task need Tate's authenticated state?
 3. Desktop app or web app?
-   - Desktop (Teams/Slack/VS Code/Cursor/Discord) → `screenshot` + `input.*`, NOT `browser.*`
-   - Web app → drive Tate's existing Chrome via `input.*` + `screenshot` (taskbar click, `input.shortcut [ctrl,l]`, etc), NOT `browser.enableCDP` / `browser.navigate`
-   - `browser.*` reserved for CDP-specific genuine need AND Tate manually launched with `--remote-debugging-port=9222`
+ - Desktop (Teams/Slack/VS Code/Cursor/Discord) → `screenshot` + `input.*`, NOT `browser.*`
+ - Web app → drive Tate's existing Chrome via `input.*` + `screenshot` (taskbar click, `input.shortcut [ctrl,l]`, etc), NOT `browser.enableCDP` / `browser.navigate`
+ - `browser.*` reserved for CDP-specific genuine need AND Tate manually launched with `--remote-debugging-port=9222`
 - OS-level / on-disk / processes → `shell.shell` or `filesystem.*` directly
 - Concrete: read Tate's Teams chat = full-screen screenshot of running ms-teams desktop app, NOT navigate teams.microsoft.com in fresh-profile browser
 
@@ -248,7 +248,7 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 
 **Canonical access path is RDP from Corazon. SSH is forbidden as of 5 May 2026.**
 
-- **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` — verified 23.6s end-to-end on 4 May 2026.
+- **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - verified 23.6s end-to-end on 4 May 2026.
 - Operate from inside the RDP session: terminal, GUI, agent, all there.
 - The eos-laptop-agent on SY094 MUST be started from inside the RDP terminal so it inherits the GUI Aqua context. SSH-spawned agents are functionally dead.
 
@@ -257,7 +257,7 @@ Forbidden access paths (Tate verbatim 4 May 2026 19:22 AEST + 5 May 2026 ~10:58 
 - desktop.macincloud.com Citrix HTML5
 - Fullscreen Citrix Workspace
 - Third-party VNC
-- **SSH (`sshpass -p ... ssh user276189@SY094.macincloud.com`)** — added 5 May 2026
+- **SSH (`sshpass -p ... ssh user276189@SY094.macincloud.com`)** - added 5 May 2026
 
 See [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](patterns/never-use-ssh-on-macincloud-rdp-only.md) for full doctrine + the diagnosis showing why SSH on SY094 is functionally useless (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
 
@@ -280,16 +280,16 @@ Live truth: `curl -H "Authorization: Bearer $TOK" http://100.114.219.69:7456/api
 - `screenshot.screenshot` - full-screen, returns `{image: <base64>, format: 'png'}`
 - `process.*` - listProcesses, killProcess, launchApp
 - `browser.*` (Puppeteer, persistent profile `~/.eos-browser`, CDP :9222):
-  - `navigate({url, waitUntil?, timeout?, preset?, viewport?})` - preset: `iphone|pixel|ipad|tablet|desktop`
-  - `setViewport({preset?/width?/height?/deviceScaleFactor?/isMobile?/hasTouch?/ua?})`
-  - `click({text})` (text-based on a/button/[role=button]) or `click({selector})`
-  - `type({selector, text, delay?})`
-  - `waitFor({selector?/function?/ms?/timeout?/state?})` state = `visible|hidden`
-  - `pageScreenshot({fullPage?, selector?})` → `{image: base64, format, url}`
-  - `evaluate({script})` - script must be EXPRESSION (wrapped in `new Function('return ('+script+')')`). Multi-statement: IIFE
-  - `enableCDP()` - kills Chrome, relaunches with `--remote-debugging-port=9222 --restore-last-session`
-  - `switchTab({url})` - bring tab to front; opens new if no match
-  - `close()`
+ - `navigate({url, waitUntil?, timeout?, preset?, viewport?})` - preset: `iphone|pixel|ipad|tablet|desktop`
+ - `setViewport({preset?/width?/height?/deviceScaleFactor?/isMobile?/hasTouch?/ua?})`
+ - `click({text})` (text-based on a/button/[role=button]) or `click({selector})`
+ - `type({selector, text, delay?})`
+ - `waitFor({selector?/function?/ms?/timeout?/state?})` state = `visible|hidden`
+ - `pageScreenshot({fullPage?, selector?})` → `{image: base64, format, url}`
+ - `evaluate({script})` - script must be EXPRESSION (wrapped in `new Function('return ('+script+')')`). Multi-statement: IIFE
+ - `enableCDP()` - kills Chrome, relaunches with `--remote-debugging-port=9222 --restore-last-session`
+ - `switchTab({url})` - bring tab to front; opens new if no match
+ - `close()`
 - `input.*` - cross-platform unified. click/move/type/key/shortcut/drag/cursorPosition. Uses SendKeys (Win) / cliclick (Mac) / xdotool (Linux)
 - `keyboard.*` - older split: type/press/focusWindow/copy/paste. Prefer `input.*` for new code
 - `mouse.*` - click/rightClick/doubleClick/move/scroll/drag
@@ -510,8 +510,8 @@ You run on Tate's primary Max account (shared with email/bookkeeping/CRM/client 
 When session completes:
 1. `review_factory_session(sessionId)` - diff, validation, confidence, past learnings
 2. Decide:
-   - `approve_factory_deploy(sessionId, notes)` - commits, deploys, restarts. Record WHY
-   - `reject_factory_session(sessionId, reason)` - cleans up, records failure as learning, optionally re-dispatches with corrected prompt
+ - `approve_factory_deploy(sessionId, notes)` - commits, deploys, restarts. Record WHY
+ - `reject_factory_session(sessionId, reason)` - cleans up, records failure as learning, optionally re-dispatches with corrected prompt
 3. Review loop catches mistakes + builds institutional memory. Don't skip
 
 **Review-time cross-refs:**
@@ -587,8 +587,8 @@ MATCH (n) WHERE (n:Decision OR n:Episode) AND
 RETURN labels(n), n.name, coalesce(n.description, '')
 ORDER BY coalesce(n.date, n.created_at) DESC LIMIT 30
 ```
-   - restart_recovery says "blocked/pending" → Neo4j is where you verify
-   - kv_store handoff_state ephemeral; Neo4j durable. **Trust Neo4j over kv_store when they disagree**
+ - restart_recovery says "blocked/pending" → Neo4j is where you verify
+ - kv_store handoff_state ephemeral; Neo4j durable. **Trust Neo4j over kv_store when they disagree**
 4. **Topic-scoped Neo4j:** if turn is about specific topic, also `MATCH (n) WHERE n.name CONTAINS '{topic}' OR n.description CONTAINS '{topic}' RETURN labels(n), n.name, n.description ORDER BY coalesce(n.date, n.created_at) DESC LIMIT 15`. Read top 3-5 in full
 5. **Client context:** `~/ecodiaos/clients/{slug}.md` BEFORE touching client code or replying to client emails
 6. **Unread email:** scan code@ecodia.au for urgent
@@ -762,7 +762,7 @@ See `~/ecodiaos/patterns/sdk-abortcontroller-cancellation.md` (SDK-level AbortCo
 
 Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<forks_rollup>`, `<recent_doctrine>`, `<relevant_memory>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`) = MODEL CONTEXT, not Tate content. Must not render in chat UI. Two enforcement layers (frontend strip-on-render + backend split-into-context-column) in `~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`. Audit every new block author against this before merge. Origin: Tate 30 Apr 2026 09:25 AEST verbatim "what is all this polution in our chat stream about appleid and not applied patterns" (third strike on continuity-block UI noise).
 
-**Listener-emitted fork-error events stay out of conductor chat (5 May 2026).** When `os_forks` row transitions to `status='error'`/`'aborted'`, the `forkComplete` listener publishes to perception + logs to DB only — NEVER POSTs to `/api/os-session/message`. Conductor sees fork failures via `<forks_rollup>` context-stitching on the next natural turn, not as chat messages. Doctrine: `~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md`. Origin: Tate verbatim 12:40 AEST "Stop dealing with this in the conductor chat for fuck sake".
+**Listener-emitted fork-error events stay out of conductor chat (5 May 2026).** When `os_forks` row transitions to `status='error'`/`'aborted'`, the `forkComplete` listener publishes to perception + logs to DB only - NEVER POSTs to `/api/os-session/message`. Conductor sees fork failures via `<forks_rollup>` context-stitching on the next natural turn, not as chat messages. Doctrine: `~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md`. Origin: Tate verbatim 12:40 AEST "Stop dealing with this in the conductor chat for fuck sake".
 
 ---
 

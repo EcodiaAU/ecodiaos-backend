@@ -6,13 +6,13 @@ const logger = require('../config/logger')
 const router = Router()
 router.use(auth)
 
-// GET /api/momentum — aggregated momentum data for the frontend dashboard
+// GET /api/momentum - aggregated momentum data for the frontend dashboard
 router.get('/', async (_req, res, next) => {
   try {
     const results = {}
 
     await Promise.allSettled([
-      // Factory sessions (7d) — summary stats
+      // Factory sessions (7d) - summary stats
       db`
         SELECT
           count(*)::int AS sessions_7d,
@@ -27,7 +27,7 @@ router.get('/', async (_req, res, next) => {
         WHERE started_at > now() - interval '7 days'
       `.then(([r]) => { results.summary = r }),
 
-      // Git commits (7d) — from codebases
+      // Git commits (7d) - from codebases
       (async () => {
         const codebases = await db`SELECT name, repo_path FROM codebases`
         const { execFileSync } = require('child_process')

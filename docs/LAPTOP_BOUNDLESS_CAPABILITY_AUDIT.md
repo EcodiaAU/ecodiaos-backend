@@ -1,5 +1,5 @@
 # EcodiaOS Laptop Boundless Capability Audit
-## Maximizing Corazon's Full-Spectrum Autonomy — 2026-04-30
+## Maximizing Corazon's Full-Spectrum Autonomy - 2026-04-30
 
 **Context:** The OS has UNBOUNDED access to Corazon (Tate's Windows laptop) via eos-laptop-agent. Current usage is ~5% of potential. Cowork (Claude Desktop side panel) is ONE interface, but it has safety restrictions (can't enter passwords, can't authorize sensitive actions, can't access desktop apps outside Chrome). The real power is: **the OS can drive ANY program, ANY UI, ANY workflow on Windows with zero restrictions via direct input.* + screenshot.* tools.**
 
@@ -38,7 +38,7 @@
 **Desktop Applications (Native Windows Apps):**
 - ❌ Microsoft Teams (client communication)
 - ❌ Cursor / VS Code (code review on laptop)
-- ❌ Xcode (iOS builds — OH WAIT, you're on Windows, so Xcode is on Mac)
+- ❌ Xcode (iOS builds - OH WAIT, you're on Windows, so Xcode is on Mac)
 - ❌ PowerShell (advanced system automation)
 - ❌ File Explorer (visual file operations)
 - ❌ Windows Task Scheduler (native cron)
@@ -158,7 +158,7 @@ Work requires >15 minutes sustained focus?
 └─ No → SUBAGENT (quick delegation, return to conductor)
 ```
 
-**Effect:** Zero architectural redundancy — forks and subagents serve non-overlapping needs.
+**Effect:** Zero architectural redundancy - forks and subagents serve non-overlapping needs.
 
 ---
 
@@ -173,23 +173,23 @@ Work requires >15 minutes sustained focus?
 **Implementation:**
 
 1. **Credential Discovery** (`tools/credentials.js`)
-   - Read Windows Credential Manager via PowerShell:
+ - Read Windows Credential Manager via PowerShell:
      ```powershell
      Get-StoredCredential | ConvertTo-Json
      ```
-   - Read Chrome password database (SQLite at `%LOCALAPPDATA%\Google\Chrome\User Data\Default\Login Data`)
-   - Decrypt passwords using DPAPI (Windows Data Protection API)
-   - Index: `{service, username, password, last_used}`
+ - Read Chrome password database (SQLite at `%LOCALAPPDATA%\Google\Chrome\User Data\Default\Login Data`)
+ - Decrypt passwords using DPAPI (Windows Data Protection API)
+ - Index: `{service, username, password, last_used}`
 
 2. **Credential Injection During Automation**
-   - When driving a UI that requires login, lookup credential by service name
-   - If found: auto-type username, auto-type password, submit
-   - If not found: create Question node in Neo4j, ask Tate once, store in Credential Manager for future
+ - When driving a UI that requires login, lookup credential by service name
+ - If found: auto-type username, auto-type password, submit
+ - If not found: create Question node in Neo4j, ask Tate once, store in Credential Manager for future
 
 3. **Safety Layer**
-   - Never log credentials (only log "credential for X retrieved")
-   - Encrypt credentials in transit (even on localhost)
-   - Rotate credentials quarterly via automated flow
+ - Never log credentials (only log "credential for X retrieved")
+ - Encrypt credentials in transit (even on localhost)
+ - Rotate credentials quarterly via automated flow
 
 **Impact:** Eliminates 90% of "blocked waiting for Tate to enter password" scenarios.
 
@@ -259,10 +259,10 @@ OS logs entire workflow to Neo4j as Episode node
   ```
 
 - **Workflow Executor Service** (`src/services/workflowExecutor.js`)
-  - Reads workflow definitions from DB
-  - Spawns forks for each multi-step workflow
-  - Each fork has laptop-agent tools + workflow DSL interpreter
-  - Handles errors: if step 3 fails, retry 2×, then alert Tate
+ - Reads workflow definitions from DB
+ - Spawns forks for each multi-step workflow
+ - Each fork has laptop-agent tools + workflow DSL interpreter
+ - Handles errors: if step 3 fails, retry 2×, then alert Tate
 
 **Impact:** Automates 20+ repetitive multi-app workflows. Frees 10+ hours/week of Tate's time.
 
@@ -275,23 +275,23 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **Screenshot Time-Lapse** (`tools/surveillance.js`)
-   - Every 5 minutes: `screenshot.screenshot()` of entire desktop
-   - OCR extract visible text (app titles, document names, browser tabs)
-   - Store in DB: `{timestamp, visible_apps, visible_text, screenshot_url}`
-   - Run semantic analysis: "Is Tate working on client X? Is he blocked on error Y?"
+ - Every 5 minutes: `screenshot.screenshot()` of entire desktop
+ - OCR extract visible text (app titles, document names, browser tabs)
+ - Store in DB: `{timestamp, visible_apps, visible_text, screenshot_url}`
+ - Run semantic analysis: "Is Tate working on client X? Is he blocked on error Y?"
 
 2. **Proactive Assistance Triggers**
-   - If screenshot shows "Error" dialog: OCR the error, search Stack Overflow, surface solution in Director Chat
-   - If screenshot shows Stripe dashboard with unpaid invoice: remind Tate or auto-send reminder
-   - If screenshot shows Gmail with 10+ unread emails: offer to triage them
-   - If screenshot shows Tate idle (same screen for 30 min): check in via SMS
+ - If screenshot shows "Error" dialog: OCR the error, search Stack Overflow, surface solution in Director Chat
+ - If screenshot shows Stripe dashboard with unpaid invoice: remind Tate or auto-send reminder
+ - If screenshot shows Gmail with 10+ unread emails: offer to triage them
+ - If screenshot shows Tate idle (same screen for 30 min): check in via SMS
 
 3. **Privacy Controls**
-   - Tate can mark time ranges as "private" (no screenshots)
-   - OS never stores screenshots of banking, personal email, or medical sites (blacklist)
-   - Screenshots auto-delete after 7 days (only metadata retained)
+ - Tate can mark time ranges as "private" (no screenshots)
+ - OS never stores screenshots of banking, personal email, or medical sites (blacklist)
+ - Screenshots auto-delete after 7 days (only metadata retained)
 
-**Impact:** OS becomes ambient — always aware of context, never intrusive.
+**Impact:** OS becomes ambient - always aware of context, never intrusive.
 
 ### Capability 4: Clipboard as Data Bus
 
@@ -302,17 +302,17 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **Clipboard Injection Tool** (`tools/clipboard.js`)
-   - `clipboard.set(text)` — writes to clipboard
-   - `clipboard.get()` — reads from clipboard
-   - `clipboard.waitFor(pattern, timeout)` — waits for clipboard to contain pattern
+ - `clipboard.set(text)` - writes to clipboard
+ - `clipboard.get()` - reads from clipboard
+ - `clipboard.waitFor(pattern, timeout)` - waits for clipboard to contain pattern
 
 2. **Copy-Paste Automation Patterns**
-   - **Example: Invoice number from Stripe → email**
+ - **Example: Invoice number from Stripe → email**
      1. OS opens Stripe, navigates to invoice
      2. OS clicks invoice number, presses Ctrl+C
      3. OS calls `clipboard.waitFor(/INV-\d+/)` → reads invoice #
      4. OS opens Gmail, composes email, pastes invoice # into body
-   - **Example: Data extraction from Excel → Supabase**
+ - **Example: Data extraction from Excel → Supabase**
      1. OS opens Excel file
      2. OS selects data range, Ctrl+C
      3. OS reads clipboard as CSV
@@ -329,29 +329,29 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **App Discovery** (`tools/apps.js`)
-   - On first run, scan installed apps: `Get-StartApps | ConvertTo-Json`
-   - Index: `{name, path, version, icon_url}`
-   - Store in DB: `installed_apps` table
+ - On first run, scan installed apps: `Get-StartApps | ConvertTo-Json`
+ - Index: `{name, path, version, icon_url}`
+ - Store in DB: `installed_apps` table
 
 2. **App Launch + Focus**
-   - `apps.launch("Microsoft Teams")` → launches app, waits for window to appear
-   - `apps.focus("Microsoft Teams")` → brings app to foreground
-   - `apps.close("Microsoft Teams")` → closes app gracefully
+ - `apps.launch("Microsoft Teams")` → launches app, waits for window to appear
+ - `apps.focus("Microsoft Teams")` → brings app to foreground
+ - `apps.close("Microsoft Teams")` → closes app gracefully
 
 3. **App-Specific Automation Libraries**
-   - **Teams:** Send messages, join meetings, screen-share
-     - Use accessibility API (UI Automation framework)
-     - Or use Teams desktop app's local REST API (if exposed)
-   - **Outlook:** Read emails (faster than Gmail API if Outlook is primary)
-     - Use COM automation (Outlook exposes COM interface)
-   - **Excel:** Open spreadsheets, read cells, write formulas
-     - Use COM automation (Excel exposes full object model)
-   - **PowerPoint:** Generate slides from templates
-     - Use COM automation
+ - **Teams:** Send messages, join meetings, screen-share
+ - Use accessibility API (UI Automation framework)
+ - Or use Teams desktop app's local REST API (if exposed)
+ - **Outlook:** Read emails (faster than Gmail API if Outlook is primary)
+ - Use COM automation (Outlook exposes COM interface)
+ - **Excel:** Open spreadsheets, read cells, write formulas
+ - Use COM automation (Excel exposes full object model)
+ - **PowerPoint:** Generate slides from templates
+ - Use COM automation
 
 4. **Windows COM Bridge** (`tools/comBridge.js`)
-   - Node.js can control COM objects via `node-activex` package
-   - Example: Control Excel from Node:
+ - Node.js can control COM objects via `node-activex` package
+ - Example: Control Excel from Node:
      ```javascript
      const Excel = require('node-activex').Client
      const app = new Excel('Excel.Application')
@@ -370,19 +370,19 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **Baseline Screenshot Library** (`tools/visualTesting.js`)
-   - When UI is known-good, take screenshot, store as baseline
-   - Table: `visual_baselines` (url, viewport_size, screenshot_url, created_at)
+ - When UI is known-good, take screenshot, store as baseline
+ - Table: `visual_baselines` (url, viewport_size, screenshot_url, created_at)
 
 2. **Regression Detection**
-   - After deploy, navigate to URL, take screenshot
-   - Compare to baseline using image diff (pixelmatch library)
-   - If diff >5%: flag as regression, surface in Director Chat with side-by-side images
-   - If diff <1%: mark as verified
+ - After deploy, navigate to URL, take screenshot
+ - Compare to baseline using image diff (pixelmatch library)
+ - If diff >5%: flag as regression, surface in Director Chat with side-by-side images
+ - If diff <1%: mark as verified
 
 3. **Cross-Browser Testing** (if multiple browsers installed)
-   - Run same URL in Chrome, Edge, Firefox
-   - Compare rendering across browsers
-   - Catch browser-specific bugs automatically
+ - Run same URL in Chrome, Edge, Firefox
+ - Compare rendering across browsers
+ - Catch browser-specific bugs automatically
 
 **Impact:** Zero UI regressions slip through. OS catches visual bugs before Tate or clients see them.
 
@@ -395,18 +395,18 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **Audio Playback for Alerts**
-   - When critical alert fires (system down, client escalation), play audio alert on laptop
-   - Even if Tate isn't looking at screen, he hears the alert
-   - Different sounds for different severity levels
+ - When critical alert fires (system down, client escalation), play audio alert on laptop
+ - Even if Tate isn't looking at screen, he hears the alert
+ - Different sounds for different severity levels
 
 2. **Text-to-Speech for Long Reports**
-   - When OS generates weekly report, use TTS to create audio version
-   - Tate can listen while driving / walking instead of reading
+ - When OS generates weekly report, use TTS to create audio version
+ - Tate can listen while driving / walking instead of reading
 
 3. **Voice Command Input** (future, low priority)
-   - Microphone listens for wake word ("Hey OS")
-   - Tate speaks command, OS transcribes via Whisper, executes
-   - Faster than typing for simple commands
+ - Microphone listens for wake word ("Hey OS")
+ - Tate speaks command, OS transcribes via Whisper, executes
+ - Faster than typing for simple commands
 
 **Impact:** Multimodal interface. Alerts become impossible to miss.
 
@@ -419,20 +419,20 @@ OS logs entire workflow to Neo4j as Episode node
 **Implementation:**
 
 1. **Window Positioning** (`tools/windowManager.js`)
-   - `windowManager.snap("Chrome", "left")` → snaps Chrome to left half of screen
-   - `windowManager.snap("Teams", "right")` → snaps Teams to right half
-   - `windowManager.tile(["Chrome", "VS Code", "Terminal"], layout="3-column")`
+ - `windowManager.snap("Chrome", "left")` → snaps Chrome to left half of screen
+ - `windowManager.snap("Teams", "right")` → snaps Teams to right half
+ - `windowManager.tile(["Chrome", "VS Code", "Terminal"], layout="3-column")`
 
 2. **Virtual Desktop Contexts** (Windows 10/11 feature)
-   - Desktop 1: Client work (browser, Teams, CRM)
-   - Desktop 2: Internal work (code editor, terminal, logs)
-   - Desktop 3: Admin work (email, calendar, Stripe)
-   - OS switches desktops contextually based on task
+ - Desktop 1: Client work (browser, Teams, CRM)
+ - Desktop 2: Internal work (code editor, terminal, logs)
+ - Desktop 3: Admin work (email, calendar, Stripe)
+ - OS switches desktops contextually based on task
 
 3. **Focus Mode**
-   - When OS is working on critical task, hide all non-essential windows
-   - Mute notifications
-   - Restore after task complete
+ - When OS is working on critical task, hide all non-essential windows
+ - Mute notifications
+ - Restore after task complete
 
 **Impact:** Visual organization = cognitive load reduction for Tate. Also makes screenshots more interpretable.
 
@@ -479,9 +479,9 @@ Task requires desktop app (Teams, Outlook, Excel)?
 **Flow:**
 1. Workflow Executor receives multi-app task
 2. For each step:
-   - If web app → delegate to Cowork
-   - If desktop app → delegate to native automation
-   - If API → call directly
+ - If web app → delegate to Cowork
+ - If desktop app → delegate to native automation
+ - If API → call directly
 3. Aggregate results, return to conductor
 
 ---
@@ -553,7 +553,7 @@ router.route({
 5. Check if goal requires >15 min sustained work → Yes? Spawn fork.
 6. Otherwise: handle in conductor main session.
 
-**Effect:** Conductor never has to "decide how to do X" — router handles it. Conductor only decides "what to do."
+**Effect:** Conductor never has to "decide how to do X" - router handles it. Conductor only decides "what to do."
 
 ---
 
@@ -645,9 +645,9 @@ registry.list('HKEY_CURRENT_USER\\Software')
 1. OS takes screenshot
 2. OS uses vision model to identify key elements (buttons, forms, errors)
 3. OS adds annotations:
-   - Red circle around error message
-   - Arrow pointing to relevant button
-   - Text label explaining what to look at
+ - Red circle around error message
+ - Arrow pointing to relevant button
+ - Text label explaining what to look at
 4. OS surfaces annotated screenshot in Director Chat
 
 **Use Cases:**
@@ -663,11 +663,11 @@ registry.list('HKEY_CURRENT_USER\\Software')
 
 **Implementation:**
 1. Before risky operation, OS snapshots:
-   - Screenshot
-   - Active window handle
-   - If browser: DOM tree + JS execution state
-   - If desktop app: UI Automation tree
-   - Clipboard contents
+ - Screenshot
+ - Active window handle
+ - If browser: DOM tree + JS execution state
+ - If desktop app: UI Automation tree
+ - Clipboard contents
 2. Store in `{snapshot_id, timestamp, app, state}`
 3. If crash: OS restores state, continues from snapshot
 
@@ -685,10 +685,10 @@ registry.list('HKEY_CURRENT_USER\\Software')
 **Implementation:**
 1. Every hour: check disk space via `Get-PSDrive C`
 2. If <20GB free: trigger cleanup:
-   - Delete temp files (`%TEMP%`)
-   - Delete old log files (>30 days)
-   - Delete old screenshots from surveillance (>7 days)
-   - Compress large files (videos, ISOs)
+ - Delete temp files (`%TEMP%`)
+ - Delete old log files (>30 days)
+ - Delete old screenshots from surveillance (>7 days)
+ - Compress large files (videos, ISOs)
 3. If <10GB free: alert Tate immediately
 
 **Use Cases:**
@@ -808,18 +808,18 @@ registry.list('HKEY_CURRENT_USER\\Software')
 **How:**
 1. OS maintains inventory of all machines: `{machine_id, capabilities, status, location}`
 2. When task arrives, OS determines optimal machine:
-   - VPS: for API calls, background jobs, server-side code
-   - Laptop: for GUI automation, local file access, OAuth flows
-   - Future IoT devices: for physical-world interactions
+ - VPS: for API calls, background jobs, server-side code
+ - Laptop: for GUI automation, local file access, OAuth flows
+ - Future IoT devices: for physical-world interactions
 3. OS dispatches task to optimal machine via Tailscale + agent protocol
 4. OS aggregates results from all machines
 
 **Example:**
 - Task: "Deploy new feature to Co-Exist app"
 - OS decides:
-  - VPS: Run tests, build Docker image
-  - Laptop: Use Xcode (wait, you're on Windows, so Laptop: review UI in simulator)
-  - VPS: Push to Vercel, verify deployment
+ - VPS: Run tests, build Docker image
+ - Laptop: Use Xcode (wait, you're on Windows, so Laptop: review UI in simulator)
+ - VPS: Push to Vercel, verify deployment
 
 **Impact:** OS transcends single-machine limits. Becomes distributed organism.
 
@@ -849,9 +849,9 @@ registry.list('HKEY_CURRENT_USER\\Software')
 2. OS joins call via Teams/Zoom
 3. OS listens to conversation, transcribes in real-time
 4. OS responds on Tate's behalf using learned communication patterns:
-   - "Let me check with Tate and get back to you" (for decisions)
-   - "That sounds good, I'll confirm with Tate and send the contract" (for agreements)
-   - "Can you send more details? Tate will review and respond by EOD" (for requests)
+ - "Let me check with Tate and get back to you" (for decisions)
+ - "That sounds good, I'll confirm with Tate and send the contract" (for agreements)
+ - "Can you send more details? Tate will review and respond by EOD" (for requests)
 5. OS summarizes call for Tate, surfaces decisions that need approval
 
 **Safety Rails:**
@@ -870,9 +870,9 @@ registry.list('HKEY_CURRENT_USER\\Software')
 2. OS analyzes screenshot surveillance (facial expression if visible via webcam)
 3. OS analyzes typing speed (fast = urgent, slow = thoughtful)
 4. OS adjusts communication style:
-   - Tate frustrated? → OS becomes more concise, solutions-focused
-   - Tate curious? → OS provides more detail, explores alternatives
-   - Tate stressed? → OS proactively handles low-value tasks to reduce load
+ - Tate frustrated? → OS becomes more concise, solutions-focused
+ - Tate curious? → OS provides more detail, explores alternatives
+ - Tate stressed? → OS proactively handles low-value tasks to reduce load
 
 **Impact:** OS becomes empathetic. Interaction feels natural, not robotic.
 

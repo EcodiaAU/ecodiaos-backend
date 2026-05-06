@@ -1,5 +1,5 @@
 /**
- * Scheduler Poller — persistent, runs inside ecodia-api 24/7.
+ * Scheduler Poller - persistent, runs inside ecodia-api 24/7.
  *
  * The scheduler MCP server exposes tools for CREATING tasks, but its polling
  * loop only runs during active Claude Code sessions (stdio process lifetime).
@@ -89,7 +89,7 @@ async function isSessionBusy() {
 //   high_priority_fork → spawn fork (always, budget bypass).
 //   low_priority_fork  → spawn fork (skipped if budget < 25%).
 //
-// Delayed (one-shot) tasks always go via the os-session POST path — they
+// Delayed (one-shot) tasks always go via the os-session POST path - they
 // don't carry a classification yet and the convention is to handle them in
 // the conductor for Tate-typed scheduling. (Tate-typed delayed tasks ARE
 // chat-relevant by definition: he asked for a thing to happen at a time.)
@@ -233,7 +233,7 @@ async function pollOnce() {
     // verbatim 13:52 AEST: "you're scheduling taskss needs to be 100% reliable".
     // Previously, `level === 'critical'` deferred all non-essential CRONS by 1h
     // and silently dropped DELAYED tasks (the loop returned without rescheduling
-    // them — they'd stay overdue forever, never firing). With both Claude Max
+    // them - they'd stay overdue forever, never firing). With both Claude Max
     // accounts at 100% used today this branch fired every poll, blocking all
     // 6 cascade tasks (codify-no-bedrock, chambers-cascade-F6/F7/F8/final-sweep,
     // chambers-fork-resume).
@@ -252,7 +252,7 @@ async function pollOnce() {
 
     // Pay-as-you-go gate: halt CRONS only, never delayed tasks. Crons are
     // recurring (next cycle picks up once we're back on Claude Max). Delayed
-    // tasks are explicit conductor/Tate-typed work — they MUST fire.
+    // tasks are explicit conductor/Tate-typed work - they MUST fire.
     let dueToFire = due
     if (isPayAsYouGoProvider) {
       const cronTasks = due.filter(t => t.type === 'cron')
@@ -307,7 +307,7 @@ async function pollOnce() {
   }
 }
 
-// Self-scheduling loop — uses energy-adjusted intervals instead of a fixed
+// Self-scheduling loop - uses energy-adjusted intervals instead of a fixed
 // setInterval. When energy is low we stretch the poll cadence via
 // scheduleMultiplier (0.75 conserve => 40s, 0.5 low => 60s, 0.25 critical => 120s).
 // This way the poller itself burns less quota when quota is scarce.

@@ -1,5 +1,5 @@
 /**
- * Meta (Facebook/Instagram) MCP tools — pages, posts, conversations.
+ * Meta (Facebook/Instagram) MCP tools - pages, posts, conversations.
  */
 import { z } from 'zod'
 

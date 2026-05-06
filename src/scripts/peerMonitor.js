@@ -108,7 +108,7 @@ async function runSearchQuery(client, query) {
       })
       return response.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
     } catch (err) {
-      logger.warn(`peerMonitor: web_search failed, using knowledge fallback — ${err.message.slice(0, 80)}`)
+      logger.warn(`peerMonitor: web_search failed, using knowledge fallback - ${err.message.slice(0, 80)}`)
     }
   }
 

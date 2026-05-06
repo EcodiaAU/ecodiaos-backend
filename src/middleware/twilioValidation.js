@@ -18,9 +18,9 @@ const allowUnsigned = process.env.ALLOW_UNSIGNED_TWILIO_WEBHOOKS === 'true'
 
 if (!authToken) {
   if (allowUnsigned) {
-    console.warn('[Twilio] TWILIO_AUTH_TOKEN not set — signature validation DISABLED (ALLOW_UNSIGNED_TWILIO_WEBHOOKS=true)')
+    console.warn('[Twilio] TWILIO_AUTH_TOKEN not set - signature validation DISABLED (ALLOW_UNSIGNED_TWILIO_WEBHOOKS=true)')
   } else {
-    console.error('[Twilio] TWILIO_AUTH_TOKEN not set and ALLOW_UNSIGNED_TWILIO_WEBHOOKS is not "true" — inbound webhooks will be REJECTED with 403')
+    console.error('[Twilio] TWILIO_AUTH_TOKEN not set and ALLOW_UNSIGNED_TWILIO_WEBHOOKS is not "true" - inbound webhooks will be REJECTED with 403')
   }
 }
 
@@ -28,7 +28,7 @@ function validateTwilioSignature(req, res, next) {
   if (!authToken) {
     if (allowUnsigned) return next()
     // Hard fail: no token, no explicit opt-in. Don't secretly let unsigned
-    // requests wake the OS — that's a free-turn attack vector.
+    // requests wake the OS - that's a free-turn attack vector.
     console.error('[Twilio] Rejecting webhook: TWILIO_AUTH_TOKEN not configured', { url: req.originalUrl, ip: req.ip })
     return res.status(403).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
   }

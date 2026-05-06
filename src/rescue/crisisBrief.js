@@ -1,11 +1,11 @@
 /**
- * Crisis Brief — composes the context pack prepended to any rescue turn.
+ * Crisis Brief - composes the context pack prepended to any rescue turn.
  *
  * Pulls from sources outside the live codebase state (DB, git, pm2, logs)
  * so that even if main OS is wedged the brief still composes.
  *
  * Used two ways:
- *   1. `GET /api/rescue/brief` — exposed so Tate's frontend can show what
+ *   1. `GET /api/rescue/brief` - exposed so Tate's frontend can show what
  *      the rescue is seeing.
  *   2. Auto-prepended to the first message in any rescue session via
  *      POST /api/rescue/invoke (vs POST /api/rescue/message, which sends
@@ -27,7 +27,7 @@ function _safeExec(cmd, args, opts = {}) {
       encoding: 'utf-8', timeout: 10_000, maxBuffer: 10 * 1024 * 1024, ...opts,
     }).trim()
   } catch (err) {
-    return `[exec failed: ${cmd} ${args.join(' ')} — ${err.message}]`
+    return `[exec failed: ${cmd} ${args.join(' ')} - ${err.message}]`
   }
 }
 

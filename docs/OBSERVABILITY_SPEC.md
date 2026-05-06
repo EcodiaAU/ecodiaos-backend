@@ -1,5 +1,5 @@
 # Observability Spec
-## The /ops Dashboard — 2026-04-30
+## The /ops Dashboard - 2026-04-30
 
 **Status:** MISSING from prior docs. The system is flying blind.
 **Principle:** You cannot optimize what you cannot see. Every other intervention depends on measuring its impact.
@@ -61,7 +61,7 @@ mcp_tool_error_total{server, tool, code}      (counter)
 
 ### 1.4 Fork time-to-first-useful-action (TTFT-fork)
 
-**Why:** "Are forks earning their weight?" The answer depends on how long a fork takes from spawn to its first meaningful tool call. If TTFT-fork is 40s, brief forks are wasteful — the work should stay inline.
+**Why:** "Are forks earning their weight?" The answer depends on how long a fork takes from spawn to its first meaningful tool call. If TTFT-fork is 40s, brief forks are wasteful - the work should stay inline.
 
 **Metric:**
 ```
@@ -77,7 +77,7 @@ fork_worktree_cleanup_ms                          (histogram)
 
 ### 1.5 Claim → handle verification rate
 
-**Why:** This is your "40% of completed tasks aren't actually complete" problem, quantified. Every `[CLAIM:...]` emitted by the conductor (see `ANTHROPIC_NATIVE_LEVERAGE.md` §3) should cite a verifiable handle — commit SHA, message-id, PM2 pid. The ratio of claims-with-verifiable-handles over total-claims *is* the empirical-verification gap.
+**Why:** This is your "40% of completed tasks aren't actually complete" problem, quantified. Every `[CLAIM:...]` emitted by the conductor (see `ANTHROPIC_NATIVE_LEVERAGE.md` §3) should cite a verifiable handle - commit SHA, message-id, PM2 pid. The ratio of claims-with-verifiable-handles over total-claims *is* the empirical-verification gap.
 
 **Metric:**
 ```
@@ -117,7 +117,7 @@ Single page. Loads in < 1 second. Everything above the fold.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  /ops — EcodiaOS Operations                    [auto-refresh]│
+│  /ops - EcodiaOS Operations                    [auto-refresh]│
 ├──────────────────────────────────────────────────────────────┤
 │  STATE     Conductor: UP 14h  │ API: UP 14h │ Factory: UP 3d │
 │            Fork slots: 2/5    │ Energy: 34% │ Memory: 1.1GB  │
@@ -159,7 +159,7 @@ Single page. Loads in < 1 second. Everything above the fold.
 - Single SSR page at `/ops` in `ecodia-api`. No client-side framework overhead.
 - Backing data from a `/ops/metrics` JSON endpoint that aggregates Prometheus scrape + direct DB queries for things with low cardinality.
 - Auto-refresh every 10s. Hard cap 1s response time or the cron alerts.
-- No auth gate initially — deploy behind Tailscale only, same way the rest of the VPS admin surface works.
+- No auth gate initially - deploy behind Tailscale only, same way the rest of the VPS admin surface works.
 
 ---
 
@@ -215,7 +215,7 @@ Frontend polls `/api/os/claims?session_id=X&since=Y`. Claims with `verification_
 
 ### 3.5 Why this beats Layer-5 verification registry
 
-The directives' "Layer 5 verification" runs *after* the agent has moved on. This system runs *alongside* and reports divergence within 60s. The agent reads its own unverified-claim count in the next turn's context envelope under `<state>` — **closing the loop in-session** rather than post-hoc.
+The directives' "Layer 5 verification" runs *after* the agent has moved on. This system runs *alongside* and reports divergence within 60s. The agent reads its own unverified-claim count in the next turn's context envelope under `<state>` - **closing the loop in-session** rather than post-hoc.
 
 ---
 
@@ -232,16 +232,16 @@ The directives' "Layer 5 verification" runs *after* the agent has moved on. This
 
 | Metric | Info | Warn | Page |
 |---|---|---|---|
-| avg tokens/turn (1h) | > 60K | > 90K | — |
-| cache hit ratio (1h) | < 60% | < 40% | — |
-| MCP p99 latency | > 3s | > 10s | — |
-| fork cap rejections (1h) | > 2 | > 10 | — |
+| avg tokens/turn (1h) | > 60K | > 90K | - |
+| cache hit ratio (1h) | < 60% | < 40% | - |
+| MCP p99 latency | > 3s | > 10s | - |
+| fork cap rejections (1h) | > 2 | > 10 | - |
 | memory RSS (ecodia-api) | > 1.5G | > 1.8G | > 1.95G |
 | memory RSS (ecodia-conductor) | > 1.5G | > 1.8G | > 1.95G |
-| unverified claims (24h) | > 20% | > 40% | — |
-| credential redactions (any) | — | > 0 | > 0 (out of bootstrap) |
-| compactions/hr | > 4 | > 10 | — |
-| Tier-3 gate denials (1h) | — | > 3 | > 10 |
+| unverified claims (24h) | > 20% | > 40% | - |
+| credential redactions (any) | - | > 0 | > 0 (out of bootstrap) |
+| compactions/hr | > 4 | > 10 | - |
+| Tier-3 gate denials (1h) | - | > 3 | > 10 |
 | PM2 restart count (24h) | > 1 | > 3 | > 6 |
 | Neo4j write errors (1h) | > 1 | > 5 | > 20 |
 
@@ -311,14 +311,14 @@ Total: ~8 days. Do this before Track A optimizations so you can measure their im
 
 ### 7.1 Where metrics live
 
-- `src/observability/metrics.js` — Prometheus register, Singleton.
+- `src/observability/metrics.js` - Prometheus register, Singleton.
 - Every service imports the specific counters/histograms it needs. Single source of truth.
 - Name conventions: `<domain>_<object>_<unit>` (e.g., `os_turn_input_tokens_total`). Follow Prometheus guidance.
 
 ### 7.2 Cardinality limits
 
 - Labels with unbounded cardinality (session_id, turn_id, fork_id) are **fine on counters and histograms** at this scale (single VPS, <1k active sessions/day).
-- Do NOT put session_id on alert rules — alert on aggregated values.
+- Do NOT put session_id on alert rules - alert on aggregated values.
 - `os_conversation_log` is the authoritative per-turn record; metrics are aggregates. Don't duplicate the transcript into labels.
 
 ### 7.3 Pull vs push

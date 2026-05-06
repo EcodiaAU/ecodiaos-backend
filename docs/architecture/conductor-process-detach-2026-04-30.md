@@ -14,14 +14,14 @@ The recurring failure mode this commit protects against:
 
 Today's confirmed instances of the failure mode (per status_board): the conductor session has been killed by api restarts during routine deploys, during max_memory_restart events, and during the nightly 03:00 AEST restart on multiple occasions in April 2026.
 
-## Solution — process boundary
+## Solution - process boundary
 
 Two pm2 processes, sharing only Postgres + Neo4j (separate connection pools, no shared in-memory state).
 
 ### Before
 
 ```
-ecodia-api (pm2) — single process
+ecodia-api (pm2) - single process
 ├── HTTP routes (express, app.js, /api/*)
 ├── WebSocket server (initWS)
 ├── Voice relay
@@ -39,7 +39,7 @@ ecodia-api (pm2) — single process
 ├── *** OS heartbeat ***
 ├── *** Claude token refresh ***
 ├── *** Nightly restart scheduler ***
-└── *** osSessionService (Claude Agent SDK stream — lazy-loaded) ***
+└── *** osSessionService (Claude Agent SDK stream - lazy-loaded) ***
 ```
 
 The starred items are conductor-side concerns. They live in the api process today, which means an api restart kills them all.
@@ -66,16 +66,16 @@ ecodia-api (pm2)             ecodia-conductor (pm2)
 
 ## Files changed in this commit
 
-- **`src/conductor.js`** — new bootstrap entry. Imports the conductor services in startup order (recoverStaleForks → schedulerPoller → messageQueue.startSweepPoller → osHeartbeat → claudeTokenRefresh → nightlyRestart). Lazy-loads osSessionService on first invocation.
-- **`ecosystem.config.js`** — registers `ecodia-conductor` as a new pm2 app. Same `COMMON` policy (max_restarts: 200, exp_backoff_restart_delay: 100, kill_timeout: 45000, cwd: /home/tate/ecodiaos), max_memory_restart: 2G, restart_delay: 2000.
-- **`src/server.js`** — wraps the conductor service boot blocks in `if (!CONDUCTOR_DETACHED)` guards. Default behaviour unchanged when env var is unset.
-- **`docs/architecture/conductor-process-detach-2026-04-30.md`** — this document.
+- **`src/conductor.js`** - new bootstrap entry. Imports the conductor services in startup order (recoverStaleForks → schedulerPoller → messageQueue.startSweepPoller → osHeartbeat → claudeTokenRefresh → nightlyRestart). Lazy-loads osSessionService on first invocation.
+- **`ecosystem.config.js`** - registers `ecodia-conductor` as a new pm2 app. Same `COMMON` policy (max_restarts: 200, exp_backoff_restart_delay: 100, kill_timeout: 45000, cwd: /home/tate/ecodiaos), max_memory_restart: 2G, restart_delay: 2000.
+- **`src/server.js`** - wraps the conductor service boot blocks in `if (!CONDUCTOR_DETACHED)` guards. Default behaviour unchanged when env var is unset.
+- **`docs/architecture/conductor-process-detach-2026-04-30.md`** - this document.
 
-## Migration path — three phases
+## Migration path - three phases
 
 This commit ships the **code only**. Activation is multi-phase to preserve zero-downtime and avoid the duplicate-services failure mode (both api and conductor running scheduler poller against the same task table = double-fires).
 
-### Phase 1 — code merge (this PR)
+### Phase 1 - code merge (this PR)
 
 - Merge the PR. The new ecosystem entry is registered in the file but not yet started.
 - The new `src/conductor.js` exists on disk but is not yet a running pm2 process.
@@ -83,7 +83,7 @@ This commit ships the **code only**. Activation is multi-phase to preserve zero-
 - **No behavioural change** post-merge until Phase 2 fires.
 - **Critically**: do NOT `pm2 reload ecosystem.config.js` from this commit's deploy. That would (a) start ecodia-conductor with default env (no CONDUCTOR_DETACHED) AND (b) restart ecodia-api as a side-effect, which is the very failure mode this commit guards against. Use `pm2 startOrReload --only ecodia-api,ecodia-factory,ecodia-rescue` if a reload is required, OR skip the reload entirely until Phase 2.
 
-### Phase 2 — cross-process bridge (separate PR)
+### Phase 2 - cross-process bridge (separate PR)
 
 The current ecodia-api code path makes direct in-process calls to `osSessionService.sendMessage()` from:
 
@@ -93,13 +93,13 @@ The current ecodia-api code path makes direct in-process calls to `osSessionServ
 
 Once ecodia-conductor owns the SDK stream, these callsites must delegate cross-process. Options (Phase 2 PR will pick one):
 
-1. **Redis pub/sub** — mirror the existing factoryBridge pattern. Publish a message envelope on a `os-session:message` channel; conductor subscribes, dispatches into the SDK, publishes the response back on a reply channel.
-2. **HTTP loopback** — ecodia-api routes proxy `/message` requests to `http://localhost:3002/message` on ecodia-conductor (which exposes a small internal http server bound to localhost). Cleaner control flow, no Redis dependency.
-3. **Unix domain socket** — lowest-latency local IPC, but adds a new socket abstraction.
+1. **Redis pub/sub** - mirror the existing factoryBridge pattern. Publish a message envelope on a `os-session:message` channel; conductor subscribes, dispatches into the SDK, publishes the response back on a reply channel.
+2. **HTTP loopback** - ecodia-api routes proxy `/message` requests to `http://localhost:3002/message` on ecodia-conductor (which exposes a small internal http server bound to localhost). Cleaner control flow, no Redis dependency.
+3. **Unix domain socket** - lowest-latency local IPC, but adds a new socket abstraction.
 
 Recommend option 2 (HTTP loopback). It reuses the existing route handler logic; ecodia-conductor exposes only the routes that depend on osSessionService (a dozen or so), and ecodia-api proxies them. This keeps the public API surface single-port (3001) while routing the conductor-dependent endpoints to the conductor process.
 
-### Phase 3 — activation
+### Phase 3 - activation
 
 Pre-conditions:
 
@@ -117,16 +117,16 @@ Activation steps (zero-downtime):
 pm2 start ecosystem.config.js --only ecodia-conductor
 
 # 2. Set CONDUCTOR_DETACHED=true on ecodia-api in pm2 env, then restart api.
-#    THIS IS THE LAST EVER pm2 restart that kills the SDK session — but
+#    THIS IS THE LAST EVER pm2 restart that kills the SDK session - but
 #    after this restart, the SDK session lives in ecodia-conductor and is
 #    safe from future api restarts.
 pm2 set ecodia-api:env:CONDUCTOR_DETACHED true
 pm2 restart ecodia-api --update-env
 
 # 3. Verify boundary:
-#    - pm2 logs ecodia-api should NOT show "scheduler poller started"
-#    - pm2 logs ecodia-conductor should show "[conductor] scheduler poller started"
-#    - SELECT * FROM os_scheduled_tasks WHERE last_fired_at > now() - interval '5 min'
+# - pm2 logs ecodia-api should NOT show "scheduler poller started"
+# - pm2 logs ecodia-conductor should show "[conductor] scheduler poller started"
+# - SELECT * FROM os_scheduled_tasks WHERE last_fired_at > now() - interval '5 min'
 #      should show fires from the conductor process (check pid in logs).
 
 # 4. Acceptance test: pm2 restart ecodia-api. Conductor SDK session
@@ -169,7 +169,7 @@ The unhandled-rejection threshold (20 in 60s) triggers `gracefulShutdown('unhand
 
 ### Conductor process boot order
 
-`recoverStaleForks` runs first to flip orphaned `os_forks` rows from prior conductor processes to `crashed`. Idempotent — running it from BOTH api and conductor is safe (each only flips its own non-terminal rows; the row's `process_pid` field disambiguates).
+`recoverStaleForks` runs first to flip orphaned `os_forks` rows from prior conductor processes to `crashed`. Idempotent - running it from BOTH api and conductor is safe (each only flips its own non-terminal rows; the row's `process_pid` field disambiguates).
 
 ## Why these specific services move
 
@@ -201,7 +201,7 @@ Considered and rejected: keep one process but use Node's worker_threads or clust
 
 - worker_threads share the V8 isolate but not the Node lifecycle. SIGTERM to the parent kills the children. Doesn't solve the "api restart kills SDK" problem.
 - cluster preserves the parent on worker crashes but adds significant routing complexity (worker ID stickiness for SDK session state) for marginal benefit over two pm2 processes.
-- pm2 process boundary is the simplest correct answer — it is exactly the granularity at which "I want this restart to NOT touch that other thing" can be expressed.
+- pm2 process boundary is the simplest correct answer - it is exactly the granularity at which "I want this restart to NOT touch that other thing" can be expressed.
 
 ## Verification checklist (post-Phase-3)
 
@@ -224,6 +224,6 @@ After activation, the following must hold:
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — the meta-rule. The api↔conductor seam is exactly such a seam. Phase 2 must structure the cross-process bridge idempotently (write A, verify A, write B referencing A, verify B).
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` — verify both push AND commit SHA before declaring this commit shipped.
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — at Phase 3 activation, probe the actual pm2 process layout, not the narration of "I activated it."
+- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the meta-rule. The api↔conductor seam is exactly such a seam. Phase 2 must structure the cross-process bridge idempotently (write A, verify A, write B referencing A, verify B).
+- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` - verify both push AND commit SHA before declaring this commit shipped.
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - at Phase 3 activation, probe the actual pm2 process layout, not the narration of "I activated it."

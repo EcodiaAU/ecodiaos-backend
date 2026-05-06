@@ -1,5 +1,5 @@
 # Prompt Assembly Spec
-## One Envelope, Global Budget, Cached Breakpoints — 2026-04-30
+## One Envelope, Global Budget, Cached Breakpoints - 2026-04-30
 
 **Status:** Supersedes Directive 1.1 in `RECOVERY_DIRECTIVES_2026-04-30.md`.
 **Context:** The existing directive caps each injection independently. That's still 8 uncoordinated injectors bloating the turn. This spec says: **one assembler owns the entire turn envelope.**
@@ -11,14 +11,14 @@
 Verified against [osSessionService.js:1536-1720](../src/services/osSessionService.js#L1536-L1720):
 
 Eight XML-wrapped blocks are stitched into the **user message** every turn:
-1. `<now>` — timestamp, [line 1540](../src/services/osSessionService.js#L1540)
-2. `<doctrine_surface>` — keyword-grepped patterns, [line 1580-1595](../src/services/osSessionService.js#L1580-L1595)
-3. `<forks_rollup>` — ambient fork positions, [line 1596-1608](../src/services/osSessionService.js#L1596-L1608)
-4. `<recent_doctrine>` — Neo4j recency, [line 1574-1578](../src/services/osSessionService.js#L1574-L1578)
-5. `<relevant_memory>` — Neo4j semantic lookup, [line 1569-1573](../src/services/osSessionService.js#L1569-L1573)
-6. `<restart_recovery>` — session handoff, [line 1610](../src/services/osSessionService.js#L1610)
-7. `<recent_exchanges>` — tailed prior turns, [line 1616](../src/services/osSessionService.js#L1616)
-8. `<last_turn_breadcrumb>` — fallback state, [line 2316](../src/services/osSessionService.js#L2316)
+1. `<now>` - timestamp, [line 1540](../src/services/osSessionService.js#L1540)
+2. `<doctrine_surface>` - keyword-grepped patterns, [line 1580-1595](../src/services/osSessionService.js#L1580-L1595)
+3. `<forks_rollup>` - ambient fork positions, [line 1596-1608](../src/services/osSessionService.js#L1596-L1608)
+4. `<recent_doctrine>` - Neo4j recency, [line 1574-1578](../src/services/osSessionService.js#L1574-L1578)
+5. `<relevant_memory>` - Neo4j semantic lookup, [line 1569-1573](../src/services/osSessionService.js#L1569-L1573)
+6. `<restart_recovery>` - session handoff, [line 1610](../src/services/osSessionService.js#L1610)
+7. `<recent_exchanges>` - tailed prior turns, [line 1616](../src/services/osSessionService.js#L1616)
+8. `<last_turn_breadcrumb>` - fallback state, [line 2316](../src/services/osSessionService.js#L2316)
 
 Each block fires through its own 1.5–5s timeout. Each fails open. None knows what the others produced. There is no global token budget. The system prompt is cached via `buildCustomSystemPrompt()` ([line 373-464](../src/services/osSessionService.js#L373-L464)), but none of the 8 blocks in the user message are cached.
 
@@ -46,13 +46,13 @@ Independent injectors cannot allocate. Only an assembler that sees all candidate
 │  2. Compute available budget                              │
 │     budget = model_ctx - carry - reply_reserve - margin   │
 │  3. Collect all candidate blocks (parallel fetch):        │
-│     - doctrine candidates (ranked)                        │
-│     - memory candidates (ranked)                          │
-│     - state candidates (forks_rollup, restart_recovery)   │
-│     - conversation candidates (recent_exchanges)          │
+│ - doctrine candidates (ranked)                        │
+│ - memory candidates (ranked)                          │
+│ - state candidates (forks_rollup, restart_recovery)   │
+│ - conversation candidates (recent_exchanges)          │
 │  4. Pack by priority into budget:                         │
 │     critical → high → medium → low                        │
-│     Each block has an "elasticity" — can it shrink?       │
+│     Each block has an "elasticity" - can it shrink?       │
 │  5. Emit ONE envelope:                                    │
 │     <context budget="X/Y" sections="...">                 │
 │       <section name="doctrine" tokens="N">…</section>     │
@@ -84,7 +84,7 @@ Shrinkers are block-specific:
 
 ### 3.3 The envelope (no more scattered tags)
 
-Right now tags like `<doctrine_surface>` live inside the user-message text content and flow to the frontend through text deltas (they *look* like XML, but they're not structure — they're content). One envelope fixes this:
+Right now tags like `<doctrine_surface>` live inside the user-message text content and flow to the frontend through text deltas (they *look* like XML, but they're not structure - they're content). One envelope fixes this:
 
 ```
 <context v="1" budget_used="28400/35000" compacted="false">
@@ -107,7 +107,7 @@ Right now tags like `<doctrine_surface>` live inside the user-message text conte
 </context>
 ```
 
-The frontend strips `<context>` before display — it's backend↔model metadata, not user content. (See `SECURITY_HARDENING.md` §2.1 for `<untrusted_input>` semantics.)
+The frontend strips `<context>` before display - it's backend↔model metadata, not user content. (See `SECURITY_HARDENING.md` §2.1 for `<untrusted_input>` semantics.)
 
 ### 3.4 Budget math (concrete numbers)
 
@@ -131,11 +131,11 @@ Allocate it by priority tier:
 
 ### 3.5 Compaction hooks
 
-Watch SDK `compact_boundary` events ([osSessionService.js:2123-2138](../src/services/osSessionService.js#L2123-L2138)). When compaction fires, `carry_over` drops to whatever the SDK summarized-to. Assembler learns: budget rebounds to ~150K. Lower compaction threshold (currently 800K via `OS_SESSION_COMPACT_THRESHOLD`, see [line 1925](../src/services/osSessionService.js#L1925)) — this is for 1M-context Opus. Tune down aggressively:
+Watch SDK `compact_boundary` events ([osSessionService.js:2123-2138](../src/services/osSessionService.js#L2123-L2138)). When compaction fires, `carry_over` drops to whatever the SDK summarized-to. Assembler learns: budget rebounds to ~150K. Lower compaction threshold (currently 800K via `OS_SESSION_COMPACT_THRESHOLD`, see [line 1925](../src/services/osSessionService.js#L1925)) - this is for 1M-context Opus. Tune down aggressively:
 
 - Target: compact every 5-8 turns, not every 40.
 - Threshold starting point: 120K (leaves 80K headroom post-compact).
-- Adjust based on measured cache-hit rate (§4) — lower threshold increases compaction frequency but doesn't hurt cache if the cached prefix is stable.
+- Adjust based on measured cache-hit rate (§4) - lower threshold increases compaction frequency but doesn't hurt cache if the cached prefix is stable.
 
 ---
 
@@ -185,7 +185,7 @@ Between rotations, no invalidation. If a new pattern is critical enough to requi
 
 ## 5. THE HISTORY BLOCK PROBLEM
 
-`recent_exchanges` currently tails the session transcript. But the SDK **already includes the session history** in every request when `session_id` is passed ([osSessionService.js:1178](../src/services/osSessionService.js#L1178)). You are *duplicating* the history — once via the SDK, again via your `<recent_exchanges>` injection.
+`recent_exchanges` currently tails the session transcript. But the SDK **already includes the session history** in every request when `session_id` is passed ([osSessionService.js:1178](../src/services/osSessionService.js#L1178)). You are *duplicating* the history - once via the SDK, again via your `<recent_exchanges>` injection.
 
 **Verify this in the next production turn:** log the raw request payload and check whether the assistant's prior messages appear twice. If so, delete `recent_exchanges` entirely.
 
@@ -195,7 +195,7 @@ If the SDK doesn't carry the conversation the way you need (e.g., you want compr
 
 ## 6. TOOL RESULT DISCIPLINE
 
-Current: [osSessionService.js:1833](../src/services/osSessionService.js#L1833) truncates tool results to 2000 characters **for frontend broadcast**. The model still sees the full result (good). The frontend sees a slice (user-facing issue, not context bloat — but related, so worth noting).
+Current: [osSessionService.js:1833](../src/services/osSessionService.js#L1833) truncates tool results to 2000 characters **for frontend broadcast**. The model still sees the full result (good). The frontend sees a slice (user-facing issue, not context bloat - but related, so worth noting).
 
 Recommended changes:
 - **Backend:** keep the full result for the model. No change.
@@ -206,7 +206,7 @@ Recommended changes:
 
 ## 7. MIGRATION PLAN
 
-### 7.1 Phase A — Shadow assembler
+### 7.1 Phase A - Shadow assembler
 
 Build `promptAssembly.js` as a drop-in replacement that reads the same 8 blocks but stitches them via the new budget logic. Feature flag: `PROMPT_ASSEMBLY_V2=shadow`.
 
@@ -216,16 +216,16 @@ In shadow mode:
 - Model continues to receive v1 output.
 - Run for 3 days. Check v2 output looks sane.
 
-### 7.2 Phase B — Canary
+### 7.2 Phase B - Canary
 
-`PROMPT_ASSEMBLY_V2=canary` — v2 output is sent to the model for 20% of turns (deterministic by session_id hash). Compare turn outcomes between v1 and v2 sessions by session_id:
+`PROMPT_ASSEMBLY_V2=canary` - v2 output is sent to the model for 20% of turns (deterministic by session_id hash). Compare turn outcomes between v1 and v2 sessions by session_id:
 - Tool-use success rate.
 - Turn completion.
 - Tate satisfaction (proxy: next-message sentiment, explicit rejections).
 
 If v2 is ≥ parity for 5 days, promote to 50%, then 100%.
 
-### 7.3 Phase C — Remove v1
+### 7.3 Phase C - Remove v1
 
 Delete the old 8 injection points in `osSessionService.js`. Migrate doctrine to Skills (see `ANTHROPIC_NATIVE_LEVERAGE.md`).
 
@@ -258,12 +258,12 @@ Feature flag flip. `PROMPT_ASSEMBLY_V2=off` reverts to old path. All v2 state is
 
 All of these go to Prometheus (see `OBSERVABILITY_SPEC.md` for full list):
 
-- `prompt_envelope_tokens_total{session_id, section}` — per-section token spend, per turn.
-- `prompt_budget_pressure_ratio{session_id}` — `envelope_tokens / budget_available`.
-- `prompt_shrink_events_total{section}` — counts how often a section had to shrink below estimate.
-- `anthropic_cache_read_tokens_total{breakpoint_tier}` — cache hit accounting.
-- `anthropic_cache_creation_tokens_total{breakpoint_tier}` — cache-miss writes.
-- `keepalive_cache_extensions_total` — how often the keepalive cron refreshed the cache.
+- `prompt_envelope_tokens_total{session_id, section}` - per-section token spend, per turn.
+- `prompt_budget_pressure_ratio{session_id}` - `envelope_tokens / budget_available`.
+- `prompt_shrink_events_total{section}` - counts how often a section had to shrink below estimate.
+- `anthropic_cache_read_tokens_total{breakpoint_tier}` - cache hit accounting.
+- `anthropic_cache_creation_tokens_total{breakpoint_tier}` - cache-miss writes.
+- `keepalive_cache_extensions_total` - how often the keepalive cron refreshed the cache.
 
 ---
 

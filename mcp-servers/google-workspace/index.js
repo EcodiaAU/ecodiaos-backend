@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Google Workspace MCP Server — Gmail + Calendar + Drive
+ * Google Workspace MCP Server - Gmail + Calendar + Drive
  * Uses service account with Domain-Wide Delegation.
  *
  * Required env vars:
- *   GOOGLE_SERVICE_ACCOUNT_JSON — full service account JSON key
- *   GOOGLE_PRIMARY_ACCOUNT — email to impersonate (e.g. tate@ecodia.au)
+ *   GOOGLE_SERVICE_ACCOUNT_JSON - full service account JSON key
+ *   GOOGLE_PRIMARY_ACCOUNT - email to impersonate (e.g. tate@ecodia.au)
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'

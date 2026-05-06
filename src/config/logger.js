@@ -4,16 +4,16 @@ const env = require('./env')
 // ─── DB Error Transport ───────────────────────────────────────────────
 // Writes error-level log events to the app_errors table so the
 // autonomous maintenance worker and KG can read them.
-// The system sees its own errors — self-awareness without human intervention.
+// The system sees its own errors - self-awareness without human intervention.
 //
 // Uses a lazy require + fire-and-forget to avoid circular dependency issues
 // and to never block the logger.
 
-// Rate-limit + fire-and-forget hardening — 2026-04-23 incident:
+// Rate-limit + fire-and-forget hardening - 2026-04-23 incident:
 // A flood of git-error logs (from factoryOversightService aborting non-
 // existent cherry-picks) saturated this transport. Its setImmediate() queue
 // backed up to the point where winston's backpressure wedged every subsequent
-// logger.info call — which froze every new OS turn because "OS Session
+// logger.info call - which froze every new OS turn because "OS Session
 // starting" couldn't log. That hung the entire queue indefinitely.
 //
 // Hardening:
@@ -47,21 +47,21 @@ class DBErrorTransport extends Transport {
         for (const info of this._queue) this._dispatch(info)
         this._queue = []
       } catch {
-        // DB unavailable — degrade silently
+        // DB unavailable - degrade silently
       }
     })
   }
 
   log(info, callback) {
     // ALWAYS call callback synchronously. Winston uses this to know the
-    // transport has accepted the log — any delay here accumulates backpressure
+    // transport has accepted the log - any delay here accumulates backpressure
     // across every transport on every logger call.
     if (callback) callback()
 
     // Actual work happens on the next tick so we never block the caller.
     setImmediate(() => {
       if (!this._ready) {
-        // Bounded buffer — early boot only
+        // Bounded buffer - early boot only
         if (this._queue.length < 100) this._queue.push(info)
         return
       }
@@ -73,7 +73,7 @@ class DBErrorTransport extends Transport {
     const now = Date.now()
     if (now - this._rateWindowStart >= DB_TRANSPORT_RATE_WINDOW_MS) {
       if (this._rateDropped > 0) {
-        // Emit a summary log (via console.warn — never recurse through winston)
+        // Emit a summary log (via console.warn - never recurse through winston)
         // eslint-disable-next-line no-console
         console.warn(`[logger] DBErrorTransport dropped ${this._rateDropped} log(s) in last ${DB_TRANSPORT_RATE_WINDOW_MS}ms (rate limit ${DB_TRANSPORT_RATE_LIMIT}/window)`)
       }
@@ -125,7 +125,7 @@ class DBErrorTransport extends Transport {
           )
         `,
         new Promise((_, reject) => setTimeout(() => reject(new Error('db insert timeout')), DB_TRANSPORT_INSERT_TIMEOUT_MS)),
-      ]).catch(() => { /* drop silently — never recurse through winston */ })
+      ]).catch(() => { /* drop silently - never recurse through winston */ })
 
       // Broadcast error to WS (also fire-and-forget, also guarded)
       setImmediate(() => {
@@ -139,7 +139,7 @@ class DBErrorTransport extends Transport {
             timestamp: info.timestamp || new Date().toISOString(),
           })
         } catch {
-          // WebSocket not initialised, or broadcast threw — ignore
+          // WebSocket not initialised, or broadcast threw - ignore
         }
       })
     } catch {
@@ -151,7 +151,7 @@ class DBErrorTransport extends Transport {
 // ─── Retrospective debug ring-buffer transport ──────────────────────
 // Problem solved: production log level is 'info' so debug context is
 // discarded. When an error fires we have the error but no trail leading
-// up to it — useless for triage when the OS is wedged and you can't ask
+// up to it - useless for triage when the OS is wedged and you can't ask
 // it what happened.
 //
 // This transport accepts ALL levels (including debug/verbose) but keeps
@@ -182,7 +182,7 @@ class RingBufferTransport extends Transport {
   log(info, callback) {
     if (callback) callback() // always sync ack
 
-    // Normalise — winston passes info with a Symbol(level) in addition to info.level.
+    // Normalise - winston passes info with a Symbol(level) in addition to info.level.
     const entry = {
       ts: new Date().toISOString(),
       level: info.level,

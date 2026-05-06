@@ -1,5 +1,5 @@
 /**
- * Voice Relay — Twilio ConversationRelay WebSocket + TwiML webhook
+ * Voice Relay - Twilio ConversationRelay WebSocket + TwiML webhook
  *
  * Dual-model architecture using Claude Agent SDK (Max plan, no API costs):
  * - Haiku via Agent SDK query() for fast voice responses
@@ -90,7 +90,7 @@ function initVoiceRelay(app) {
   const osSession = require('../services/osSessionService')
   const validateTwilioSignature = require('../middleware/twilioValidation')
 
-  // ── TwiML Webhook — answers incoming calls ──
+  // ── TwiML Webhook - answers incoming calls ──
   app.post('/api/voice/incoming', validateTwilioSignature, (req, res) => {
     const { From, To, CallSid } = req.body
     const from = (From || '').replace(/\s/g, '')
@@ -117,7 +117,7 @@ function initVoiceRelay(app) {
     res.type('text/xml').send(twiml)
   })
 
-  // ── WebSocket endpoint — ConversationRelay connection ──
+  // ── WebSocket endpoint - ConversationRelay connection ──
   app.ws('/api/voice/relay', async (ws, req) => {
     const callerNumber = req.query.from || 'unknown'
     const callSid = req.query.callSid || 'unknown'
@@ -225,7 +225,7 @@ ${conversationHistory.map(m => `${m.role === 'user' ? 'Caller' : 'You'}: ${m.con
 
             if (isComplex) {
               osSession.sendMessage(
-                `[VOICE CALL — ${callerName} (${callerNumber}) asked: "${speech}"]\nHaiku responded: "${responseText}"\nIf deeper work is needed, do it now and text ${callerNumber} with follow-up.`
+                `[VOICE CALL - ${callerName} (${callerNumber}) asked: "${speech}"]\nHaiku responded: "${responseText}"\nIf deeper work is needed, do it now and text ${callerNumber} with follow-up.`
               ).catch(err => {
                 logger.error('[Voice] Opus background failed', { error: err.message })
               })
@@ -257,7 +257,7 @@ ${conversationHistory.map(m => `${m.role === 'user' ? 'Caller' : 'You'}: ${m.con
           `${m.role === 'user' ? callerName : 'EcodiaOS'}: ${m.content}`
         ).join('\n')
         osSession.sendMessage(
-          `[VOICE CALL ENDED — ${callerName} (${callerNumber}), ${conversationHistory.length} turns]\nTranscript:\n${summary}\n\nLog to Neo4j if significant. Update contacts last_contacted.`
+          `[VOICE CALL ENDED - ${callerName} (${callerNumber}), ${conversationHistory.length} turns]\nTranscript:\n${summary}\n\nLog to Neo4j if significant. Update contacts last_contacted.`
         ).catch(() => {})
       }
     })

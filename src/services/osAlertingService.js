@@ -1,12 +1,12 @@
 /**
- * OS Alerting — ONE way for the OS to reach Tate when he's in Africa.
+ * OS Alerting - ONE way for the OS to reach Tate when he's in Africa.
  *
  * Fires email + SMS (for urgent alerts) when the OS hits states that need
  * human awareness but aren't crash-severe:
- *   - Weekly quota above 90% (heading into critical)
- *   - 3+ consecutive failed turns (systemic issue)
- *   - Process crash recovered (pm2 restarted us)
- *   - Daily digest — "I'm alive, here's what I did"
+ * - Weekly quota above 90% (heading into critical)
+ * - 3+ consecutive failed turns (systemic issue)
+ * - Process crash recovered (pm2 restarted us)
+ * - Daily digest - "I'm alive, here's what I did"
  *
  * Bedrock fallback alert removed Tate 5 May 2026 12:40 AEST per
  * ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
@@ -15,7 +15,7 @@
  * state flaps. Cooldowns persist across pm2 restarts via kv_store.
  *
  * All alerts go FROM code@ecodia.au TO ALERT_EMAIL_TO (default: tate@ecodia.au).
- * If gmail is disabled or sending fails, we log loudly but never throw —
+ * If gmail is disabled or sending fails, we log loudly but never throw - 
  * alerts must never break the caller's path.
  */
 
@@ -32,10 +32,10 @@ const COOLDOWNS = {
   daily_digest:        20 * 60 * 60 * 1000,  // once per ~day
 }
 
-// kv_store.value is TEXT — we serialise JSON ourselves.
+// kv_store.value is TEXT - we serialise JSON ourselves.
 // New rows store JSON.stringify({ts: <ms>, type: <alertType>}).
 // Legacy rows may contain a bare numeric string ("1776634957262").
-// Broken rows contain "[object Object]" (old bug) — parse fails → Infinity → fires once, self-heals.
+// Broken rows contain "[object Object]" (old bug) - parse fails → Infinity → fires once, self-heals.
 async function _getCooldownMs(alertType) {
   try {
     const row = await db`SELECT value FROM kv_store WHERE key = ${`alert_last:${alertType}`}`
@@ -51,12 +51,12 @@ async function _getCooldownMs(alertType) {
           lastAt = Number(parsed)
         }
       } catch {
-        // Not JSON — try as bare number (legacy alert-cooldown rows)
+        // Not JSON - try as bare number (legacy alert-cooldown rows)
         const n = Number(v)
         if (Number.isFinite(n)) lastAt = n
       }
     } else if (typeof v === 'object' && v !== null && Number.isFinite(v.ts)) {
-      // Driver returned parsed object despite TEXT column — handle gracefully
+      // Driver returned parsed object despite TEXT column - handle gracefully
       lastAt = v.ts
     }
     if (!Number.isFinite(lastAt)) return Infinity
@@ -68,7 +68,7 @@ async function _getCooldownMs(alertType) {
 
 async function _markFired(alertType) {
   try {
-    // kv_store.value is TEXT — must JSON.stringify ourselves.
+    // kv_store.value is TEXT - must JSON.stringify ourselves.
     const payload = JSON.stringify({ ts: Date.now(), type: alertType })
     await db`
       INSERT INTO kv_store (key, value)
@@ -181,7 +181,7 @@ async function _fire(alertType, subject, body) {
       return false
     }
   }
-  // SMS first for urgent alert types — so Tate gets it even if email fails
+  // SMS first for urgent alert types - so Tate gets it even if email fails
   if (SMS_ALERT_TYPES.has(alertType)) {
     const smsBody = `[EcodiaOS] ${subject}\n${body.split('\n')[0]}`
     _sendSms(smsBody).catch(() => {})
@@ -243,7 +243,7 @@ async function alertProcessRestart(uptimeMs) {
   return _fire(
     'process_restart',
     `ecodia-api restarted (uptime was ${minutes}m)`,
-    `The ecodia-api process restarted — pm2 brought it back up.
+    `The ecodia-api process restarted - pm2 brought it back up.
 
 Previous uptime: ${minutes} minutes
 Time: ${new Date().toISOString()}
@@ -256,7 +256,7 @@ memory-restart or manual kick. Check pm2 logs 50 lines back for the exit reason.
 async function sendDailyDigest({ turns24h, energyPct, provider, crashCount, scheduledTasksFired }) {
   return _fire(
     'daily_digest',
-    `Daily digest — ${new Date().toISOString().slice(0, 10)}`,
+    `Daily digest - ${new Date().toISOString().slice(0, 10)}`,
     `EcodiaOS 24h summary
 
 Turns: ${turns24h || 0}
@@ -271,7 +271,7 @@ System is alive. No action needed if numbers look sane.`
 
 /**
  * Generic Twilio SMS to Tate bypassing the alert-cooldown table. Used by
- * securityIncidentResponse.wireServices so incident SMS always fires —
+ * securityIncidentResponse.wireServices so incident SMS always fires - 
  * an incident is not subject to the per-alertType cooldowns.
  *
  * Returns boolean success; never throws.

@@ -3,17 +3,17 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// DIRECT ACTION SERVICE — Organism Fast-Path
+// DIRECT ACTION SERVICE - Organism Fast-Path
 //
-// The organism asks "what can you do?" — the system answers with the
+// The organism asks "what can you do?" - the system answers with the
 // live capability registry. Not a hardcoded list. Everything registered.
 //
-// The organism executes an action — it goes through the capability registry.
+// The organism executes an action - it goes through the capability registry.
 // No switch statement. No static ACTIONS map. Full dynamic dispatch.
 //
 // ~2 seconds vs ~2-10 minutes through Factory.
 //
-// READ tier: always enabled — organism can always observe
+// READ tier: always enabled - organism can always observe
 // WRITE tier: env-gated, pressure-aware, rate-limited per capability
 //
 // Full audit trail in direct_actions table.
@@ -22,7 +22,7 @@ const env = require('../config/env')
 const READ_ENABLED = (env.DIRECT_ACTION_READ_ENABLED || 'true') === 'true'
 const WRITE_ENABLED = (env.DIRECT_ACTION_WRITE_ENABLED || 'true') === 'true'
 
-// Per-capability rate limiting — 1 hour sliding window
+// Per-capability rate limiting - 1 hour sliding window
 // Limit read from env as DA_RATE_<CAPABILITY_NAME_UPPER> (0 = unlimited)
 const rateLimitWindows = new Map()
 const RATE_WINDOW_MS = 60 * 60 * 1000
@@ -100,7 +100,7 @@ async function execute({ actionType, params = {}, correlationId, requestedBy = '
   const startTime = Date.now()
 
   try {
-    // Execute via capability registry — single dispatch path
+    // Execute via capability registry - single dispatch path
     const outcome = await registry.execute(actionType, params, {
       source: 'direct_action',
       requestedBy,

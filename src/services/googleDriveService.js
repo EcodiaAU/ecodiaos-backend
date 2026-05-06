@@ -10,7 +10,7 @@ const kgHooks = require('./kgIngestionHooks')
 //
 // Syncs all Drive files, extracts content from Docs/Sheets/Slides/PDFs,
 // chunks text for embedding, and feeds everything into the KG.
-// Runs behind the scenes — you only ever see beauty.
+// Runs behind the scenes - you only ever see beauty.
 // ═══════════════════════════════════════════════════════════════════════
 
 const DRIVE_ACCOUNTS = [env.GOOGLE_PRIMARY_ACCOUNT]
@@ -187,7 +187,7 @@ async function incrementalSync(drive, account, pageToken) {
     }
   } catch (err) {
     if (err.code === 403 || err.code === 410) {
-      // Token expired or invalid — fall back to full sync
+      // Token expired or invalid - fall back to full sync
       logger.warn(`Drive page token expired for ${account}, falling back to full sync`)
       await db`UPDATE drive_sync_state SET page_token = null WHERE id = ${account}`
       await fullSync(drive, account)
@@ -292,7 +292,7 @@ async function extractContent(batchSize = 20) {
       }
     } catch (err) {
       logger.debug(`Content extraction failed for ${file.name}`, { error: err.message })
-      // Mark as extracted to avoid infinite retries — will retry on next modification
+      // Mark as extracted to avoid infinite retries - will retry on next modification
       await db`UPDATE drive_files SET content_extracted = true WHERE id = ${file.id}`
     }
   }

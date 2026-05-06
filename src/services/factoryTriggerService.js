@@ -17,7 +17,7 @@ const { wrapUntrusted } = require('../lib/untrustedInput')
 const TRUSTED_TRIGGER_SOURCES = new Set(['conductor_direct', 'tate_direct'])
 
 // ═══════════════════════════════════════════════════════════════════════
-// FACTORY TRIGGER SERVICE — Central Dispatch
+// FACTORY TRIGGER SERVICE - Central Dispatch
 //
 // Normalizes all trigger sources into CC sessions. Every path through
 // here ends with a cc_sessions row and a call to ccService.startSession.
@@ -27,19 +27,19 @@ const TRUSTED_TRIGGER_SOURCES = new Set(['conductor_direct', 'tate_direct'])
 //
 // Single function used by every entry point. Resolves a codebase from
 // whatever information is available: explicit ID, name, or free-text
-// prompt. No fragile string matching — gives the full list to the AI
+// prompt. No fragile string matching - gives the full list to the AI
 // when needed.
 // ───────────────────────────────────────────────────────────────────
 
 async function resolveCodebase({ codebaseId, codebaseName, prompt, clientId }) {
-  // 1. Explicit ID — only query if it looks like a UUID
+  // 1. Explicit ID - only query if it looks like a UUID
   if (codebaseId) {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(codebaseId)
     if (isUUID) {
       const [cb] = await db`SELECT id FROM codebases WHERE id = ${codebaseId} LIMIT 1`
       if (cb) return cb.id
     } else {
-      // Treat non-UUID codebaseId as a name hint — fall through to name match
+      // Treat non-UUID codebaseId as a name hint - fall through to name match
       if (!codebaseName) codebaseName = codebaseId
     }
   }
@@ -146,7 +146,7 @@ const _STOP_WORDS = new Set([
   'being', 'other', 'some', 'these', 'those', 'such', 'each', 'every', 'more', 'most',
 ])
 
-// Naive English stemmer — strips common suffixes so "orphaned"→"orphan",
+// Naive English stemmer - strips common suffixes so "orphaned"→"orphan",
 // "sessions"→"session", "investigating"→"investigat", etc.
 // Good enough for dedup without pulling in a dependency.
 function _stem(word) {
@@ -219,7 +219,7 @@ async function _shouldSuppressDispatch({ codebaseId, prompt, triggeredBy }) {
     }
 
     // 2. Check factory_learnings for dont_try / failure_pattern matching this task
-    //    Only check if we have a codebase — learnings are codebase-scoped
+    //    Only check if we have a codebase - learnings are codebase-scoped
     if (codebaseId) {
       const failureLearnings = await db`
         SELECT id, pattern_type, pattern_description, confidence, evidence
@@ -244,7 +244,7 @@ async function _shouldSuppressDispatch({ codebaseId, prompt, triggeredBy }) {
         if (matchCount >= Math.ceil(keywords.length * 0.4)) {
           return {
             suppress: true,
-            reason: `Matching ${learning.pattern_type} learning (confidence: ${learning.confidence.toFixed(2)}): "${learning.pattern_description.slice(0, 100)}" — ${matchCount}/${keywords.length} keyword match`,
+            reason: `Matching ${learning.pattern_type} learning (confidence: ${learning.confidence.toFixed(2)}): "${learning.pattern_description.slice(0, 100)}" - ${matchCount}/${keywords.length} keyword match`,
           }
         }
       }
@@ -281,7 +281,7 @@ async function _shouldSuppressDispatch({ codebaseId, prompt, triggeredBy }) {
 
     return { suppress: false }
   } catch (err) {
-    // Never block dispatch on dedup failure — but log at warn so it's visible
+    // Never block dispatch on dedup failure - but log at warn so it's visible
     logger.warn('Dispatch dedup check failed, allowing dispatch', { error: err.message })
     return { suppress: false }
   }
@@ -294,8 +294,8 @@ async function createAndStartSession({ codebaseId, prompt, triggeredBy, triggerS
   const rlStatus = await bridge.getRateLimitStatus()
   if (rlStatus.limited && (triggeredBy === 'scheduled' || triggerSource === 'scheduled')) {
     const resetsIn = Math.ceil((new Date(rlStatus.resetsAt) - new Date()) / 60000)
-    logger.warn(`Factory dispatch blocked — CLI rate-limited, resets in ${resetsIn}min`, { triggerSource })
-    throw new Error(`CLI rate-limited — resets in ${resetsIn}min`)
+    logger.warn(`Factory dispatch blocked - CLI rate-limited, resets in ${resetsIn}min`, { triggerSource })
+    throw new Error(`CLI rate-limited - resets in ${resetsIn}min`)
   }
 
   // ─── Dedup Gate: check recent sessions + failure learnings ────────
@@ -375,10 +375,10 @@ async function createAndStartSession({ codebaseId, prompt, triggeredBy, triggerS
     },
   })
 
-  // Publish to Redis — factoryRunner picks it up and starts the CC session
+  // Publish to Redis - factoryRunner picks it up and starts the CC session
   const published = bridge.publishSessionRequest(session)
   if (!published) {
-    logger.error(`Factory session ${session.id} failed to publish — no Redis connection`)
+    logger.error(`Factory session ${session.id} failed to publish - no Redis connection`)
     await db`
       UPDATE cc_sessions
       SET status = 'error',
@@ -416,7 +416,7 @@ async function dispatchFromCortex(description, params = {}) {
   })
 
   // Track in code_requests so Cortex dispatches are visible in the coding workspace
-  // alongside email/CRM dispatches — unified view of all code work
+  // alongside email/CRM dispatches - unified view of all code work
   if (session) {
     try {
       const codeRequestService = require('./codeRequestService')
@@ -426,7 +426,7 @@ async function dispatchFromCortex(description, params = {}) {
         codebaseId,
         clientId: params.clientId,
         projectId: params.projectId,
-        skipDispatch: true,  // Session already created above — don't double-dispatch
+        skipDispatch: true,  // Session already created above - don't double-dispatch
       }).then(cr => {
         // Link the code request to the session
         codeRequestService.linkSession(cr.id, session.id)
@@ -465,7 +465,7 @@ Decide whether this stage transition warrants running a Factory code session. Co
 Respond as JSON:
 {
   "shouldTrigger": true,
-  "prompt": "specific Factory session prompt — be concrete about what code work is needed",
+  "prompt": "specific Factory session prompt - be concrete about what code work is needed",
   "reasoning": "brief rationale"
 }
 or
@@ -515,7 +515,7 @@ or
         VALUES (
           ${clientId},
           ${newStage}, ${newStage},
-          ${'Factory session dispatched: ' + (session.id || 'unknown') + ' — ' + (prompt || '').slice(0, 100)}
+          ${'Factory session dispatched: ' + (session.id || 'unknown') + ' - ' + (prompt || '').slice(0, 100)}
         )
       `.catch(err => logger.debug('Failed to log CRM dispatch to pipeline_events', { error: err.message }))
     }
@@ -610,7 +610,7 @@ async function dispatchFromCapabilityRequest(request) {
 
 // Rate limits: DB-persisted sliding window.
 // In-memory timestamps are a cache; DB is authoritative (survives PM2 restarts).
-// 0 = unlimited (the default — the organism evolves without artificial caps).
+// 0 = unlimited (the default - the organism evolves without artificial caps).
 const SELF_MOD_DAILY_CAP = parseInt(env.SELF_MOD_DAILY_CAP || '0', 10)
 const SLIDING_WINDOW_MS = 24 * 60 * 60 * 1000
 
@@ -656,7 +656,7 @@ async function dispatchSelfModification(spec) {
     }
   }
 
-  // Resolve to Factory's own codebase — name is env-driven, not hardcoded
+  // Resolve to Factory's own codebase - name is env-driven, not hardcoded
   const selfCodebaseName = env.FACTORY_SELF_CODEBASE_NAME || 'ecodiaos-backend'
   const [factoryCb] = await db`SELECT id, repo_path FROM codebases WHERE name = ${selfCodebaseName} LIMIT 1`
   if (!factoryCb) {
@@ -678,7 +678,7 @@ async function dispatchSelfModification(spec) {
     logger.debug('Could not read workers directory for self-mod context', { error: err.message })
   }
 
-  // selfModification: true is set on the INSERT (via createAndStartSession) — not
+  // selfModification: true is set on the INSERT (via createAndStartSession) - not
   // as a post-hoc UPDATE. createAndStartSession fires ccService.startSession as
   // fire-and-forget, so a post-hoc UPDATE races with the oversight pipeline reading
   // the flag. Setting it on INSERT eliminates the race.
@@ -743,11 +743,11 @@ Respond as JSON:
 { "actionable": true/false, "reason": "why or why not" }`
     }], { module: 'prediction_triage', temperature: 0.3 })
     if (!triage.actionable) {
-      logger.info(`KG prediction skipped (not code-actionable): ${(prediction.description || '').slice(0, 80)} — ${triage.reason || 'AI decided'}`)
+      logger.info(`KG prediction skipped (not code-actionable): ${(prediction.description || '').slice(0, 80)} - ${triage.reason || 'AI decided'}`)
       return null
     }
   } catch (err) {
-    // Triage failure is non-blocking — if we can't triage, proceed with dispatch
+    // Triage failure is non-blocking - if we can't triage, proceed with dispatch
     logger.debug('Prediction triage failed, proceeding with dispatch', { error: err.message })
   }
 

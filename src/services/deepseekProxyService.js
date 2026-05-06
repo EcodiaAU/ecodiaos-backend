@@ -4,7 +4,7 @@
 //
 // Sits between the CC Agent SDK and https://api.deepseek.com/anthropic.
 // Strips `thinking` content blocks from DeepSeek V4 Pro responses so the SDK
-// never sees them — avoids 400 "Invalid signature in thinking block" errors
+// never sees them - avoids 400 "Invalid signature in thinking block" errors
 // that occur when the SDK echoes thinking blocks back in subsequent turns.
 //
 // Usage: ANTHROPIC_BASE_URL=http://localhost:<PORT>/anthropic
@@ -20,7 +20,7 @@ const TARGET_PORT = 443
 
 let _server = null
 
-// ─── SSE line transformer — strips thinking blocks from streamed responses ──
+// ─── SSE line transformer - strips thinking blocks from streamed responses ──
 // DeepSeek SSE format mirrors Anthropic: each line is `data: <json>` or empty.
 // We strip:
 //   content_block_start  where block.type === 'thinking'
@@ -82,7 +82,7 @@ function _transformJSON(body) {
 // ─── Outgoing request body transformer ───────────────────────────────────────
 // Strip thinking/redacted_thinking blocks from assistant messages before
 // forwarding to DeepSeek. The CC SDK echoes prior assistant messages including
-// thinking blocks that carry Anthropic signatures — DeepSeek rejects these with
+// thinking blocks that carry Anthropic signatures - DeepSeek rejects these with
 // 400 "Invalid signature in thinking block".
 function _stripThinkingFromRequest(body) {
   try {
@@ -109,7 +109,7 @@ function start() {
   _server = http.createServer((req, res) => {
     // SDK sends /v1/messages; DeepSeek Anthropic-compat lives at /anthropic/v1/messages.
     const upstreamPath = req.url.startsWith('/anthropic') ? req.url : `/anthropic${req.url}`
-    // Strip accept-encoding so DeepSeek sends gzip/identity — Node's https
+    // Strip accept-encoding so DeepSeek sends gzip/identity - Node's https
     // handles those natively. Brotli is not supported by the built-in http module
     // and causes BrotliDecompressionError in the CC SDK.
     const upstreamHeaders = { ...req.headers, host: TARGET_HOST }
@@ -134,7 +134,7 @@ function start() {
       const proxyReq = https.request(options, proxyRes => {
         const isStream = (proxyRes.headers['content-type'] || '').includes('text/event-stream')
 
-        // Forward response headers but strip content-encoding — we're passing
+        // Forward response headers but strip content-encoding - we're passing
         // the decompressed (or never-compressed) body straight through.
         const responseHeaders = { ...proxyRes.headers }
         delete responseHeaders['content-encoding']

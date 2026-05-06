@@ -12,7 +12,7 @@
  *   5. runForDispatch composes the two and returns a hits + recorded shape.
  *   6. markAcknowledgement / markRepeatedFailure update via id.
  *
- * The DB and neo4jRetrieval modules are mocked — this is a unit test, no
+ * The DB and neo4jRetrieval modules are mocked - this is a unit test, no
  * Postgres or Neo4j connection required. Failures surface fast in CI.
  */
 

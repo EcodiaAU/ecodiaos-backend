@@ -1,21 +1,21 @@
 const logger = require('../config/logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// INTEGRATION SCAFFOLD SERVICE — Self-Extension Templates
+// INTEGRATION SCAFFOLD SERVICE - Self-Extension Templates
 //
 // Provides CC sessions with the canonical integration pattern so the
 // Factory can scaffold new integrations autonomously.
 //
 // Triggered by:
-//   - kg:integration_opportunity events from the internal event bus
-//   - Organism requesting new capabilities via symbridge
-//   - Manual dispatch via Cortex
+// - kg:integration_opportunity events from the internal event bus
+// - Organism requesting new capabilities via symbridge
+// - Manual dispatch via Cortex
 //
 // Uses the self-modification pathway (0.85 threshold) since it
 // modifies EcodiaOS itself.
 // ═══════════════════════════════════════════════════════════════════════
 
-// Canonical integration pattern — injected into CC session prompt
+// Canonical integration pattern - injected into CC session prompt
 function getScaffoldTemplate(integrationName) {
   return `## Integration Scaffold Template
 
@@ -43,7 +43,7 @@ async function processItem(item) {
 }
 
 // ── Capability Handlers ──
-// Registered in src/capabilities/${integrationName}.js — never called directly from actionQueueService
+// Registered in src/capabilities/${integrationName}.js - never called directly from actionQueueService
 
 module.exports = { poll, processItem }
 \`\`\`
@@ -70,7 +70,7 @@ async function on${integrationName.charAt(0).toUpperCase() + integrationName.sli
 
 ### 4. Worker Entry: Add to src/workers/workspacePoller.js
 \`\`\`
-// Register ${integrationName} poll function — workspacePoller calls all registered pollers each cycle
+// Register ${integrationName} poll function - workspacePoller calls all registered pollers each cycle
 pollers.push(require('../services/${integrationName}Service').poll)
 \`\`\`
 
@@ -80,17 +80,17 @@ app.use('/api/${integrationName}', require('./routes/${integrationName}'))
 \`\`\`
 
 ### 6. Capabilities: Create src/capabilities/${integrationName}.js
-Register read + write actions so they appear in the capability registry — Cortex, ActionQueue, and the organism's direct-action path all discover them automatically. Do NOT add cases to actionQueueService or cortexService.
+Register read + write actions so they appear in the capability registry - Cortex, ActionQueue, and the organism's direct-action path all discover them automatically. Do NOT add cases to actionQueueService or cortexService.
 
 ### 7. Env Vars: Add any required API keys/secrets to src/config/env.js
 
-### 8. KG Ingestion: every processed event feeds kgIngestionHooks — fire-and-forget, never blocking
+### 8. KG Ingestion: every processed event feeds kgIngestionHooks - fire-and-forget, never blocking
 
 Follow the existing patterns. Every integration:
-- Polls external API (interval managed by workspacePoller — no per-integration crons)
+- Polls external API (interval managed by workspacePoller - no per-integration crons)
 - Stores raw data in Postgres
 - Fires KG hooks for every processed item (fire-and-forget)
-- Registers capabilities in src/capabilities/ — never hardcodes in service dispatch
+- Registers capabilities in src/capabilities/ - never hardcodes in service dispatch
 - Creates action queue items for human-actionable things (AI decides, not heuristics)
 - Has stats endpoint for ambient worker status display
 - No manual sync buttons, no trigger endpoints surfaced in UI
@@ -128,12 +128,12 @@ try {
     _scaffoldListenerAttached = true
     eventBus.on('kg:integration_opportunity', async (payload) => {
       try {
-        // metabolismBridge removed — always proceed (pressure = 0)
+        // metabolismBridge removed - always proceed (pressure = 0)
 
         const description = payload.description || ''
         const nodes = payload.nodes || []
 
-        logger.info(`Integration scaffold: evaluating opportunity — ${description.slice(0, 80)}`)
+        logger.info(`Integration scaffold: evaluating opportunity - ${description.slice(0, 80)}`)
 
         // Rate limit: max 1 scaffold per day
         const db = require('../config/db')

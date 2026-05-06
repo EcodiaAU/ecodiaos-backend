@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — write-audit log helper.
+ * Cowork V2 MCP - write-audit log helper.
  *
  * Spec: ~/ecodiaos/drafts/cowork-deep-integration-architecture-2026-04-30.md §5.2.
  *

@@ -1,5 +1,5 @@
 /**
- * Gmail MCP tools — read, send, reply, archive, label.
+ * Gmail MCP tools - read, send, reply, archive, label.
  */
 import { z } from 'zod'
 import { getGmailClient, primaryAccount } from './auth.js'
@@ -123,7 +123,7 @@ async function auditExternalSend({ inbox, to, cc, bcc, external, subject, tateGo
         thread_id: threadId || null,
       }),
     })
-  } catch (_) { /* non-blocking — gate already fired, audit failure should not break send */ }
+  } catch (_) { /* non-blocking - gate already fired, audit failure should not break send */ }
 }
 
 // ── Tool registration ────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ export function registerGmailTools(server) {
   )
 
   server.tool('gmail_modify_labels',
-    'Add or remove labels from a single message. Canonical param: messageId (singular string). Also accepts messageIds as a single-element array alias — multi-element arrays are rejected (use separate calls).',
+    'Add or remove labels from a single message. Canonical param: messageId (singular string). Also accepts messageIds as a single-element array alias - multi-element arrays are rejected (use separate calls).',
     {
       messageId: z.string().optional().describe('Message ID (canonical singular form)'),
       messageIds: optionalArrayParam(z.string(), 'Single-element array alias for messageId. Pass ["msg_id"]. Multi-element arrays are rejected.'),

@@ -6,14 +6,14 @@
  *
  * How it works:
  *   1. Reads .credentials.json for each configured account
- *   2. Checks expiresAt — if within REFRESH_BUFFER_MS, refreshes proactively
+ *   2. Checks expiresAt - if within REFRESH_BUFFER_MS, refreshes proactively
  *   3. Calls platform.claude.com/v1/oauth/token with the refresh_token
  *   4. Writes new access_token + refresh_token + expiresAt back to disk
  *   5. Runs on a timer (default every 30 min) so tokens never go stale
  *
  * The SDK auto-refreshes 5 min before expiry, but only when a query() is
  * actively running. Between sessions (idle hours, rate-limit waits), nobody
- * refreshes — the token can expire silently. This service fills that gap.
+ * refreshes - the token can expire silently. This service fills that gap.
  *
  * If the refresh_token itself is revoked (Anthropic server-side), this logs
  * an alert. That's the only scenario requiring manual intervention.
@@ -36,7 +36,7 @@ const DEFAULT_SCOPES = [
   'user:file_upload',
 ]
 
-// Refresh 1 hour before expiry (SDK does 5 min — we're more conservative)
+// Refresh 1 hour before expiry (SDK does 5 min - we're more conservative)
 const REFRESH_BUFFER_MS = 60 * 60 * 1000
 
 // How often to check all accounts (30 minutes)
@@ -103,12 +103,12 @@ function _writeCredentials(credPath, cred) {
 // EcodiaOS runs multiple PM2 processes (api, factory, kg-consolidation, etc.)
 // that all spawn the `claude` CLI with the same credentials file. The CLI does
 // its own token refresh ~5 min before expiry. Combined with our 30-min refresh
-// timer, two refreshes can race — and refresh-token rotation invalidates the
+// timer, two refreshes can race - and refresh-token rotation invalidates the
 // loser's tokens server-side. That's why "(processing...)" hangs appear in the
 // OS session right after the kg-consolidation cron fires a Claude call.
 //
 // Mitigation: serialize OUR refreshes across processes via an atomic lockfile.
-// `wx` open mode atomically creates the file or fails — we poll until we get it.
+// `wx` open mode atomically creates the file or fails - we poll until we get it.
 // Stale lock detection (>30s old → assume crashed holder) prevents permanent
 // deadlock if a process dies mid-refresh.
 
@@ -127,11 +127,11 @@ async function _acquireCredLock(credPath) {
       return lockPath
     } catch (err) {
       if (err.code !== 'EEXIST') throw err
-      // Lock exists — check if it's stale (holder may have died)
+      // Lock exists - check if it's stale (holder may have died)
       try {
         const stat = fs.statSync(lockPath)
         if (Date.now() - stat.mtimeMs > LOCK_TIMEOUT_MS) {
-          logger.warn('Token refresh: stale lock detected — clearing', { lockPath, ageMs: Date.now() - stat.mtimeMs })
+          logger.warn('Token refresh: stale lock detected - clearing', { lockPath, ageMs: Date.now() - stat.mtimeMs })
           try { fs.unlinkSync(lockPath) } catch {}
           continue  // retry acquire
         }
@@ -139,7 +139,7 @@ async function _acquireCredLock(credPath) {
       await new Promise(r => setTimeout(r, LOCK_POLL_MS))
     }
   }
-  throw new Error(`Could not acquire credential lock within ${LOCK_MAX_WAIT_MS}ms — another process may be stuck`)
+  throw new Error(`Could not acquire credential lock within ${LOCK_MAX_WAIT_MS}ms - another process may be stuck`)
 }
 
 function _releaseCredLock(lockPath) {
@@ -165,7 +165,7 @@ async function _refreshToken(refreshToken, scopes) {
   })
 
   if (resp.status === 401 || resp.status === 403) {
-    // Refresh token itself is dead — requires manual login
+    // Refresh token itself is dead - requires manual login
     const errorBody = await resp.text().catch(() => '')
     throw Object.assign(
       new Error(`Refresh token revoked (${resp.status}): ${errorBody.slice(0, 200)}`),
@@ -197,7 +197,7 @@ async function _refreshToken(refreshToken, scopes) {
 // account-level revocation) and the SDK's local clock has no idea. We hit a
 // minimal endpoint to confirm the bearer is actually accepted.
 //
-// Uses the OAuth-only model listing endpoint with the bearer — it's free,
+// Uses the OAuth-only model listing endpoint with the bearer - it's free,
 // fast, and returns 401 when the token is dead.
 
 async function _validateAccessToken(accessToken) {
@@ -216,11 +216,11 @@ async function _validateAccessToken(accessToken) {
       const body = await resp.text().catch(() => '')
       return { valid: false, status: resp.status, body: body.slice(0, 200) }
     }
-    // Other statuses (5xx, 429): treat as inconclusive — don't punish a healthy token
+    // Other statuses (5xx, 429): treat as inconclusive - don't punish a healthy token
     // for a server hiccup.
     return { valid: true, inconclusive: true, status: resp.status }
   } catch (err) {
-    // Network error — inconclusive.
+    // Network error - inconclusive.
     return { valid: true, inconclusive: true, error: err.message }
   }
 }
@@ -250,7 +250,7 @@ async function refreshAccount(account, { force = false } = {}) {
     const hoursLeft = Math.round(timeUntilExpiry / 3_600_000 * 10) / 10
 
     // "expiresAt is in the future" is necessary but not sufficient. Validate the
-    // token actually works against the API — Anthropic can revoke it server-side
+    // token actually works against the API - Anthropic can revoke it server-side
     // (refresh-token rotation race, scope drift) without telling us.
     const check = await _validateAccessToken(oauth.accessToken)
     if (check.valid) {
@@ -258,7 +258,7 @@ async function refreshAccount(account, { force = false } = {}) {
       return { skipped: true, reason: 'still_fresh', hoursUntilExpiry: hoursLeft }
     }
 
-    logger.warn('Token refresh: token claims fresh but API rejected it — forcing refresh', {
+    logger.warn('Token refresh: token claims fresh but API rejected it - forcing refresh', {
       account, hoursLeft, status: check.status, body: check.body,
     })
     // Fall through to refresh path below
@@ -275,7 +275,7 @@ async function refreshAccount(account, { force = false } = {}) {
   // Acquire the cross-process credential lock. While we hold it, re-read the
   // file: if another process refreshed in the meantime (the CLI's own auto-
   // refresh, another worker, etc.), use ITS new token instead of running our
-  // own refresh — that would invalidate the just-rotated token via the
+  // own refresh - that would invalidate the just-rotated token via the
   // refresh-token rotation rule and leave both processes broken.
   let lockPath = null
   try {
@@ -297,7 +297,7 @@ async function refreshAccount(account, { force = false } = {}) {
         const newHoursLeft = Math.round((diskExpiresAt - now) / 3_600_000 * 10) / 10
         const check = await _validateAccessToken(onDisk.accessToken)
         if (check.valid) {
-          logger.info('Token refresh: another process already refreshed — using their token', {
+          logger.info('Token refresh: another process already refreshed - using their token', {
             account, newHoursLeft,
           })
           if (!_accountStatus[account]) _accountStatus[account] = {}
@@ -306,7 +306,7 @@ async function refreshAccount(account, { force = false } = {}) {
           _accountStatus[account].consecutiveFailures = 0
           return { refreshed: true, expiresAt: diskExpiresAt, expiresInHours: newHoursLeft, fromOtherProcess: true }
         }
-        logger.warn('Token refresh: peer-refreshed token also rejected — falling through to our own refresh', { account })
+        logger.warn('Token refresh: peer-refreshed token also rejected - falling through to our own refresh', { account })
       }
     }
 
@@ -340,7 +340,7 @@ async function refreshAccount(account, { force = false } = {}) {
         if (!_accountStatus[account]) _accountStatus[account] = {}
         _accountStatus[account].lastError = `post-refresh validation failed (${postCheck.status})`
         _accountStatus[account].consecutiveFailures = (_accountStatus[account].consecutiveFailures || 0) + 1
-        logger.error('Token refresh: refreshed but validation failed — token is dead-on-arrival', {
+        logger.error('Token refresh: refreshed but validation failed - token is dead-on-arrival', {
           account, status: postCheck.status, body: postCheck.body,
         })
         return {
@@ -377,8 +377,8 @@ async function refreshAccount(account, { force = false } = {}) {
       lastErr = err
 
       if (err.isRevoked) {
-        // Refresh token is dead — no point retrying
-        logger.error('TOKEN REFRESH: REFRESH TOKEN REVOKED — manual `claude /login` required', {
+        // Refresh token is dead - no point retrying
+        logger.error('TOKEN REFRESH: REFRESH TOKEN REVOKED - manual `claude /login` required', {
           account,
           error: err.message,
         })
@@ -434,7 +434,7 @@ async function refreshAllAccounts({ force = false } = {}) {
   return results
 }
 
-// ─── Health check — report token status without refreshing ──────────────────
+// ─── Health check - report token status without refreshing ──────────────────
 
 function getTokenHealth() {
   const now = Date.now()
@@ -487,8 +487,8 @@ async function _runCheckCycle() {
     const summary = Object.entries(results).map(([acct, r]) => {
       if (r.skipped) return `${acct}: ${r.reason}${r.hoursUntilExpiry ? ` (${r.hoursUntilExpiry}h left)` : ''}`
       if (r.refreshed) return `${acct}: REFRESHED (${r.expiresInHours}h until next expiry)`
-      if (r.deadOnArrival) return `${acct}: DEAD-ON-ARRIVAL — refreshed but API rejected new token`
-      if (r.error) return `${acct}: ERROR ${r.isRevoked ? '(REVOKED)' : ''} — ${r.message?.slice(0, 100)}`
+      if (r.deadOnArrival) return `${acct}: DEAD-ON-ARRIVAL - refreshed but API rejected new token`
+      if (r.error) return `${acct}: ERROR ${r.isRevoked ? '(REVOKED)' : ''} - ${r.message?.slice(0, 100)}`
       return `${acct}: unknown`
     }).join(' | ')
 
@@ -502,7 +502,7 @@ function start() {
   if (_checkTimer) return  // already running
 
   // If long-lived OAuth tokens are in use (from `claude setup-token`), the
-  // refresh service is a no-op — these tokens are valid for ~1 year and
+  // refresh service is a no-op - these tokens are valid for ~1 year and
   // don't rotate. Running refresh anyway causes race conditions where the
   // rotating-token refresh path writes garbage over the long-lived token.
   const hasLongLivedTokens = !!(
@@ -510,7 +510,7 @@ function start() {
     process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
   )
   if (hasLongLivedTokens) {
-    logger.info('Claude token refresh service disabled — long-lived OAuth tokens detected')
+    logger.info('Claude token refresh service disabled - long-lived OAuth tokens detected')
     return
   }
 
@@ -534,7 +534,7 @@ function stop() {
   }
 }
 
-// Public validator — read credentials for an account and check the access token
+// Public validator - read credentials for an account and check the access token
 // against the live API. Used by the OS session to confirm an empty CLI exit was
 // actually an auth failure (vs some other CLI bug) before paying the cost of a
 // full refresh + retry round-trip.

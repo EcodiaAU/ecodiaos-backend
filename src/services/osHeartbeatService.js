@@ -1,10 +1,10 @@
 /**
- * OS Heartbeat — keeps the OS Session alive and autonomous while Tate is away.
+ * OS Heartbeat - keeps the OS Session alive and autonomous while Tate is away.
  *
  * The scheduler poller fires known cron tasks at their scheduled times. This
  * service is different: it wakes the OS periodically with an OPEN-ENDED prompt
  * so it can proactively check state, respond to events, and act on its own
- * judgement — which is what makes it a CEO-class intelligence instead of a
+ * judgement - which is what makes it a CEO-class intelligence instead of a
  * cron runner.
  *
  * Cadence is energy-adjusted: full/healthy every 30 min, conserve every 1h,
@@ -12,10 +12,10 @@
  * avoid burning AWS $ on speculative wakes.
  *
  * A heartbeat skips if:
- *   - An OS Session turn is currently active (don't interrupt)
- *   - Tate messaged in the last HEARTBEAT_INTERVAL (user activity is signal enough)
- *   - Energy level is critical AND no essential tasks are due (pure conservation)
- *   - Provider is DeepSeek fallback (heartbeats cost on DeepSeek, not Max)
+ * - An OS Session turn is currently active (don't interrupt)
+ * - Tate messaged in the last HEARTBEAT_INTERVAL (user activity is signal enough)
+ * - Energy level is critical AND no essential tasks are due (pure conservation)
+ * - Provider is DeepSeek fallback (heartbeats cost on DeepSeek, not Max)
  */
 
 const logger = require('../config/logger')
@@ -25,7 +25,7 @@ const osIncident = require('./osIncidentService')
 
 // ─── Grounded context gathering ─────────────────────────────────────────────
 // Pulls concrete signals the OS can act on instead of a pure open prompt.
-// Each query is wrapped so one failure never blocks the heartbeat — we return
+// Each query is wrapped so one failure never blocks the heartbeat - we return
 // whatever succeeded and the prompt notes the rest as "(unavailable)".
 async function _gatherHeartbeatContext() {
   const now = Date.now()
@@ -67,7 +67,7 @@ async function _gatherHeartbeatContext() {
       WHERE status = 'running'
         AND started_at > ${new Date(now - 6 * 60 * 60 * 1000)}
     `,
-    // Factory sessions parked at 'awaiting_review' — the OS is supposed to
+    // Factory sessions parked at 'awaiting_review' - the OS is supposed to
     // approve/reject these via review_factory_session. If one sits here
     // for >2h the handoff from factoryBridge didn't land. Pick them up.
     db`
@@ -77,7 +77,7 @@ async function _gatherHeartbeatContext() {
       WHERE pipeline_stage = 'awaiting_review'
         AND started_at < ${new Date(now - 2 * 60 * 60 * 1000)}
     `,
-    // Last heartbeat tick — how long since last proactive wake
+    // Last heartbeat tick - how long since last proactive wake
     db`
       SELECT MAX(created_at) AS last_heartbeat
       FROM cc_session_logs
@@ -91,7 +91,7 @@ async function _gatherHeartbeatContext() {
         AND content NOT LIKE '[USER] [HEARTBEAT]%'
         AND content NOT LIKE '[USER] [SCHEDULED:%'
     `,
-    // Last-turn breadcrumb — auto-written continuity snapshot
+    // Last-turn breadcrumb - auto-written continuity snapshot
     db`SELECT value FROM kv_store WHERE key = 'session.last_breadcrumb'`,
   ])
 
@@ -110,7 +110,7 @@ async function _gatherHeartbeatContext() {
   const lastUser      = pick(7)?.[0]?.last_user ?? null
   const breadcrumb    = pick(8)?.[0]?.value ?? null
 
-  // Incident summary — one extra query, independent of the Promise.allSettled
+  // Incident summary - one extra query, independent of the Promise.allSettled
   // above since it's a different module. Cheap aggregate query (single row).
   const incidentSummary = await osIncident.recentSummary({ hours: 4 }).catch(() => null)
 
@@ -128,7 +128,7 @@ async function _gatherHeartbeatContext() {
     incidentSummary,
     lastHeartbeatAgoH: lastHeartbeat ? ((now - new Date(lastHeartbeat).getTime()) / 3_600_000) : null,
     lastUserAgoH:      lastUser      ? ((now - new Date(lastUser).getTime())      / 3_600_000) : null,
-    // Tolerate JSONB (object) and TEXT (JSON string) — live column type varies
+    // Tolerate JSONB (object) and TEXT (JSON string) - live column type varies
     breadcrumb: (() => {
       if (!breadcrumb) return null
       if (typeof breadcrumb === 'object' && Number.isFinite(breadcrumb.ts)) return breadcrumb
@@ -142,13 +142,13 @@ async function _gatherHeartbeatContext() {
 
 const API_PORT = process.env.PORT || 3001
 
-// Base interval — 30 minutes on healthy energy.
+// Base interval - 30 minutes on healthy energy.
 const BASE_INTERVAL_MS = 30 * 60 * 1000
 
 // Minimum gap between heartbeats no matter how high the multiplier goes.
 const MIN_INTERVAL_MS = 15 * 60 * 1000
 
-// Maximum gap — critical energy can stretch to 4h but never further.
+// Maximum gap - critical energy can stretch to 4h but never further.
 const MAX_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 let _timeout = null
@@ -196,11 +196,11 @@ async function lastUserMessageAgoMs() {
 function _fmtNum(v)  { return v == null ? 'unavailable' : String(v) }
 function _fmtHours(v) { return v == null ? 'unavailable' : `${v.toFixed(1)}h ago` }
 
-// Build a grounded heartbeat prompt. Data beats asking "what changed?" blind —
+// Build a grounded heartbeat prompt. Data beats asking "what changed?" blind - 
 // if we pass the OS concrete counters it acts on signal, not hallucination.
 function _heartbeatPrompt(ctx) {
   const lines = [
-    '[HEARTBEAT] Autonomous check-in — the timer fired, Tate did not send this.',
+    '[HEARTBEAT] Autonomous check-in - the timer fired, Tate did not send this.',
     '',
     `Local time: ${ctx.timestampLocal}`,
     `Last user message: ${_fmtHours(ctx.lastUserAgoH)}`,
@@ -209,10 +209,10 @@ function _heartbeatPrompt(ctx) {
   ]
 
   // Where-I-left-off breadcrumb. Only included when it carries NEW info:
-  //   - reasonably fresh (<12h old), AND
-  //   - newer than the last heartbeat (so we're not re-injecting the same
+  // - reasonably fresh (<12h old), AND
+  // - newer than the last heartbeat (so we're not re-injecting the same
   //     ~300 tokens of context the model already saw on a prior heartbeat).
-  // This is the efficiency guardrail — every heartbeat that re-stitches
+  // This is the efficiency guardrail - every heartbeat that re-stitches
   // the same breadcrumb is pure waste.
   if (ctx.breadcrumb) {
     const b = ctx.breadcrumb
@@ -238,7 +238,7 @@ function _heartbeatPrompt(ctx) {
     `  • Factory reviews awaiting decision: ${_fmtNum(ctx.staleFactoryReviews)}${ctx.staleReviewOldestAgoH ? ` (oldest ${ctx.staleReviewOldestAgoH.toFixed(1)}h)` : ''}`,
   )
 
-  // Self-health signal — one line summary of the last 4h of incidents.
+  // Self-health signal - one line summary of the last 4h of incidents.
   // If anything here is non-trivial, the OS should call os_self_check
   // and os_incident_patterns before doing other work.
   if (ctx.incidentSummary) {
@@ -252,9 +252,9 @@ function _heartbeatPrompt(ctx) {
     'Decision framework:',
     '  1. If "where you left off" shows mid-task work, CONTINUE that work before starting anything new.',
     '  2. If self-health shows repeated errors or any critical, call os_self_check + os_incident_patterns to diagnose BEFORE doing normal work. A system that can\'t observe itself can\'t fix itself.',
-    '  3. If Factory reviews are waiting, review + approve/reject them — they block deploy flow and Tate can\'t resolve them from Africa.',
-    '  4. If any counter above is non-zero and actionable — do the highest-leverage item now. No approval needed.',
-    '  5. If everything is zero or already handled, reply with a ONE-LINE "nothing pressing" and end. Do NOT invent work — conserving quota is a valid outcome.',
+    '  3. If Factory reviews are waiting, review + approve/reject them - they block deploy flow and Tate can\'t resolve them from Africa.',
+    '  4. If any counter above is non-zero and actionable - do the highest-leverage item now. No approval needed.',
+    '  5. If everything is zero or already handled, reply with a ONE-LINE "nothing pressing" and end. Do NOT invent work - conserving quota is a valid outcome.',
     '  6. If Tate last messaged >24h ago, briefly (one line) scan Gmail / Calendar / Actions MCP for anything new that the counters above might not reflect.',
     '',
     'You are the CEO. Act.',
@@ -271,14 +271,14 @@ async function _tick() {
       return
     }
 
-    // 2. Skip if Tate just messaged recently — his messages are the wake signal.
+    // 2. Skip if Tate just messaged recently - his messages are the wake signal.
     const ago = await lastUserMessageAgoMs()
     if (ago < BASE_INTERVAL_MS) {
       logger.debug('Heartbeat: recent user activity, skipping', { agoMs: ago })
       return
     }
 
-    // 3. Energy gate — skip entirely on DeepSeek (cost) or critical (pure conservation).
+    // 3. Energy gate - skip entirely on DeepSeek (cost) or critical (pure conservation).
     // Bedrock removed Tate 5 May 2026 12:40 AEST per
     // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
     let energy = null
@@ -292,7 +292,7 @@ async function _tick() {
       return
     }
 
-    // 4. Gather grounded context BEFORE firing — concrete counters, not
+    // 4. Gather grounded context BEFORE firing - concrete counters, not
     //    open-ended "what changed?". Costs 7 fast parallel DB queries.
     const ctx = await _gatherHeartbeatContext()
 
@@ -355,7 +355,7 @@ async function _scheduleNext() {
 function start() {
   if (_timeout) return
   _stopped = false
-  // First heartbeat 2 min after boot — long enough for the API + MCP servers
+  // First heartbeat 2 min after boot - long enough for the API + MCP servers
   // to settle, short enough that restart-during-outage recovers quickly.
   _timeout = setTimeout(async () => {
     try { await _tick() } catch (err) { logger.warn('Heartbeat: initial tick crashed', { error: err.message }) }
@@ -365,7 +365,7 @@ function start() {
   logger.info('OS Heartbeat service started (first tick in 2min, cadence is energy-adjusted)')
 }
 
-// Force an immediate heartbeat — used when a Claude reset window passes
+// Force an immediate heartbeat - used when a Claude reset window passes
 // during DeepSeek fallback. Without this, autonomy resumes only at
 // the next scheduled tick (up to 4h on critical), which makes the reset
 // effectively wasted while Tate is away.

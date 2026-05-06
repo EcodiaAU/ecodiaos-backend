@@ -1,5 +1,5 @@
 # EcodiaOS Visual Recovery Dashboard
-## One-Page Status Reference — updated 2026-04-30 (Phase 0.5 code-complete)
+## One-Page Status Reference - updated 2026-04-30 (Phase 0.5 code-complete)
 
 **Purpose:** Quick-glance view of recovery progress. Update this document as each phase completes.
 
@@ -11,12 +11,12 @@
 **Expected Back Online:** When Claude Max resets OR Tate tops up
 **Estimated Recovery Time:** 24 hours to stability, 6 weeks to full transformation
 
-### Phase 0.5 Security Hardening — ship state
+### Phase 0.5 Security Hardening - ship state
 
 | Section | Module | Tests | Status |
 |---|---|---:|---|
 | §2.1 Untrusted-input delimiters | lib/untrustedInput.js | ✅ | ✅ merged main (PR #29) |
-| §2.2 Dual-reviewer gate | services/securityReviewerService.js + lib/securityGate.js | 51 | 🟡 PR #33 — shadow mode default |
+| §2.2 Dual-reviewer gate | services/securityReviewerService.js + lib/securityGate.js | 51 | 🟡 PR #33 - shadow mode default |
 | §2.3 Self-mod path allowlist | lib/selfModAllowlist.js | ✅ | ✅ merged main (PR #32) |
 | §2.4 Cypher parameterization | lib/labelAllowlist.js | ✅ | ✅ merged main (PR #31) |
 | §2.5 Quarantined Neo4j labels | services/knowledgeGraphService.js | ✅ | ✅ merged main (PR #31) |
@@ -25,7 +25,7 @@
 | §3.4 24h delay queue | services/outboundEmailDelayQueue.js + mig 075 | 17 | 🟡 module done, wire-in pending |
 | §5.1 Credential pre-emit filter | lib/credentialFilter.js | 27 | 🟡 module done, wire-in pending |
 | §7.1 Signed audit log | services/securityAuditLog.js + mig 076 | 14 | 🟡 module done, wire-in pending |
-| §7.2 Incident response | services/securityIncidentResponse.js + server.js wireServices | 14 | 🟢 full 4-service container wired 2026-05-01 — kv_store emergency mode + schedulerPoller.stop + forkService.abortFork loop + osAlertingService.sendSmsToTate |
+| §7.2 Incident response | services/securityIncidentResponse.js + server.js wireServices | 14 | 🟢 full 4-service container wired 2026-05-01 - kv_store emergency mode + schedulerPoller.stop + forkService.abortFork loop + osAlertingService.sendSmsToTate |
 
 **Test totals:** 261+ unit tests across Phase 0.5 modules + step 2 (§5.1) + step 3 (§3.2/§3.3/§3.4/§7.1 gmail gate) + step 4 (claim grammar post-turn + verifier worker). Zero regressions in the module group.
 
@@ -35,7 +35,7 @@
 - Boot-wired in `server.js`, graceful-shutdown stops it.
 - 18 tests covering every branch including injection-shaped sha rejection.
 
-**Next step:** step 5 — full `securityIncidentResponse.wireServices(...)` container at boot (setEmergencyMode/pauseCrons/haltForks/smsTate). Step 6 (SMS-OTP gated) — forkService atomic cap-check swap.
+**Next step:** step 5 - full `securityIncidentResponse.wireServices(...)` container at boot (setEmergencyMode/pauseCrons/haltForks/smsTate). Step 6 (SMS-OTP gated) - forkService atomic cap-check swap.
 
 ---
 
@@ -225,11 +225,11 @@ Decision: [PENDING]
    ↓
 3. OS comes online, reads MASTER_RECOVERY_STRATEGY.md
    ↓
-4. OS executes Phase 1 (2 hours) — context cleanup, memory fixes, compaction
+4. OS executes Phase 1 (2 hours) - context cleanup, memory fixes, compaction
    ↓
 5. OS verifies: token/turn <70K, no regressions
    ↓ [GATE 1: Pass? Yes → Continue | No → Fix & Retry]
-6. OS executes Phase 2-6 (22 hours) — verification, orchestration, diagnostics, proactive, optimization
+6. OS executes Phase 2-6 (22 hours) - verification, orchestration, diagnostics, proactive, optimization
    ↓
 7. OS verifies: 24h uptime, all Phase 1-6 metrics green
    ↓ [GATE 2: Pass? Yes → Continue | No → Extend Phase 1-6]
@@ -322,7 +322,7 @@ Decision: [PENDING]
 ## LAST UPDATED
 
 **Date:** 2026-04-30  
-**Updated By:** Claude Code (Sonnet 4.5) — Initial Document Creation  
+**Updated By:** Claude Code (Sonnet 4.5) - Initial Document Creation  
 **Next Update Due:** When OS comes back online (Phase 1 complete)  
 **Update Frequency:** After each phase/track completion + daily during first week  
 

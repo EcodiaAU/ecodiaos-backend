@@ -8,7 +8,7 @@ async function updateSessionStatus(sessionId, status, extra = {}) {
   const isTerminal = status === 'complete' || status === 'error' || status === 'stopped'
   const completedAt = isTerminal ? new Date() : undefined
 
-  // Only update fields that are explicitly provided — never clobber existing values with null.
+  // Only update fields that are explicitly provided - never clobber existing values with null.
   // Previous version unconditionally set error_message, cc_session_id, cc_cost_usd to null
   // on every status update, wiping data recorded by earlier pipeline stages.
   if ('error_message' in extra || 'cc_session_id' in extra || 'cc_cost_usd' in extra) {

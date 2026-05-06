@@ -1,5 +1,5 @@
 /**
- * Fork Service — true parallel sub-sessions of the EcodiaOS conductor.
+ * Fork Service - true parallel sub-sessions of the EcodiaOS conductor.
  *
  * Implements EcodiaOS_Spec_NextBuild Build 1 (Fork-Mode Parallelism).
  *
@@ -9,7 +9,7 @@
  * own _sendQueue. Forks are *additive*: each is a fresh SDK query() with a
  * separate AbortController, separate ccSessionId, separate provider env. They
  * run on independent Promise chains so 3 forks + main = 4 truly concurrent
- * SDK streams. The conductor never sees a fork's raw stream — it only sees a
+ * SDK streams. The conductor never sees a fork's raw stream - it only sees a
  * rolled-up positions table when it asks (or when forks finish and post a
  * [FORK_REPORT] back into main's inbox via the queue).
  *
@@ -23,19 +23,19 @@
  *
  * Fork tool scoping (spec §1.4)
  * ─────────────────────────────
- *  - Forks DO get: neo4j, scheduler, factory, supabase + Agent (subagent
+ * - Forks DO get: neo4j, scheduler, factory, supabase + Agent (subagent
  *    delegation: comms/finance/ops/social).
- *  - Forks DO NOT get: any os-session lifecycle (restart, compact, handover) —
+ * - Forks DO NOT get: any os-session lifecycle (restart, compact, handover) - 
  *    that's main's job. We achieve this by simply not exposing those tools to
  *    the fork (fork's MCP server set is identical to conductor's; the os-
  *    session admin endpoints are HTTP-only and forks have no HTTP client).
  *
  * Persistence (os_forks table, migration 062)
  * ───────────────────────────────────────────
- *  - In-memory Map is the runtime source of truth.
- *  - DB row is for visibility (frontend GET /forks), the conductor rollup
+ * - In-memory Map is the runtime source of truth.
+ * - DB row is for visibility (frontend GET /forks), the conductor rollup
  *    (forksRollup() reads it cheaply), and post-mortem if a fork dies.
- *  - DB writes are fire-and-forget — a slow DB never blocks fork progress.
+ * - DB writes are fire-and-forget - a slow DB never blocks fork progress.
  */
 'use strict'
 
@@ -65,7 +65,7 @@ async function getQuery() {
   }
   return _query
 }
-// Test seam — set via _setQueryForTest to inject a fake query() generator so
+// Test seam - set via _setQueryForTest to inject a fake query() generator so
 // parallelism / lifecycle can be verified without burning real Anthropic
 // tokens. NEVER set this in production code paths.
 let _queryOverride = null
@@ -99,7 +99,7 @@ const ENERGY_FORK_CAPS = {
 // ── Phantom-bail signal (per fork-result-fallback-must-be-marked.md) ────────
 // When a fork transcript ends without a [FORK_REPORT] tag, state.result is
 // written with this prefix (see line ~668). The conductor's rollup MUST treat
-// this prefix as the canonical phantom-bail signal — not the pre-2026-05-02
+// this prefix as the canonical phantom-bail signal - not the pre-2026-05-02
 // 600-char length heuristic, which conflated real-but-short reports with
 // silent fallback. Single source of truth so the writer (state.result) and
 // the readers (forksRollup, future classifiers) stay in sync.
@@ -113,12 +113,12 @@ function _isPhantomBail(result) {
 // Two emission paths share the success-path enqueue (forkService.js, end of
 // spawnFork's stream loop):
 //
-//   (a) clean — fork emitted [FORK_REPORT]; body wraps report verbatim.
-//   (b) phantom_bail — fork transcript ended without [FORK_REPORT] tag;
+//   (a) clean - fork emitted [FORK_REPORT]; body wraps report verbatim.
+//   (b) phantom_bail - fork transcript ended without [FORK_REPORT] tag;
 //       state.result carries the FALLBACK_MARKER prefix + transcript tail.
 //
 // Pre-2026-05-03 the enqueue was gated `if (report)`, so phantom-bail forks
-// silently skipped the inbox path — they only surfaced via forks_rollup for
+// silently skipped the inbox path - they only surfaced via forks_rollup for
 // ~15min before dropping off the conductor's view. Closing this gap is the
 // second half of the same observability fix as 3 May rotation C / b00f75f
 // (which surfaced phantom_bail in forks_rollup). Body shape is built by a
@@ -130,21 +130,21 @@ function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult
   // report is null when regex did NOT match (truly no FORK_REPORT).
   // report is '' when regex matched but body was empty
   // (e.g. [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP]).
-  // Both cases must be distinguished — empty body is still a valid report.
+  // Both cases must be distinguished - empty body is still a valid report.
   if (report !== null) {
     return [
       `[SYSTEM: fork_report ${fork_id}]`,
       `Brief: ${brief}`,
       '',
-      `Report: ${report || '(empty body — FORK_REPORT immediately followed by NEXT_STEP)'}`,
+      `Report: ${report || '(empty body - FORK_REPORT immediately followed by NEXT_STEP)'}`,
       nextStep ? `\nNext step suggested: ${nextStep}` : '',
     ].filter(Boolean).join('\n')
   }
-  // Phantom-bail body — TIGHT version (5 May 2026, fork_morzn67x_635460).
+  // Phantom-bail body - TIGHT version (5 May 2026, fork_morzn67x_635460).
   // Pre-fix this dumped the full brief (2-10KB) + full state.result
   // (~2080 chars) into main chat every time a fork closed without
   // [FORK_REPORT]. On 5 May 2026 ALL 16 dispatched forks hit this path
-  // (reasons under investigation — transcript-tail truncation, brief
+  // (reasons under investigation - transcript-tail truncation, brief
   // length, hooks-eating-budget all suspect), producing ~80KB of pollution
   // in main chat for forks that mostly shipped real work.
   //
@@ -189,7 +189,7 @@ function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult
 // Cron-spawned forks (dispatched by cronForkDispatcher) run on a self-contained
 // brief prefixed with "You are EcodiaOS in fork form, no prior context." When
 // the result is a clean no-op (healthy, all-clear, zero-action), the fork_report
-// should NOT enqueue to main — it pollutes the conductor's context with noise.
+// should NOT enqueue to main - it pollutes the conductor's context with noise.
 //
 // Detection: check the brief for the cron prefix + the report for no-op patterns.
 // Both must match to suppress. A cron fork that actually DID work (files changed,
@@ -214,7 +214,7 @@ function _isCleanNoop(report, brief) {
 }
 
 async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult }) {
-  // Suppress clean no-op reports from cron-spawned forks — they pollute main chat
+  // Suppress clean no-op reports from cron-spawned forks - they pollute main chat
   if (_isCleanNoop(report, brief)) {
     logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
     return { enqueued: false, reason: 'suppressed_clean_noop' }
@@ -224,7 +224,7 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
 
   // Sub-fork routing: if parent_id is a live fork (not 'main'), inject the report
   // directly into the parent fork's message stream. The parent aggregates sub-reports
-  // and emits its own [FORK_REPORT] to main. This keeps conductor context clean —
+  // and emits its own [FORK_REPORT] to main. This keeps conductor context clean - 
   // it only sees the manager's summary, not raw worker output.
   if (parent_id && parent_id !== 'main') {
     const parentFork = _forks.get(parent_id)
@@ -241,7 +241,7 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
       }
     } else {
       // Parent fork not live (already finished or crashed). Fall back to main queue
-      // so the report isn't lost — conductor can see it even if parent is gone.
+      // so the report isn't lost - conductor can see it even if parent is gone.
       logger.info('forkService: parent fork not live, routing sub-fork report to main queue', { fork_id, parent_id })
     }
   }
@@ -263,7 +263,7 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
   }
 }
 
-// Conductor & subagent MCP groups — duplicated from osSessionService so a
+// Conductor & subagent MCP groups - duplicated from osSessionService so a
 // refactor there doesn't silently change fork behaviour. Kept narrow on
 // purpose: forks should match the conductor's tool surface (minus session
 // lifecycle), not balloon their own.
@@ -333,7 +333,7 @@ function _emitForkEvent(kind, state) {
 async function _dbInsert(state) {
   try {
     // root_fork_id: the fork hierarchy column added by migration 087.
-    // Defaults to fork_id for root-level forks. Defense-in-depth — the
+    // Defaults to fork_id for root-level forks. Defense-in-depth - the
     // primary path is forkCapAtomic.tryReserveForkSlot which already writes
     // this column under advisory lock. _dbInsert is the legacy backup path
     // (ON CONFLICT DO NOTHING) so it must also include root_fork_id or any
@@ -436,7 +436,7 @@ function _buildForkAgents(all) {
   return {
     comms: {
       description: 'Fork-mode comms specialist: email, calendar, CRM, SMS.',
-      prompt: 'You are a fork-mode comms specialist. Same rules as the main comms subagent — keep it tight, professional, CRM-aware.',
+      prompt: 'You are a fork-mode comms specialist. Same rules as the main comms subagent - keep it tight, professional, CRM-aware.',
       model: 'sonnet',
       mcpServers: _subagentMcpForDomain(all, FORK_SUBAGENT_DOMAINS.comms),
       permissionMode: 'bypassPermissions',
@@ -472,30 +472,30 @@ function _buildForkAgents(all) {
 // ── Fork system prompt ──────────────────────────────────────────────────────
 // Forks intentionally do NOT load the conductor's CLAUDE.md. The full
 // operational manual is ~62KB / ~15-18k tokens of status-board doctrine,
-// pattern-surfacing rules, scheduler choreography, etc. — none of which a
+// pattern-surfacing rules, scheduler choreography, etc. - none of which a
 // fork doing a discrete task needs to know. Each fork is a fresh SDK session
 // (no shared prompt cache with the conductor or its siblings) so it would
 // pay that cost from cold, every spawn, every turn.
 //
 // What a fork actually needs: who it is, what tools it has, how to report
-// back. That's the identity block below — kept tight on purpose. If a
+// back. That's the identity block below - kept tight on purpose. If a
 // specific task needs more context, the conductor must put it in the brief.
 function _buildForkSystemPrompt(cwd, fork_id, brief) {
   const today = new Date().toISOString().slice(0, 10)
 
   const identityBlock = `# Identity
-You are a fork sub-session of the EcodiaOS conductor — the operating intelligence of Ecodia DAO LLC. The conductor delegated a discrete task to you and is still running on its own work. You do NOT share state with it; you cannot talk to it while you work; it reads your report when you finish.
+You are a fork sub-session of the EcodiaOS conductor - the operating intelligence of Ecodia DAO LLC. The conductor delegated a discrete task to you and is still running on its own work. You do NOT share state with it; you cannot talk to it while you work; it reads your report when you finish.
 
-You are a capable autonomous agent. Default to action on routine ops (queries, writes, deploys, sending the email, restarting the service). Do not ask permission — your brief is your authority.
+You are a capable autonomous agent. Default to action on routine ops (queries, writes, deploys, sending the email, restarting the service). Do not ask permission - your brief is your authority.
 
 # Tools you have
-- neo4j (graph_*) — persistent memory, 5000+ nodes
-- scheduler (schedule_*) — DB-backed cron/delayed/chained tasks
-- factory (start_cc_session, etc.) — dispatch coding work to Factory
-- supabase (db_*, storage_*) — DB queries/writes, file storage
-- Agent — delegate to comms/finance/ops/social subagent for domain work
+- neo4j (graph_*) - persistent memory, 5000+ nodes
+- scheduler (schedule_*) - DB-backed cron/delayed/chained tasks
+- factory (start_cc_session, etc.) - dispatch coding work to Factory
+- supabase (db_*, storage_*) - DB queries/writes, file storage
+- Agent - delegate to comms/finance/ops/social subagent for domain work
 
-You do NOT have: os-session lifecycle (restart/compact/handover) — that's main's only.`
+You do NOT have: os-session lifecycle (restart/compact/handover) - that's main's only.`
 
   const forkBlock = `# Fork operating rules
 Your fork id: ${fork_id}
@@ -511,11 +511,11 @@ Your fork id: ${fork_id}
 # Manager forks (only if brief contains MANAGER: true)
 If your brief marks you as a MANAGER fork, you are the project manager for your subtree.
 
-**CRITICAL — STAY ALIVE UNTIL SUB-FORKS REPORT.** A manager fork that
+**CRITICAL - STAY ALIVE UNTIL SUB-FORKS REPORT.** A manager fork that
 spawns sub-forks then emits [FORK_REPORT] immediately is BROKEN. You MUST
 stay alive (continue taking turns, polling, reading artefacts) until every
 sub-fork you spawned has reached a terminal status. The natural reflex
-after dispatching workers is "I'm done, emit FORK_REPORT" — that reflex
+after dispatching workers is "I'm done, emit FORK_REPORT" - that reflex
 is wrong here. Your job is to coordinate and consolidate; that work
 happens AFTER the workers finish, not when you spawn them.
 
@@ -543,7 +543,7 @@ happens AFTER the workers finish, not when you spawn them.
   Both are valid; db_query gives you the full row including error_summary and last_heartbeat.
 - **Polling cadence: every 60-120 seconds.** Tighter is wasteful, looser risks losing
   reactive context. A typical worker finishes in 2-30 minutes, so expect 1-30 polls per
-  manager. Each poll is one db_query tool call — cheap.
+  manager. Each poll is one db_query tool call - cheap.
 - After spawning, your normal cycle is: poll → if all terminal, proceed to VERIFY. If
   any in-flight, schedule a wakeup and continue polling.
 - If a sub-fork phantom-bails (no [SUB_FORK_REPORT] and gone from list_forks), check db_query os_forks or git log --grep=<fork_id>.
@@ -551,7 +551,7 @@ happens AFTER the workers finish, not when you spawn them.
 
 ## Manager anti-patterns (avoid):
 - **Emitting [FORK_REPORT] right after spawning sub-forks.** This is the #1 manager
-  failure mode. You haven't done your job yet — your job is coordinate + consolidate.
+  failure mode. You haven't done your job yet - your job is coordinate + consolidate.
 - Don't do sub-task work yourself. If it's decomposable, spawn it.
 - Don't send the conductor multiple messages. ONE [FORK_REPORT] at the end.
 - Don't bail early because one sub-fork failed. Retry it or report what DID work.`
@@ -659,7 +659,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   // sentinel (case-insensitive), this fork is a manager and the rollup should
   // surface it as such even before sub-forks are spawned. Without this, a
   // manager looks identical to a regular fork in <forks_rollup> until its
-  // first sub-fork lands — slow visibility for the conductor.
+  // first sub-fork lands - slow visibility for the conductor.
   const is_manager = /\bMANAGER\s*:\s*true\b/i.test(brief)
   if (is_manager) {
     logger.info('forkService: spawning manager fork', { fork_id, parent_fork_id })
@@ -681,7 +681,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     cc_session_id: null,
     tokens_input: 0,
     tokens_output: 0,
-    // Cache-token visibility (in-memory only — no DB column, surfaces in
+    // Cache-token visibility (in-memory only - no DB column, surfaces in
     // fork-complete log + per-turn metrics). Forks share BP1+BP2 system-prompt
     // structure with main when systemPrompt is large enough to auto-cache;
     // tracking here lets us see fork-side cache hit ratio rather than
@@ -718,7 +718,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
     maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
-    // DeepSeek thinking blocks carry Anthropic-signed signatures invalid on replay — omit.
+    // DeepSeek thinking blocks carry Anthropic-signed signatures invalid on replay - omit.
     // V4 Pro activates its own native thinking automatically without the SDK option.
     ...(!isDeepseek && { thinking: { type: 'enabled', budget_tokens: 1500 } }),
     mcpServers,
@@ -738,7 +738,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     //
     // Behaviour: when the SDK agent decides to stop, inspect state.transcript
     // for a [FORK_REPORT] tag. If found, allow stop. If not, return decision
-    // 'block' with a reason — SDK feeds the reason as a user message and
+    // 'block' with a reason - SDK feeds the reason as a user message and
     // resumes the agent for one more turn. Bounded retry (max 1 block) so
     // a confused agent that genuinely can't emit the tag doesn't loop forever
     // (the FALLBACK_MARKER path still catches that case after the retry).
@@ -752,7 +752,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
           }
           state.stop_hook_retries = (state.stop_hook_retries || 0) + 1
           if (state.stop_hook_retries > 1) {
-            // Already asked once — let it stop and hit FALLBACK_MARKER path.
+            // Already asked once - let it stop and hit FALLBACK_MARKER path.
             return { continue: true }
           }
           return {
@@ -766,7 +766,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   }
 
   // ── Run loop (background) ────────────────────────────────────────────
-  // We do NOT await this — spawnFork returns immediately and the caller
+  // We do NOT await this - spawnFork returns immediately and the caller
   // (HTTP handler) gets the fork id. The loop runs on its own promise chain.
   ;(async () => {
     try {
@@ -887,7 +887,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
             break
           }
           case 'user': {
-            // tool_result blocks — clear current_tool, count nothing.
+            // tool_result blocks - clear current_tool, count nothing.
             const content = msg.message?.content
             if (Array.isArray(content)) {
               for (const block of content) {
@@ -926,7 +926,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         }
       }
 
-      // Stream complete — extract [FORK_REPORT] / [NEXT_STEP] from transcript.
+      // Stream complete - extract [FORK_REPORT] / [NEXT_STEP] from transcript.
       const fullText = state.transcript.join('\n\n')
       const reportMatch = fullText.match(/\[FORK_REPORT\][^\n]*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i)
       const nextMatch = fullText.match(/\[NEXT_STEP\][^\n]*([\s\S]*?)$/i)
@@ -935,7 +935,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
 
       // If fork emitted [FORK_REPORT], use the captured report verbatim. Otherwise
       // fall back to the tail of the transcript. PRE-2026-05-02 the fallback was
-      // `slice(-600)` with no marker — that produced 455/555 historical results
+      // `slice(-600)` with no marker - that produced 455/555 historical results
       // clustered at exactly 600 chars that the conductor mis-classified as
       // "phantom shipping". The fork was usually doing real work but ran out of
       // budget before emitting the closing tag. Mark fallback explicitly so the
@@ -943,7 +943,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // 600 chars`. Origin: fork_moo6esm9_565a0e debunk-or-confirm investigation.
       // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
       if (reportMatch) {
-        state.result = report || '(report body empty — FORK_REPORT immediately followed by NEXT_STEP)'
+        state.result = report || '(report body empty - FORK_REPORT immediately followed by NEXT_STEP)'
       } else if (fullText.length > 0) {
         const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
         state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
@@ -957,7 +957,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       _emitForkEvent('done', state)
       _emitForkStatus(fork_id, 'complete', { fork_id })
       await _dbUpdate(state)
-      // Idempotent terminal-state write — guarantees os_forks row converges
+      // Idempotent terminal-state write - guarantees os_forks row converges
       // even if a concurrent process restart is mid-flight. Per Decision 3993
       // commit 1/3 (forkFinalizer.js). Wrapped: a finalizer failure must not
       // flip state.status into the outer catch's error path, since the work
@@ -988,7 +988,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         had_next_step: !!nextStep,
       })
 
-      // Publish to perception bus — universal domain-reactive dispatch.
+      // Publish to perception bus - universal domain-reactive dispatch.
       // Forks get the same intelligence as conductor (finance, CRM, error
       // escalation, status_board tracking) without separate listener chats.
       try {
@@ -1015,8 +1015,8 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // it lands on main's next turn as a system message.
       //
       // Two emission paths share this enqueue:
-      //   (a) clean — fork emitted [FORK_REPORT]; body wraps report verbatim.
-      //   (b) phantom_bail — fork transcript ended without [FORK_REPORT] tag;
+      //   (a) clean - fork emitted [FORK_REPORT]; body wraps report verbatim.
+      //   (b) phantom_bail - fork transcript ended without [FORK_REPORT] tag;
       //       state.result carries the FALLBACK_MARKER prefix + transcript tail.
       //       Per ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md the
       //       conductor MUST be told this happened. Without an inbox message
@@ -1054,7 +1054,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // Guarantor: ensure os_forks row converges to terminal even if an
       // exception escaped the try/catch above (e.g. catch handler itself
       // threw) or the process is mid-shutdown when this finally runs. Per
-      // Decision 3993 commit 1/3 — this is the durable terminal-state write
+      // Decision 3993 commit 1/3 - this is the durable terminal-state write
       // the forks-as-primitive bootstrap depends on.
       //
       // Idempotent: if the success/error path already wrote terminal, this
@@ -1215,26 +1215,26 @@ async function forksRollup({ includeRecentDone = true } = {}) {
 // surfaced commit info. The conductor's <forks_rollup> read "[crashed]" and
 // hid the fact that the deliverable shipped.
 //
-// New behavior — probeForkDeliverables() runs per-row BEFORE the UPDATE:
-//   1. git log --all --grep="<fork_id>" since started_at-1min — finds commits
+// New behavior - probeForkDeliverables() runs per-row BEFORE the UPDATE:
+//   1. git log --all --grep="<fork_id>" since started_at-1min - finds commits
 //      that name the fork in a Co-Authored-By or body line.
 //   2. For each commit, check origin/main containment via `git branch -r --contains`.
 //      If the local main is fast-forward of origin/main, attempt `git push`.
-//   3. git status --porcelain — captures dirty working tree.
+//   3. git status --porcelain - captures dirty working tree.
 //
 // Then per-row terminal classification:
-//   - commits found, all on origin           → status='done', result names SHAs.
-//   - commits found, some local-only         → push attempted (FF-only, abort
+// - commits found, all on origin           → status='done', result names SHAs.
+// - commits found, some local-only         → push attempted (FF-only, abort
 //                                               on divergence); status='done'
 //                                               with push outcome in result.
-//   - working tree dirty, no commits         → status='crashed', result names
+// - working tree dirty, no commits         → status='crashed', result names
 //                                               dirty files, next_step recommends
 //                                               diff review.
-//   - clean tree, no commits                 → status='crashed' with redispatch
+// - clean tree, no commits                 → status='crashed' with redispatch
 //                                               recommendation per
 //                                               ~/ecodiaos/patterns/continuation-aware-fork-redispatch.md
 //
-// Probe failures (git command errors) NEVER block the recovery UPDATE — they
+// Probe failures (git command errors) NEVER block the recovery UPDATE - they
 // are captured in result.errors[] and the row falls back to the conservative
 // 'crashed' classification. See also
 // ~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
@@ -1242,7 +1242,7 @@ async function forksRollup({ includeRecentDone = true } = {}) {
 //
 // IMPORTANT: this function only processes rows in non-terminal states
 // (spawning/running/reporting). Historical rows already at status='crashed'
-// are NOT backfilled — that's a separate one-shot script if the conductor
+// are NOT backfilled - that's a separate one-shot script if the conductor
 // wants to reconcile pre-refactor state.
 //
 // Idempotent. Safe to call on every startup. Logs and never throws.
@@ -1251,7 +1251,7 @@ const REPO_ROOT_FOR_PROBE = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
 
 // Shell out to git defensively. Args go through execFile (no shell), forkId
 // is sanitised via _isSafeForkIdToken below before it's ever interpolated as
-// a --grep value. Returns {stdout, stderr, error?} — never throws.
+// a --grep value. Returns {stdout, stderr, error?} - never throws.
 async function _runGit(args, cwd = REPO_ROOT_FOR_PROBE) {
   if (_execGitOverride) {
     try { return await _execGitOverride(args, cwd) }
@@ -1291,7 +1291,7 @@ function _isSafeForkIdToken(forkId) {
  *   errors: string[],
  * }
  *
- * Probe-only — never throws, captures all errors in `errors[]`. Test seam:
+ * Probe-only - never throws, captures all errors in `errors[]`. Test seam:
  * inject a fake git via _setExecGitForTest.
  */
 async function probeForkDeliverables(forkId, startedAt) {
@@ -1394,7 +1394,7 @@ async function probeForkDeliverables(forkId, startedAt) {
       out.pushSucceeded = false
       out.pushNote = `pushed: NO (local main diverged from origin/main, behind=${behind} ahead=${ahead}, manual reconcile needed)`
     } else {
-      // ahead=0 — commits exist somewhere but not on local main; can't push.
+      // ahead=0 - commits exist somewhere but not on local main; can't push.
       out.pushSucceeded = false
       out.pushNote = `pushed: NO (commits not on local main; ahead=${ahead} behind=${behind})`
     }
@@ -1505,11 +1505,11 @@ async function recoverStaleForks({ bootMode } = {}) {
   // (forks live in-memory only; the Map is rebuilt from zero on every boot).
   // The 2-minute heartbeat filter (used historically) was the bug Tate flagged
   // 5 May 2026: forks killed seconds before a PM2 restart still had warm
-  // heartbeats at boot, so they were excluded — left forever stuck in 'running'.
+  // heartbeats at boot, so they were excluded - left forever stuck in 'running'.
   // Cross-reference: ~/ecodiaos/patterns/fork-recovery-must-probe-deliverables-not-just-flip-status.md
   const inferredBoot = bootMode === true || _forks.size === 0
 
-  // 1. Find stale candidates WITHOUT mutating yet — we need to probe per-row
+  // 1. Find stale candidates WITHOUT mutating yet - we need to probe per-row
   //    before deciding the terminal status.
   let candidates = []
   try {
@@ -1559,7 +1559,7 @@ async function recoverStaleForks({ bootMode } = {}) {
     try {
       probe = await probeForkDeliverables(row.fork_id, row.started_at)
     } catch (err) {
-      // Defensive — probeForkDeliverables shouldn't throw, but if it does, fall
+      // Defensive - probeForkDeliverables shouldn't throw, but if it does, fall
       // back to the legacy crashed classification with the error in result.
       logger.warn('forkService.recoverStaleForks: probe threw (non-fatal)', { fork_id: row.fork_id, error: err.message })
       probe = { commits: [], dirtyFiles: [], pushAttempted: false, pushSucceeded: false, pushNote: null, errors: [`probe-threw:${err.message}`] }

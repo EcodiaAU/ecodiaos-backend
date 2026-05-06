@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bookkeeping MCP Server — exposes the full bookkeeping system to the OS Session.
+ * Bookkeeping MCP Server - exposes the full bookkeeping system to the OS Session.
  *
  * Thin HTTP wrapper over the EcodiaOS bookkeeping API routes.
  * All heavy logic lives in bookkeeperService.js.
@@ -59,7 +59,7 @@ server.tool('bk_list_staged',
 )
 
 server.tool('bk_staged_counts',
-  'Get counts of staged transactions by status — quick health check before diving in.',
+  'Get counts of staged transactions by status - quick health check before diving in.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/bookkeeping/staged/counts')
@@ -69,7 +69,7 @@ server.tool('bk_staged_counts',
 )
 
 server.tool('bk_categorize',
-  'Categorise a staged transaction — set its account code, description, and whether it\'s personal.',
+  'Categorise a staged transaction - set its account code, description, and whether it\'s personal.',
   {
     id:          z.string().describe('Staged transaction UUID'),
     category:    z.string().describe('Account code e.g. "5000", "4100", or "DISCARD" to discard personal items'),
@@ -166,7 +166,7 @@ server.tool('bk_bas',
 )
 
 server.tool('bk_cash_flow',
-  'Cash flow summary — money in vs money out over a period.',
+  'Cash flow summary - money in vs money out over a period.',
   {
     from: z.string().optional().describe('Start date YYYY-MM-DD'),
     to:   z.string().optional().describe('End date YYYY-MM-DD'),
@@ -179,7 +179,7 @@ server.tool('bk_cash_flow',
 )
 
 server.tool('bk_trial_balance',
-  'Trial balance — all accounts with debit/credit totals.',
+  'Trial balance - all accounts with debit/credit totals.',
   { asAt: z.string().optional().describe('Date YYYY-MM-DD (default: today)') },
   async ({ asAt }) => {
     const { ok: success, data } = await api('GET', '/api/bookkeeping/ledger/trial-balance', null, { as_at: asAt })
@@ -189,7 +189,7 @@ server.tool('bk_trial_balance',
 )
 
 server.tool('bk_gst_position',
-  'Current GST position — how much GST is owed or refundable.',
+  'Current GST position - how much GST is owed or refundable.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/bookkeeping/reports/gst-summary')
@@ -234,7 +234,7 @@ server.tool('bk_list_rules',
 )
 
 server.tool('bk_create_rule',
-  'Create a categorisation rule — pattern match → auto-assign account code.',
+  'Create a categorisation rule - pattern match → auto-assign account code.',
   {
     pattern:     z.string().describe('Text pattern to match in transaction description'),
     category:    z.string().describe('Account code to assign e.g. "5000", or "DISCARD"'),
@@ -261,7 +261,7 @@ server.tool('bk_delete_rule',
 // ── Accounts ──────────────────────────────────────────────────────────
 
 server.tool('bk_list_accounts',
-  'List all chart of accounts — account codes, names, types.',
+  'List all chart of accounts - account codes, names, types.',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/bookkeeping/accounts')
@@ -273,7 +273,7 @@ server.tool('bk_list_accounts',
 // ── Director Loan ─────────────────────────────────────────────────────
 
 server.tool('bk_director_loan_balance',
-  'Current director loan account balance — what the company owes Tate (or vice versa).',
+  'Current director loan account balance - what the company owes Tate (or vice versa).',
   {},
   async () => {
     const { ok: success, data } = await api('GET', '/api/bookkeeping/director-loan/balance')

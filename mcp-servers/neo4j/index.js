@@ -12,7 +12,7 @@
  * graph_create_relationship queue their args to Supabase graph_write_buffer and return
  * { buffered: true }. Call graph_replay_buffer once Neo4j is back to drain the queue.
  * Read tools (graph_query, graph_search, graph_schema, graph_context) return
- * { unavailable: true } on connection failure — never buffer, never crash.
+ * { unavailable: true } on connection failure - never buffer, never crash.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -109,7 +109,7 @@ async function patchBufferRow(id, fields) {
 }
 
 // Canned responses
-const BUFFERED_OK = { content: [{ type: 'text', text: JSON.stringify({ buffered: true, message: 'Neo4j unreachable — queued to graph_write_buffer for replay' }) }] }
+const BUFFERED_OK = { content: [{ type: 'text', text: JSON.stringify({ buffered: true, message: 'Neo4j unreachable - queued to graph_write_buffer for replay' }) }] }
 const unavailable = (reason) => ({ content: [{ type: 'text', text: JSON.stringify({ unavailable: true, reason }) }] })
 
 // Parse JSON-if-string, pass-through otherwise. Mirrors commit 35cdb2e's z.coerce fix
@@ -301,7 +301,7 @@ server.tool('graph_merge_node', 'Create a node if it does not exist, or update i
 
 // ── Search: Find nodes by text across all properties ──
 
-server.tool('graph_search', 'Substring text match across node properties (case-insensitive CONTAINS). NOT semantic — use graph_semantic_search for meaning-based retrieval.', {
+server.tool('graph_search', 'Substring text match across node properties (case-insensitive CONTAINS). NOT semantic - use graph_semantic_search for meaning-based retrieval.', {
   text: z.string().describe('Text to search for (case-insensitive contains)'),
   label: z.string().optional().describe('Optionally filter by label'),
   limit: z.coerce.number().optional().describe('Max results (default 20)'),
@@ -396,7 +396,7 @@ server.tool('graph_replay_buffer',
     }
 
     if (!SUPABASE_URL || !SUPABASE_KEY) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: 'Supabase not configured — cannot read buffer' }) }] }
+      return { content: [{ type: 'text', text: JSON.stringify({ error: 'Supabase not configured - cannot read buffer' }) }] }
     }
 
     // Fetch pending rows ordered by insertion time
@@ -424,7 +424,7 @@ server.tool('graph_replay_buffer',
           )
           if (connects_to && connects_to.length > 0) {
             for (const conn of connects_to) {
-              // Best-effort — referenced nodes may no longer exist
+              // Best-effort - referenced nodes may no longer exist
               await run(
                 `MATCH (r:Reflection {content: $content}), (n:\`${conn.label}\` {${conn.match}})
                  CREATE (r)-[:\`${conn.relationship}\`]->(n)`,
@@ -455,7 +455,7 @@ server.tool('graph_replay_buffer',
           )
 
         } else {
-          // Unknown tool — mark failed immediately, don't retry
+          // Unknown tool - mark failed immediately, don't retry
           await patchBufferRow(row.id, { status: 'failed', error: `unknown tool: ${row.tool}` })
           summary.failed++
           continue
@@ -501,7 +501,7 @@ server.tool('graph_semantic_search',
   async ({ text, label, limit, min_score }) => {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY
     if (!OPENAI_API_KEY) {
-      return { content: [{ type: 'text', text: JSON.stringify({ error: 'OPENAI_API_KEY not set — semantic search unavailable' }) }] }
+      return { content: [{ type: 'text', text: JSON.stringify({ error: 'OPENAI_API_KEY not set - semantic search unavailable' }) }] }
     }
 
     // Embed the query

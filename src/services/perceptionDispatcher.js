@@ -1,24 +1,24 @@
 'use strict'
 
 /**
- * perceptionDispatcher — active dispatch layer for the perception bus.
+ * perceptionDispatcher - active dispatch layer for the perception bus.
  *
  * The perception bus (perceptionBus.js) records events. This module ACTS on them.
  * Every message flowing through the OS (conductor turns, fork output, cron results)
  * publishes to the bus. This dispatcher subscribes to it and, for events that
  * match a domain pattern, triggers lightweight actions:
  *
- *   - Finance mentions → check status_board for financial tasks, update bookkeeping context
- *   - Status board references → verify tracking state matches reality
- *   - Client/CRM mentions → surface relevant CRM intelligence into next turn
- *   - Task completions → auto-archive status_board rows, schedule follow-ups
- *   - Error patterns → auto-create status_board P1 rows, fire alerts
+ * - Finance mentions → check status_board for financial tasks, update bookkeeping context
+ * - Status board references → verify tracking state matches reality
+ * - Client/CRM mentions → surface relevant CRM intelligence into next turn
+ * - Task completions → auto-archive status_board rows, schedule follow-ups
+ * - Error patterns → auto-create status_board P1 rows, fire alerts
  *
  * Design:
- *   - ZERO extra token cost: no LLM calls. Pure regex + DB lookups.
- *   - Forks get this for free: they publish to the same bus, same dispatcher reacts.
- *   - Fire-and-forget: dispatch failures never block the publishing stream.
- *   - Dedupe: same event pattern within a 5min window → skip.
+ * - ZERO extra token cost: no LLM calls. Pure regex + DB lookups.
+ * - Forks get this for free: they publish to the same bus, same dispatcher reacts.
+ * - Fire-and-forget: dispatch failures never block the publishing stream.
+ * - Dedupe: same event pattern within a 5min window → skip.
  *
  * This replaces the need for N parallel listener chats that each burn a full
  * Claude session per domain. One in-process dispatcher, infinite domains.
@@ -78,7 +78,7 @@ function _shouldDispatch(key, windowMs) {
 const MATCHERS = [
   {
     domain: 'finance',
-    // 5 min default — finance events are routine but bursty around invoice cycles.
+    // 5 min default - finance events are routine but bursty around invoice cycles.
     dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       const kind = (event.kind || '').toLowerCase()
@@ -120,7 +120,7 @@ const MATCHERS = [
 
   {
     domain: 'status_board',
-    // 5 min default — status_board references are spread across many event sources;
+    // 5 min default - status_board references are spread across many event sources;
     // dedupe at source/kind grain.
     dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
@@ -160,7 +160,7 @@ const MATCHERS = [
 
   {
     domain: 'crm',
-    // 5 min default — client mentions can spike during a delivery push;
+    // 5 min default - client mentions can spike during a delivery push;
     // dedupe per source/kind to avoid surfacing the same intelligence pack repeatedly.
     dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
@@ -199,7 +199,7 @@ const MATCHERS = [
 
   {
     domain: 'error_escalation',
-    // 5 min default — bursts of errors usually share root cause, dedupe is desirable;
+    // 5 min default - bursts of errors usually share root cause, dedupe is desirable;
     // error_escalation already does name-based dedupe at the status_board layer.
     dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
@@ -242,7 +242,7 @@ const MATCHERS = [
 
   {
     domain: 'task_completion',
-    // 5 min default — fork_complete events with structured next_step are infrequent.
+    // 5 min default - fork_complete events with structured next_step are infrequent.
     dedupeWindowMs: 5 * 60 * 1000,
     test(event) {
       return event.kind === 'fork_complete' && event.data?.status === 'done' && event.data?.next_step
@@ -274,7 +274,7 @@ const MATCHERS = [
     // (status_board P1 + dedupe), but security gets a dedicated domain so the
     // signals route through the security-incident pipeline if available.
     domain: 'security_incident',
-    // 5 min default — security signals are LOW-FREQUENCY but we explicitly do NOT
+    // 5 min default - security signals are LOW-FREQUENCY but we explicitly do NOT
     // want long suppression windows here: any new security event after 5 min should
     // re-fire the matcher (status_board name-dedupe still prevents row duplicates).
     dedupeWindowMs: 5 * 60 * 1000,
@@ -283,7 +283,7 @@ const MATCHERS = [
       const source = (event.source || '').toLowerCase()
       const dataStr = (event.data_str || JSON.stringify(event.data || {})).toLowerCase()
       // Source-based: canonical security publishes from securityIncidentResponse
-      // (5 May 2026 fix — closes the fireIncident → matcher loop).
+      // (5 May 2026 fix - closes the fireIncident → matcher loop).
       if (source === 'security' || source === 'security_incident') return true
       // Strong-signal kinds first (high precision):
       if (/auth_(fail|denied|invalid)|oauth_(expired|invalid|revoked)|cred(_| )?rotat|rls_violation|hmac_(fail|invalid)|tier3_gate_denied|signature_(fail|invalid)/i.test(kind)) return true
@@ -327,7 +327,7 @@ const MATCHERS = [
   // in src/services/matchers/. Closure-style: each module requires its own
   // db/logger/perceptionBus and exports { domain, test, dispatch }. Three
   // (deploy_event, stripe_event, doctrine_authored) are GATED on Wave C
-  // publishers — they registered live but won't fire until Wave C ships
+  // publishers - they registered live but won't fire until Wave C ships
   // their event sources. The other six fire immediately on existing
   // event sources or timer-driven scans.
   require('./matchers/clientMention'),
@@ -357,7 +357,7 @@ const MATCHERS = [
 // ── Core subscriber ────────────────────────────────────────────────────────
 
 /**
- * safeDispatch — single-matcher trampoline. Wraps test + dedupe + dispatch in
+ * safeDispatch - single-matcher trampoline. Wraps test + dedupe + dispatch in
  * try/catch so a slow/throwing matcher never delays or kills its siblings.
  *
  * Dedupe-check happens BEFORE the fire-counter bumps and BEFORE dispatch fires.
@@ -402,7 +402,7 @@ function _onEvent(event) {
   // `event.data_str` instead of re-stringifying. W3 §2.7 / Fix 07.
   // Additive: matchers that haven't been adapted still call JSON.stringify
   // themselves and continue to work. data_str is a single canonical
-  // (non-lowercased) string — matchers that need lowercase still call
+  // (non-lowercased) string - matchers that need lowercase still call
   // .toLowerCase() locally.
   if (!event.data_str) {
     try {
@@ -414,7 +414,7 @@ function _onEvent(event) {
   // Promise.all parallelism: a slow matcher only delays its own slot, never
   // its siblings. safeDispatch swallows all errors so Promise.all never
   // rejects and the publishing stream is never blocked.
-  // Note: caller does NOT await this — fire-and-forget by design.
+  // Note: caller does NOT await this - fire-and-forget by design.
   return Promise.all(MATCHERS.map(matcher => safeDispatch(matcher, event)))
 }
 

@@ -21,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; if [ -n \"$f\" ] && grep -qn '—' \"$f\" 2>/dev/null; then lines=$(grep -n '—' \"$f\" | head -5); echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"EMDASH DETECTED. Fix these lines (no emdashes ever):\\n${lines}\\\"}}\"; else true; fi; }",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; if [ -n \"$f\" ] && grep -qn ' - ' \"$f\" 2>/dev/null; then lines=$(grep -n ' - ' \"$f\" | head -5); echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"EMDASH DETECTED. Fix these lines (no emdashes ever):\\n${lines}\\\"}}\"; else true; fi; }",
             "timeout": 5,
             "statusMessage": "Checking for emdashes..."
           },

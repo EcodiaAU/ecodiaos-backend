@@ -1,13 +1,13 @@
 'use strict'
 
 /**
- * Tests for src/workers/claimVerifierWorker.js — per-action verifier dispatch.
+ * Tests for src/workers/claimVerifierWorker.js - per-action verifier dispatch.
  *
  * Covers:
- *   - deployed / committed route to git verifier; invalid sha rejected.
- *   - emailed / scheduled / forked hit the correct DB lookup by handle key.
- *   - Unknown action returns 'action_unknown'.
- *   - _verifyGitSha rejects injection-shaped shas.
+ * - deployed / committed route to git verifier; invalid sha rejected.
+ * - emailed / scheduled / forked hit the correct DB lookup by handle key.
+ * - Unknown action returns 'action_unknown'.
+ * - _verifyGitSha rejects injection-shaped shas.
  *
  * Mocks DB as a template-tag fn that a test can swap to canned rows or
  * throw; mocks child_process.execFile so the git verifier is deterministic.

@@ -3,7 +3,7 @@ const env = require('../config/env')
 const { recordHeartbeat } = require('./heartbeat')
 
 if (!env.NEO4J_URI) {
-  logger.info('KG embedding worker skipped — NEO4J_URI not set')
+  logger.info('KG embedding worker skipped - NEO4J_URI not set')
   module.exports = {}
 } else {
   const kg = require('../services/knowledgeGraphService')
@@ -13,7 +13,7 @@ if (!env.NEO4J_URI) {
   //   backlog > 500 → run every 1 min
   //   backlog > 100 → run every 3 min
   //   quiet         → run every 10 min
-  // The graph tells us when it needs work — not the clock.
+  // The graph tells us when it needs work - not the clock.
 
   let running = true
   let embedTimer = null
@@ -39,7 +39,7 @@ if (!env.NEO4J_URI) {
       const count = await kg.embedStaleNodes(250)
       if (count > 0) {
         logger.info(`KG embedding worker: embedded ${count} nodes`)
-        // Check remaining backlog — use conservative estimate if count fails
+        // Check remaining backlog - use conservative estimate if count fails
         let remaining = count
         try {
           remaining = await kg.countStaleNodes?.() ?? count
@@ -67,7 +67,7 @@ if (!env.NEO4J_URI) {
       embedTimer = setTimeout(embedCycle, 30 * 1000)  // first run after 30s boot delay
     })
 
-  logger.info('KG embedding worker started — adaptive loop, no fixed schedule')
+  logger.info('KG embedding worker started - adaptive loop, no fixed schedule')
 
   function stop() {
     running = false

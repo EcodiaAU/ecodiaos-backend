@@ -3,7 +3,7 @@ const db = require('../config/db')
 const factoryBridge = require('./factoryBridge')
 
 // ═══════════════════════════════════════════════════════════════════════
-// CLAUDE SERVICE — dispatches background LLM calls to the factory process.
+// CLAUDE SERVICE - dispatches background LLM calls to the factory process.
 //
 // Chat stays in ecodia-api with its own credentials (~/.claude).
 // Everything else (KG consolidation, goal scoring, gmail triage, etc.) goes
@@ -50,7 +50,7 @@ async function callClaude(messages, { module: mod = 'general', system = null } =
   return content
 }
 
-// ─── JSON helper — parses response, retries once on parse failure ─────
+// ─── JSON helper - parses response, retries once on parse failure ─────
 
 async function callClaudeJSON(messages, opts = {}) {
   const augmentedMessages = [...messages]
@@ -76,7 +76,7 @@ async function callClaudeJSON(messages, opts = {}) {
   }
 }
 
-// ─── cache keepalive — minimal ping to refresh Anthropic prompt cache TTL ──
+// ─── cache keepalive - minimal ping to refresh Anthropic prompt cache TTL ──
 // docs/PROMPT_ASSEMBLY_SPEC.md §4.3. Called by workers/cacheKeepaliveWorker
 // every 45 minutes during work hours. Sends the stable BP1+BP2 prefix +
 // "health=?" user message via the existing callClaude path so the upstream
@@ -96,7 +96,7 @@ async function cacheKeepalivePing({ stablePrefix, userMessage = 'health=?' } = {
     const durationMs = Date.now() - start
     // factoryBridge doesn't pass through token accounting; we estimate from
     // char length so the keepalive metric has a plausible number. Real-SDK
-    // wire-in would return actual cache_read_input_tokens — that's a follow-up.
+    // wire-in would return actual cache_read_input_tokens - that's a follow-up.
     const inputTokens = Math.ceil((stablePrefix.length + userMessage.length) / 4)
     const outputTokens = Math.ceil((content || '').length / 4)
     return {
@@ -108,7 +108,7 @@ async function cacheKeepalivePing({ stablePrefix, userMessage = 'health=?' } = {
       duration_ms: durationMs,
     }
   } catch (err) {
-    // Bubble up — worker's fireRefresh catches and logs.
+    // Bubble up - worker's fireRefresh catches and logs.
     throw err
   }
 }

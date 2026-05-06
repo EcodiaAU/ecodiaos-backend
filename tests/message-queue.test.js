@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Message Queue — unit tests
+ * Message Queue - unit tests
  *
  * Tests pure logic only (no live DB, no HTTP). The service's internal
  * _ageSuffix function and message-building patterns are tested directly.

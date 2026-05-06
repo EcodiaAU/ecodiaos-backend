@@ -38,7 +38,7 @@ const ALLOWED_ACTION_TYPES = Object.freeze([
 function _getHmacKey() {
   const raw = process.env.AUDIT_LOG_HMAC_KEY
   if (!raw || raw.length < 32) {
-    logger.warn('AUDIT_LOG_HMAC_KEY missing or short — using dev default (INSECURE outside tests)')
+    logger.warn('AUDIT_LOG_HMAC_KEY missing or short - using dev default (INSECURE outside tests)')
     return 'dev-only-insecure-audit-log-hmac-key-replace-in-production-64'
   }
   return raw

@@ -1,5 +1,5 @@
 /**
- * Shared Google auth — JWT with Domain-Wide Delegation.
+ * Shared Google auth - JWT with Domain-Wide Delegation.
  * Replicates the pattern from backend/src/services/gmailService.js
  */
 import { google } from 'googleapis'

@@ -3,7 +3,7 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// INTERNAL EVENT BUS — The Nervous System Between Services
+// INTERNAL EVENT BUS - The Nervous System Between Services
 //
 // In-process EventEmitter + optional Redis pub/sub for cross-worker.
 // This is how services talk to each other. KG finds a pattern →
@@ -13,13 +13,13 @@ const env = require('../config/env')
 // Modeled after the organism's Synapse event bus.
 //
 // Event types:
-//   kg:*             — Knowledge graph events (prediction, pattern, dedup)
-//   factory:*        — Factory session lifecycle events
-//   memory:*         — High-importance node events
-//   metabolism:*     — Metabolic pressure changes
-//   action:*         — Action queue events
-//   direct:*         — Direct action events
-//   symbridge:*      — Symbridge message events
+//   kg:* - Knowledge graph events (prediction, pattern, dedup)
+//   factory:* - Factory session lifecycle events
+//   memory:* - High-importance node events
+//   metabolism:* - Metabolic pressure changes
+//   action:* - Action queue events
+//   direct:* - Direct action events
+//   symbridge:* - Symbridge message events
 // ═══════════════════════════════════════════════════════════════════════
 
 const emitter = new EventEmitter()
@@ -37,7 +37,7 @@ async function initRedis() {
 
   try {
     // Publisher reuses the shared singleton so we're not doubling connection count.
-    // Subscriber needs its own client — ioredis holds sub clients in blocking mode
+    // Subscriber needs its own client - ioredis holds sub clients in blocking mode
     // so they can't run regular commands. Give it the same resilient retry config
     // as the singleton so a brief network blip doesn't permanently stop events.
     const Redis = require('ioredis')

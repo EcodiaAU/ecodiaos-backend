@@ -3,7 +3,7 @@
 /**
  * PR 2 load-bearing correctness tests for the 4-breakpoint cache layout.
  *
- * These tests are MORE important than byte-for-byte parity — they pin the
+ * These tests are MORE important than byte-for-byte parity - they pin the
  * invariants that make the Anthropic prompt cache actually hit:
  *
  *   1. Content blocks are emitted in stability order BP1 → BP2 → BP3 → BP4.
@@ -17,7 +17,7 @@
  *      buildCustomSystemPrompt output + the v1 user-message stitch
  *      byte-for-byte. This is the gate for PR 6's canary→full flip.
  *   4. Deterministic canary bucketing: a given session_id always hashes to
- *      the same bucket. No Math.random — mid-session prompt-shape switches
+ *      the same bucket. No Math.random - mid-session prompt-shape switches
  *      corrupt the SDK's context.
  */
 
@@ -47,7 +47,7 @@ function makeFixtureCwd({ claudeMd, selfMd } = {}) {
 }
 function cleanupFixture(dir) { try { fs.rmSync(dir, { recursive: true, force: true }) } catch {} }
 
-describe('promptAssembler — 4-breakpoint cache layout (PR 2)', () => {
+describe('promptAssembler - 4-breakpoint cache layout (PR 2)', () => {
   beforeEach(() => {
     promptAssembler._resetCacheForTest()
     doctrineSurface.surfaceDoctrineBlock.mockReset()
@@ -274,7 +274,7 @@ describe('promptAssembler — 4-breakpoint cache layout (PR 2)', () => {
     })
   })
 
-  describe('BP3 — doctrineSurface shim (PR 4 hand-off)', () => {
+  describe('BP3 - doctrineSurface shim (PR 4 hand-off)', () => {
     test('BP3 populated from doctrineSurface.surfaceDoctrineBlock when user_content is present', () => {
       const cwd = makeFixtureCwd({ claudeMd: '# CLAUDE\n' })
       try {
@@ -320,7 +320,7 @@ describe('promptAssembler — 4-breakpoint cache layout (PR 2)', () => {
     })
   })
 
-  describe('BP4 — per-turn passthrough', () => {
+  describe('BP4 - per-turn passthrough', () => {
     test('BP4 populated with <now>, forks_rollup, relevant_memory when provided', () => {
       const cwd = makeFixtureCwd({ claudeMd: '# CLAUDE\n' })
       try {

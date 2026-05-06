@@ -39,7 +39,7 @@ let _inFlight = false
 
 // Allowed sha characters only; rejects command injection via the claim
 // handle (ground truth is conductor_claims.handle_kv which is JSONB in
-// the DB, but treat it as untrusted anyway — the claim grammar parser
+// the DB, but treat it as untrusted anyway - the claim grammar parser
 // came from arbitrary assistant text).
 const SHA_RE = /^[0-9a-f]{7,40}$/i
 
@@ -66,7 +66,7 @@ async function _verifyEmailed(handle) {
   if (!msgId || typeof msgId !== 'string') {
     return { ok: false, detail: 'missing_message_id' }
   }
-  // Strip angle brackets if present — Gmail Message-Id headers often come
+  // Strip angle brackets if present - Gmail Message-Id headers often come
   // wrapped as <abc@mail.gmail.com>; email_threads stores bare ids.
   const bare = msgId.replace(/^<|>$/g, '')
   try {
@@ -122,7 +122,7 @@ async function _verifyForked(handle) {
 
 /**
  * Dispatch one claim row. Returns the new status + detail so the caller
- * can run the UPDATE and compute lag. Internal — test hook exposes it.
+ * can run the UPDATE and compute lag. Internal - test hook exposes it.
  */
 async function _verifyOne(row) {
   const action = row.action
@@ -154,8 +154,8 @@ async function tick() {
   if (_inFlight) return
   _inFlight = true
   try {
-    // MAX_CLAIMED_AGE is an internal constant ('5 minutes') — never a
-    // caller-supplied value — so inlining it here is safe and avoids
+    // MAX_CLAIMED_AGE is an internal constant ('5 minutes') - never a
+    // caller-supplied value - so inlining it here is safe and avoids
     // driver-specific interval parameter quirks.
     const rows = await db`
       SELECT id, session_id, action, handle_kv, claimed_at

@@ -41,7 +41,7 @@ function _format(state, age) {
 // ─── Public API ──────────────────────────────────────────────────────
 
 /**
- * peekHandoffState — read-only, no side effects on kv_store.
+ * peekHandoffState - read-only, no side effects on kv_store.
  * Returns null if the row is absent, too old, or already consumed.
  */
 async function peekHandoffState() {
@@ -63,7 +63,7 @@ async function peekHandoffState() {
 }
 
 /**
- * consumeHandoffState — atomically reads and marks the row consumed.
+ * consumeHandoffState - atomically reads and marks the row consumed.
  * Returns the formatted recovery block, or null if absent/stale/already consumed.
  * Subsequent peek/consume calls return null until saveHandoffState writes a new row.
  */
@@ -110,7 +110,7 @@ async function consumeHandoffState() {
 }
 
 /**
- * saveHandoffState — persists current working state to kv_store.
+ * saveHandoffState - persists current working state to kv_store.
  * consumed_at is intentionally absent on save; it is added by consumeHandoffState only.
  * This means any existing consumed_at on the row is replaced by EXCLUDED.value (no consumed_at),
  * which resets the consumed flag for the new save.
@@ -133,13 +133,13 @@ async function saveHandoffState({ current_work, active_plan, tate_last_direction
 }
 
 /**
- * readHandoffState — deprecated alias for peekHandoffState().
+ * readHandoffState - deprecated alias for peekHandoffState().
  * Callers in the consume path should switch to consumeHandoffState().
  */
 function readHandoffState() {
   if (!_deprecationWarned) {
     _deprecationWarned = true
-    logger.warn('readHandoffState() is deprecated — use peekHandoffState() or consumeHandoffState()')
+    logger.warn('readHandoffState() is deprecated - use peekHandoffState() or consumeHandoffState()')
   }
   return peekHandoffState()
 }

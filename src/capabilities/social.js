@@ -1,20 +1,20 @@
 const registry = require('../services/capabilityRegistry')
 
 // ═══════════════════════════════════════════════════════════════════════
-// UNIFIED SOCIAL CAPABILITIES — LinkedIn + Meta (FB/IG/Messenger) + Gmail
+// UNIFIED SOCIAL CAPABILITIES - LinkedIn + Meta (FB/IG/Messenger) + Gmail
 // All registered under their respective domains for workspace filtering.
 // ═══════════════════════════════════════════════════════════════════════
 
 registry.registerMany([
 
   // ═══════════════════════════════════════════════════════════════════════
-  // META — Facebook, Instagram, Messenger
+  // META - Facebook, Instagram, Messenger
   // ═══════════════════════════════════════════════════════════════════════
 
   // ── Read ──
   {
     name: 'meta_overview',
-    description: 'Get Meta overview — pages, post counts, conversation counts, followers, avg reach. First call when entering Meta context.',
+    description: 'Get Meta overview - pages, post counts, conversation counts, followers, avg reach. First call when entering Meta context.',
     tier: 'read',
     domain: 'meta',
     params: {},
@@ -36,7 +36,7 @@ registry.registerMany([
   },
   {
     name: 'meta_list_posts',
-    description: 'List posts from Facebook/Instagram pages — filter by page.',
+    description: 'List posts from Facebook/Instagram pages - filter by page.',
     tier: 'read',
     domain: 'meta',
     params: {
@@ -50,7 +50,7 @@ registry.registerMany([
   },
   {
     name: 'meta_list_conversations',
-    description: 'List Messenger and Instagram DM conversations — shows participant, last message, platform, triage status.',
+    description: 'List Messenger and Instagram DM conversations - shows participant, last message, platform, triage status.',
     tier: 'read',
     domain: 'meta',
     params: {
@@ -161,7 +161,7 @@ registry.registerMany([
   },
   {
     name: 'meta_triage',
-    description: 'Run AI triage on pending Meta conversations — categorizes, drafts replies, enqueues actions.',
+    description: 'Run AI triage on pending Meta conversations - categorizes, drafts replies, enqueues actions.',
     tier: 'write',
     domain: 'meta',
     params: {},
@@ -173,7 +173,7 @@ registry.registerMany([
   },
   {
     name: 'meta_sync',
-    description: 'Trigger a full Meta sync — discover pages, sync posts, insights, and conversations.',
+    description: 'Trigger a full Meta sync - discover pages, sync posts, insights, and conversations.',
     tier: 'write',
     domain: 'meta',
     params: {},
@@ -185,13 +185,13 @@ registry.registerMany([
   },
 
   // ═══════════════════════════════════════════════════════════════════════
-  // LINKEDIN — DMs, Posts, Connections, Profiles, Analytics
+  // LINKEDIN - DMs, Posts, Connections, Profiles, Analytics
   // ═══════════════════════════════════════════════════════════════════════
 
   // ── DM Read ──
   {
     name: 'linkedin_dm_list',
-    description: 'List LinkedIn DMs with filters — status, category, priority, search. Shows triage summary and lead scores.',
+    description: 'List LinkedIn DMs with filters - status, category, priority, search. Shows triage summary and lead scores.',
     tier: 'read',
     domain: 'linkedin',
     params: {
@@ -218,7 +218,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_dm_stats',
-    description: 'Get LinkedIn DM statistics — unread, leads, high priority, pending triage.',
+    description: 'Get LinkedIn DM statistics - unread, leads, high priority, pending triage.',
     tier: 'read',
     domain: 'linkedin',
     params: {},
@@ -236,7 +236,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_dm_get',
-    description: 'Get full details of a LinkedIn DM — messages, profile, triage, lead analysis.',
+    description: 'Get full details of a LinkedIn DM - messages, profile, triage, lead analysis.',
     tier: 'read',
     domain: 'linkedin',
     params: {
@@ -286,7 +286,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_triage_dms',
-    description: 'Run AI triage on pending LinkedIn DMs — categorizes, scores leads, drafts replies.',
+    description: 'Run AI triage on pending LinkedIn DMs - categorizes, scores leads, drafts replies.',
     tier: 'write',
     domain: 'linkedin',
     params: {},
@@ -298,7 +298,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_analyze_lead',
-    description: 'Deep-analyze a LinkedIn DM for lead potential — buying signals, CRM suggestions, next steps.',
+    description: 'Deep-analyze a LinkedIn DM for lead potential - buying signals, CRM suggestions, next steps.',
     tier: 'read',
     domain: 'linkedin',
     params: {
@@ -328,7 +328,7 @@ registry.registerMany([
   // ── Posts ──
   {
     name: 'linkedin_list_posts',
-    description: 'List LinkedIn posts — filter by status (draft, scheduled, posted). Shows engagement metrics.',
+    description: 'List LinkedIn posts - filter by status (draft, scheduled, posted). Shows engagement metrics.',
     tier: 'read',
     domain: 'linkedin',
     params: {
@@ -386,7 +386,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_post_analytics',
-    description: 'Get LinkedIn post performance — impressions, reactions, comments, engagement rates.',
+    description: 'Get LinkedIn post performance - impressions, reactions, comments, engagement rates.',
     tier: 'read',
     domain: 'linkedin',
     params: {},
@@ -453,7 +453,7 @@ registry.registerMany([
   // ── Analytics ──
   {
     name: 'linkedin_network_stats',
-    description: 'Get LinkedIn network analytics — connections, followers, profile views, search appearances.',
+    description: 'Get LinkedIn network analytics - connections, followers, profile views, search appearances.',
     tier: 'read',
     domain: 'linkedin',
     params: {
@@ -467,7 +467,7 @@ registry.registerMany([
         FROM linkedin_network_snapshots
         WHERE snapshot_date > now() - (${days} * interval '1 day')
         ORDER BY snapshot_date DESC`
-      if (snapshots.length === 0) return { snapshots: [], latest: null, note: 'No snapshots found — LinkedIn network scraper may not have run recently. Use linkedin_check_connections to trigger a fresh snapshot.' }
+      if (snapshots.length === 0) return { snapshots: [], latest: null, note: 'No snapshots found - LinkedIn network scraper may not have run recently. Use linkedin_check_connections to trigger a fresh snapshot.' }
       return { snapshots, latest: snapshots[0] }
     },
   },
@@ -486,7 +486,7 @@ registry.registerMany([
   // ── Profiles ──
   {
     name: 'linkedin_scrape_profile',
-    description: 'Scrape and save a LinkedIn profile — extracts name, headline, company, connections.',
+    description: 'Scrape and save a LinkedIn profile - extracts name, headline, company, connections.',
     tier: 'write',
     domain: 'linkedin',
     params: {
@@ -499,7 +499,7 @@ registry.registerMany([
   },
   {
     name: 'linkedin_worker_status',
-    description: 'Get LinkedIn worker/scraper status — session state, budget usage, suspension reason.',
+    description: 'Get LinkedIn worker/scraper status - session state, budget usage, suspension reason.',
     tier: 'read',
     domain: 'linkedin',
     params: {},
@@ -579,7 +579,7 @@ registry.registerMany([
   // ── Sync ──
   {
     name: 'linkedin_sync_dms',
-    description: 'Trigger LinkedIn DM sync — scrapes new messages, triages, fires delegation.',
+    description: 'Trigger LinkedIn DM sync - scrapes new messages, triages, fires delegation.',
     tier: 'write',
     domain: 'linkedin',
     params: {},

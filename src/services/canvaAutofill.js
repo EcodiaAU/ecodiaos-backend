@@ -10,7 +10,7 @@ const canvaService = require('./canvaService')
 // Covers: autofill → export pipeline, template discovery with schemas,
 // and convenience preview generation.
 //
-// Do NOT import directly from canvaService internals — use the exported
+// Do NOT import directly from canvaService internals - use the exported
 // functions only. This module is the integration layer; canvaService is
 // the transport layer.
 // ═══════════════════════════════════════════════════════════════════════
@@ -21,10 +21,10 @@ const canvaService = require('./canvaService')
  * Each poll step uses canvaService's default 60s timeout, giving 120s total.
  *
  * @param {object} opts
- * @param {string} opts.templateId  - Brand template ID
- * @param {string} [opts.title]     - Design title (optional)
- * @param {object} opts.data        - Autofill data payload { fieldName: value }
- * @param {string} [opts.format]    - Export format: 'pdf' | 'png' | 'jpg' (default: 'pdf')
+ * @param {string} opts.templateId - Brand template ID
+ * @param {string} [opts.title] - Design title (optional)
+ * @param {object} opts.data - Autofill data payload { fieldName: value }
+ * @param {string} [opts.format] - Export format: 'pdf' | 'png' | 'jpg' (default: 'pdf')
  * @returns {{ designId, designUrl, exportUrl, exportFormat, durationMs }}
  * @throws {Error} with .step = 'autofill' | 'export' and .canvaJobId on failure
  */
@@ -96,10 +96,10 @@ async function autofillAndExport({ templateId, title, data, format = 'pdf' }) {
  *
  * Handles pagination via continuation tokens. Dataset fetch failures per
  * template are captured as { dataset: null, error: string } rather than
- * thrown — a single template failure does not abort the list.
+ * thrown - a single template failure does not abort the list.
  *
  * @param {object} [opts]
- * @param {number} [opts.limit=50]  - Max templates to return
+ * @param {number} [opts.limit=50] - Max templates to return
  * @returns {Array<{ id, title, updated_at, thumbnail_url, dataset, error? }>}
  */
 async function listTemplatesWithSchemas({ limit = 50 } = {}) {
@@ -158,7 +158,7 @@ async function listTemplatesWithSchemas({ limit = 50 } = {}) {
  * @throws {Error} with .status=404 if template not found
  */
 async function previewAutofill({ templateId }) {
-  // Fetch all templates — limit high enough that target is included.
+  // Fetch all templates - limit high enough that target is included.
   // A future optimisation: direct getBrandTemplateDataset if we already know the ID.
   const templates = await listTemplatesWithSchemas({ limit: 200 })
   const template = templates.find(t => t.id === templateId)

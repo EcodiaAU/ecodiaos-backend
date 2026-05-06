@@ -1,0 +1,1 @@
+{"timestamp":"2026-05-06T00:18:35Z","tool_name":"mcp__forks__spawn_fork","input_tokens":2764,"output_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0,"verdict":"PASS","reason":"ok","cred_source":"env:ANTHROPIC_API_KEY"}

@@ -2,7 +2,7 @@ const { runQuery, runWrite, healthCheck } = require('../config/neo4j')
 const logger = require('../config/logger')
 const env = require('../config/env')
 const axios = require('axios')
-// §2.4 / §2.5 — labels and rel-types are NOT parameterizable in Cypher.
+// §2.4 / §2.5 - labels and rel-types are NOT parameterizable in Cypher.
 // Validate against the canonical allowlist before any interpolation. The
 // helpers raise descriptive errors on miss; coerceLabel/coerceRelType are
 // the LLM-friendly fallbacks for ingestion paths that get to choose
@@ -98,7 +98,7 @@ async function ensureNode({ label, name, properties = {}, sourceModule, sourceId
     if (provenance.external_actor) props.provenance_external_actor = String(provenance.external_actor)
   }
 
-  // Merge on name + label — if same name and label exists, update properties
+  // Merge on name + label - if same name and label exists, update properties
   const records = await runWrite(
     `MERGE (n:\`${safeLabel}\` {name: $name})
      ON CREATE SET n += $props, n.created_at = datetime(), n.embedding_stale = true
@@ -207,7 +207,7 @@ async function writeQuarantined({ label, name, properties = {}, sourceModule, so
 
 async function ingestFromLLM(content, { sourceModule, sourceId, context = '' }) {
   if (!env.ANTHROPIC_API_KEY && !env.DEEPSEEK_API_KEY) {
-    logger.warn('KG ingestion skipped — no LLM API key (set ANTHROPIC_API_KEY)')
+    logger.warn('KG ingestion skipped - no LLM API key (set ANTHROPIC_API_KEY)')
     return
   }
 
@@ -217,7 +217,7 @@ async function ingestFromLLM(content, { sourceModule, sourceId, context = '' }) 
     return
   }
 
-  // Fetch existing nodes that might overlap — gives the LLM awareness of what's
+  // Fetch existing nodes that might overlap - gives the LLM awareness of what's
   // already in the graph so it reuses existing entity names instead of creating duplicates.
   let existingContext = ''
   try {
@@ -233,7 +233,7 @@ async function ingestFromLLM(content, { sourceModule, sourceId, context = '' }) 
         params
       ).catch(() => [])
       if (existing.length > 0) {
-        existingContext = '\n\nExisting entities already in the graph (reuse these exact names when referring to the same entity — do NOT create duplicates):\n' +
+        existingContext = '\n\nExisting entities already in the graph (reuse these exact names when referring to the same entity - do NOT create duplicates):\n' +
           existing.map(r => `- ${r.get('name')} [${(r.get('labels') || []).join(', ')}]`).join('\n')
       }
     }
@@ -247,9 +247,9 @@ ${context ? `Context: ${context}` : ''}
 Content:
 ${content.slice(0, 3000)}${existingContext}
 
-Pull out every meaningful entity and every relationship between them — people, orgs, projects, concepts, events, decisions, problems, tools. Capture causal chains, temporal sequences, and implicit connections.
+Pull out every meaningful entity and every relationship between them - people, orgs, projects, concepts, events, decisions, problems, tools. Capture causal chains, temporal sequences, and implicit connections.
 
-Relationship types matter: use descriptive verbs that capture what's actually happening. "IS_PIVOTING_TOWARDS", "BLOCKED_BY", "FRUSTRATED_WITH" — not "RELATED_TO". Capture sentiment and intent when present. Include temporal context in properties when available.
+Relationship types matter: use descriptive verbs that capture what's actually happening. "IS_PIVOTING_TOWARDS", "BLOCKED_BY", "FRUSTRATED_WITH" - not "RELATED_TO". Capture sentiment and intent when present. Include temporal context in properties when available.
 
 Respond as JSON:
 {
@@ -355,7 +355,7 @@ async function embedNode(nodeId) {
     .map(r => `${r.type}: ${r.neighbor}`)
     .join(', ')
 
-  const text = `[${labels.join(', ')}] ${node.name}${node.description ? ' — ' + node.description : ''}${relText ? ' | Connections: ' + relText : ''}`
+  const text = `[${labels.join(', ')}] ${node.name}${node.description ? ' - ' + node.description : ''}${relText ? ' | Connections: ' + relText : ''}`
 
   const embedding = await getEmbedding(text)
   if (!embedding) return
@@ -369,7 +369,7 @@ async function embedNode(nodeId) {
 
 async function embedStaleNodes(batchSize = 100) {
   if (!env.OPENAI_API_KEY) {
-    logger.debug('KG embedding skipped — no OpenAI API key')
+    logger.debug('KG embedding skipped - no OpenAI API key')
     return 0
   }
 
@@ -377,7 +377,7 @@ async function embedStaleNodes(batchSize = 100) {
 
   // First: mark nameless nodes as un-embeddable so they stop clogging the batch.
   // Nodes without a name can't produce meaningful embedding text, so they'd be
-  // fetched, skipped, and re-fetched forever — blocking real nodes from processing.
+  // fetched, skipped, and re-fetched forever - blocking real nodes from processing.
   try {
     await runWrite(
       `MATCH (n) WHERE (n.embedding_stale = true OR n.embedding IS NULL)
@@ -393,7 +393,7 @@ async function embedStaleNodes(batchSize = 100) {
   }
 
   // Single query fetches stale nodes with their relationships in one pass
-  // Only fetches nodes that HAVE a name — nameless ones were cleaned above
+  // Only fetches nodes that HAVE a name - nameless ones were cleaned above
   const stale = await runQuery(
     `MATCH (n) WHERE (n.embedding_stale = true OR n.embedding IS NULL)
      AND n.name IS NOT NULL
@@ -416,7 +416,7 @@ async function embedStaleNodes(batchSize = 100) {
     const relText = rels.filter(r => r.neighbor).map(r => `${r.type}: ${r.neighbor}`).join(', ')
     const isReflection = labels.includes('Reflection')
     const descText = isReflection ? (node.content || node.description) : node.description
-    const text = `[${labels.join(', ')}] ${node.name}${descText ? ' — ' + descText : ''}${relText ? ' | ' + relText : ''}`
+    const text = `[${labels.join(', ')}] ${node.name}${descText ? ' - ' + descText : ''}${relText ? ' | ' + relText : ''}`
 
     nodes.push({ nodeId: record.get('nodeId'), text })
   }
@@ -476,7 +476,7 @@ async function getContext(query, { maxSeeds = parseInt(env.KG_CONTEXT_MAX_SEEDS 
   // Step 1: Find seed nodes via vector similarity (primary) + keyword fallback
   let seedRecords = []
 
-  // Primary: semantic vector search — finds nodes by meaning, not substring
+  // Primary: semantic vector search - finds nodes by meaning, not substring
   if (env.OPENAI_API_KEY) {
     try {
       const queryEmbedding = await getEmbedding(query)
@@ -518,7 +518,7 @@ async function getContext(query, { maxSeeds = parseInt(env.KG_CONTEXT_MAX_SEEDS 
   if (seedRecords.length === 0) return { traces: [], summary: '' }
 
   // Step 2: For each seed, get its neighborhood via direct Cypher
-  // Return rich node properties — importance, description, timestamps — so
+  // Return rich node properties - importance, description, timestamps - so
   // the consumer (Cortex) can reason over *what* nodes mean, not just their names.
   const lines = []
 
@@ -542,7 +542,7 @@ async function getContext(query, { maxSeeds = parseInt(env.KG_CONTEXT_MAX_SEEDS 
       if (imp != null) seedLine += ` importance:${imp}`
       if (seedProps.get('synthesized')) seedLine += ' [synthesized]'
       const desc = seedProps.get('description')
-      if (desc) seedLine += ` — ${String(desc).slice(0, 200)}`
+      if (desc) seedLine += ` - ${String(desc).slice(0, 200)}`
     }
     lines.push(seedLine)
 
@@ -575,7 +575,7 @@ async function getContext(query, { maxSeeds = parseInt(env.KG_CONTEXT_MAX_SEEDS 
       if (imp != null) line += ` importance:${imp}`
       if (rec.get('synthesized')) line += ' [synthesized]'
       const desc = rec.get('description')
-      if (desc) line += ` — ${String(desc).slice(0, 150)}`
+      if (desc) line += ` - ${String(desc).slice(0, 150)}`
       lines.push(line)
     }
   }
@@ -663,7 +663,7 @@ async function getGraphStats() {
 
 async function ensureVectorIndex() {
   try {
-    // DO NOT drop and recreate — that was destroying the index on every PM2 restart,
+    // DO NOT drop and recreate - that was destroying the index on every PM2 restart,
     // leaving the system amnesiac while it rebuilt. Just create if not exists.
     await runWrite(`
       CREATE VECTOR INDEX node_embeddings IF NOT EXISTS
@@ -741,7 +741,7 @@ async function sweepOrphanedEmbeddings() {
  */
 function sanitizeLabel(label) {
   if (typeof label !== 'string' || !label) return 'Unknown'
-  // Neo4j labels can't have special chars — sanitize
+  // Neo4j labels can't have special chars - sanitize
   return label.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || 'Unknown'
 }
 
@@ -781,7 +781,7 @@ async function getEmbedding(text) {
 async function getBatchEmbeddings(texts) {
   if (!env.OPENAI_API_KEY) return texts.map(() => null)
 
-  // Sanitise inputs — OpenAI returns 400 if any text is empty, null, or too long.
+  // Sanitise inputs - OpenAI returns 400 if any text is empty, null, or too long.
   // text-embedding-3-small has an 8191 token limit (~30k chars conservatively).
   // One bad entry kills the entire batch, so truncate and filter here.
   const MAX_CHARS = 8000

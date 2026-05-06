@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────
-// ecodia-conductor — separate pm2 process that owns the conductor
+// ecodia-conductor - separate pm2 process that owns the conductor
 // SDK stream + cron poller + os-session message queue.
 //
 // Detached from ecodia-api so that `pm2 restart ecodia-api` (which
@@ -20,18 +20,18 @@
 // HTTP route surface (a follow-up commit will replace direct in-process
 // osSession.sendMessage() calls in ecodia-api with HTTP delegation).
 //
-// Activation is multi-phase — see
+// Activation is multi-phase - see
 //   docs/architecture/conductor-process-detach-2026-04-30.md
 // for the migration ordering.
 //
-// fork_mol0vfnr_78c3e4 — Decision 3993 commit 2/3.
+// fork_mol0vfnr_78c3e4 - Decision 3993 commit 2/3.
 // ─────────────────────────────────────────────────────────────────────
 
 const env = require('./config/env')
 const db = require('./config/db')
 const logger = require('./config/logger')
 
-// Boot identity tag — easy grep target in pm2 logs.
+// Boot identity tag - easy grep target in pm2 logs.
 const BOOT_TAG = '[conductor]'
 
 let shuttingDown = false
@@ -41,7 +41,7 @@ async function gracefulShutdown(signal) {
   shuttingDown = true
   logger.info(`${BOOT_TAG} ${signal} received - shutting down`)
 
-  // Stop services in reverse boot order. Each is best-effort —
+  // Stop services in reverse boot order. Each is best-effort - 
   // a failure in one stop should not prevent the others from running.
   try {
     const nightlyRestart = require('./services/nightlyRestartService')
@@ -151,7 +151,7 @@ process.on('unhandledRejection', (reason) => {
   // ── Boot: Stale fork recovery ─────────────────────────────────────
   // Mirrors the recovery in src/server.js. When ecodia-conductor
   // restarts (max_memory_restart, crash, deploy), in-flight forks
-  // would otherwise vanish silently. Idempotent across both processes —
+  // would otherwise vanish silently. Idempotent across both processes - 
   // whoever boots first runs it. (Schema ensures only non-terminal
   // rows are flipped to 'crashed'.)
   try {
@@ -167,7 +167,7 @@ process.on('unhandledRejection', (reason) => {
   // ── Boot: Scheduler Poller ────────────────────────────────────────
   // The cron engine. Polls os_scheduled_tasks every 30s, fires due
   // tasks at /api/os-session/message which lives in ecodia-api. The
-  // poller itself doesn't need to live in api — it's a tick loop with
+  // poller itself doesn't need to live in api - it's a tick loop with
   // session-busy gating + energy-adjusted cadence. Moving it here
   // means api hot-reloads no longer interrupt the cron engine.
   try {

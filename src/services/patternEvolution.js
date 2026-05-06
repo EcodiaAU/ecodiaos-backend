@@ -136,7 +136,7 @@ async function checkContradiction(newPatternText, newPatternId) {
           })
         }
       } catch {
-        // Contradiction check failed for this pair — skip
+        // Contradiction check failed for this pair - skip
       }
     }
 

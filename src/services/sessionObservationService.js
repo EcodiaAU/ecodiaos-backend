@@ -3,17 +3,17 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// SESSION OBSERVATION SERVICE — Watches running CC sessions for health
+// SESSION OBSERVATION SERVICE - Watches running CC sessions for health
 //
 // Called by autonomousMaintenanceWorker when the AI decides to check
 // session health. Detects stalls, stuck sessions, and unhealthy
 // patterns. Can auto-intervene by sending follow-up messages.
 //
 // Hardened against:
-//   - Missing 'completing'/'queued' states (sessions stuck invisible)
-//   - Null heartbeat/date fields
-//   - DB query failures (graceful degradation)
-//   - Concurrent observation calls (no duplicate interventions)
+// - Missing 'completing'/'queued' states (sessions stuck invisible)
+// - Null heartbeat/date fields
+// - DB query failures (graceful degradation)
+// - Concurrent observation calls (no duplicate interventions)
 // ═══════════════════════════════════════════════════════════════════════
 
 // Stale heartbeat threshold: session hasn't reported in this long
@@ -27,7 +27,7 @@ const QUEUED_STALE_MS = parseInt(env.SESSION_QUEUED_STALE_MS || '300000')  // 5 
 
 async function checkSessionHealth() {
   try {
-    // Include 'completing' and 'queued' — sessions can get stuck in these states
+    // Include 'completing' and 'queued' - sessions can get stuck in these states
     const running = await db`
       SELECT cs.id, cs.initial_prompt, cs.status, cs.started_at,
              cs.last_heartbeat_at, cs.codebase_id, cs.pipeline_stage,
@@ -69,7 +69,7 @@ async function checkSessionHealth() {
 
       const heartbeatAge = heartbeatAt
         ? now - heartbeatAt
-        : now - startedAt  // No heartbeat yet — use start time
+        : now - startedAt  // No heartbeat yet - use start time
       const isHeartbeatStale = heartbeatAge > HEARTBEAT_STALE_MS
 
       // Check last log output time
@@ -213,7 +213,7 @@ async function buildSessionHealthBrief() {
         if (s.isOutputStalled) issues.push('output stalled')
         if (s.isQueuedStale) issues.push('stuck in queue')
         if (s.isCompletingStuck) issues.push('stuck completing')
-        lines.push(`  - ${s.sessionId.slice(0, 8)}: ${s.prompt || 'no prompt'} [${issues.join(', ')}] (${s.durationMinutes}min, ${s.status})`)
+        lines.push(` - ${s.sessionId.slice(0, 8)}: ${s.prompt || 'no prompt'} [${issues.join(', ')}] (${s.durationMinutes}min, ${s.status})`)
       }
     }
 

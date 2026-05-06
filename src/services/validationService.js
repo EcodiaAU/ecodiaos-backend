@@ -149,7 +149,7 @@ async function validateChanges(sessionId) {
     logger.info(`Validation typecheck: ${typeResult.passed ? 'PASS' : 'FAIL'}`, { sessionId })
   }
 
-  // Confidence score — heuristic baseline, then blend with historical outcomes
+  // Confidence score - heuristic baseline, then blend with historical outcomes
   const W = {
     baselineNoDeps:   parseFloat(env.VALIDATION_BASELINE_NO_DEPS       || '0.40'),
     testsPass:        parseFloat(env.VALIDATION_WEIGHT_TESTS_PASS       || '0.4'),
@@ -171,7 +171,7 @@ async function validateChanges(sessionId) {
 
   if (noDepsInstalled) {
     heuristic = W.baselineNoDeps
-    logger.info(`Validation: deps not installed for ${project.runtime} project — baseline confidence ${heuristic}`, { sessionId })
+    logger.info(`Validation: deps not installed for ${project.runtime} project - baseline confidence ${heuristic}`, { sessionId })
   } else {
     if (results.testPassed === true) heuristic += W.testsPass
     else if (results.testPassed === null) heuristic += W.testsNull
@@ -207,7 +207,7 @@ async function validateChanges(sessionId) {
       confidence = (heuristic * heuristicWeight) + (historicalRate * (1 - heuristicWeight))
 
       // No floor cap: if historical data screams 0% success, let confidence go there.
-      // The oversight pipeline needs to know the truth — blocking at 0.4 hides real failure signals.
+      // The oversight pipeline needs to know the truth - blocking at 0.4 hides real failure signals.
 
       logger.info(`Validation confidence: heuristic=${heuristic.toFixed(2)}, historical=${historicalRate.toFixed(2)} (n=${history.total}), blended=${confidence.toFixed(2)}`, { sessionId })
     }

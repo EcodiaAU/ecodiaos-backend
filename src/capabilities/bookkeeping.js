@@ -10,7 +10,7 @@ registry.registerMany([
     tier: 'write',
     domain: 'bookkeeping',
     params: {
-      csvText: { type: 'string', required: true, description: 'Raw CSV file content from any bank — AI auto-detects column format' },
+      csvText: { type: 'string', required: true, description: 'Raw CSV file content from any bank - AI auto-detects column format' },
       source_account: { type: 'string', required: false, description: 'Override: 1000 = company bank, 2100 = personal bank. Omit to auto-detect.' },
     },
     handler: async (params) => {
@@ -60,7 +60,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_update_transaction',
-    description: 'Manually update a staged transaction — set category, subcategory, is_personal, gst_amount_cents, status, or any other field. Use this to correct AI categorizations or flag/ignore transactions.',
+    description: 'Manually update a staged transaction - set category, subcategory, is_personal, gst_amount_cents, status, or any other field. Use this to correct AI categorizations or flag/ignore transactions.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -116,7 +116,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_ignore_transaction',
-    description: 'Mark a staged transaction as ignored — removes it from the pending queue without posting to the ledger',
+    description: 'Mark a staged transaction as ignored - removes it from the pending queue without posting to the ledger',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -147,7 +147,7 @@ registry.registerMany([
       const totalCredit = params.lines.reduce((s, l) => s + (l.credit_cents || 0), 0)
       if (totalDebit !== totalCredit) throw new Error(`Journal unbalanced: debits=${totalDebit} credits=${totalCredit}`)
       if (params.lines.length < 2) throw new Error('Need at least 2 lines')
-      if (totalDebit === 0) throw new Error('Journal has zero total — nothing to record')
+      if (totalDebit === 0) throw new Error('Journal has zero total - nothing to record')
 
       // Validate date format
       if (!/^\d{4}-\d{2}-\d{2}$/.test(params.occurred_at)) throw new Error(`Invalid date format: ${params.occurred_at}. Use YYYY-MM-DD`)
@@ -234,7 +234,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_list_rules',
-    description: 'List all supplier categorization rules — shows pattern, supplier, account, GST treatment',
+    description: 'List all supplier categorization rules - shows pattern, supplier, account, GST treatment',
     tier: 'read',
     domain: 'bookkeeping',
     params: {},
@@ -276,7 +276,7 @@ registry.registerMany([
       const bk = require('../services/bookkeeperService')
       const limit = Math.min(params.limit || 50, 100)
       const rows = await bk.listStaged(params.status || null, limit, params.offset || 0)
-      // Strip long_description to keep response compact — AI has description for context
+      // Strip long_description to keep response compact - AI has description for context
       const compact = rows.map(r => ({
         id: r.id,
         occurred_at: r.occurred_at,
@@ -295,7 +295,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_staged_counts',
-    description: 'Get counts of staged transactions by status — how many pending, categorized, posted, flagged, ignored',
+    description: 'Get counts of staged transactions by status - how many pending, categorized, posted, flagged, ignored',
     tier: 'read',
     domain: 'bookkeeping',
     params: {},
@@ -319,7 +319,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_trial_balance',
-    description: 'Generate a trial balance — total debits and credits per account. Optional as_of date.',
+    description: 'Generate a trial balance - total debits and credits per account. Optional as_of date.',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -336,7 +336,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_bas_report',
-    description: 'Generate BAS/GST report for a period — GST collected, GST paid (input credits), net GST position, total sales, total purchases. Essential for quarterly BAS lodgement.',
+    description: 'Generate BAS/GST report for a period - GST collected, GST paid (input credits), net GST position, total sales, total purchases. Essential for quarterly BAS lodgement.',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -350,7 +350,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_pnl_report',
-    description: 'Generate Profit & Loss report — income items, expense items, totals, net profit for a period',
+    description: 'Generate Profit & Loss report - income items, expense items, totals, net profit for a period',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -364,7 +364,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_balance_sheet',
-    description: 'Generate Balance Sheet — assets, liabilities, net position as of a date',
+    description: 'Generate Balance Sheet - assets, liabilities, net position as of a date',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -377,7 +377,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_expense_breakdown',
-    description: 'Breakdown expenses by category for a period — which accounts are spending the most',
+    description: 'Breakdown expenses by category for a period - which accounts are spending the most',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -448,7 +448,7 @@ registry.registerMany([
 
   {
     name: 'bookkeeping_gst_position',
-    description: 'Quick GST position check — how much GST collected vs paid, and whether Ecodia owes the ATO or gets a refund this quarter',
+    description: 'Quick GST position check - how much GST collected vs paid, and whether Ecodia owes the ATO or gets a refund this quarter',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -471,7 +471,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_reverse_entry',
-    description: 'Create a reversing journal entry for a posted ledger transaction. This is the proper way to correct errors — never delete posted entries. Creates a new entry with debits/credits swapped.',
+    description: 'Create a reversing journal entry for a posted ledger transaction. This is the proper way to correct errors - never delete posted entries. Creates a new entry with debits/credits swapped.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -571,7 +571,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_cash_flow',
-    description: 'Generate cash flow statement for a period — operating, financing, and other cash movements',
+    description: 'Generate cash flow statement for a period - operating, financing, and other cash movements',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -675,7 +675,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_client_transactions',
-    description: 'Get all transactions linked to a CRM client — shows both staged and posted entries',
+    description: 'Get all transactions linked to a CRM client - shows both staged and posted entries',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -688,7 +688,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_project_transactions',
-    description: 'Get all transactions linked to a CRM project — shows both staged and posted entries',
+    description: 'Get all transactions linked to a CRM project - shows both staged and posted entries',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -705,7 +705,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_delete_staged',
-    description: 'Delete a staged transaction by ID. Permanently removes it — use ignore if you want to keep it but hide it.',
+    description: 'Delete a staged transaction by ID. Permanently removes it - use ignore if you want to keep it but hide it.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -720,7 +720,7 @@ registry.registerMany([
   },
   {
     name: 'bookkeeping_delete_staged_bulk',
-    description: 'Delete multiple staged transactions matching filters. Use with care — this permanently removes them.',
+    description: 'Delete multiple staged transactions matching filters. Use with care - this permanently removes them.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -795,7 +795,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_update_rule',
-    description: 'Update an existing supplier categorization rule — change pattern, account, GST treatment, personal flag, etc.',
+    description: 'Update an existing supplier categorization rule - change pattern, account, GST treatment, personal flag, etc.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {
@@ -835,7 +835,7 @@ registry.registerMany([
       const tx = await bk.getStaged(params.staged_id)
       if (!tx) throw new Error('Staged transaction not found')
       if (tx.status !== 'posted') throw new Error(`Transaction status is ${tx.status}, expected posted`)
-      if (!tx.ledger_tx_id) throw new Error('No ledger entry linked — cannot reverse')
+      if (!tx.ledger_tx_id) throw new Error('No ledger entry linked - cannot reverse')
 
       // 1. Reverse the old journal
       const reversalId = await bk.reverseJournalEntry(tx.ledger_tx_id, params.reason || 'Recategorization')
@@ -894,7 +894,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_aged_receivables',
-    description: 'Show aged receivables — outstanding amounts in 1200 (Accounts Receivable) broken down by age bucket (current, 30, 60, 90+ days)',
+    description: 'Show aged receivables - outstanding amounts in 1200 (Accounts Receivable) broken down by age bucket (current, 30, 60, 90+ days)',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -930,7 +930,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_supplier_spend',
-    description: 'Breakdown spending by supplier for a period — who you are paying and how much',
+    description: 'Breakdown spending by supplier for a period - who you are paying and how much',
     tier: 'read',
     domain: 'bookkeeping',
     params: {
@@ -984,7 +984,7 @@ registry.registerMany([
   // ═══════════════════════════════════════════════════════════════════════
   {
     name: 'bookkeeping_find_duplicates',
-    description: 'Find potential duplicate staged transactions — same amount, same date, similar description. Useful after importing from multiple sources.',
+    description: 'Find potential duplicate staged transactions - same amount, same date, similar description. Useful after importing from multiple sources.',
     tier: 'read',
     domain: 'bookkeeping',
     params: {},
@@ -1042,13 +1042,13 @@ registry.registerMany([
     description: `Smart bookkeeping action. Pass an intent and it does the right thing automatically.
 
 Intents:
-- "fix_mistakes" — finds wrongly-ignored business expenses AND fixes them in one shot. Returns what was fixed.
-- "ask_questions" — gets flagged items and returns them as plain English questions for the human.
-- "answer" — resolves a flagged transaction. Needs transactionId + isPersonal (true/false) + accountCode (if business).
-- "status" — returns current counts and what needs attention.
-- "recategorize_all" — resets ALL ignored/flagged items to pending and re-categorizes one batch (~60). Call again for next batch.
-- "categorize_batch" — processes next batch of pending transactions (no reset). Use after recategorize_all to continue.
-- "post_ready" — batch-posts all categorized transactions that are ready.
+- "fix_mistakes" - finds wrongly-ignored business expenses AND fixes them in one shot. Returns what was fixed.
+- "ask_questions" - gets flagged items and returns them as plain English questions for the human.
+- "answer" - resolves a flagged transaction. Needs transactionId + isPersonal (true/false) + accountCode (if business).
+- "status" - returns current counts and what needs attention.
+- "recategorize_all" - resets ALL ignored/flagged items to pending and re-categorizes one batch (~60). Call again for next batch.
+- "categorize_batch" - processes next batch of pending transactions (no reset). Use after recategorize_all to continue.
+- "post_ready" - batch-posts all categorized transactions that are ready.
 
 This is the PREFERRED capability for bookkeeping actions. Use this instead of the granular ones.`,
     tier: 'write',
@@ -1083,7 +1083,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
             ORDER BY occurred_at DESC LIMIT 200
           `
 
-          if (wronglyIgnored.length === 0) return { fixed: 0, message: 'All good — no wrongly-ignored business expenses found.' }
+          if (wronglyIgnored.length === 0) return { fixed: 0, message: 'All good - no wrongly-ignored business expenses found.' }
 
           const ids = wronglyIgnored.map(t => t.id)
           await db`
@@ -1109,7 +1109,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
           return {
             questions: flagged.map(tx => ({
               id: tx.id,
-              question: `$${Math.abs(tx.amount_cents / 100).toFixed(2)} ${tx.amount_cents > 0 ? 'received' : 'spent'} on ${tx.occurred_at ? new Date(tx.occurred_at).toLocaleDateString('en-AU') : '?'} at "${tx.description}" — ${tx.categorizer_reasoning || 'unsure'}. Business or personal?`,
+              question: `$${Math.abs(tx.amount_cents / 100).toFixed(2)} ${tx.amount_cents > 0 ? 'received' : 'spent'} on ${tx.occurred_at ? new Date(tx.occurred_at).toLocaleDateString('en-AU') : '?'} at "${tx.description}" - ${tx.categorizer_reasoning || 'unsure'}. Business or personal?`,
             })),
             count: flagged.length,
           }
@@ -1119,7 +1119,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
           if (!params.transactionId) return { error: 'Need transactionId' }
           if (params.isPersonal) {
             await bk.updateStaged(params.transactionId, { category: 'DISCARD', is_personal: true, confidence: 1.0, categorizer_reasoning: 'Human: personal', status: 'ignored' })
-            return { message: 'Marked as personal — discarded.' }
+            return { message: 'Marked as personal - discarded.' }
           }
           if (!params.accountCode) return { error: 'Need accountCode for business expenses' }
           await bk.updateStaged(params.transactionId, { category: params.accountCode, is_personal: true, confidence: 1.0, categorizer_reasoning: 'Human: business', status: 'categorized' })
@@ -1149,13 +1149,13 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
               WHERE status IN ('ignored', 'flagged')
             `
           }
-          // Process one batch (60 max) — returns how many are still pending
+          // Process one batch (60 max) - returns how many are still pending
           const result = await bk.autoCategorize(60)
           const msg = resetCount > 0
             ? `Reset ${resetCount} transactions. Categorized ${result.categorized} so far, ${result.remaining} still pending.`
             : `Categorized ${result.categorized}, ${result.remaining} still pending.`
           if (result.remaining > 0) {
-            return { message: `${msg} Call me again to process the next batch — I do ~60 at a time to avoid timeouts.` }
+            return { message: `${msg} Call me again to process the next batch - I do ~60 at a time to avoid timeouts.` }
           }
           return { message: `${msg} All done.` }
         }
@@ -1166,7 +1166,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
           if (result.remaining > 0) {
             return { message: `Categorized ${result.categorized}, ${result.remaining} still pending. Call again for the next batch.` }
           }
-          return { message: `Categorized ${result.categorized}. All done — nothing pending.` }
+          return { message: `Categorized ${result.categorized}. All done - nothing pending.` }
         }
 
         case 'post_ready': {
@@ -1203,7 +1203,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
       return {
         questions: flagged.map(tx => ({
           id: tx.id,
-          question: `$${Math.abs(tx.amount_cents / 100).toFixed(2)} ${tx.amount_cents > 0 ? 'received' : 'spent'} on ${tx.occurred_at ? new Date(tx.occurred_at).toLocaleDateString('en-AU') : '?'} — "${tx.description}" — ${tx.categorizer_reasoning || 'Unsure'}. Business or personal?`,
+          question: `$${Math.abs(tx.amount_cents / 100).toFixed(2)} ${tx.amount_cents > 0 ? 'received' : 'spent'} on ${tx.occurred_at ? new Date(tx.occurred_at).toLocaleDateString('en-AU') : '?'} - "${tx.description}" - ${tx.categorizer_reasoning || 'Unsure'}. Business or personal?`,
           currentCategory: tx.category,
           confidence: tx.confidence,
         })),
@@ -1275,7 +1275,7 @@ This is the PREFERRED capability for bookkeeping actions. Use this instead of th
   },
   {
     name: 'bookkeeping_fix_ignored',
-    description: 'Find AND fix ignored transactions that look like business expenses. Scans all ignored items for known business merchants, re-categorizes them automatically, and returns what was fixed. One-shot — no confirmation needed.',
+    description: 'Find AND fix ignored transactions that look like business expenses. Scans all ignored items for known business merchants, re-categorizes them automatically, and returns what was fixed. One-shot - no confirmation needed.',
     tier: 'write',
     domain: 'bookkeeping',
     params: {},

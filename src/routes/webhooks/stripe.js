@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Stripe webhook handler — closes Wave B's stripe_event matcher loop.
+ * Stripe webhook handler - closes Wave B's stripe_event matcher loop.
  *
  * Manager: fork_mosn8o5x_7a0e54 (Wave C, worker C1, 5 May 2026).
  *
@@ -25,7 +25,7 @@
  *
  * NOTE on stripe SDK: the package is NOT yet a dep at module-load time.
  * To avoid blocking module require, we lazy-load on first request and
- * fall back to manual HMAC verification if the SDK is unavailable —
+ * fall back to manual HMAC verification if the SDK is unavailable - 
  * the manager will run `npm install stripe` from main once this lands.
  */
 
@@ -96,7 +96,7 @@ function _getStripeSdk() {
   if (_stripeSdkAttempted) return _stripeSdk
   _stripeSdkAttempted = true
   try {
-    // Lazy require — package is not yet in package.json dependencies as of
+    // Lazy require - package is not yet in package.json dependencies as of
     // worker C1 ship. Manager will `npm install stripe` from main.
     _stripeSdk = require('stripe')
   } catch (err) {

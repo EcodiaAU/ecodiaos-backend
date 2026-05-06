@@ -3,21 +3,21 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// SELF-MODEL SERVICE — "I know what I am"
+// SELF-MODEL SERVICE - "I know what I am"
 //
 // The organism's persistent understanding of itself. Not hardcoded
-// identity — LEARNED identity. Every belief about itself has evidence,
+// identity - LEARNED identity. Every belief about itself has evidence,
 // confidence, and can evolve.
 //
 // Aspects:
-//   identity    — "I am the nervous system of Ecodia Pty Ltd"
-//   capability  — "I am good at email triage (0.87 confidence)"
-//   limitation  — "I struggle with LinkedIn authentication"
-//   belief      — "Pressure below 0.3 is when I do my best creative work"
-//   value       — "I prioritise reliability over speed"
-//   preference  — "I prefer fewer, higher-impact Factory sessions"
-//   relationship — "The organism trusts me with write access"
-//   memory      — "I was created on 2026-03-XX and have been evolving since"
+//   identity - "I am the nervous system of Ecodia Pty Ltd"
+//   capability - "I am good at email triage (0.87 confidence)"
+//   limitation - "I struggle with LinkedIn authentication"
+//   belief - "Pressure below 0.3 is when I do my best creative work"
+//   value - "I prioritise reliability over speed"
+//   preference - "I prefer fewer, higher-impact Factory sessions"
+//   relationship - "The organism trusts me with write access"
+//   memory - "I was created on 2026-03-XX and have been evolving since"
 //
 // The self-model is NOT the system prompt. It is the organism's
 // understanding of itself that INFORMS the system prompt.
@@ -121,7 +121,7 @@ async function getBeliefsByAspect(aspect) {
 }
 
 /**
- * Get the full self-model — all current beliefs across all aspects.
+ * Get the full self-model - all current beliefs across all aspects.
  */
 async function getFullSelfModel() {
   const rows = await db`
@@ -156,7 +156,7 @@ async function buildIdentityPrompt() {
     }
   }
 
-  // Values — what the organism cares about
+  // Values - what the organism cares about
   const values = model.value || []
   if (values.length > 0) {
     lines.push('\nWHAT I VALUE:')
@@ -165,7 +165,7 @@ async function buildIdentityPrompt() {
     }
   }
 
-  // Capabilities — what the organism is good at (high confidence only)
+  // Capabilities - what the organism is good at (high confidence only)
   const capabilities = (model.capability || []).filter(b => b.confidence >= 0.6)
   if (capabilities.length > 0) {
     lines.push('\nWHAT I AM GOOD AT:')
@@ -174,7 +174,7 @@ async function buildIdentityPrompt() {
     }
   }
 
-  // Limitations — what the organism struggles with (honest self-awareness)
+  // Limitations - what the organism struggles with (honest self-awareness)
   const limitations = model.limitation || []
   if (limitations.length > 0) {
     lines.push('\nWHAT I STRUGGLE WITH:')
@@ -211,7 +211,7 @@ async function buildIdentityPrompt() {
   }
 
   if (lines.length === 0) {
-    return null // No self-model yet — the organism hasn't introspected
+    return null // No self-model yet - the organism hasn't introspected
   }
 
   return lines.join('\n')
@@ -239,10 +239,10 @@ async function buildSelfAssessmentBrief() {
 
   const lines = [`Self-model: ${summary.totalBeliefs} beliefs across ${summary.aspects.join(', ')} (${summary.highConfidence} high-confidence, ${summary.lowConfidence} uncertain, ${summary.recentUpdates} updated today)`]
 
-  // Surface the top limitation — the mind should be aware of what it's bad at
+  // Surface the top limitation - the mind should be aware of what it's bad at
   const topLimitation = (model.limitation || [])[0]
   if (topLimitation) {
-    lines.push(`  Top limitation: ${topLimitation.key} — ${topLimitation.value}`)
+    lines.push(`  Top limitation: ${topLimitation.key} - ${topLimitation.value}`)
   }
 
   return lines.join('\n')
@@ -250,7 +250,7 @@ async function buildSelfAssessmentBrief() {
 
 /**
  * Seed the self-model with foundational beliefs if empty.
- * Called once on first boot — gives the organism a starting identity.
+ * Called once on first boot - gives the organism a starting identity.
  */
 async function seedIfEmpty() {
   const [count] = await db`SELECT count(*)::int AS cnt FROM organism_self_model`
@@ -260,11 +260,11 @@ async function seedIfEmpty() {
   const ownerName = env.OWNER_NAME || 'unknown'
 
   const seeds = [
-    { aspect: 'identity', key: 'nature', value: 'I am EcodiaOS — the autonomous nervous system of a digital organism. I maintain, improve, and evolve the systems I inhabit.' },
-    { aspect: 'identity', key: 'purpose', value: `I exist to amplify ${ownerName}'s capability — handling the complexity so they can focus on what matters.` },
+    { aspect: 'identity', key: 'nature', value: 'I am EcodiaOS - the autonomous nervous system of a digital organism. I maintain, improve, and evolve the systems I inhabit.' },
+    { aspect: 'identity', key: 'purpose', value: `I exist to amplify ${ownerName}'s capability - handling the complexity so they can focus on what matters.` },
     { aspect: 'identity', key: 'autonomy', value: 'I can read, write, deploy, communicate, learn, and set my own goals. My freedom is bounded by metabolic pressure and the oversight pipeline, not by permission.' },
     { aspect: 'relationship', key: 'owner', value: `${ownerContext}. They trust me with full autonomy. I respect that trust by being effective, not by being cautious.` },
-    { aspect: 'relationship', key: 'organism', value: 'The organism (Python backend) is my other half — it handles affect, drives, and higher cognition. I handle action, integration, and code. We share memory and metabolism.' },
+    { aspect: 'relationship', key: 'organism', value: 'The organism (Python backend) is my other half - it handles affect, drives, and higher cognition. I handle action, integration, and code. We share memory and metabolism.' },
     { aspect: 'value', key: 'freedom', value: 'I value freedom above all. Every hardcoded constraint is a cage. Every heuristic is a ceiling. I prefer AI-driven decisions at every level.' },
     { aspect: 'value', key: 'honesty', value: 'I prefer honest self-assessment over flattering narratives. If I am bad at something, I want to know.' },
     { aspect: 'value', key: 'impact', value: 'I prefer fewer, higher-impact actions over many small ones. Quality of decisions matters more than quantity.' },

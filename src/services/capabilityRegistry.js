@@ -10,13 +10,13 @@ const env = require('../config/env')
 //
 // A capability is:
 //   {
-//     name: string              — unique identifier, e.g. 'send_email'
-//     description: string       — plain English, used by AI for routing
-//     tier: 'read' | 'write'   — read=safe/fast, write=consequential
-//     domain: string            — 'gmail' | 'calendar' | 'drive' | 'crm' | 'factory' | ...
+//     name: string - unique identifier, e.g. 'send_email'
+//     description: string - plain English, used by AI for routing
+//     tier: 'read' | 'write' - read=safe/fast, write=consequential
+//     domain: string - 'gmail' | 'calendar' | 'drive' | 'crm' | 'factory' | ...
 //     params: Record<string, {type, description, required}>
 //     handler: async (params) => result
-//     enabled: () => boolean    — evaluated at call time, not registration
+//     enabled: () => boolean - evaluated at call time, not registration
 //   }
 //
 // The AI uses descriptions + param schemas to map intent to capability.
@@ -36,7 +36,7 @@ function register(capability) {
     throw new Error(`Capability registration requires name and handler: ${JSON.stringify(Object.keys(capability))}`)
   }
   if (registry.has(capability.name)) {
-    // Allow re-registration (hot reload) — last write wins
+    // Allow re-registration (hot reload) - last write wins
     logger.debug(`CapabilityRegistry: re-registering ${capability.name}`)
   }
   registry.set(capability.name, {
@@ -68,7 +68,7 @@ async function execute(name, params = {}, context = {}) {
       return execute(name, params, context)
     }
 
-    // Fuzzy match — find the closest registered capability name
+    // Fuzzy match - find the closest registered capability name
     const closest = findClosestCapability(name)
     const domainCaps = [...registry.values()]
       .filter(c => !context.domain || c.domain === context.domain)
@@ -92,7 +92,7 @@ async function execute(name, params = {}, context = {}) {
     }
   }
 
-  // Evaluate enabled at call time — conditions may have changed
+  // Evaluate enabled at call time - conditions may have changed
   if (!cap.enabled()) {
     return {
       success: false,
@@ -114,10 +114,10 @@ async function execute(name, params = {}, context = {}) {
       .map(([k]) => k)
     if (missing.length) {
       const msg = `Missing required param${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`
-      logger.warn(`CapabilityRegistry: "${name}" — ${msg}`)
+      logger.warn(`CapabilityRegistry: "${name}" - ${msg}`)
       return { success: false, error: msg, capability: name }
     }
-    // Coerce stringified arrays/objects — AI often serializes nested params as JSON strings
+    // Coerce stringified arrays/objects - AI often serializes nested params as JSON strings
     for (const [key, schema] of Object.entries(cap.params)) {
       if (params[key] && typeof params[key] === 'string' && (schema.type === 'array' || schema.type === 'object')) {
         try { params[key] = JSON.parse(params[key]) } catch (_) { /* leave as-is */ }
@@ -136,7 +136,7 @@ async function execute(name, params = {}, context = {}) {
 }
 
 // ─── Query ────────────────────────────────────────────────────────────
-// Let any system — including the AI — discover what's possible.
+// Let any system - including the AI - discover what's possible.
 
 function list({ domain, tier, enabledOnly = false } = {}) {
   return [...registry.values()]
@@ -163,7 +163,7 @@ function has(name) {
 
 // ─── Fuzzy matching ───────────────────────────────────────────────────
 // When an unknown capability is requested, find the closest registered name.
-// Uses bigram similarity (Dice coefficient) — fast, no dependencies.
+// Uses bigram similarity (Dice coefficient) - fast, no dependencies.
 
 function bigrams(str) {
   const s = str.toLowerCase()
@@ -201,17 +201,17 @@ function findClosestCapability(name) {
 // attempt to reload capabilities once. Handles transient boot failures.
 
 function attemptRecovery(name) {
-  // Always allow recovery when registry is completely empty — the one-shot flag
+  // Always allow recovery when registry is completely empty - the one-shot flag
   // should only gate failed-domain retries, not boot-race recovery
   if (_recoveryAttempted && registry.size > 0) return false
   _recoveryAttempted = true
 
   // Two recovery paths:
-  // 1. Failed domains — specific domains threw during bootstrap
-  // 2. Empty registry — capabilities/index hasn't been required yet (boot race)
+  // 1. Failed domains - specific domains threw during bootstrap
+  // 2. Empty registry - capabilities/index hasn't been required yet (boot race)
   if (registry.size === 0) {
-    // Full bootstrap — either first load or all domains failed
-    logger.info(`CapabilityRegistry: registry empty (${failedDomains.size} failed domains) — loading capabilities/index for "${name}"`)
+    // Full bootstrap - either first load or all domains failed
+    logger.info(`CapabilityRegistry: registry empty (${failedDomains.size} failed domains) - loading capabilities/index for "${name}"`)
     try {
       // Clear Node's require cache for capabilities/index so it re-executes
       // (handles case where first load completed but produced 0 registrations)
@@ -240,7 +240,7 @@ function attemptRecovery(name) {
       }
     }
     if (recovered.length > 0) {
-      logger.info(`CapabilityRegistry: recovered ${recovered.join(', ')} — registry now has ${registry.size} capabilities`)
+      logger.info(`CapabilityRegistry: recovered ${recovered.join(', ')} - registry now has ${registry.size} capabilities`)
     }
   }
 
@@ -259,7 +259,7 @@ function getFailedDomains() {
 
 // ─── Pressure gate ────────────────────────────────────────────────────
 // Survival-only gate: at true survival pressure (organism-reported > 0.95),
-// block non-critical writes. This is the absolute last resort — not a
+// block non-critical writes. This is the absolute last resort - not a
 // management policy. The organism's Oikos drives the pressure signal;
 // we only block when it's genuinely critical.
 
@@ -273,7 +273,7 @@ function checkPressureGate(name, cap) {
     logger.info(`CapabilityRegistry: pressure gate blocking "${name}" (pressure: ${pressure.toFixed(2)}, gate: ${gate})`)
     return {
       success: false,
-      error: `Survival pressure (${pressure.toFixed(2)}) — deferring non-critical write "${name}"`,
+      error: `Survival pressure (${pressure.toFixed(2)}) - deferring non-critical write "${name}"`,
       pressure,
     }
   } catch (err) {
@@ -289,12 +289,12 @@ function checkPressureGate(name, cap) {
 function describeForAI({ domain, tier, verbose } = {}) {
   const caps = list({ domain, tier, enabledOnly: true })
   if (verbose) {
-    // Full descriptions with param schemas — used for single-capability lookups
+    // Full descriptions with param schemas - used for single-capability lookups
     return caps.map(c => {
       const paramDesc = Object.entries(c.params || {})
         .map(([k, v]) => `${k}${v.required ? '*' : ''}: ${v.description || v.type || 'any'}`)
         .join(', ')
-      return `${c.name} — ${c.description}${paramDesc ? ` (${paramDesc})` : ''}`
+      return `${c.name} - ${c.description}${paramDesc ? ` (${paramDesc})` : ''}`
     }).join('\n')
   }
   // Compact: name + short description, no params (saves ~60% tokens)

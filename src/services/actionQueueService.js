@@ -4,19 +4,19 @@ const env = require('../config/env')
 const { broadcast } = require('../websocket/wsManager')
 
 // ═══════════════════════════════════════════════════════════════════════
-// ACTION QUEUE SERVICE — Decision Intelligence Engine
+// ACTION QUEUE SERVICE - Decision Intelligence Engine
 //
 // Not a notification inbox. A learning decision-support system.
 //
 // Every integration enqueues candidate actions. Before surfacing:
-//  1. Decision memory is checked — has the user historically dismissed
+//  1. Decision memory is checked - has the user historically dismissed
 //     this kind of item? If so, suppress or downgrade priority.
-//  2. Semantic consolidation — items are merged by topic similarity,
+//  2. Semantic consolidation - items are merged by topic similarity,
 //     not just sender identity. Two emails about "invoicing" merge;
 //     two from the same person about different topics stay separate.
-//  3. Resource locking — batch execute groups by target resource to
+//  3. Resource locking - batch execute groups by target resource to
 //     prevent concurrent mutations against the same entity.
-//  4. Default expiry — nothing lives forever. 48h default.
+//  4. Default expiry - nothing lives forever. 48h default.
 //
 // Every approval and dismissal is recorded in action_decisions with
 // structured reasons. These accumulate into suppression signals that
@@ -65,12 +65,12 @@ const PRIORITY_RANK = { urgent: 0, high: 1, medium: 2, low: 3 }
 const VALID_PRIORITIES = new Set(['urgent', 'high', 'medium', 'low'])
 const DEFAULT_EXPIRY_HOURS = parseInt(env.ACTION_QUEUE_DEFAULT_EXPIRY_HOURS || '48', 10)
 
-// Suppression thresholds — after N consecutive dismissals of the same
+// Suppression thresholds - after N consecutive dismissals of the same
 // (source, action_type, sender) pattern with no approvals, auto-suppress
 const SUPPRESSION_THRESHOLD = parseInt(env.ACTION_QUEUE_SUPPRESSION_THRESHOLD || '0', 10)  // 0 = disabled (never auto-suppress)
 const SUPPRESSION_LOOKBACK_DAYS = parseInt(env.ACTION_QUEUE_SUPPRESSION_LOOKBACK_DAYS || '30', 10)
 
-// Dismissal suppression window — context-aware, not flat
+// Dismissal suppression window - context-aware, not flat
 const DISMISSAL_WINDOW_DEFAULT_HOURS = 2
 const DISMISSAL_WINDOW_URGENT_HOURS = 0 // urgent items always surface
 
@@ -160,14 +160,14 @@ async function evaluateSuppression({ source, actionType, senderEmail, senderName
       }
     }
 
-    // Priority upgrade: >80% execute rate — the user consistently acts on these
+    // Priority upgrade: >80% execute rate - the user consistently acts on these
     if (executions / totalDecisions > 0.8 && totalDecisions >= 3) {
       const currentRank = PRIORITY_RANK[priority] ?? 2
       const upgraded = currentRank > 0 ? Object.entries(PRIORITY_RANK).find(([, r]) => r === currentRank - 1)?.[0] : 'urgent'
       return {
         suppress: false,
         adjustedPriority: upgraded || priority,
-        reason: `${Math.round((executions / totalDecisions) * 100)}% execute rate — consistently acted on`,
+        reason: `${Math.round((executions / totalDecisions) * 100)}% execute rate - consistently acted on`,
       }
     }
 
@@ -284,7 +284,7 @@ async function enqueue({ source, sourceRefId, actionType, title, summary, prepar
   })
 
   if (suppression.suppress) {
-    logger.info(`Action queue: suppressed "${title}" — ${suppression.reason}`)
+    logger.info(`Action queue: suppressed "${title}" - ${suppression.reason}`)
     emitEvent('action:suppressed', { source, actionType, title, reason: suppression.reason })
     // Record suppression decision so the learning loop stays complete
     recordDecision(
@@ -298,11 +298,11 @@ async function enqueue({ source, sourceRefId, actionType, title, summary, prepar
   // Apply priority adjustment from decision history
   const effectivePriority = suppression.adjustedPriority || validatedPriority
   if (suppression.adjustedPriority) {
-    logger.info(`Action queue: priority adjusted ${validatedPriority}→${effectivePriority} for "${title}" — ${suppression.reason}`)
+    logger.info(`Action queue: priority adjusted ${validatedPriority}→${effectivePriority} for "${title}" - ${suppression.reason}`)
   }
 
   // ── Dismissal cooldown: don't re-surface items from same sender shortly after dismissal ──
-  // Urgent items always bypass — if something genuinely urgent comes in 5 minutes after
+  // Urgent items always bypass - if something genuinely urgent comes in 5 minutes after
   // a dismissal, it must surface.
   if (effectivePriority !== 'urgent' && (context?.email || context?.from)) {
     const senderEmail = context?.email
@@ -319,7 +319,7 @@ async function enqueue({ source, sourceRefId, actionType, title, summary, prepar
       LIMIT 1
     `
     if (recentDismissal.length > 0) {
-      logger.info(`Action queue: dismissal cooldown for "${title}" — same sender dismissed recently`)
+      logger.info(`Action queue: dismissal cooldown for "${title}" - same sender dismissed recently`)
       emitEvent('action:suppressed', { source, actionType, title, reason: 'dismissal_cooldown' })
       recordDecision(
         { id: null, source, action_type: actionType, context, priority: effectivePriority, title },
@@ -342,7 +342,7 @@ async function enqueue({ source, sourceRefId, actionType, title, summary, prepar
   // ── Derive resource key if not provided ──
   const derivedResourceKey = resourceKey || deriveResourceKey(source, actionType, sourceRefId, preparedData)
 
-  // Ensure preparedData/context are objects — LLM may return params as a JSON string,
+  // Ensure preparedData/context are objects - LLM may return params as a JSON string,
   // and double-stringify would store a JSONB string literal that corrupts on consolidation
   const safeData = ensureObject(preparedData)
   const safeContext = { ...ensureObject(context), suppression_evaluation: suppression.reason || null }
@@ -422,7 +422,7 @@ async function tryConsolidate({ source, sourceRefId, actionType, title, summary,
     // Signal 2: Same action type (moderate)
     if (c.action_type === actionType) { score += 25; signals.push('action_type') }
 
-    // Signal 3: Same resource key (strong — literally the same target)
+    // Signal 3: Same resource key (strong - literally the same target)
     const candidateResourceKey = c.resource_key || deriveResourceKey(c.source, c.action_type, c.source_ref_id, c.prepared_data)
     const incomingResourceKey = resourceKey || deriveResourceKey(source, actionType, sourceRefId, preparedData)
     if (incomingResourceKey && candidateResourceKey === incomingResourceKey) { score += 45; signals.push('resource_key') }
@@ -475,7 +475,7 @@ async function tryConsolidate({ source, sourceRefId, actionType, title, summary,
   // Use latest prepared data (most recent draft is most relevant)
   const mergedPreparedData = { ...ensureObject(match.prepared_data), ...ensureObject(preparedData) }
 
-  // Refresh expiry on consolidation — merged items get a fresh 48h window
+  // Refresh expiry on consolidation - merged items get a fresh 48h window
   const refreshedExpiry = new Date(Date.now() + DEFAULT_EXPIRY_HOURS * 60 * 60 * 1000).toISOString()
 
   const [updated] = await db`
@@ -538,7 +538,7 @@ async function execute(actionId) {
     // keep the action as pending with an error so retryFailed() picks it up
     if (result?.unhandled) {
       await db`UPDATE action_queue SET status = 'pending', error_message = ${result.message || 'Capability not loaded'} WHERE id = ${actionId}`
-      logger.info(`ActionQueue: ${actionId} kept pending (unhandled) — will retry`, { actionType: item.action_type })
+      logger.info(`ActionQueue: ${actionId} kept pending (unhandled) - will retry`, { actionType: item.action_type })
       return result
     }
 
@@ -562,7 +562,7 @@ async function execute(actionId) {
   }
 }
 
-// ─── Perform the actual action — via CapabilityRegistry ───────────────
+// ─── Perform the actual action - via CapabilityRegistry ───────────────
 
 const ACTION_TYPE_ALIASES = {
   send_reply: 'send_email_reply',
@@ -609,7 +609,7 @@ async function performAction(item) {
 
   const registry = require('./capabilityRegistry')
 
-  // Ensure capabilities are loaded — prevents boot race where actions execute
+  // Ensure capabilities are loaded - prevents boot race where actions execute
   // before capabilities/index has been required. The registry's internal recovery
   // is one-shot with a cooldown, so we proactively load here.
   if (registry.list().length === 0) {
@@ -665,7 +665,7 @@ async function dismiss(actionId, { reason, reasonCategory, reasonDetail } = {}) 
     const kgHooks = require('./kgIngestionHooks')
     kgHooks.onActionDismissed({ action: item, reason: reason || reasonDetail, reasonCategory }).catch(() => {})
 
-    // Feed into context tracking — prevents re-surfacing dismissed items
+    // Feed into context tracking - prevents re-surfacing dismissed items
     try {
       const contextTracking = require('./contextTrackingService')
       contextTracking.dismiss({
@@ -722,7 +722,7 @@ async function batchExecute(ids, { concurrency = 3 } = {}) {
       created_at ASC
   `
 
-  // Group by resource_key — items sharing a resource must serialize
+  // Group by resource_key - items sharing a resource must serialize
   const resourceGroups = new Map()
   const ungrouped = []
 
@@ -923,12 +923,12 @@ async function retryFailed({ limit = 10 } = {}) {
   }
 
   if (succeeded > 0) {
-    logger.info(`Action queue: retried ${retryable.length} failed actions — ${succeeded} succeeded, ${failed} failed`)
+    logger.info(`Action queue: retried ${retryable.length} failed actions - ${succeeded} succeeded, ${failed} failed`)
   }
   return { retried: retryable.length, succeeded, failed }
 }
 
-// purgeExpired — public alias for manual trigger via route
+// purgeExpired - public alias for manual trigger via route
 async function purgeExpired() {
   const expired = await db`
     UPDATE action_queue SET status = 'expired'
@@ -948,7 +948,7 @@ async function purgeExpired() {
 // ─── Triage Context ─────────────────────────────────────────────────────
 // Builds a concise decision intelligence summary for a sender+source pair.
 // Injected into triage prompts so the AI sees historical approval patterns
-// and adjusts surfacing/priority decisions at the source — not just at enqueue.
+// and adjusts surfacing/priority decisions at the source - not just at enqueue.
 
 async function getTriageContext({ senderEmail, senderName, source }) {
   if (!senderEmail && !senderName) return null
@@ -1009,7 +1009,7 @@ async function getTriageContext({ senderEmail, senderName, source }) {
       }
     }
 
-    // Quality feedback overlay — shows how well drafts/priorities have been rated
+    // Quality feedback overlay - shows how well drafts/priorities have been rated
     try {
       const qualityStats = await db`
         SELECT
@@ -1073,7 +1073,7 @@ async function recordFeedback(actionId, { draftQuality, priorityAccuracy, releva
   broadcast('action_queue:feedback', { id: actionId, feedback })
   emitEvent('action:feedback', { id: actionId, source: action.source, actionType: action.action_type, overall })
 
-  // KG ingestion — the organism learns from quality signals
+  // KG ingestion - the organism learns from quality signals
   try {
     const kgHooks = require('./kgIngestionHooks')
     kgHooks.onActionFeedback({ action, feedback }).catch(() => {})
@@ -1082,7 +1082,7 @@ async function recordFeedback(actionId, { draftQuality, priorityAccuracy, releva
   return feedback
 }
 
-// ─── Feedback Summary — per (source, action_type) quality metrics ────
+// ─── Feedback Summary - per (source, action_type) quality metrics ────
 // Returns aggregate quality scores so the AI can self-assess and recalibrate.
 
 async function getFeedbackSummary({ source, actionType, senderEmail, days = 30 } = {}) {
@@ -1109,7 +1109,7 @@ async function getFeedbackSummary({ source, actionType, senderEmail, days = 30 }
   return rows
 }
 
-// ─── Recalibration Signals — what the triage AI should adjust ────────
+// ─── Recalibration Signals - what the triage AI should adjust ────────
 // Combines decision patterns + quality feedback into actionable signals
 // that triage prompts can consume to improve future surfacing.
 
@@ -1169,7 +1169,7 @@ async function getRecalibrationSignals({ days = 30 } = {}) {
     }
   })
 
-  // Recent corrections — the most valuable feedback for prompt improvement
+  // Recent corrections - the most valuable feedback for prompt improvement
   const recentCorrections = await db`
     SELECT source, action_type, correction, sender_email, created_at
     FROM action_feedback

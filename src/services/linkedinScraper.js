@@ -64,7 +64,7 @@ async function scrapeDMs({ page, navigate, humanDelay, humanClick }) {
 
   // Wait for conversation list to load
   await page.waitForSelector(SEL.conversationList, { timeout: 10000 }).catch(() => {
-    logger.warn('Conversation list not found — may be empty or selectors changed')
+    logger.warn('Conversation list not found - may be empty or selectors changed')
   })
 
   // Scrape conversation list (top 15)
@@ -367,7 +367,7 @@ async function sendDMReply({ page, navigate, humanDelay }, conversationId, reply
 
   await humanDelay(1000, 2000)
 
-  // Click send button (not Enter — LinkedIn uses Enter for newline)
+  // Click send button (not Enter - LinkedIn uses Enter for newline)
   const sendButton = page.locator(SEL.sendButton).first()
   await sendButton.click()
   await humanDelay(500, 1000)

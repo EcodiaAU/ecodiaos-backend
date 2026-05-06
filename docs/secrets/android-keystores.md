@@ -8,7 +8,7 @@ owner: ecodiaos
 
 Per-slug Android upload keystore + signing config bundle. Required for `gradle signingConfigs` block at build time and `apksigner` post-build. Lifetime-of-app credential - Android upload keys do NOT auto-rotate; if lost, recovery is via Play App Signing's key upgrade flow (slow, Play support intervention).
 
-## Status — PARTIAL (1 May 2026)
+## Status - PARTIAL (1 May 2026)
 
 Keystore **bytes** backed up for both slugs via fork_momjmkd0_a850d1. Passwords + keytool verification still pending.
 
@@ -46,7 +46,7 @@ creds.android.{slug} = {
 ## Source
 
 - `coexist`: `~/workspaces/coexist/android/app/coexist-release.jks` (also committed to git per `git log --oneline -- android/app/coexist-release.jks` → `f56d01b fjudfh`).
-- `roam`: `~/workspaces/roam-frontend/roam-release.keystore` (workspace root, NOT in `android/app/` yet — release wiring incomplete).
+- `roam`: `~/workspaces/roam-frontend/roam-release.keystore` (workspace root, NOT in `android/app/` yet - release wiring incomplete).
 
 Passwords were probed from:
 - `~/workspaces/{slug}/.env*` (only `coexist/.env.example`, no values)
@@ -77,11 +77,11 @@ If a password ever rotates, every surface below must be updated **in the same op
 3. Tate's local 1Password vault entry
 4. Tate's local Android Studio "Keystore" memory (if cached)
 5. Any future CI signing pipeline (none today)
-6. Play Console — upload key SHA-1 fingerprint registered with Google. Rotating the keystore itself triggers Play App Signing key upgrade flow (NOT a routine rotation).
+6. Play Console - upload key SHA-1 fingerprint registered with Google. Rotating the keystore itself triggers Play App Signing key upgrade flow (NOT a routine rotation).
 
 ## Replaceable by macro?
 
-The signing step itself is **not** macro-replaceable — `gradle signingConfigs` and `apksigner` need the keystore file present at build time. So programmatic creds are required for unattended Android builds.
+The signing step itself is **not** macro-replaceable - `gradle signingConfigs` and `apksigner` need the keystore file present at build time. So programmatic creds are required for unattended Android builds.
 
 The Play Console **upload** step IS macro-replaceable (drag-drop AAB in the dashboard via Tate's Chrome on Corazon), so `creds.google_play_service_account_json` stays demoted to fallback under the GUI-macro doctrine.
 

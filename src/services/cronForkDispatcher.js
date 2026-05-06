@@ -1,5 +1,5 @@
 /**
- * Cron Fork Dispatcher — Decision 3993 commit 3/3
+ * Cron Fork Dispatcher - Decision 3993 commit 3/3
  *
  * Per Strategic Direction 3986, operational crons should NOT POST giant briefs
  * into the conductor's `/api/os-session/message` queue. That polluted ~80% of
@@ -8,11 +8,11 @@
  *
  * This dispatcher reroutes refactor-eligible crons to spawn ephemeral
  * `forkService` forks instead. Each fork:
- *   - inherits MCP tools + neo4j + scheduler + factory + supabase access
- *   - reads its self-contained brief from `os_scheduled_tasks.prompt`
- *   - executes the cron's intent autonomously (writes status_board / kv_store
+ * - inherits MCP tools + neo4j + scheduler + factory + supabase access
+ * - reads its self-contained brief from `os_scheduled_tasks.prompt`
+ * - executes the cron's intent autonomously (writes status_board / kv_store
  *     / Neo4j as needed) and exits
- *   - never touches the conductor's message queue
+ * - never touches the conductor's message queue
  *
  * Three layers of gating live here:
  *
@@ -29,7 +29,7 @@
  *
  *   3. Cap inheritance from forkService.
  *      forkService enforces HARD_FORK_CAP and an energy-soft cap. If we hit
- *      the cap, we don't decrement the budget — we re-queue the cron via the
+ *      the cap, we don't decrement the budget - we re-queue the cron via the
  *      poller's existing requeue path.
  *
  * Telemetry stamping: every spawn writes the resulting fork_id back to
@@ -37,12 +37,12 @@
  * so post-mortem reconciliation can trace cron → fork without grep'ing logs.
  *
  * Failure modes:
- *   - Budget exhausted: skip + status_board P3 row + return { spawned: false }
- *   - Fork cap reached: return { spawned: false, error: 'fork_cap_reached' }
+ * - Budget exhausted: skip + status_board P3 row + return { spawned: false }
+ * - Fork cap reached: return { spawned: false, error: 'fork_cap_reached' }
  *     (caller re-queues per existing poller logic).
- *   - DB write failure on budget decrement: log warn, proceed (fail-open —
+ * - DB write failure on budget decrement: log warn, proceed (fail-open - 
  *     better to spawn than to silently stall).
- *   - Spawn throws: log error, do NOT decrement budget (atomicity — if spawn
+ * - Spawn throws: log error, do NOT decrement budget (atomicity - if spawn
  *     never happened, the budget never spent).
  */
 'use strict'
@@ -63,7 +63,7 @@ const {
 //   + 2_000            ≈ MCP tool calls + assistant intermediate reasoning
 //   + 1_000            ≈ system prompt + framing overhead
 //
-// Total estimate is conservative on purpose — we'd rather throttle early than
+// Total estimate is conservative on purpose - we'd rather throttle early than
 // blow the daily budget mid-day.
 function estimateForkTokenCost(brief) {
   const briefChars = (brief || '').length
@@ -71,7 +71,7 @@ function estimateForkTokenCost(brief) {
 }
 
 // ── Budget read/write ────────────────────────────────────────────────────────
-// kv_store.value is TEXT — JSON.stringify ourselves (mirrors osAlertingService).
+// kv_store.value is TEXT - JSON.stringify ourselves (mirrors osAlertingService).
 
 const BUDGET_KEY = 'cowork.daily_fork_budget_remaining'
 const BUDGET_MAX_KEY = 'cowork.daily_fork_budget_max'
@@ -117,7 +117,7 @@ async function _writeBudget(remaining) {
 }
 
 async function _decrementBudget(cost) {
-  // Read-modify-write. Race conditions are tolerable here — at worst the
+  // Read-modify-write. Race conditions are tolerable here - at worst the
   // budget runs ~1-2 spawn-costs negative which still triggers the gate next
   // cycle. A pg-side decrement (UPDATE ... SET value = (value::int - cost))
   // would be cleaner but the value column is TEXT/JSON; not worth the
@@ -202,7 +202,7 @@ async function _stampForkIdOnCron(taskId, forkId) {
 async function dispatchCronAsFork(cronTask) {
   const route = classifyCron(cronTask.name)
 
-  // Conductor + direct_exec routes are NOT our concern — caller should keep
+  // Conductor + direct_exec routes are NOT our concern - caller should keep
   // them on the existing os-session POST path. Returning shouldHandle=false
   // is the contract that tells the caller to skip our path.
   if (route === 'conductor' || route === 'direct_exec') {
@@ -258,7 +258,7 @@ async function dispatchCronAsFork(cronTask) {
       context_mode: 'brief',
     })
   } catch (err) {
-    // Refund — spawn never happened.
+    // Refund - spawn never happened.
     await _refundBudget(cost)
     logger.warn('cronForkDispatcher: spawnFork failed', {
       cron: cronTask.name,

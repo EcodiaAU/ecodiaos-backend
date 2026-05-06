@@ -1,9 +1,9 @@
 /**
  * Document generation routes.
- * POST /api/docs/render   — generate HTML + PDF, upload to Supabase Storage
- * POST /api/docs/render-html — render arbitrary HTML string, upload to Storage
- * GET  /api/docs/files/*  — serve locally generated files (fallback)
- * GET  /api/docs/preview/:slug — return raw HTML for iframe rendering
+ * POST /api/docs/render - generate HTML + PDF, upload to Supabase Storage
+ * POST /api/docs/render-html - render arbitrary HTML string, upload to Storage
+ * GET  /api/docs/files/* - serve locally generated files (fallback)
+ * GET  /api/docs/preview/:slug - return raw HTML for iframe rendering
  */
 const express = require('express')
 const path = require('path')

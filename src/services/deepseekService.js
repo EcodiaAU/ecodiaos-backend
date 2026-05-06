@@ -2,19 +2,19 @@ const env = require('../config/env')
 const logger = require('../config/logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// KG-AWARE LLM LAYER  (formerly "deepseekService" — name kept for import compat)
+// KG-AWARE LLM LAYER  (formerly "deepseekService" - name kept for import compat)
 //
 // Every LLM call goes through callDeepSeek(). It automatically:
-//   1. RETRIEVES — pulls relevant KG context via semantic search + trace
-//   2. INJECTS   — adds context as a system message prefix
-//   3. EXECUTES  — calls claudeService (Anthropic API, sonnet-4-6 default)
-//   4. LOGS      — ingests the exchange back into the KG
+//   1. RETRIEVES - pulls relevant KG context via semantic search + trace
+//   2. INJECTS - adds context as a system message prefix
+//   3. EXECUTES - calls claudeService (Anthropic API, sonnet-4-6 default)
+//   4. LOGS - ingests the exchange back into the KG
 //
 // Callers pass `contextQuery` (what to search the graph for) and the
 // graph enriches every call. The graph grows with every call.
 //
 // Provider: Claude via ANTHROPIC_API_KEY (claudeService handles retries + tracking).
-// DeepSeek is fully decommissioned — this file is the KG wrapper only.
+// DeepSeek is fully decommissioned - this file is the KG wrapper only.
 // ═══════════════════════════════════════════════════════════════════════
 
 let _kgService = null
@@ -39,7 +39,7 @@ async function callDeepSeek(messages, {
   module = 'general',
   model = 'claude-sonnet-4-6',
   contextQuery = null,      // what to search the KG for (string)
-  skipRetrieval = false,    // skip KG retrieval (for KG ingestion calls — avoids loops)
+  skipRetrieval = false,    // skip KG retrieval (for KG ingestion calls - avoids loops)
   skipLogging = false,      // skip KG logging
   sourceId = null,          // source entity ID for KG logging
   temperature = null,       // null = provider default
@@ -130,15 +130,15 @@ function parseJSON(content) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Domain-specific helpers — all KG-aware via callDeepSeek
+// Domain-specific helpers - all KG-aware via callDeepSeek
 // ═══════════════════════════════════════════════════════════════════════
 
 async function categorize({ description, amount, type, date }) {
   const prompt = `Categorize this transaction for ${env.OWNER_CONTEXT}.
 
-${description} — AUD ${Math.abs(amount)} (${type}) on ${date}
+${description} - AUD ${Math.abs(amount)} (${type}) on ${date}
 
-Decide the most accurate category, Xero account code if you know it, and your confidence. Use whatever category name best describes this — don't constrain yourself to a predefined list.
+Decide the most accurate category, Xero account code if you know it, and your confidence. Use whatever category name best describes this - don't constrain yourself to a predefined list.
 
 Respond as JSON:
 {
@@ -189,7 +189,7 @@ ${contextBlock}${pendingBlock}${channelsBlock}${codebaseBlock}${decisionBlock}
 Body:
 ${(body || snippet || '').slice(0, 3000)}
 
-Read this email and decide what to do. You have full autonomy — reply, archive, create a task, snooze, ignore, or anything else appropriate. Draft a reply if warranted; leave draftReply null if not. Decide if this needs human attention and why.
+Read this email and decide what to do. You have full autonomy - reply, archive, create a task, snooze, ignore, or anything else appropriate. Draft a reply if warranted; leave draftReply null if not. Decide if this needs human attention and why.
 
 If this email is requesting code work (a feature, bug fix, update, deployment, or technical task), set isCodeWorkRequest=true, specify codeWorkType, and write a factoryPrompt. The factoryPrompt must be a precise, self-contained instruction for a coding session. Reference the specific codebase by name if you can determine which one from the project/codebase context above. Include the tech stack, relevant areas of the codebase to look at, acceptance criteria, and any constraints from the email. The factoryPrompt should be detailed enough that a developer unfamiliar with the project could execute it. Leave these null if the email is not about code work.
 
@@ -218,7 +218,7 @@ Respond as JSON:
   const raw = await callDeepSeek([{ role: 'user', content: prompt }], {
     module: 'gmail',
     contextQuery: hasExternalContext ? null : `${from} ${subject}`,
-    skipRetrieval: hasExternalContext, // already have context — don't double-fetch
+    skipRetrieval: hasExternalContext, // already have context - don't double-fetch
   })
 
   let parsed
@@ -230,9 +230,9 @@ Respond as JSON:
     })
     return {
       priority: 'medium',
-      summary: `Parse error — manual review needed. Subject: ${subject || 'unknown'}`,
+      summary: `Parse error - manual review needed. Subject: ${subject || 'unknown'}`,
       autonomousAction: 'archive',
-      reasoning: 'AI response was not valid JSON — surfacing for human review',
+      reasoning: 'AI response was not valid JSON - surfacing for human review',
       draftReply: null,
       shouldCreateTask: false,
       taskTitle: null,
@@ -240,7 +240,7 @@ Respond as JSON:
       taskPriority: null,
       confidence: 0.3,
       surfaceToHuman: true,
-      surfaceReason: 'AI triage response was malformed — could not parse as JSON',
+      surfaceReason: 'AI triage response was malformed - could not parse as JSON',
       isCodeWorkRequest: false,
       codeWorkType: null,
       factoryPrompt: null,
@@ -248,7 +248,7 @@ Respond as JSON:
     }
   }
 
-  // Validate critical fields — fill safe defaults for anything missing
+  // Validate critical fields - fill safe defaults for anything missing
   if (!parsed.priority || typeof parsed.priority !== 'string') parsed.priority = 'medium'
   if (!parsed.summary  || typeof parsed.summary  !== 'string') parsed.summary  = subject || 'No summary'
   if (typeof parsed.confidence      !== 'number'  || isNaN(parsed.confidence))      parsed.confidence      = 0.5

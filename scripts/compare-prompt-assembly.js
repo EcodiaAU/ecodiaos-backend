@@ -8,7 +8,7 @@
  * running a live turn. Feeds a synthetic turn_context into the assembler
  * and prints a compact diff. Intended use:
  *
- *   1. Local sanity: `node scripts/compare-prompt-assembly.js` — uses
+ *   1. Local sanity: `node scripts/compare-prompt-assembly.js` - uses
  *      defaults (d:/.code/EcodiaOS CWD + empty turn_context).
  *   2. CI gate: exit 1 on semantic_equivalent=false.
  *   3. Post-shadow-mode analysis: pull a real turn's inputs from
@@ -103,7 +103,7 @@ const v2Flat = v2Out.contentBlocks.map(b => b.text).join('')
 //   v1Text = systemPrompt + '\n\n' + userMessage (blocks joined with '\n\n')
 // This tests that the assembler's own structured form flattens back to a
 // string that matches the assembler's own systemPrompt + userMessage
-// concatenation — a weaker assertion than comparing to live-path output,
+// concatenation - a weaker assertion than comparing to live-path output,
 // but useful as a quick sanity check.
 const v1Text = fixture.v1Text || (
   v2Out.systemPrompt +

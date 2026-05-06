@@ -14,7 +14,7 @@ developer.apple.com / appstoreconnect.apple.com > Membership page (signed in as 
 
 ## Sibling row: `creds.apple.password`
 
-A separate kv_store row `creds.apple.password` holds the Apple ID password for `code@ecodia.au` (string `value` field). Written 4 May 2026 22:18 AEST after Tate verbatim "C0d!ng7h3fu7ur3" + "It logs out of xcode every now and then so you HAVE To be able to do it yourself". This is the credential the agent uses to drive the in-Xcode Apple ID signin macro path when Xcode logs out (Settings → Accounts → + → type email + password). Per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`, this IS the right credential to store — NOT a generated ASC API key. Consumer surface: Xcode Apple ID signin sub-procedure in `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md`. Rotation: manual only when Tate changes Apple ID password (rare).
+A separate kv_store row `creds.apple.password` holds the Apple ID password for `code@ecodia.au` (string `value` field). Written 4 May 2026 22:18 AEST after Tate verbatim "C0d!ng7h3fu7ur3" + "It logs out of xcode every now and then so you HAVE To be able to do it yourself". This is the credential the agent uses to drive the in-Xcode Apple ID signin macro path when Xcode logs out (Settings → Accounts → + → type email + password). Per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`, this IS the right credential to store - NOT a generated ASC API key. Consumer surface: Xcode Apple ID signin sub-procedure in `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md`. Rotation: manual only when Tate changes Apple ID password (rare).
 
 ## Shape
 

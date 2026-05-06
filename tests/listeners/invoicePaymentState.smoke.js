@@ -13,7 +13,7 @@
  *   L5 SIDE-EFFECT: handler invoked against live DB inserts a row in invoice_payment_matches
  *                   AND attempts to wake the OS session via HTTP POST.
  *
- * Default mode: DIRECT — calls the listener.handle() function directly with a synthesized
+ * Default mode: DIRECT - calls the listener.handle() function directly with a synthesized
  * event after seeding the DB. This validates the NEW code against the LIVE database
  * without requiring a PM2 restart.
  *
@@ -26,7 +26,7 @@
  *
  * Exit code 0 = all layers pass. Exit code 1 = any layer failed.
  *
- * Per-pattern: verify-empirically-not-by-log-tail.md — every assertion is a DB row
+ * Per-pattern: verify-empirically-not-by-log-tail.md - every assertion is a DB row
  * or function-shape check, never a log-line tail.
  */
 
@@ -60,7 +60,7 @@ function check(layer, name, ok, detail) {
 }
 
 async function probeOsSessionEndpoint() {
-  // Simple connection probe to /api/os-session/message — confirms layer 5b
+  // Simple connection probe to /api/os-session/message - confirms layer 5b
   // (the wake-up endpoint is reachable from the smoke-test process).
   return new Promise(resolve => {
     const req = http.request(
@@ -73,7 +73,7 @@ async function probeOsSessionEndpoint() {
         timeout: 4000,
       },
       res => {
-        // 400 (no message) is fine — proves the route is alive.
+        // 400 (no message) is fine - proves the route is alive.
         // 200 / 202 also fine. Anything else means the route is down.
         resolve({ status: res.statusCode })
       },
@@ -119,7 +119,7 @@ async function cleanupSyntheticData(db) {
     await cleanupSyntheticData(db)
 
     // ------------------------------------------------------------------
-    // L1 PRODUCER — the listener's open-invoice query returns ≥1 row when
+    // L1 PRODUCER - the listener's open-invoice query returns ≥1 row when
     // an open invoice exists.
     // ------------------------------------------------------------------
     console.log('\n--- L1 PRODUCER (open-invoices query against public.invoices) ---')
@@ -155,7 +155,7 @@ async function cleanupSyntheticData(db) {
     )
 
     // ------------------------------------------------------------------
-    // L2 TRIGGER — pg_trigger row exists and points at the right function.
+    // L2 TRIGGER - pg_trigger row exists and points at the right function.
     // ------------------------------------------------------------------
     console.log('\n--- L2 TRIGGER (pg_trigger row for staged_transactions) ---')
     const triggerRows = await db`
@@ -183,7 +183,7 @@ async function cleanupSyntheticData(db) {
     }
 
     // ------------------------------------------------------------------
-    // L3 BRIDGE — dbBridge module loads cleanly and exports start().
+    // L3 BRIDGE - dbBridge module loads cleanly and exports start().
     // ------------------------------------------------------------------
     console.log('\n--- L3 BRIDGE (dbBridge module shape) ---')
     const dbBridgePath = path.join(__dirname, '../../src/services/listeners/dbBridge.js')
@@ -204,7 +204,7 @@ async function cleanupSyntheticData(db) {
     }
 
     // ------------------------------------------------------------------
-    // L4 LISTENER — registry loads invoicePaymentState with valid shape.
+    // L4 LISTENER - registry loads invoicePaymentState with valid shape.
     // ------------------------------------------------------------------
     console.log('\n--- L4 LISTENER (registry.loadListeners()) ---')
     const registry = require(path.join(__dirname, '../../src/services/listeners/registry'))
@@ -226,12 +226,12 @@ async function cleanupSyntheticData(db) {
     }
 
     // ------------------------------------------------------------------
-    // L5 SIDE-EFFECT — the handler inserts an invoice_payment_matches row
+    // L5 SIDE-EFFECT - the handler inserts an invoice_payment_matches row
     // when the synthetic event matches the seeded invoice (high confidence).
     // ------------------------------------------------------------------
     console.log('\n--- L5 SIDE-EFFECT (match row insert + OS wake) ---')
 
-    // Probe the wake endpoint upfront — proves layer 5b reachability before
+    // Probe the wake endpoint upfront - proves layer 5b reachability before
     // we depend on the listener firing it.
     const probe = await probeOsSessionEndpoint()
     const wakeReachable = !probe.error
@@ -243,7 +243,7 @@ async function cleanupSyntheticData(db) {
     )
 
     if (liveMode) {
-      // Full e2e through the live process — only works after PM2 restart.
+      // Full e2e through the live process - only works after PM2 restart.
       console.log('  (live mode: inserting staged_transactions and polling for match)')
       await db`
         INSERT INTO staged_transactions (
@@ -290,7 +290,7 @@ async function cleanupSyntheticData(db) {
         )
       }
     } else {
-      // Direct invocation — call the new listener code against the live DB
+      // Direct invocation - call the new listener code against the live DB
       // without going through the trigger/bridge pipeline. Validates that
       // the NEW handler will fire correctly once the api process is restarted.
       console.log('  (direct mode: invoking listener.handle() with synthesized event)')

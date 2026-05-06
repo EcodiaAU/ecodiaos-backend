@@ -3,7 +3,7 @@ const { broadcast } = require('../websocket/wsManager')
 const logger = require('../config/logger')
 
 /**
- * Record a worker heartbeat — upserts into worker_heartbeats table
+ * Record a worker heartbeat - upserts into worker_heartbeats table
  * and broadcasts via WebSocket so the frontend updates immediately.
  */
 async function recordHeartbeat(workerName, status = 'active', errorMsg = null) {
@@ -25,7 +25,7 @@ async function recordHeartbeat(workerName, status = 'active', errorMsg = null) {
       payload: { worker: workerName, lastSync: now, status, error: errorMsg },
     })
   } catch {
-    // WebSocket may not be ready during startup — safe to ignore
+    // WebSocket may not be ready during startup - safe to ignore
   }
 }
 

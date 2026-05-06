@@ -3,16 +3,16 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// INTROSPECTION SERVICE — "How am I doing?"
+// INTROSPECTION SERVICE - "How am I doing?"
 //
 // The organism's self-evaluation system. Not just "is the DB up?" but
 // "are my decisions getting better?", "is my learning working?",
 // "what should I change about how I operate?"
 //
 // Three functions:
-//   1. Cognitive Health  — decision quality trends, learning effectiveness
-//   2. Meta-Learning     — learning about the learning system
-//   3. Goal Review       — are goals progressing? should they change?
+//   1. Cognitive Health - decision quality trends, learning effectiveness
+//   2. Meta-Learning - learning about the learning system
+//   3. Goal Review - are goals progressing? should they change?
 //
 // Runs periodically via the maintenance worker. Results feed into
 // the self-model (updating capability beliefs) and goal system
@@ -27,7 +27,7 @@ const env = require('../config/env')
 async function assessCognitiveHealth() {
   const metrics = {}
 
-  // 1. Decision quality — are Factory sessions succeeding more or less over time?
+  // 1. Decision quality - are Factory sessions succeeding more or less over time?
   const [trend7d] = await db`
     SELECT
       count(*)::int AS total_sessions,
@@ -50,7 +50,7 @@ async function assessCognitiveHealth() {
     avgFailureConfidence: parseFloat(trend7d?.avg_failure_confidence) || null,
   }
 
-  // 2. Confidence calibration — when I'm confident, am I right?
+  // 2. Confidence calibration - when I'm confident, am I right?
   const calibration = await db`
     SELECT
       CASE
@@ -76,7 +76,7 @@ async function assessCognitiveHealth() {
     }
   }
 
-  // 3. Learning effectiveness — are learnings actually helping?
+  // 3. Learning effectiveness - are learnings actually helping?
   const [learningHealth] = await db`
     SELECT
       count(*)::int AS total_learnings,
@@ -102,7 +102,7 @@ async function assessCognitiveHealth() {
       : null,
   }
 
-  // 4. Error recurrence — are the same errors coming back after fixes?
+  // 4. Error recurrence - are the same errors coming back after fixes?
   const recurringErrors = await db`
     SELECT message, count(*)::int AS occurrences,
            min(created_at) AS first_seen, max(created_at) AS last_seen,
@@ -122,7 +122,7 @@ async function assessCognitiveHealth() {
     persistent: e.days_active >= 7, // been around for a week+
   }))
 
-  // 5. Maintenance mind effectiveness — are cycles producing results?
+  // 5. Maintenance mind effectiveness - are cycles producing results?
   const [cycleMetrics] = await db`
     SELECT
       count(*)::int AS total_cycles,
@@ -143,7 +143,7 @@ async function assessCognitiveHealth() {
       : null,
   }
 
-  // 6. Action queue intelligence — are surfaced actions being approved or dismissed?
+  // 6. Action queue intelligence - are surfaced actions being approved or dismissed?
   const [actionMetrics] = await db`
     SELECT
       count(*)::int AS total_decisions,
@@ -166,7 +166,7 @@ async function assessCognitiveHealth() {
 }
 
 /**
- * Run meta-learning analysis — learning about the learning system.
+ * Run meta-learning analysis - learning about the learning system.
  * Are certain types of learnings more effective? Are certain codebases
  * harder to learn about? Is the consolidation working?
  */
@@ -220,7 +220,7 @@ async function runMetaLearning() {
     }
   }
 
-  // Consolidation health — are learnings being merged effectively?
+  // Consolidation health - are learnings being merged effectively?
   const [consolidationHealth] = await db`
     SELECT
       count(*) FILTER (WHERE absorbed_into IS NULL AND embedding IS NOT NULL)::int AS active_embedded,
@@ -232,7 +232,7 @@ async function runMetaLearning() {
   if ((consolidationHealth?.active_unembedded || 0) > 10) {
     insights.push({
       type: 'consolidation_backlog',
-      detail: `${consolidationHealth.active_unembedded} learnings are unembedded — semantic search can't find them`,
+      detail: `${consolidationHealth.active_unembedded} learnings are unembedded - semantic search can't find them`,
       suggestion: 'Trigger a consolidation cycle to embed pending learnings',
     })
   }
@@ -241,7 +241,7 @@ async function runMetaLearning() {
 }
 
 /**
- * Run a goal review — assess progress, suggest adjustments.
+ * Run a goal review - assess progress, suggest adjustments.
  */
 async function reviewGoals() {
   const goalService = require('./goalService')
@@ -310,7 +310,7 @@ async function runFullIntrospection() {
     overallAssessment = 'degraded'
   }
   if (approvalRate !== null && approvalRate < 0.3) {
-    concerns.push(`Low action approval rate (${Math.round(approvalRate * 100)}%) — surfacing too many irrelevant actions`)
+    concerns.push(`Low action approval rate (${Math.round(approvalRate * 100)}%) - surfacing too many irrelevant actions`)
     overallAssessment = 'degraded'
   }
   if (metaLearning.length > 2) {
@@ -348,7 +348,7 @@ async function runFullIntrospection() {
     `.catch(() => {})
   }
 
-  logger.info(`Introspection: ${overallAssessment} — ${concerns.length} concerns, ${selfModelUpdates.length} self-model updates`)
+  logger.info(`Introspection: ${overallAssessment} - ${concerns.length} concerns, ${selfModelUpdates.length} self-model updates`)
 
   return { logId: log?.id, overallAssessment, concerns, selfModelUpdates }
 }
@@ -441,7 +441,7 @@ async function buildIntrospectionBrief() {
   const obs = typeof latest.observations === 'string' ? JSON.parse(latest.observations) : (latest.observations || {})
   const age = Math.round((Date.now() - new Date(latest.created_at).getTime()) / 3600000)
 
-  const lines = [`Last introspection: ${age}h ago — ${obs.overallAssessment || 'unknown'}`]
+  const lines = [`Last introspection: ${age}h ago - ${obs.overallAssessment || 'unknown'}`]
   if (obs.concerns?.length > 0) {
     lines.push(`  Concerns: ${obs.concerns.join('; ')}`)
   }

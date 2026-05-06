@@ -3,7 +3,7 @@ const handsBridge = require('../services/handsBridge')
 const logger = require('../config/logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// LAPTOP CAPABILITIES — let the cortex agent dispatch agentic work to the
+// LAPTOP CAPABILITIES - let the cortex agent dispatch agentic work to the
 // user's laptop via the hands service.
 //
 // Mental model: same shape as `start_cc_session`, but the work runs on the
@@ -16,10 +16,10 @@ registry.registerMany([
     name: 'start_laptop_session',
     description:
       'Run an agent session on the user\'s laptop. Use when the work needs ' +
-      'native local access — installed apps, the user\'s real Chrome profile, ' +
+      'native local access - installed apps, the user\'s real Chrome profile, ' +
       'files outside the registered codebases, GUI control, or anything that ' +
       'has to happen ON the user\'s machine. For pure repo coding work prefer ' +
-      'start_cc_session (factory) — it\'s cheaper.',
+      'start_cc_session (factory) - it\'s cheaper.',
     tier: 'write',
     domain: 'factory',
     priority: 'critical',

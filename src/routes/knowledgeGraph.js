@@ -5,7 +5,7 @@ const kg = require('../services/knowledgeGraphService')
 const router = Router()
 router.use(auth)
 
-// GET /api/kg/stats — graph overview
+// GET /api/kg/stats - graph overview
 router.get('/stats', async (req, res, next) => {
   try {
     const stats = await kg.getGraphStats()
@@ -15,7 +15,7 @@ router.get('/stats', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/context?q=search+query — trace-based context retrieval
+// GET /api/kg/context?q=search+query - trace-based context retrieval
 router.get('/context', async (req, res, next) => {
   try {
     const { q, seeds, depth, similarity } = req.query
@@ -32,7 +32,7 @@ router.get('/context', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/node/:name — find a specific node
+// GET /api/kg/node/:name - find a specific node
 router.get('/node/:name', async (req, res, next) => {
   try {
     const node = await kg.findNode(req.params.name)
@@ -43,7 +43,7 @@ router.get('/node/:name', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/node/:name/neighborhood — get connected nodes
+// GET /api/kg/node/:name/neighborhood - get connected nodes
 router.get('/node/:name/neighborhood', async (req, res, next) => {
   try {
     const depth = parseInt(req.query.depth) || 1
@@ -54,7 +54,7 @@ router.get('/node/:name/neighborhood', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/briefing?q=query — AI-narrated briefing from graph context
+// GET /api/kg/briefing?q=query - AI-narrated briefing from graph context
 router.get('/briefing', async (req, res, next) => {
   try {
     const { q } = req.query
@@ -73,7 +73,7 @@ router.get('/briefing', async (req, res, next) => {
 
 ${context.summary}
 
-Write a briefing. Present tense, direct prose, specific details — names, dates, decisions, status. Whatever he needs to know.`
+Write a briefing. Present tense, direct prose, specific details - names, dates, decisions, status. Whatever he needs to know.`
       }
     ], { module: 'cortex', skipRetrieval: true, skipLogging: true })
 
@@ -83,7 +83,7 @@ Write a briefing. Present tense, direct prose, specific details — names, dates
   }
 })
 
-// GET /api/kg/search?q=term — search nodes by name (fuzzy)
+// GET /api/kg/search?q=term - search nodes by name (fuzzy)
 router.get('/search', async (req, res, next) => {
   try {
     const { q, limit } = req.query
@@ -109,7 +109,7 @@ router.get('/search', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/node/:name/graph?depth=1 — neighborhood as graph data (nodes + edges)
+// GET /api/kg/node/:name/graph?depth=1 - neighborhood as graph data (nodes + edges)
 router.get('/node/:name/graph', async (req, res, next) => {
   try {
     const depth = Math.min(parseInt(req.query.depth) || 1, 3)
@@ -167,7 +167,7 @@ router.get('/node/:name/graph', async (req, res, next) => {
   }
 })
 
-// GET /api/kg/consolidation/stats — consolidation health
+// GET /api/kg/consolidation/stats - consolidation health
 router.get('/consolidation/stats', async (req, res, next) => {
   try {
     const consolidation = require('../services/kgConsolidationService')
@@ -178,7 +178,7 @@ router.get('/consolidation/stats', async (req, res, next) => {
   }
 })
 
-// POST /api/kg/extract-and-write — fire write-time edge extraction for a node
+// POST /api/kg/extract-and-write - fire write-time edge extraction for a node
 router.post('/extract-and-write', async (req, res, next) => {
   try {
     const { nodeId, minConfidence, force } = req.body

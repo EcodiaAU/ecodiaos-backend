@@ -15,17 +15,17 @@ const { coerceRelType, assertAllowedRelType, coerceLabel, isAllowedLabel } = req
 // Nine-phase pipeline that transforms working memories into long-term
 // knowledge, modeled on biological memory consolidation:
 //
-//   1.  DEDUPLICATE       — Merge near-identical nodes
-//   2.  ABSTRACT          — Synthesize higher-order patterns from clusters
-//   3.  THREAD            — Discover causal/temporal chains between events
-//   3b. VALIDATE          — Audit ALL inferred edges against full context, kill garbage
-//   4.  CONTRADICT        — Detect conflicting facts, create SUPERSEDES edges
-//   5.  NARRATE           — Synthesize narrative arcs for people/projects
-//   6.  PREDICT           — Generate LIKELY_NEXT edges from observed patterns
-//   7.  SCORE             — Compute importance scores (connectivity + recency + conversations)
-//   8.  EPISODIC          — Group related ingestions into episode nodes
-//   9.  FREE ASSOCIATE    — Embedding-cluster creative discovery (no hypothesis)
-//  10.  DECAY             — Prune disconnected, stale, low-value noise
+//   1.  DEDUPLICATE - Merge near-identical nodes
+//   2.  ABSTRACT - Synthesize higher-order patterns from clusters
+//   3.  THREAD - Discover causal/temporal chains between events
+//   3b. VALIDATE - Audit ALL inferred edges against full context, kill garbage
+//   4.  CONTRADICT - Detect conflicting facts, create SUPERSEDES edges
+//   5.  NARRATE - Synthesize narrative arcs for people/projects
+//   6.  PREDICT - Generate LIKELY_NEXT edges from observed patterns
+//   7.  SCORE - Compute importance scores (connectivity + recency + conversations)
+//   8.  EPISODIC - Group related ingestions into episode nodes
+//   9.  FREE ASSOCIATE - Embedding-cluster creative discovery (no hypothesis)
+//  10.  DECAY - Prune disconnected, stale, low-value noise
 //
 // Each phase is independently runnable. The full pipeline runs nightly.
 // ═══════════════════════════════════════════════════════════════════════
@@ -70,13 +70,13 @@ async function deduplicateNodes({ dryRun = false, skipEmbeddingSimilarity = fals
   if (!dryRun) {
     const locked = await acquireConsolidationLock('dedup')
     if (!locked) {
-      logger.info('KG dedup: skipped — another dedup cycle is running')
+      logger.info('KG dedup: skipped - another dedup cycle is running')
       return []
     }
   }
 
   // Wrap the entire critical section in try/finally so the lock is ALWAYS
-  // released — even when the labelCounts query, embedding-similarity loop,
+  // released - even when the labelCounts query, embedding-similarity loop,
   // relationship transfer, or any merge-write throws. Without this, an
   // exception leaves a :__ConsolidationLock__{phase:'dedup'} node in Neo4j
   // and every subsequent dedup cycle returns early until the 5-min TTL
@@ -86,7 +86,7 @@ async function deduplicateNodes({ dryRun = false, skipEmbeddingSimilarity = fals
     const merged = []
 
     // Breadcrumb: record dedup ran even if zero merges happened. Without this,
-    // consolidated_at only moves when a merge succeeds — making a perfectly-
+    // consolidated_at only moves when a merge succeeds - making a perfectly-
     // healthy graph with no dupes look identical to a broken pipeline.
     try {
       await runQuery(`
@@ -95,7 +95,7 @@ async function deduplicateNodes({ dryRun = false, skipEmbeddingSimilarity = fals
       `)
     } catch {}
 
-  // Strategy 1: Exact name match after normalization — partitioned by label to avoid O(n²) cross-join.
+  // Strategy 1: Exact name match after normalization - partitioned by label to avoid O(n²) cross-join.
   // First get all labels that have >1 node, then dedup within each label.
   const labelCounts = await runQuery(`
     MATCH (n)
@@ -151,7 +151,7 @@ async function deduplicateNodes({ dryRun = false, skipEmbeddingSimilarity = fals
   `).catch(() => [])
   dupes.push(...crossLabelBatch)
 
-  // Strategy 2: Embedding similarity — also partitioned by label
+  // Strategy 2: Embedding similarity - also partitioned by label
   // Try GDS first (fast, native), fall back to Cypher-native cosine if GDS unavailable
   const embeddingDupes = []
   if (skipEmbeddingSimilarity) {
@@ -219,7 +219,7 @@ async function deduplicateNodes({ dryRun = false, skipEmbeddingSimilarity = fals
     const keepName = record.get('keepName')
     const dupeName = record.get('dupeName')
     // dupeLabels/keepLabels are only present on cross-label (Strategy 1b) rows.
-    // Use has() to guard — record.get() on a missing key throws in neo4j-driver.
+    // Use has() to guard - record.get() on a missing key throws in neo4j-driver.
     const dupeLabels = record.has('dupeLabels') ? (record.get('dupeLabels') || null) : null
     const keepLabels = record.has('keepLabels') ? (record.get('keepLabels') || null) : null
 
@@ -458,7 +458,7 @@ Respond as JSON:
 
       if (env.OPENAI_API_KEY) {
         try {
-          const candidateText = `[${synthLabel}] ${parsed.theme_name}${parsed.description ? ' — ' + parsed.description : ''}`
+          const candidateText = `[${synthLabel}] ${parsed.theme_name}${parsed.description ? ' - ' + parsed.description : ''}`
           const candidateEmbedding = await kg.getEmbedding(candidateText)
           if (candidateEmbedding) {
             const matches = await runQuery(
@@ -676,10 +676,10 @@ Respond as JSON:
 // ─── Phase 3b: Validation Sweep ──────────────────────────────────────────
 //
 // Audits ALL inferred relationships against the full neighborhood context
-// of both endpoints. The inference phases guess with minimal context — this
+// of both endpoints. The inference phases guess with minimal context - this
 // phase has the full picture and kills edges that don't hold up.
 //
-// Also runs on the initial ingestion output — Claude sometimes hallucinates
+// Also runs on the initial ingestion output - Claude sometimes hallucinates
 // relationships from email/calendar content that are factually wrong.
 // ────────────────────────────────────────────────────────────────────────
 
@@ -752,7 +752,7 @@ async function validateInferredEdges({ dryRun = false, batchSize = 15 } = {}) {
     const deepseekService = require('./deepseekService')
     const response = await deepseekService.callDeepSeek([{
       role: 'user',
-      content: `These AI-inferred relationships need validation. Some are wrong. For each one, you have the full neighborhood context of both nodes — use it to judge whether the relationship actually holds.
+      content: `These AI-inferred relationships need validation. Some are wrong. For each one, you have the full neighborhood context of both nodes - use it to judge whether the relationship actually holds.
 
 ${edgeDescriptions}
 
@@ -830,7 +830,7 @@ For each numbered relationship, respond as JSON:
         // Kill the bad edge
         await runWrite(`MATCH ()-[r]->() WHERE elementId(r) = $relId DELETE r`, { relId })
         results.killed++
-        logger.info(`KG validation: killed "${fromName}" -[${relType}]-> "${toName}" — ${verdict.reason}`)
+        logger.info(`KG validation: killed "${fromName}" -[${relType}]-> "${toName}" - ${verdict.reason}`)
       }
     }
   } catch (err) {
@@ -902,10 +902,10 @@ async function detectContradictions({ dryRun = false, maxPairs = 8 } = {}) {
         role: 'user',
         content: `Two nodes share context: ${sharedContext.join(', ')}.
 
-"${nameA}"${descA ? ` — ${descA}` : ''}
-"${nameB}"${descB ? ` — ${descB}` : ''}
+"${nameA}"${descA ? ` - ${descA}` : ''}
+"${nameB}"${descB ? ` - ${descB}` : ''}
 
-Do these contradict each other — a direct conflict, a pivot, an evolved position? Or are they just different things that happen to overlap? Use whatever relationship type best describes what's actually happening between them.
+Do these contradict each other - a direct conflict, a pivot, an evolved position? Or are they just different things that happen to overlap? Use whatever relationship type best describes what's actually happening between them.
 
 Respond as JSON:
 {
@@ -1008,7 +1008,7 @@ Write the story. Who are they, what are they involved in, where is it going? Wha
 
 Respond as JSON:
 {
-  "narrative": "the arc — as long or short as it needs to be",
+  "narrative": "the arc - as long or short as it needs to be",
   "trajectory": "your read on the direction this is heading",
   "key_themes": ["themes present in the data"],
   "open_questions": ["questions the data implies but doesn't resolve"]
@@ -1109,14 +1109,14 @@ async function generatePredictions({ dryRun = false, maxPredictions = 5 } = {}) 
         content: `Recent activity for "${personName}" (most recent first):
 ${timelineText}
 
-What's likely to happen next? Look for patterns — repeated behaviors, unresolved threads, escalation arcs, things that started but have no completion. Generate as many predictions as the pattern genuinely supports. If nothing meaningful is predictable, return an empty array.
+What's likely to happen next? Look for patterns - repeated behaviors, unresolved threads, escalation arcs, things that started but have no completion. Generate as many predictions as the pattern genuinely supports. If nothing meaningful is predictable, return an empty array.
 
 Respond as JSON:
 {
   "predictions": [
     {
       "prediction": "what's likely to happen",
-      "timeframe": "your best read on the horizon — be specific if the pattern warrants it",
+      "timeframe": "your best read on the horizon - be specific if the pattern warrants it",
       "confidence": 0.0-1.0,
       "basis": "what in the pattern supports this"
     }
@@ -1164,7 +1164,7 @@ Respond as JSON:
         })
 
         predictions.push({ action: 'predicted', person: personName, prediction: pred.prediction })
-        logger.info(`KG consolidation: prediction for "${personName}" — ${pred.prediction.slice(0, 80)}`)
+        logger.info(`KG consolidation: prediction for "${personName}" - ${pred.prediction.slice(0, 80)}`)
       }
 
       // Mark so we don't re-predict too soon
@@ -1174,7 +1174,7 @@ Respond as JSON:
     }
   }
 
-  // Dispatch predictions to Factory — dispatchFromPrediction runs AI triage to filter
+  // Dispatch predictions to Factory - dispatchFromPrediction runs AI triage to filter
   // non-code predictions (behavioral, psychological) before spawning a CC session.
   for (const pred of predictions) {
     if (pred.action !== 'predicted') continue
@@ -1189,7 +1189,7 @@ Respond as JSON:
         logger.info(`KG prediction → Factory session: ${(pred.prediction || '').slice(0, 60)}`)
       }
     } catch (err) {
-      // dispatchFromPrediction handles its own daily cap — this is expected
+      // dispatchFromPrediction handles its own daily cap - this is expected
       logger.debug('Prediction dispatch skipped', { error: err.message })
       break // if capped, stop trying
     }
@@ -1207,10 +1207,10 @@ Respond as JSON:
 // ─── Phase 7: Importance Scoring ────────────────────────────────────────
 //
 // Compute a 0-1 importance score for every node based on:
-//   - Connectivity (degree centrality — more connections = more important)
-//   - Recency (recently updated nodes matter more)
-//   - Conversation frequency (nodes mentioned in Cortex chats)
-//   - Type bonus (Person/Project/Org inherently more important)
+// - Connectivity (degree centrality - more connections = more important)
+// - Recency (recently updated nodes matter more)
+// - Conversation frequency (nodes mentioned in Cortex chats)
+// - Type bonus (Person/Project/Org inherently more important)
 //
 // This drives what the Cortex surfaces proactively and what gets decayed.
 // Pure Cypher, no LLM calls.
@@ -1243,7 +1243,7 @@ async function scoreImportance({ dryRun = false } = {}) {
     // Connectivity score
     WITH n, degree, toFloat(degree) / toFloat(${maxDegree}) * ${parseFloat(env.KG_IMPORTANCE_CONNECTIVITY_WEIGHT || '0.4')} AS connectivityScore
 
-    // Recency score — nodes updated recently get higher score
+    // Recency score - nodes updated recently get higher score
     WITH n, degree, connectivityScore,
       CASE
         WHEN n.updated_at IS NOT NULL AND n.updated_at > datetime() - duration('P1D') THEN ${parseFloat(env.KG_IMPORTANCE_RECENCY_1D || '0.25')}
@@ -1262,7 +1262,7 @@ async function scoreImportance({ dryRun = false } = {}) {
         ELSE 0.0
       END AS typeBonus
 
-    // Synthesized bonus — synthesized nodes are inherently valuable
+    // Synthesized bonus - synthesized nodes are inherently valuable
     WITH n, connectivityScore, recencyScore, typeBonus,
       CASE WHEN n.is_synthesized = true THEN ${parseFloat(env.KG_IMPORTANCE_SYNTH_BONUS || '0.15')} ELSE 0.0 END AS synthBonus
 
@@ -1286,7 +1286,7 @@ async function scoreImportance({ dryRun = false } = {}) {
 //
 // Group nodes that were ingested within the same time window (30 min)
 // from the same source module into "Episode" nodes. This gives the graph
-// temporal chunking — "what happened in that email batch" or "what came
+// temporal chunking - "what happened in that email batch" or "what came
 // out of that meeting" becomes a single traversal.
 // ────────────────────────────────────────────────────────────────────────
 
@@ -1404,7 +1404,7 @@ Respond as JSON:
 async function freeAssociate({ dryRun = false, rounds, clusterSize = 6 } = {}) {
   if (!env.ANTHROPIC_API_KEY && !env.DEEPSEEK_API_KEY) return []
 
-  // Pressure-modulated dreaming — never fully skipped.
+  // Pressure-modulated dreaming - never fully skipped.
   // High pressure is EXACTLY when free association matters most: finding unexpected
   // connections that could open new revenue paths or surface hidden problems.
   // Low pressure = abundant exploration; high pressure = focused single-round probe.
@@ -1425,7 +1425,7 @@ async function freeAssociate({ dryRun = false, rounds, clusterSize = 6 } = {}) {
 
   const discoveries = []
 
-  // Strategy 1: Embedding-based — find nodes close in embedding space but not connected
+  // Strategy 1: Embedding-based - find nodes close in embedding space but not connected
   const embeddingClusters = await runQuery(`
     MATCH (a)
     WHERE a.embedding IS NOT NULL
@@ -1442,7 +1442,7 @@ async function freeAssociate({ dryRun = false, rounds, clusterSize = 6 } = {}) {
     const props = rec.get('a')?.properties || {}
     const labels = rec.get('a')?.labels || []
     if (props.embedding && props.name) {
-      // Neo4j driver may return list properties as array-like objects — normalise to plain JS array
+      // Neo4j driver may return list properties as array-like objects - normalise to plain JS array
       const embArr = Array.isArray(props.embedding) ? props.embedding : Array.from(props.embedding)
       if (embArr.length > 0) {
         nodePool.push({
@@ -1493,7 +1493,7 @@ async function freeAssociate({ dryRun = false, rounds, clusterSize = 6 } = {}) {
     if (similarities.length < 2) continue
 
     const cluster = [anchor, ...similarities]
-    const clusterNames = cluster.map(n => `${n.name} [${n.labels.join(', ')}]${n.description ? ` — ${n.description}` : ''}`)
+    const clusterNames = cluster.map(n => `${n.name} [${n.labels.join(', ')}]${n.description ? ` - ${n.description}` : ''}`)
 
     // Check which pairs are already connected
     const anchorName = anchor.name
@@ -1525,7 +1525,7 @@ async function freeAssociate({ dryRun = false, rounds, clusterSize = 6 } = {}) {
 
 ${clusterNames.join('\n')}
 
-What do you see? Hidden connections, shared motivations, converging trends, surprising juxtapositions — anything real. Don't force it if there's nothing there.
+What do you see? Hidden connections, shared motivations, converging trends, surprising juxtapositions - anything real. Don't force it if there's nothing there.
 
 Respond as JSON:
 {
@@ -1610,7 +1610,7 @@ Respond as JSON:
           }
 
           discoveries.push({ action: 'insight', description: disc.description })
-          logger.info(`KG free association: insight — ${disc.description.slice(0, 100)}`)
+          logger.info(`KG free association: insight - ${disc.description.slice(0, 100)}`)
         }
       }
 
@@ -1692,7 +1692,7 @@ async function decayStaleNodes({ dryRun = false } = {}) {
   const maxRels = parseInt(env.KG_DECAY_MAX_RELATIONSHIPS || '2', 10)
   const batchSize = parseInt(env.KG_DECAY_BATCH_SIZE || '500', 10)
 
-  // Un-stale nodes that have gained enough relationships since being flagged (run first — rescue before prune)
+  // Un-stale nodes that have gained enough relationships since being flagged (run first - rescue before prune)
   if (!dryRun) {
     const recovered = await runWrite(`
       MATCH (n)
@@ -1722,7 +1722,7 @@ async function decayStaleNodes({ dryRun = false } = {}) {
 
   results.flagged = flagged[0]?.get('cnt')?.toInt?.() ?? flagged[0]?.get('cnt') ?? 0
 
-  // Prune nodes that have been stale for pruneAfterDays+ — batched to avoid Neo4j query timeouts
+  // Prune nodes that have been stale for pruneAfterDays+ - batched to avoid Neo4j query timeouts
   let totalPruned = 0
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -1743,7 +1743,7 @@ async function decayStaleNodes({ dryRun = false } = {}) {
     const batchPruned = pruned[0]?.get('cnt')?.toInt?.() ?? pruned[0]?.get('cnt') ?? 0
     totalPruned += batchPruned
 
-    if (batchPruned < batchSize) break  // last batch — all qualifying nodes processed
+    if (batchPruned < batchSize) break  // last batch - all qualifying nodes processed
 
     logger.debug(`KG decay: pruned batch of ${batchPruned} (total so far: ${totalPruned})`)
   }
@@ -1865,7 +1865,7 @@ async function runConsolidationPipeline({ dryRun = false } = {}) {
     logger.error('KG phase 9 (free association) failed', { error: err.message })
   }
 
-  // Phase 10: Decay (always last — after everything else has had a chance to link)
+  // Phase 10: Decay (always last - after everything else has had a chance to link)
   try {
     results.decay = await decayStaleNodes({ dryRun })
   } catch (err) {
@@ -1999,7 +1999,7 @@ function sanitizeLabel(label) {
 }
 
 // Parse a free-form timeframe string into an expiry duration (days).
-// The AI can now return any timeframe description — we extract the number if present,
+// The AI can now return any timeframe description - we extract the number if present,
 // otherwise fall back to keyword hints, otherwise 60 days.
 function estimateTimeframeDays(timeframe) {
   if (!timeframe) return 60
@@ -2039,10 +2039,10 @@ function parseJSON(content) {
 //
 // The Director reads the current graph state and asks: what does this
 // graph actually need right now? It selects and orders phases based on
-// what it observes — not based on what number comes next in a list.
+// what it observes - not based on what number comes next in a list.
 //
 // It uses Claude to interpret the graph state signal and decide.
-// The phases themselves are unchanged — they're good. What changes is
+// The phases themselves are unchanged - they're good. What changes is
 // who decides when to run them.
 //
 // The old `runConsolidationPipeline` remains available for direct calls
@@ -2052,13 +2052,13 @@ async function runConsolidationDirector({ dryRun = false } = {}) {
   logger.info('KG ConsolidationDirector: reading graph state...')
   const directorStart = Date.now()
 
-  // 1. Read the graph state — what's there and what hasn't been processed
+  // 1. Read the graph state - what's there and what hasn't been processed
   const graphState = await readGraphState()
 
   // 2. Ask Claude: given this state, what synthesis work is most needed?
   const workPlan = await directConsolidation(graphState)
 
-  logger.info(`KG ConsolidationDirector: plan — ${workPlan.map(p => p.phase).join(', ')}`)
+  logger.info(`KG ConsolidationDirector: plan - ${workPlan.map(p => p.phase).join(', ')}`)
 
   // 3. Execute exactly what was decided, in the decided order
   const results = { directed: true, plan: workPlan, phases: {}, durationMs: 0 }
@@ -2087,12 +2087,12 @@ async function runConsolidationDirector({ dryRun = false } = {}) {
   for (const step of workPlan) {
     const fn = PHASE_MAP[step.phase]
     if (!fn) {
-      logger.warn(`KG Director: unknown phase "${step.phase}" — skipping`)
+      logger.warn(`KG Director: unknown phase "${step.phase}" - skipping`)
       continue
     }
 
     try {
-      logger.info(`KG Director: running ${step.phase} — ${step.reason}`)
+      logger.info(`KG Director: running ${step.phase} - ${step.reason}`)
       const result = await fn()
       results.phases[step.phase] = result
       emitPhase(`kg:phase_complete`, { phase: step.phase, reason: step.reason })
@@ -2116,7 +2116,7 @@ async function runConsolidationDirector({ dryRun = false } = {}) {
   })
 
   // Watermark: record that a consolidation pipeline completed. This is
-  // independent of whether any individual node was merged/abstracted — it
+  // independent of whether any individual node was merged/abstracted - it
   // proves the Director ran end-to-end. Without this, you can't tell a
   // running pipeline from a broken one.
   try {
@@ -2191,7 +2191,7 @@ async function readGraphState() {
     }).catch(() => {}),
 
     // People/Projects without narratives
-    // NARRATES is the rel type created by synthesizeNarratives() — Narrative-[NARRATES]->Subject
+    // NARRATES is the rel type created by synthesizeNarratives() - Narrative-[NARRATES]->Subject
     runQuery(`
       MATCH (n)
       WHERE any(lbl IN labels(n) WHERE lbl IN ['Person', 'Project', 'Organisation'])
@@ -2201,7 +2201,7 @@ async function readGraphState() {
       state.entitiesWithoutNarrative = r?.get('c')?.toInt?.() ?? 0
     }).catch(() => {}),
 
-    // Recent ingestions (last 24h) — freshness signal
+    // Recent ingestions (last 24h) - freshness signal
     runQuery(`
       MATCH (n) WHERE n.created_at > datetime() - duration('PT24H')
       RETURN count(n) AS recent
@@ -2260,10 +2260,10 @@ Given the graph state and metabolic pressure, decide which phases to run, in wha
       return parsed.filter(p => p.phase && typeof p.phase === 'string')
     }
   } catch (err) {
-    logger.warn('KG Director: Claude call failed — using heuristic plan', { error: err.message })
+    logger.warn('KG Director: Claude call failed - using heuristic plan', { error: err.message })
   }
 
-  // Heuristic fallback — if the mind is unreachable
+  // Heuristic fallback - if the mind is unreachable
   return buildHeuristicPlan(graphState, pressure)
 }
 
@@ -2303,11 +2303,11 @@ function buildHeuristicPlan(state, pressure) {
   if ((state.recentIngestions || 0) > 10) plan.push({ phase: 'episodic', reason: `${state.recentIngestions} recent nodes may form episodes` })
 
   // Free association when pressure is low and graph has content
-  if (pressure < 0.5 && (state.totalNodes || 0) > 20) plan.push({ phase: 'free_associate', reason: 'Low pressure — explore connections' })
+  if (pressure < 0.5 && (state.totalNodes || 0) > 20) plan.push({ phase: 'free_associate', reason: 'Low pressure - explore connections' })
 
   if ((state.stale || 0) > 20) plan.push({ phase: 'decay', reason: `${state.stale} stale nodes` })
 
-  return plan  // AI decides how many phases — no artificial cap
+  return plan  // AI decides how many phases - no artificial cap
 }
 
 // ─── Helper Counts (used by workers for adaptive scheduling) ──────────
@@ -2346,7 +2346,7 @@ module.exports = {
   freeAssociate,
   decayStaleNodes,
 
-  // The Director — reads the graph, decides what to run (new default)
+  // The Director - reads the graph, decides what to run (new default)
   runConsolidationPipeline: runConsolidationDirector,
 
   // Legacy: the full sequential pipeline (all phases, hardcoded order)

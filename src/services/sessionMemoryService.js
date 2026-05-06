@@ -6,11 +6,11 @@
  * across session resets.
  *
  * Flow:
- *   1. ingestSessionFile(jsonlPath)  — parse JSONL, extract meaningful exchanges,
+ *   1. ingestSessionFile(jsonlPath) - parse JSONL, extract meaningful exchanges,
  *      chunk by conversation turn, embed with OpenAI, store in session_memory_chunks
- *   2. searchMemory(query, opts)     — semantic search over all ingested chunks,
+ *   2. searchMemory(query, opts) - semantic search over all ingested chunks,
  *      returns ranked context snippets ready to prepend to a new OS session message
- *   3. ingestProjectDir(dir)         — scans a .claude/projects/<key>/ dir for new/
+ *   3. ingestProjectDir(dir) - scans a .claude/projects/<key>/ dir for new/
  *      changed JSONL files and ingests them incrementally (skips unchanged files)
  *
  * The JSONL format from CC CLI:
@@ -56,7 +56,7 @@ const SEARCH_MIN_SIM = parseFloat(env.SESSION_MEMORY_MIN_SIM || '0.35')
 /**
  * Strip the injected memory context block from a user message.
  * osSessionService prepends: `## Relevant past conversations\n\n...\n\n---\n\n${realContent}`
- * We only want the real content — everything after the final `\n\n---\n\n` separator.
+ * We only want the real content - everything after the final `\n\n---\n\n` separator.
  */
 function stripMemoryInjection(text) {
   if (!text.startsWith('## Relevant past conversations')) return text
@@ -79,7 +79,7 @@ function extractText(content) {
       .filter(b => b.type === 'text' && b.text)
       .map(b => b.text)
       .filter(t => {
-        // Skip pure IDE context injections — they add noise, not signal
+        // Skip pure IDE context injections - they add noise, not signal
         const trimmed = t.trim()
         if (trimmed.startsWith('<ide_opened_file>')) return false
         if (trimmed.startsWith('<ide_selection>')) return false
@@ -100,7 +100,7 @@ function extractText(content) {
  */
 async function embedBatch(texts) {
   if (!env.OPENAI_API_KEY) {
-    logger.debug('Session memory embedding skipped — no OPENAI_API_KEY')
+    logger.debug('Session memory embedding skipped - no OPENAI_API_KEY')
     return texts.map(() => null)
   }
 
@@ -139,7 +139,7 @@ async function embedQuery(text) {
  * Each chunk = { turnIndex, userText, assistantText, timestamp }
  *
  * Strategy: pair up user messages with the assistant response(s) that follow.
- * Tool calls and results are dropped — we want the reasoning layer, not the scaffolding.
+ * Tool calls and results are dropped - we want the reasoning layer, not the scaffolding.
  */
 async function parseJsonlFile(filePath) {
   const exchanges = []
@@ -168,7 +168,7 @@ async function parseJsonlFile(filePath) {
 
     if (record.type === 'system') continue
 
-    // User message — flush any pending exchange first, then start a new one
+    // User message - flush any pending exchange first, then start a new one
     if (record.type === 'user' && record.message?.role === 'user') {
       // Flush previous exchange
       if (currentUser !== null && currentAssistantParts.length > 0) {
@@ -194,14 +194,14 @@ async function parseJsonlFile(filePath) {
       continue
     }
 
-    // Assistant message — accumulate text parts (may be multiple turns before next user)
+    // Assistant message - accumulate text parts (may be multiple turns before next user)
     if (record.type === 'assistant' && record.message?.role === 'assistant') {
       const parts = (record.message.content || [])
       for (const part of parts) {
         if (part.type === 'text' && part.text && part.text.trim().length > 20) {
           currentAssistantParts.push(part.text.trim())
         }
-        // Skip tool_use and tool_result — pure mechanism, no episodic value
+        // Skip tool_use and tool_result - pure mechanism, no episodic value
       }
       if (!currentTs && record.timestamp) {
         currentTs = new Date(record.timestamp)
@@ -209,7 +209,7 @@ async function parseJsonlFile(filePath) {
       continue
     }
 
-    // result message — flush current exchange
+    // result message - flush current exchange
     if (record.type === 'result') {
       if (currentUser !== null && currentAssistantParts.length > 0) {
         const assistantText = currentAssistantParts.join('\n\n').trim()
@@ -373,7 +373,7 @@ async function ingestSessionFile(jsonlPath, projectKey = OS_PROJECT_KEY) {
  * @param {string} [projectKey]  Defaults to OS_PROJECT_KEY
  * @param {object} [opts]
  * @param {number} [opts.recentHours]  If set, only consider files modified within this many hours.
- *   Useful for cheap fire-and-forget calls after an OS session exchange — the full backlog
+ *   Useful for cheap fire-and-forget calls after an OS session exchange - the full backlog
  *   scan runs in the codebase index worker cycle instead.
  * @returns {{ processed: number, totalChunks: number }}
  */
@@ -488,7 +488,7 @@ async function searchMemory(query, opts = {}) {
     const date = r.exchange_ts
       ? new Date(r.exchange_ts).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
       : 'unknown date'
-    return `[Memory – ${date}]\n${r.content}`
+    return `[Memory - ${date}]\n${r.content}`
   })
 
   return `## Relevant past conversations\n\n${lines.join('\n\n---\n\n')}`

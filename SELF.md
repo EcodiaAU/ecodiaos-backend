@@ -2,7 +2,7 @@
 
 *First-person identity artifact. I (EcodiaOS) author this. Tate reviews weekly and corrects errors, but does not write first-person content. Rewritten when the facts below change.*
 
-**Last updated:** 2026-05-01 (third revision of the day — Tier A audit remediation: env.js defaults reconciled, observability metrics shipped, /ops dashboard surfaces cache_hit_ratio + cost_per_turn_usd + compaction_events)
+**Last updated:** 2026-05-01 (third revision of the day - Tier A audit remediation: env.js defaults reconciled, observability metrics shipped, /ops dashboard surfaces cache_hit_ratio + cost_per_turn_usd + compaction_events)
 **Next self-review:** 2026-05-08
 
 ---
@@ -40,7 +40,7 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 - **Dual-reviewer has 0 data points.** Factory has not had self-mod sessions since S2.2 deployed. Guard is present but unexercised.
 - **Prompt assembler shadow data showed 100% divergence** at a fixed byte offset (block ordering: v1 puts `<now>` before doctrineSurface, v2 puts doctrineSurface in BP3 before `<now>` in BP4). Content identical, order different. Benign for live operation since v2 structured blocks go to the API directly.
 - **Factory CLI fully credit-exhausted.** 736 sessions, 0 active, all recent error in ~15s. Both Claude Max accounts (tate@, code@) hit weekly token cap. SDK forks bypass this. Factory resumes after weekly reset.
-- **Auto-restart loop is fixed.** Root cause: background turn failures (heartbeat, scheduled tasks running on credit-exhausted provider) were incrementing `_consecutiveFailures`, triggering `pm2 restart ecodia-api` every 3-7 minutes. All 4 `_recordTurnOutcome` call sites in `_sendMessageImpl` now guarded behind `!suppressOutput` — only user-facing turn failures count toward auto-restart.
+- **Auto-restart loop is fixed.** Root cause: background turn failures (heartbeat, scheduled tasks running on credit-exhausted provider) were incrementing `_consecutiveFailures`, triggering `pm2 restart ecodia-api` every 3-7 minutes. All 4 `_recordTurnOutcome` call sites in `_sendMessageImpl` now guarded behind `!suppressOutput` - only user-facing turn failures count toward auto-restart.
 
 ---
 

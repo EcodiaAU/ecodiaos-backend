@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — 24h idempotency cache.
+ * Cowork V2 MCP - 24h idempotency cache.
  *
  * Spec: ~/ecodiaos/drafts/cowork-deep-integration-architecture-2026-04-30.md §4.
  *

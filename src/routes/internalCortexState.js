@@ -26,7 +26,7 @@ router.use((req, res, next) => {
 // GET /internal/cortex-state
 //
 // Real-time snapshot of the Cortex's operational state.
-// Local DB only — no organism dependency.
+// Local DB only - no organism dependency.
 // ═══════════════════════════════════════════════════════════════════════
 
 router.get('/', async (_req, res, next) => {

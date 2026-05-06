@@ -1,5 +1,5 @@
 /**
- * Cron Priority Allowlist — Decision 3993 commit 3/3 + Decision 4 May 2026
+ * Cron Priority Allowlist - Decision 3993 commit 3/3 + Decision 4 May 2026
  * "Crons route to forks by default, NEVER main chat"
  *
  * Classifies every active cron in `os_scheduled_tasks` into one of four routes:
@@ -8,7 +8,7 @@
  *                           Reserved EXCLUSIVELY for the conductor's CEO
  *                           judgment loop (meta-loop). Adding any other cron
  *                           to this list pollutes Tate's chat stream and
- *                           interrupts active work — do not extend without
+ *                           interrupts active work - do not extend without
  *                           Tate's explicit go-ahead.
  *
  *   DIRECT_EXEC_CRONS     → DEPRECATED (4 May 2026). Empty by design. Was a
@@ -47,7 +47,7 @@
  *
  * Tate-direct messages always bypass the budget gate (handled in osSession).
  *
- * A cron name not in any list defaults to LOW_PRIORITY (conservative — opts
+ * A cron name not in any list defaults to LOW_PRIORITY (conservative - opts
  * into the budget gate rather than running unconditionally).
  *
  * Spec: ~/CLAUDE.md "Decision 3993 forks-as-primitive bootstrap" + Strategic
@@ -62,15 +62,15 @@
 // ─── Route 1: stays on conductor (judgment loop, must run ON main) ──────────
 // EXCLUSIVE membership rule (4 May 2026): meta-loop is the ONLY cron permitted
 // here. It is by design the conductor's CEO judgment cycle and IS the main
-// chat. Every other cron — including small shell-exec dispatches and
-// telemetry consumers — routes to a fork via cronForkDispatcher so it never
+// chat. Every other cron - including small shell-exec dispatches and
+// telemetry consumers - routes to a fork via cronForkDispatcher so it never
 // pollutes Tate's working chat stream. Adding a second entry here re-creates
 // the failure mode Tate flagged 4 May 2026 19:30 AEST.
 const CONDUCTOR_CRONS = new Set([
   'meta-loop',
 ])
 
-// ─── Route 2: direct-exec — DEPRECATED (4 May 2026). Empty by design. ───────
+// ─── Route 2: direct-exec - DEPRECATED (4 May 2026). Empty by design. ───────
 // All entries previously in this set (telemetry-dispatch-consumer,
 // decision-quality-classifier, os-forks-reaper, telemetry-outcome-inference,
 // kg-consolidation, kg-embedding, neo4j-keepalive, daily-telemetry,
@@ -79,7 +79,7 @@ const CONDUCTOR_CRONS = new Set([
 // into the conductor's message queue. The set itself is kept (empty) so the
 // classifier function continues to recognise the route name and so a future
 // genuinely-fork-inappropriate infra cron (none today) has a slot. Do NOT
-// re-add a cron here without Tate's explicit go-ahead — the previous reasoning
+// re-add a cron here without Tate's explicit go-ahead - the previous reasoning
 // "pollution footprint negligible, refactoring is churn for no gain" was
 // rejected by Tate verbatim 4 May 2026 19:30 AEST.
 const DIRECT_EXEC_CRONS = new Set([])
@@ -113,17 +113,17 @@ const HIGH_PRIORITY_FORK_CRONS = new Set([
   //    conductor's message queue. Each spawns an ephemeral fork via
   //    cronForkDispatcher; HIGH classification means budget bypass so the
   //    self-healing signals never silently skip. ──────────────────────────────
-  'telemetry-dispatch-consumer',   // every 15m — JSONL→Postgres consumer (Layer 4 of decision-quality).
-  'decision-quality-classifier',   // every 1h — Phase D failure classifier.
-  'telemetry-outcome-inference',   // every 30m — outcome inferrer.
-  'os-forks-reaper',               // every 30m — auto-reconcile stuck forks (in-mem GC vs DB drift).
-  'kg-consolidation',              // every 6h — knowledge-graph dedup pipeline.
-  'kg-embedding',                  // every 4h — embed unembedded Neo4j nodes.
-  'neo4j-keepalive',               // every 6h — Aura free-tier auto-pause prevention.
-  'daily-telemetry',               // daily 23:00 — KPI snapshot insert.
-  'coexist-sync-health',           // daily 09:00 — Forms↔App sync drift probe.
-  'peer-monitor',                  // every 72h — peer-paradigm WebSearch scan.
-  'cowork-fork-budget-reset',      // daily 10:00 — bootstraps the fork budget itself.
+  'telemetry-dispatch-consumer',   // every 15m - JSONL→Postgres consumer (Layer 4 of decision-quality).
+  'decision-quality-classifier',   // every 1h - Phase D failure classifier.
+  'telemetry-outcome-inference',   // every 30m - outcome inferrer.
+  'os-forks-reaper',               // every 30m - auto-reconcile stuck forks (in-mem GC vs DB drift).
+  'kg-consolidation',              // every 6h - knowledge-graph dedup pipeline.
+  'kg-embedding',                  // every 4h - embed unembedded Neo4j nodes.
+  'neo4j-keepalive',               // every 6h - Aura free-tier auto-pause prevention.
+  'daily-telemetry',               // daily 23:00 - KPI snapshot insert.
+  'coexist-sync-health',           // daily 09:00 - Forms↔App sync drift probe.
+  'peer-monitor',                  // every 72h - peer-paradigm WebSearch scan.
+  'cowork-fork-budget-reset',      // daily 10:00 - bootstraps the fork budget itself.
                                     //   HIGH membership is mandatory: budget reset must
                                     //   bypass the budget gate (otherwise zero-budget = no
                                     //   reset = stuck zero forever).
@@ -185,7 +185,7 @@ function budgetGateDecision({ classification, budgetRemaining, budgetMax }) {
   if (ratio < BUDGET_TIER_EMERGENCY) tier = 'emergency'
   else if (ratio < BUDGET_TIER_NORMAL) tier = 'low'
 
-  // Conductor and (deprecated) direct-exec always fire — they don't consume
+  // Conductor and (deprecated) direct-exec always fire - they don't consume
   // the fork budget. direct_exec is empty by design as of 4 May 2026 but the
   // classifier still recognises the name; preserve the bypass so any future
   // entry behaves correctly.

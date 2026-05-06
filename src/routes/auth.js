@@ -13,7 +13,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
-// Single-user auth — password checked against env DASHBOARD_PASSWORD_HASH
+// Single-user auth - password checked against env DASHBOARD_PASSWORD_HASH
 router.post('/login', validate(loginSchema), async (req, res, next) => {
   try {
     const valid = await bcrypt.compare(req.body.password, env.DASHBOARD_PASSWORD_HASH)

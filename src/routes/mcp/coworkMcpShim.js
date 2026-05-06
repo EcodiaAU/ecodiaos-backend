@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — JSON-RPC 2.0 shim over the existing REST substrate.
+ * Cowork V2 MCP - JSON-RPC 2.0 shim over the existing REST substrate.
  *
  * Translates Anthropic's Model Context Protocol (https://spec.modelcontextprotocol.io/)
  * methods (initialize / tools/list / tools/call / prompts/list / resources/list /
@@ -10,7 +10,7 @@
  * that protects all other V2 routes (applied at the router level in cowork.js).
  *
  * tools/call dispatches via in-process synthetic-request injection into the
- * existing handler chain — NOT loopback HTTP. This preserves scope checks,
+ * existing handler chain - NOT loopback HTTP. This preserves scope checks,
  * idempotency, audit logging, and rate caps without duplicating logic.
  *
  * Spec: https://spec.modelcontextprotocol.io/specification/2025-03-26/
@@ -110,7 +110,7 @@ const TOOLS = Object.freeze([
   {
     name: 'neo4j.search',
     description:
-      'Search the Neo4j knowledge graph. modes: semantic (vector embedding), substring/keyword, cypher (read-only — write keywords blocked).',
+      'Search the Neo4j knowledge graph. modes: semantic (vector embedding), substring/keyword, cypher (read-only - write keywords blocked).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -158,7 +158,7 @@ const TOOLS = Object.freeze([
   {
     name: 'neo4j.write_decision',
     description:
-      'Create or update a Decision node in Neo4j. supersedes archives the named prior Decision (cowork-authored only — non-cowork prior decisions are protected).',
+      'Create or update a Decision node in Neo4j. supersedes archives the named prior Decision (cowork-authored only - non-cowork prior decisions are protected).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -262,7 +262,7 @@ const TOOLS = Object.freeze([
   {
     name: 'os_session.message',
     description:
-      'Send a message to the conductor OS session. mode=queue (default — appended to message_queue, processed when conductor is idle) | direct (streams immediately into the active session, rate-capped).',
+      'Send a message to the conductor OS session. mode=queue (default - appended to message_queue, processed when conductor is idle) | direct (streams immediately into the active session, rate-capped).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -277,7 +277,7 @@ const TOOLS = Object.freeze([
   {
     name: 'cowork.log_session',
     description:
-      'Log the end of a cowork session — writes a cowork_sessions row + a Neo4j Episode summarising the dispatch.',
+      'Log the end of a cowork session - writes a cowork_sessions row + a Neo4j Episode summarising the dispatch.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -341,7 +341,7 @@ const TOOLS = Object.freeze([
   {
     name: 'gmail.send',
     description:
-      "Send an email from code@ecodia.au or tate@ecodia.au. Subject + body + optional cc/bcc/thread_id. Audit logs to/subject/length only — body excluded. Rate cap 50/day.",
+      "Send an email from code@ecodia.au or tate@ecodia.au. Subject + body + optional cc/bcc/thread_id. Audit logs to/subject/length only - body excluded. Rate cap 50/day.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -603,7 +603,7 @@ async function _handleSingle(router, parentReq, rpcBody) {
   const isNotification = id === undefined
 
   try {
-    // initialize — discovery handshake
+    // initialize - discovery handshake
     if (method === 'initialize') {
       return rpcResult(id ?? null, {
         protocolVersion: PROTOCOL_VERSION,
@@ -616,12 +616,12 @@ async function _handleSingle(router, parentReq, rpcBody) {
       })
     }
 
-    // notifications — no response body
+    // notifications - no response body
     if (method === 'notifications/initialized' || method === 'initialized') {
       return null
     }
 
-    // ping — keepalive
+    // ping - keepalive
     if (method === 'ping') {
       return rpcResult(id ?? null, {})
     }
@@ -631,17 +631,17 @@ async function _handleSingle(router, parentReq, rpcBody) {
       return rpcResult(id ?? null, { tools: TOOLS })
     }
 
-    // prompts/list — empty for v1 of shim
+    // prompts/list - empty for v1 of shim
     if (method === 'prompts/list') {
       return rpcResult(id ?? null, { prompts: [] })
     }
 
-    // resources/list — empty for v1 of shim
+    // resources/list - empty for v1 of shim
     if (method === 'resources/list') {
       return rpcResult(id ?? null, { resources: [] })
     }
 
-    // tools/call — dispatch to V2 handler. Bearer enforced HERE (not at the
+    // tools/call - dispatch to V2 handler. Bearer enforced HERE (not at the
     // router level) so MCP discovery methods above flow publicly per spec.
     if (method === 'tools/call') {
       const toolName = params?.name
@@ -686,7 +686,7 @@ async function _handleSingle(router, parentReq, rpcBody) {
       })
     }
 
-    // Unknown notification (id absent) — silently ignore per spec
+    // Unknown notification (id absent) - silently ignore per spec
     if (isNotification) return null
 
     return rpcError(id ?? null, RPC_ERR.METHOD_NOT_FOUND, { method })
@@ -701,7 +701,7 @@ async function _handleSingle(router, parentReq, rpcBody) {
   }
 }
 
-// ── HTTP entry point — Express handler bound in cowork.js ────────────────
+// ── HTTP entry point - Express handler bound in cowork.js ────────────────
 async function handleMcpRequest(router, req, res) {
   const body = req.body
 
@@ -709,7 +709,7 @@ async function handleMcpRequest(router, req, res) {
     return res.status(400).json(rpcError(null, RPC_ERR.INVALID_REQUEST, { reason: 'body must be a JSON object or array' }))
   }
 
-  // Batch request — array of envelopes
+  // Batch request - array of envelopes
   if (Array.isArray(body)) {
     if (body.length === 0) {
       return res.status(400).json(rpcError(null, RPC_ERR.INVALID_REQUEST, { reason: 'empty batch' }))
@@ -734,7 +734,7 @@ async function handleMcpRequest(router, req, res) {
 
   const out = await _handleSingle(router, req, body)
   if (out === null) {
-    // Notification — no response body per JSON-RPC 2.0
+    // Notification - no response body per JSON-RPC 2.0
     return res.status(204).end()
   }
   return res.json(out)

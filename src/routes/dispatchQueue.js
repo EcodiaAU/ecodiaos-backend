@@ -1,5 +1,5 @@
 /**
- * Dispatch-queue routes — /api/dispatch-queue/*
+ * Dispatch-queue routes - /api/dispatch-queue/*
  *
  * Conductor or any fork can enqueue "when X happens, do Y" rows. The
  * dispatchQueueListener fires them when the trigger event arrives.
@@ -114,7 +114,7 @@ router.post('/:id/cancel', async (req, res, next) => {
   }
 })
 
-// POST /api/dispatch-queue/:id/fire-now — manually trip a queued row
+// POST /api/dispatch-queue/:id/fire-now - manually trip a queued row
 router.post('/:id/fire-now', async (req, res, next) => {
   try {
     const [qrow] = await db`SELECT * FROM dispatch_queue WHERE id = ${req.params.id} AND status = 'queued'`

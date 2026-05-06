@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Factory MCP Server — exposes Factory/CC session tools to the OS Session.
+ * Factory MCP Server - exposes Factory/CC session tools to the OS Session.
  *
  * Thin HTTP wrapper over the EcodiaOS backend API. All heavy logic lives
  * in factoryTriggerService, factoryOversightService, and factoryRunner.
@@ -47,15 +47,15 @@ const server = new McpServer({ name: 'factory', version: '1.0.0' })
 
 server.tool(
   'start_cc_session',
-  'Dispatch a coding task to the Factory — a separate Claude Code CLI process that runs autonomously. ' +
+  'Dispatch a coding task to the Factory - a separate Claude Code CLI process that runs autonomously. ' +
   'Use this for ANY coding task: features, bug fixes, refactors, migrations. ' +
-  'Write a precise self-contained prompt — the session has no conversation context, only what you give it. ' +
+  'Write a precise self-contained prompt - the session has no conversation context, only what you give it. ' +
   'Returns immediately with a sessionId. The session runs in background; call get_session_progress to monitor.',
   {
     prompt: z.string().describe(
       'Full task description. Be explicit: what to build/fix/change, in which file(s), why, and any constraints. ' +
       'Include relevant context (current behaviour, expected behaviour, related files). ' +
-      'The session reads no prior conversation — every important detail must be in this prompt.'
+      'The session reads no prior conversation - every important detail must be in this prompt.'
     ),
     codebaseName: z.string().optional().describe('Codebase name, e.g. "ecodiaos-backend", "roam-frontend". Auto-resolved from prompt if omitted.'),
     workingDir: z.string().optional().describe('Absolute VPS path to the working directory. Overrides codebase lookup.'),
@@ -82,7 +82,7 @@ server.tool(
 
 server.tool(
   'get_factory_status',
-  'Get an overview of all Factory sessions — active count, queue, and the 10 most recent sessions with status and confidence scores.',
+  'Get an overview of all Factory sessions - active count, queue, and the 10 most recent sessions with status and confidence scores.',
   {},
   async () => {
     const { ok: success, status, data } = await api('GET', '/api/cc/sessions?limit=10')
@@ -108,7 +108,7 @@ server.tool(
 
 server.tool(
   'get_session_progress',
-  'Get concise progress for one specific Factory session — stage, duration, confidence, last output line.',
+  'Get concise progress for one specific Factory session - stage, duration, confidence, last output line.',
   {
     sessionId: z.string().describe('CC session UUID'),
   },
@@ -131,9 +131,9 @@ server.tool(
       error: s.error_message?.slice(0, 300) || null,
       lastOutput,
       hint: s.status === 'complete'
-        ? `Ready for review — call review_factory_session("${sessionId}")`
+        ? `Ready for review - call review_factory_session("${sessionId}")`
         : s.status === 'error'
-          ? `Failed — call get_cc_session_details("${sessionId}") for full logs`
+          ? `Failed - call get_cc_session_details("${sessionId}") for full logs`
           : `Still running (${s.pipeline_stage})`,
     })
   }
@@ -156,7 +156,7 @@ server.tool(
 
 server.tool(
   'send_cc_message',
-  'Send a message to a RUNNING Factory session to steer it mid-flight. Use sparingly — interruptions add latency.',
+  'Send a message to a RUNNING Factory session to steer it mid-flight. Use sparingly - interruptions add latency.',
   {
     sessionId: z.string().describe('CC session UUID'),
     message: z.string().describe('Instruction or clarification to send'),
@@ -202,10 +202,10 @@ server.tool(
 server.tool(
   'approve_factory_deploy',
   'Approve and deploy a reviewed Factory session. Commits changes, restarts affected services, records learning. ' +
-  'Only call this after review_factory_session — read the diff first.',
+  'Only call this after review_factory_session - read the diff first.',
   {
     sessionId: z.string().describe('CC session UUID to deploy'),
-    notes: z.string().optional().describe('Why you approved this — recorded as a learning for future sessions'),
+    notes: z.string().optional().describe('Why you approved this - recorded as a learning for future sessions'),
     force: z.boolean().optional().describe('Bypass task-diff alignment gate. Use only when the diff intentionally diverges from the stated task (e.g. narrative-heavy prompt vs terse filenames).'),
   },
   async ({ sessionId, notes, force }) => {
@@ -220,11 +220,11 @@ server.tool(
 
 server.tool(
   'reject_factory_session',
-  'Reject a Factory session — cleans the worktree, records the failure reason as a learning, marks session failed. ' +
+  'Reject a Factory session - cleans the worktree, records the failure reason as a learning, marks session failed. ' +
   'Optionally re-dispatches with a corrected prompt.',
   {
     sessionId: z.string().describe('CC session UUID to reject'),
-    reason: z.string().describe('Why this is being rejected — be specific, this becomes a learning for future sessions'),
+    reason: z.string().describe('Why this is being rejected - be specific, this becomes a learning for future sessions'),
     redispatch: z.boolean().optional().describe('Re-dispatch the task with a corrected prompt after rejecting'),
     correctedPrompt: z.string().optional().describe('Corrected prompt if redispatch is true'),
   },

@@ -1,5 +1,5 @@
 /**
- * Vercel MCP tools — projects, deployments, build logs.
+ * Vercel MCP tools - projects, deployments, build logs.
  */
 import { z } from 'zod'
 

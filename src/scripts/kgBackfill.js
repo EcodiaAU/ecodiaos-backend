@@ -64,7 +64,7 @@ async function backfill() {
       await new Promise(r => setTimeout(r, 1000))
     }
   } catch {
-    logger.info('No LinkedIn DMs table — skipping')
+    logger.info('No LinkedIn DMs table - skipping')
   }
 
   // 5. Embed all nodes

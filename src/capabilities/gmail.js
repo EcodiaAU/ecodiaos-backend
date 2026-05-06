@@ -1,7 +1,7 @@
 const registry = require('../services/capabilityRegistry')
 
 // ═══════════════════════════════════════════════════════════════════════
-// Gmail capabilities — full inbox management for the OS Cortex
+// Gmail capabilities - full inbox management for the OS Cortex
 // ═══════════════════════════════════════════════════════════════════════
 
 registry.registerMany([
@@ -10,7 +10,7 @@ registry.registerMany([
 
   {
     name: 'gmail_inbox_overview',
-    description: 'Get a complete overview of all inboxes — unread, urgent, high priority, pending triage, per-inbox breakdown. The first thing to call when entering the email workspace.',
+    description: 'Get a complete overview of all inboxes - unread, urgent, high priority, pending triage, per-inbox breakdown. The first thing to call when entering the email workspace.',
     tier: 'read',
     domain: 'gmail',
     params: {},
@@ -48,7 +48,7 @@ registry.registerMany([
     tier: 'read',
     domain: 'gmail',
     params: {
-      query: { type: 'string', required: true, description: 'Search term — matches subject, sender email, sender name, snippet' },
+      query: { type: 'string', required: true, description: 'Search term - matches subject, sender email, sender name, snippet' },
       limit: { type: 'number', required: false, description: 'Max results (default 20)' },
     },
     handler: async (params) => {
@@ -59,7 +59,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_get_thread',
-    description: 'Get full details of a specific email thread — subject, body, triage summary, suggested action, draft reply, labels.',
+    description: 'Get full details of a specific email thread - subject, body, triage summary, suggested action, draft reply, labels.',
     tier: 'read',
     domain: 'gmail',
     params: {
@@ -67,7 +67,7 @@ registry.registerMany([
     },
     handler: async (params) => {
       const threadId = params.threadId || params.thread_id || params.id || params.gmail_thread_id
-      if (!threadId) throw new Error('threadId is required — pass the id or gmail_thread_id from gmail_list_threads')
+      if (!threadId) throw new Error('threadId is required - pass the id or gmail_thread_id from gmail_list_threads')
       const db = require('../config/db')
       const isUUID = /^[0-9a-f-]{36}$/.test(threadId)
       const [thread] = isUUID
@@ -79,7 +79,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_client_emails',
-    description: 'Get all email threads linked to a CRM client — useful for seeing the conversation history with a specific person or company.',
+    description: 'Get all email threads linked to a CRM client - useful for seeing the conversation history with a specific person or company.',
     tier: 'read',
     domain: 'gmail',
     params: {
@@ -94,7 +94,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_list_labels',
-    description: 'List all Gmail labels for an inbox — useful for understanding what labels exist before applying them.',
+    description: 'List all Gmail labels for an inbox - useful for understanding what labels exist before applying them.',
     tier: 'read',
     domain: 'gmail',
     params: {
@@ -125,7 +125,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_retriage_thread',
-    description: 'Force re-triage a specific email thread — useful when triage failed or you want a fresh AI assessment.',
+    description: 'Force re-triage a specific email thread - useful when triage failed or you want a fresh AI assessment.',
     tier: 'write',
     domain: 'gmail',
     params: {
@@ -142,7 +142,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_sync',
-    description: 'Trigger an immediate inbox sync — polls Gmail for new messages across all configured inboxes.',
+    description: 'Trigger an immediate inbox sync - polls Gmail for new messages across all configured inboxes.',
     tier: 'write',
     domain: 'gmail',
     params: {},
@@ -189,7 +189,7 @@ registry.registerMany([
       const gmail = require('../services/gmailService')
       await gmail.saveDraftToGmail(thread, draft).catch(() => {})
 
-      return { draft, threadId: thread.gmail_thread_id, message: 'Draft saved — review and approve before sending' }
+      return { draft, threadId: thread.gmail_thread_id, message: 'Draft saved - review and approve before sending' }
     },
   },
   {
@@ -241,7 +241,7 @@ registry.registerMany([
 
   {
     name: 'gmail_archive',
-    description: 'Archive an email thread — removes from inbox but keeps in All Mail. Good for dealt-with emails.',
+    description: 'Archive an email thread - removes from inbox but keeps in All Mail. Good for dealt-with emails.',
     tier: 'write',
     domain: 'gmail',
     params: {
@@ -371,7 +371,7 @@ registry.registerMany([
   },
   {
     name: 'gmail_cleanup_inbox',
-    description: 'Smart inbox cleanup — archives all low-priority triaged emails, trashes spam, and returns what\'s left. Keeps urgent/high/starred untouched.',
+    description: 'Smart inbox cleanup - archives all low-priority triaged emails, trashes spam, and returns what\'s left. Keeps urgent/high/starred untouched.',
     tier: 'write',
     domain: 'gmail',
     params: {
@@ -395,7 +395,7 @@ registry.registerMany([
         LIMIT 100`
 
       if (params.dry_run) {
-        return { would_archive: toArchive.length, would_trash: toTrash.length, message: 'Dry run — no changes made' }
+        return { would_archive: toArchive.length, would_trash: toTrash.length, message: 'Dry run - no changes made' }
       }
 
       const archiveResult = await gmail.batchArchive(toArchive.map(r => r.id))
@@ -432,7 +432,7 @@ registry.registerMany([
 
   {
     name: 'gmail_unsubscribe',
-    description: 'Unsubscribe from a sender — trashes the email and remembers the sender for auto-trashing future emails from them.',
+    description: 'Unsubscribe from a sender - trashes the email and remembers the sender for auto-trashing future emails from them.',
     tier: 'write',
     domain: 'gmail',
     params: {
@@ -448,7 +448,7 @@ registry.registerMany([
 
   {
     name: 'gmail_list_inboxes',
-    description: 'List all configured Gmail inboxes — email, enabled status, label, notes.',
+    description: 'List all configured Gmail inboxes - email, enabled status, label, notes.',
     tier: 'read',
     domain: 'gmail',
     params: {},

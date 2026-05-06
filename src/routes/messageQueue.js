@@ -1,5 +1,5 @@
 /**
- * Message Queue Routes — /api/message-queue/*
+ * Message Queue Routes - /api/message-queue/*
  *
  * CRUD for the Tate->OS inbox, plus the signal-handoff and sweep endpoints
  * called by the MCP tool and the age-sweep cron respectively.
@@ -11,7 +11,7 @@ const db = require('../config/db')
 const mq = require('../services/messageQueue')
 const { broadcast } = require('../websocket/wsManager')
 
-// GET / — list pending messages
+// GET / - list pending messages
 router.get('/', async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 50
@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /signal-handoff — MCP tool calls this when OS declares handoff readiness
+// POST /signal-handoff - MCP tool calls this when OS declares handoff readiness
 // Must be registered before /:id routes to avoid param capture
 router.post('/signal-handoff', async (req, res, next) => {
   try {
@@ -33,7 +33,7 @@ router.post('/signal-handoff', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /sweep — age-sweep cron endpoint (sweeps messages past max_age_hours)
+// POST /sweep - age-sweep cron endpoint (sweeps messages past max_age_hours)
 router.post('/sweep', async (req, res, next) => {
   try {
     const result = await mq.sweepAged()
@@ -41,7 +41,7 @@ router.post('/sweep', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /:id — single message
+// GET /:id - single message
 router.get('/:id', async (req, res, next) => {
   try {
     const [row] = await db`SELECT * FROM message_queue WHERE id = ${req.params.id}`
@@ -50,7 +50,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// PATCH /:id — update body or max_age_hours (only while pending).
+// PATCH /:id - update body or max_age_hours (only while pending).
 // max_age_hours is clamped to [1, 168] to match the frontend edit form.
 router.patch('/:id', async (req, res, next) => {
   try {
@@ -78,7 +78,7 @@ router.patch('/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// DELETE /:id — cancel a pending message
+// DELETE /:id - cancel a pending message
 router.delete('/:id', async (req, res, next) => {
   try {
     const result = await mq.cancelMessage(req.params.id)
@@ -87,7 +87,7 @@ router.delete('/:id', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /:id/promote — deliver a specific message immediately
+// POST /:id/promote - deliver a specific message immediately
 router.post('/:id/promote', async (req, res, next) => {
   try {
     const result = await mq.promoteNow(req.params.id)

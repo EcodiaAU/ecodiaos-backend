@@ -5,14 +5,14 @@ const { createNotification } = require('../db/queries/transactions')
 const { recordHeartbeat } = require('./heartbeat')
 
 // ═══════════════════════════════════════════════════════════════════════
-// WORKSPACE POLLER — On-Demand
+// WORKSPACE POLLER - On-Demand
 //
 // No fixed schedules. Each poll function is exported so the
 // autonomousMaintenanceWorker can call them when the AI decides a poll
 // is warranted. This replaces cron-based scheduling entirely.
 //
 // The AI reads system state (last poll time, pending signals, pressure)
-// and decides what to sync and when — not the clock.
+// and decides what to sync and when - not the clock.
 // ═══════════════════════════════════════════════════════════════════════
 
 // ─── Google Drive ──────────────────────────────────────────────────────

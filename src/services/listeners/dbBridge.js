@@ -14,14 +14,14 @@
  * Use a direct connection URL for this bridge.
  *
  * Heartbeat (W3 audit fix #5, fork_mosn8o5x_7a0e54 worker C2):
- *   The LISTEN connection can silently die — postgres-lib auto-reconnect handles
+ *   The LISTEN connection can silently die - postgres-lib auto-reconnect handles
  *   network drops, but a stale subscription where the underlying socket is alive
  *   but no NOTIFYs flow leaves us dark with no exception.
  *
  *   Self-emit a heartbeat NOTIFY every HEARTBEAT_INTERVAL_MS. The same connection
  *   receives the echo via _onNotification; we filter heartbeat-self events out
  *   of the listener fan-out and update _lastHeartbeatEcho. A separate watchdog
- *   timer checks every WATCHDOG_INTERVAL_MS — if echo is stale > HEARTBEAT_STALE_MS,
+ *   timer checks every WATCHDOG_INTERVAL_MS - if echo is stale > HEARTBEAT_STALE_MS,
  *   declare subscription dead, publish perception event, force reconnect.
  *
  * Exports: start(), stop(), _heartbeatStatus()
@@ -37,7 +37,7 @@ let _stopped = false
 let _reconnectDelay = 1000  // ms, doubles on each failure, capped at 30s
 let _reconnectTimer = null
 
-// Heartbeat state — module-level so start()/stop() and the watchdog can share.
+// Heartbeat state - module-level so start()/stop() and the watchdog can share.
 let _heartbeatTimer = null
 let _watchdogTimer = null
 let _lastHeartbeatEcho = 0
@@ -55,7 +55,7 @@ function _broadcast(type, payload) {
   }
 }
 
-// Lazy-require perceptionBus too — avoids load-order issues and lets tests
+// Lazy-require perceptionBus too - avoids load-order issues and lets tests
 // stub via jest.mock without forcing a top-level require.
 function _publishPerception(event) {
   try {
@@ -83,7 +83,7 @@ function _onNotification(raw) {
       return
     }
 
-    // Heartbeat self-echo — consume, update timestamp, do NOT forward to
+    // Heartbeat self-echo - consume, update timestamp, do NOT forward to
     // listener subscribers. Match shape published by _emitHeartbeat below.
     if (parsed && parsed.heartbeat === true && parsed.source === 'dbbridge_self') {
       _lastHeartbeatEcho = Date.now()
@@ -116,7 +116,7 @@ async function _emitHeartbeat() {
       source: 'dbbridge_self',
       ts: Date.now(),
     }).replace(/'/g, "''")
-    // postgres-lib `unsafe()` is the documented escape hatch for raw SQL —
+    // postgres-lib `unsafe()` is the documented escape hatch for raw SQL - 
     // NOTIFY can't take parameter binding, must be inlined.
     await _sql.unsafe(`NOTIFY eos_listener_events, '${payload}'`)
   } catch (err) {
@@ -126,7 +126,7 @@ async function _emitHeartbeat() {
 
 function _runWatchdog() {
   if (_stopped) return
-  // Only check if we've ever recorded an echo — at boot, _lastHeartbeatEcho
+  // Only check if we've ever recorded an echo - at boot, _lastHeartbeatEcho
   // is set in _connect on successful LISTEN. Pre-first-connect we skip.
   if (!_lastHeartbeatEcho) return
   const age = Date.now() - _lastHeartbeatEcho
@@ -222,7 +222,7 @@ async function _connect() {
     // The library keeps the connection alive and re-runs LISTEN on reconnect.
     await _sql.listen('eos_listener_events', _onNotification, () => {
       _reconnectDelay = 1000  // reset backoff on successful connect
-      // Reset heartbeat echo on connect — fresh window. Without this, a stale
+      // Reset heartbeat echo on connect - fresh window. Without this, a stale
       // _lastHeartbeatEcho from a dead prior subscription could either trip the
       // watchdog instantly post-reconnect, or (if 0) never trip after this
       // first connect since we skip-when-zero in _runWatchdog.
@@ -318,7 +318,7 @@ module.exports = {
   start,
   stop,
   _heartbeatStatus,
-  // Test-only exports — the test file pokes these to simulate dead subscriptions
+  // Test-only exports - the test file pokes these to simulate dead subscriptions
   // without standing up a real Postgres listener. Kept under a `__test` namespace
   // to discourage casual use.
   __test: {

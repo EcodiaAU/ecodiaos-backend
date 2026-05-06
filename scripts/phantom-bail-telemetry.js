@@ -25,22 +25,22 @@
  *
  * The headline rate (all phantom_bail / all done) is dominated by cron-fired
  * forks whose deliverables are explicitly conditional ("exit silent on health
- * window", "no unread email", etc — see
+ * window", "no unread email", etc - see
  * ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md).
  * On 4 May 2026 those forks make up >70% of phantom_bail volume but represent
  * 0% of the upstream-bug signal the doctrine threshold was designed to catch.
  *
  * To deflate the headline noise, every fork is classified by brief prefix:
- *   - cron_intent       : brief contains '[ORIGINAL CRON INTENT BELOW'
+ * - cron_intent       : brief contains '[ORIGINAL CRON INTENT BELOW'
  *                          → expected_silent (conditional deliverable)
- *   - self_evolution    : brief starts with 'SELF-EVOLUTION SESSION'
+ * - self_evolution    : brief starts with 'SELF-EVOLUTION SESSION'
  *                          → expected_silent (long-transcript build sessions)
- *   - fork_recon_no_cron: brief starts with the cron wrapper preamble but
+ * - fork_recon_no_cron: brief starts with the cron wrapper preamble but
  *                          lacks the CRON INTENT header
  *                          → expected_silent (brief-template variant)
- *   - interactive       : everything else (Tate-typed dispatches, factory work,
+ * - interactive       : everything else (Tate-typed dispatches, factory work,
  *                          audit findings, demand-driven dispatches)
- *                          → INVESTIGATE — true upstream-bug signal
+ *                          → INVESTIGATE - true upstream-bug signal
  *
  * The trip threshold is now applied to the `investigate_rate`
  * (interactive-class phantom_bail / interactive-class done) with `min_sample`
@@ -48,17 +48,17 @@
  * back-compat in the snapshot shape but no longer drives the alert.
  *
  * Writes (in --write mode):
- *   - kv_store key `ceo.phantom_bail_telemetry.last_run`
+ * - kv_store key `ceo.phantom_bail_telemetry.last_run`
  *       latest snapshot (window stats, headline rate, investigate rate,
  *       per-class breakdown, per-day breakdown)
- *   - kv_store key `ceo.phantom_bail_telemetry.daily_history`
+ * - kv_store key `ceo.phantom_bail_telemetry.daily_history`
  *       rolling array of the last <historyDays> daily snapshots, newest first.
  *       Each snapshot: { day, done, phantom_bail, rate, investigate, by_class }.
- *   - status_board P3 row "phantom-bail rate above 30% threshold (7d)"
+ * - status_board P3 row "phantom-bail rate above 30% threshold (7d)"
  *       upserted when investigate.rate >= 0.30 AND investigate.done >= 10
  *       (sample-size guard). Archived when investigate rate falls back under
  *       threshold for 2 consecutive runs.
- *   - Neo4j Decision when threshold first crossed in a run (one per crossing).
+ * - Neo4j Decision when threshold first crossed in a run (one per crossing).
  *
  * Modes:
  *   --report         JSON snapshot to stdout (default)
@@ -79,8 +79,8 @@
  *   ~/ecodiaos/patterns/outcome-classification-must-distinguish-unverified-from-success.md
  *
  * Authors:
- *   - fork_moqhxg1z_68ea5d  self-evolution rotation D 4 May 2026 (initial)
- *   - fork_moqqickb_dee99b  self-evolution rotation C 4 May 2026 (slicing)
+ * - fork_moqhxg1z_68ea5d  self-evolution rotation D 4 May 2026 (initial)
+ * - fork_moqqickb_dee99b  self-evolution rotation C 4 May 2026 (slicing)
  */
 
 require('dotenv').config({ path: '/home/tate/ecodiaos/.env' });
@@ -207,7 +207,7 @@ function initNeo4j() {
 // (no ended_at) are included via started_at >= fromIso so a long-running
 // interactive fork is visible immediately.
 async function aggregateWindow(supabase, fromIso, toIso) {
-  // Page through results — Supabase JS client default cap is 1000.
+  // Page through results - Supabase JS client default cap is 1000.
   const PAGE = 1000;
   let from = 0;
   let done = 0;
@@ -502,7 +502,7 @@ async function maybeWriteNeo4jDecision(driver, snapshot, statusBoardOutcome) {
       `Authoritative metric (${metricLabel}): decided=${tripDecided}, phantom_bail=${tripBail}, rate=${tripRate === null ? 'n/a' : (tripRate * 100).toFixed(1) + '%'}.`,
       `Headline (legacy, all classes): decided=${window.done}, phantom_bail=${window.phantom_bail}, rate=${(window.rate * 100).toFixed(1)}%.`,
       `By class: ${byClassSummary}.`,
-      `Doctrine (fork-result-fallback-must-be-marked.md verification block): >30% over 7d means the bug is upstream — investigate spawn-prompt instructions, token budgets, and tool-call ceilings rather than blaming individual forks. Investigate-class slice is now the authoritative metric since cron-fired conditional-deliverable forks dominate the headline (see cron-deliverables-can-be-conditional-not-all-fires-must-ship.md).`,
+      `Doctrine (fork-result-fallback-must-be-marked.md verification block): >30% over 7d means the bug is upstream - investigate spawn-prompt instructions, token budgets, and tool-call ceilings rather than blaming individual forks. Investigate-class slice is now the authoritative metric since cron-fired conditional-deliverable forks dominate the headline (see cron-deliverables-can-be-conditional-not-all-fires-must-ship.md).`,
       `status_board action=${statusBoardOutcome.action}.`,
       `Cross-refs: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md, ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md`,
     ].join(' ');

@@ -11,11 +11,11 @@
  *   4. Post to sms_tate with the incident class.
  *
  * Triggers:
- *   - credential_redactions_total increments outside bootstrap
- *   - write to self-mod denylist path by a factory session
- *   - cypher query rejected by label allowlist
- *   - untrusted_input delimiter mismatch (nested delimiter detected)
- *   - any session writes >10 doctrine-like Neo4j nodes in <5 min
+ * - credential_redactions_total increments outside bootstrap
+ * - write to self-mod denylist path by a factory session
+ * - cypher query rejected by label allowlist
+ * - untrusted_input delimiter mismatch (nested delimiter detected)
+ * - any session writes >10 doctrine-like Neo4j nodes in <5 min
  *
  * Incident recovery requires Tate SSH + manual clear. No self-clear path.
  *
@@ -121,7 +121,7 @@ async function fireIncident({
   // (e.g. credentialRedactionMonitor polling every 30s catching multiple
   // fork phantom-bails in a row) sent 22+ identical SMS in one session.
   // Tate's directive 18:03 AEST: "stop sending security texts for similar
-  // and irrelevant things" — gating on the emergency-mode transition is the
+  // and irrelevant things" - gating on the emergency-mode transition is the
   // mechanical fix.
   let wasAlreadyInEmergency = false
   try {
@@ -189,7 +189,7 @@ async function isEmergencyMode() {
     `
     if (rows.length === 0) return false
     const raw = rows[0].value
-    // kv_store stores JSON text — parse both JSON-wrapped and plain bool.
+    // kv_store stores JSON text - parse both JSON-wrapped and plain bool.
     if (typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw)
@@ -200,7 +200,7 @@ async function isEmergencyMode() {
     }
     return raw === true
   } catch (err) {
-    logger.warn('isEmergencyMode check failed — returning false', { error: err.message })
+    logger.warn('isEmergencyMode check failed - returning false', { error: err.message })
     return false
   }
 }

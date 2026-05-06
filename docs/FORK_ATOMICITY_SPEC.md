@@ -1,5 +1,5 @@
 # Fork Atomicity & Worktree Isolation Spec
-## Fixing the 7/5 Violation Properly — 2026-04-30
+## Fixing the 7/5 Violation Properly - 2026-04-30
 
 **Status:** Supersedes Phase 3.1 in `IMMEDIATE_RECOVERY_CHECKLIST.md`.
 **Context:** The checklist's proposed fix ("add `SELECT COUNT(*)` gate") is **still TOCTOU**. This spec documents the real fix, verified against current code.
@@ -49,7 +49,7 @@ The pattern file `authorised-branch-push-is-not-client-contact.md` does not prev
 
 ### 1.4 Eviction race (60s linger)
 
-[forkService.js:674](../src/services/forkService.js#L674) — completed forks linger in `_forks` for 60 seconds before deletion. During that window they still count toward the cap. If the process dies during the window, `recoverStaleForks()` ([forkService.js:787-844](../src/services/forkService.js#L787-L844)) only inspects non-terminal DB rows and never clears the in-memory slot. Leaked slot, invisible to recovery.
+[forkService.js:674](../src/services/forkService.js#L674) - completed forks linger in `_forks` for 60 seconds before deletion. During that window they still count toward the cap. If the process dies during the window, `recoverStaleForks()` ([forkService.js:787-844](../src/services/forkService.js#L787-L844)) only inspects non-terminal DB rows and never clears the in-memory slot. Leaked slot, invisible to recovery.
 
 ---
 
@@ -171,7 +171,7 @@ if (state.worktree_branch && state.committed_changes) {
 }
 ```
 
-Non-fast-forward = two forks touched overlapping files. Flag as a pattern-mineable event ("forks X and Y both edited `/services/foo.js`"). Do not auto-merge — the parent conductor decides.
+Non-fast-forward = two forks touched overlapping files. Flag as a pattern-mineable event ("forks X and Y both edited `/services/foo.js`"). Do not auto-merge - the parent conductor decides.
 
 ### 3.3 Cleanup
 
@@ -190,7 +190,7 @@ Add a sweeper cron: any `fork_worktrees/*` directory whose fork_id is not in `_f
 
 Each worktree is ~200MB (node_modules not copied; git reuses objects via the main repo's `.git`). 5 concurrent forks = 1GB. VPS has headroom.
 
-**Do not use `git worktree add --no-checkout`** — the fork needs working files to edit.
+**Do not use `git worktree add --no-checkout`** - the fork needs working files to edit.
 
 ---
 
@@ -247,9 +247,9 @@ try {
 
 ### 4.4 Where to wire it
 
-- `handsBridge.js` — every delegation to the laptop agent.
-- `osSessionService.js` — every outbound MCP tool call that causes a side effect.
-- `peerMonitor.js` — refactor to use leases, not just observation.
+- `handsBridge.js` - every delegation to the laptop agent.
+- `osSessionService.js` - every outbound MCP tool call that causes a side effect.
+- `peerMonitor.js` - refactor to use leases, not just observation.
 
 ---
 
@@ -293,7 +293,7 @@ for (const row of liveInDb) {
       mode: 'queue',
     })
   } else {
-    // Still fresh — process may have been restarted but fork was quiesced legitimately (e.g., PM2 reload).
+    // Still fresh - process may have been restarted but fork was quiesced legitimately (e.g., PM2 reload).
     // Reattach: populate _forks Map from row, but do NOT re-spawn SDK stream.
     // Instead, mark for conductor attention.
     _forks.set(row.fork_id, hydrateFromDbRow(row))
@@ -334,10 +334,10 @@ cronForkDispatcher ([cronForkDispatcher.js:249-277](../src/services/cronForkDisp
 
 ### 7.4 Recovery
 - Kill `ecodia-conductor` mid-fork (`pm2 kill`). Restart. Assert:
-  - Fork marked `crashed` in DB within 3s of boot.
-  - Worktree cleaned up.
-  - `[SYSTEM: fork_crashed]` message in queue for parent session.
-  - No leaked disk (check `fork_worktrees/` has no stale dirs).
+ - Fork marked `crashed` in DB within 3s of boot.
+ - Worktree cleaned up.
+ - `[SYSTEM: fork_crashed]` message in queue for parent session.
+ - No leaked disk (check `fork_worktrees/` has no stale dirs).
 
 ---
 

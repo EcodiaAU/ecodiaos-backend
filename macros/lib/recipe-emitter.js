@@ -1,8 +1,8 @@
 // recipe-emitter.js
 // Shared library for emitting GUI-recipe markdown files from a captured
 // event stream. Used by:
-//   - psr-exe-to-recipe.js           (Worker A, Win Problem Steps Recorder)
-//   - os-hook-recorder-to-recipe.js  (Worker B, custom hook recorder)
+// - psr-exe-to-recipe.js           (Worker A, Win Problem Steps Recorder)
+// - os-hook-recorder-to-recipe.js  (Worker B, custom hook recorder)
 //
 // Output conforms to the 10-section recipe anatomy from
 // ~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md
@@ -56,7 +56,7 @@ function buildTriggers(flowSlug, windowMetadata = []) {
     if (w && w.window_title) {
       // window titles like "Untitled - Notepad" or "DuckDuckGo - Mozilla Firefox"
       const words = w.window_title
-        .split(/[-–|·•:]/)
+        .split(/[- - |·•:]/)
         .flatMap(s => s.split(/\s+/))
         .map(s => slugify(s))
         .filter(s => s && s.length >= 3 && !STOPWORDS.has(s));
@@ -284,9 +284,9 @@ function stepByStepProcedure(events) {
         actionDesc = `Action${winBit}: ${escapeMd(ev.raw_step_text || '')}`;
     }
     let extras = '';
-    if (ev.uia_selector_hint) extras += `\n  - UIA: \`${ev.uia_selector_hint}\``;
-    if (ev.x !== null && ev.x !== undefined) extras += `\n  - Pixel coords (fallback): \`(${ev.x}, ${ev.y})\``;
-    if (ev.screenshot_cid) extras += `\n  - Screenshot CID: \`${ev.screenshot_cid}\``;
+    if (ev.uia_selector_hint) extras += `\n - UIA: \`${ev.uia_selector_hint}\``;
+    if (ev.x !== null && ev.x !== undefined) extras += `\n - Pixel coords (fallback): \`(${ev.x}, ${ev.y})\``;
+    if (ev.screenshot_cid) extras += `\n - Screenshot CID: \`${ev.screenshot_cid}\``;
     return `${ev.step_number}. ${actionDesc}${tsBit}${extras}`;
   }).join('\n\n') + '\n';
 }

@@ -1,5 +1,5 @@
 # Anthropic-Native Leverage
-## What Anthropic Already Shipped That You're Duplicating — 2026-04-30
+## What Anthropic Already Shipped That You're Duplicating - 2026-04-30
 
 **Status:** Cost-reduction + complexity-reduction spec. Delete parallel infrastructure; use Anthropic's.
 **Context:** You're on Claude Max with full Agent SDK, Skills, MCP, prompt caching, and Cowork. Several custom services reproduce features Anthropic built better.
@@ -20,7 +20,7 @@ Two bugs this produces:
 
 ### 1.2 Anthropic's solution
 
-**Skills** (`.claude/skills/<name>/SKILL.md`) are markdown files with frontmatter. The Agent SDK surfaces them to the model based on **description-driven relevance** — the model itself picks which skill to load, using the description text. You saw this in the current session: `simula-core-directives`, `auditeos`, `supabase:supabase`, etc. are all skills. The SDK loads them on-demand, not speculatively.
+**Skills** (`.claude/skills/<name>/SKILL.md`) are markdown files with frontmatter. The Agent SDK surfaces them to the model based on **description-driven relevance** - the model itself picks which skill to load, using the description text. You saw this in the current session: `simula-core-directives`, `auditeos`, `supabase:supabase`, etc. are all skills. The SDK loads them on-demand, not speculatively.
 
 ### 1.3 Migration
 
@@ -35,13 +35,13 @@ For each pattern file, add frontmatter:
 name: <slug>
 description: >
   One precise sentence stating when this skill applies. Be specific about the
-  trigger conditions — the model reads this to decide whether to load the body.
+  trigger conditions - the model reads this to decide whether to load the body.
 ---
 
 # Body: existing Rule + Why + How to Apply sections
 ```
 
-The `description:` field is the load-bearing part. Write it as "use this when…" — e.g., `"use when deciding whether to push directly to a client's repo vs a feature branch"` rather than `"client push policy"`.
+The `description:` field is the load-bearing part. Write it as "use this when…" - e.g., `"use when deciding whether to push directly to a client's repo vs a feature branch"` rather than `"client push policy"`.
 
 ### 1.4 What to delete
 
@@ -78,17 +78,17 @@ This uses pgvector (already deployed for session memory). Lightweight.
 The Agent SDK emits `compact_boundary` events ([osSessionService.js:2123-2138](../src/services/osSessionService.js#L2123-L2138)). Compaction is handled internally. You observe; you don't implement.
 
 What you can tune:
-- `OS_SESSION_COMPACT_THRESHOLD` env var ([line 1925](../src/services/osSessionService.js#L1925)) — default 800K. For 200K-context Opus, set to 120K.
+- `OS_SESSION_COMPACT_THRESHOLD` env var ([line 1925](../src/services/osSessionService.js#L1925)) - default 800K. For 200K-context Opus, set to 120K.
 - Observe → tune → re-observe via `OBSERVABILITY_SPEC.md` metric `os_session_turns_per_compaction`.
 
 ### 2.3 What to delete
 
 - Any custom summarization logic that predates the SDK's compaction.
-- The deprecated `compact()` route — already marked deprecated, just remove it.
+- The deprecated `compact()` route - already marked deprecated, just remove it.
 
 ### 2.4 What to keep
 
-Post-compaction injection of "you just compacted, here are the sticky state items" (active forks, pending claims, goals). This is **complementary** to SDK compaction — the SDK summarizes conversation; your sticky-state keeps structured data intact.
+Post-compaction injection of "you just compacted, here are the sticky state items" (active forks, pending claims, goals). This is **complementary** to SDK compaction - the SDK summarizes conversation; your sticky-state keeps structured data intact.
 
 ---
 
@@ -161,7 +161,7 @@ Reduces idle-state API calls by ~40%.
 
 ### 6.3 The fix
 
-- **Backend to model:** no change — full result.
+- **Backend to model:** no change - full result.
 - **Backend to frontend broadcast:** ship structured envelope `{summary, full_ref}` where `summary` is a tool-specific short-form (e.g., "Email sent to X <message_id=Y>") and `full_ref` is a pointer that the frontend can expand on click.
 - **Model-side trust:** SDK supports `max_tokens` per turn; let the model decide what to surface. Don't hand-truncate what the model needs.
 
@@ -182,8 +182,8 @@ This is the right primitive for your domain delegation.
 ### 7.2 What to delete
 
 Any custom "subagent-like" services that reproduce this. From the service list, candidates:
-- `emailDelegationService.js` — check if it's an SDK subagent wrapper or a parallel implementation.
-- `factoryBridge.js` — confirmed custom; Factory has bespoke needs (separate process), but the delegation pattern to Factory could use the Agent SDK's subagent framing with a custom tool.
+- `emailDelegationService.js` - check if it's an SDK subagent wrapper or a parallel implementation.
+- `factoryBridge.js` - confirmed custom; Factory has bespoke needs (separate process), but the delegation pattern to Factory could use the Agent SDK's subagent framing with a custom tool.
 
 ### 7.3 What to keep
 
@@ -221,7 +221,7 @@ Three clear tiers, no ambiguity. Document this in `ARCHITECTURE_EVOLUTION_MAP.md
 
 ### 8.4 What to simplify
 
-- `claudeService.js`: keep the account-rotation layer (required). Drop any model-classification logic — the conductor decides model via subagent `model:` flag, informed by task type.
+- `claudeService.js`: keep the account-rotation layer (required). Drop any model-classification logic - the conductor decides model via subagent `model:` flag, informed by task type.
 - `deepseekService.js`: either fully integrate as a shadow-route (per audit Part 6 intervention #9) or delete. Half-built fallbacks are worse than no fallback because they create false confidence.
 
 ---
@@ -236,14 +236,14 @@ You have Claude Cowork (Anthropic-owned UI-driving) and custom Puppeteer/Playwri
 
 - **Cowork:** everything that involves a human-facing SaaS UI for which the user is logged in on Corazon (Gmail, Calendar, Canva, Notion, Linear, etc.). Cowork handles the auth persistence, session management, and visual grounding.
 - **Puppeteer/Playwright:** testing your own applications (ecodia frontend, coexist app). Your app, your test harness. Not Cowork.
-- **Custom scrapers (linkedinScraper, etc.):** only when Cowork can't — e.g., long-running background scraping. Most of these can be retired in favor of Cowork once accessibility tree navigation is reliable.
+- **Custom scrapers (linkedinScraper, etc.):** only when Cowork can't - e.g., long-running background scraping. Most of these can be retired in favor of Cowork once accessibility tree navigation is reliable.
 
 ### 9.3 Migration
 
 Audit the laptop-facing services:
-- `canvaService.js`, `canvaAutofill.js` — move to Cowork where possible. Where Canva Connect API suffices, use that; where UI is required, use Cowork.
-- `linkedinAI.js`, `linkedinBrowser.js`, `linkedinScraper.js` — three services for one purpose. Consolidate to Cowork-driven where auth works, direct API where it doesn't.
-- `xeroService.js` — API-first; Xero has a rich API. Cowork only if the UI shows something the API doesn't.
+- `canvaService.js`, `canvaAutofill.js` - move to Cowork where possible. Where Canva Connect API suffices, use that; where UI is required, use Cowork.
+- `linkedinAI.js`, `linkedinBrowser.js`, `linkedinScraper.js` - three services for one purpose. Consolidate to Cowork-driven where auth works, direct API where it doesn't.
+- `xeroService.js` - API-first; Xero has a rich API. Cowork only if the UI shows something the API doesn't.
 
 Retire ~30% of the laptop service code. Less surface, fewer bugs.
 
@@ -251,7 +251,7 @@ Retire ~30% of the laptop service code. Less surface, fewer bugs.
 
 ## 10. WHAT ANTHROPIC HASN'T SHIPPED (YOU STILL NEED TO BUILD)
 
-To be clear — don't assume everything is covered. These remain your problem:
+To be clear - don't assume everything is covered. These remain your problem:
 
 - **Cross-machine orchestration** (VPS ↔ Corazon). Split-brain arbitration (see `FORK_ATOMICITY_SPEC.md` §3).
 - **Durable memory** (Neo4j + pgvector). The SDK's session resumption is transient-ish (~weeks); for multi-month memory you need your own store.
@@ -286,7 +286,7 @@ You are 100% dependent on Anthropic for the conductor brain. Enumerate the failu
 ### 11.4 API outage
 
 - **Risk:** Anthropic went down for 2+ hours in 2025; can happen again.
-- **Mitigation:** Graceful degradation — the conductor should gracefully halt, enqueue pending work, post an SMS, and resume when API returns. Not crash-loop retries.
+- **Mitigation:** Graceful degradation - the conductor should gracefully halt, enqueue pending work, post an SMS, and resume when API returns. Not crash-loop retries.
 
 ### 11.5 Rate limiting under burst
 
@@ -326,4 +326,4 @@ Total: ~10 days. Yields ~30-50% cost reduction, ~20% service-count reduction, an
 
 **Document status:** v1 authored 2026-04-30.
 **Dependencies:** `PROMPT_ASSEMBLY_SPEC.md` (§4), `OBSERVABILITY_SPEC.md` (§3).
-**Success metric:** Measurable in `/ops` — cache hit ≥70%, input tokens per turn ≤50K, service count drops by 10+.
+**Success metric:** Measurable in `/ops` - cache hit ≥70%, input tokens per turn ≤50K, service count drops by 10+.

@@ -2,7 +2,7 @@
 'use strict'
 
 /**
- * test-fork-cap-race.js — load test for fork-cap atomicity (TOCTOU race fix).
+ * test-fork-cap-race.js - load test for fork-cap atomicity (TOCTOU race fix).
  *
  * Authored 2026-05-01 by fork_momlilgp_34d36f under Wave 1 Fork D brief.
  *
@@ -25,10 +25,10 @@
  *   7. Report results.
  *
  * Pass criterion:
- *   - Sampler observes NO active count > 5 across the run.
- *   - Successes = max(0, hard_cap - baseline_live).
- *   - All other invocations reject with fork_cap_reached.
- *   - Cleanup leaves DB at baseline.
+ * - Sampler observes NO active count > 5 across the run.
+ * - Successes = max(0, hard_cap - baseline_live).
+ * - All other invocations reject with fork_cap_reached.
+ * - Cleanup leaves DB at baseline.
  */
 
 const path = require('path')
@@ -58,7 +58,7 @@ async function main() {
   const baseline = await liveForkCount()
   console.log(`[baseline] live count = ${baseline}/${HARD_CAP}`)
 
-  // Sampler — runs concurrently with the test.
+  // Sampler - runs concurrently with the test.
   const samples = []
   let samplerStop = false
   const sampler = (async () => {
@@ -82,7 +82,7 @@ async function main() {
       const fork_id = newTestForkId(i)
       return tryReserveForkSlot({
         fork_id,
-        brief: `TEST fork-cap-race ${fork_id} — DELETE ME`,
+        brief: `TEST fork-cap-race ${fork_id} - DELETE ME`,
         context_mode: 'brief',
         parent_id: 'test_capload',
         hard_cap: HARD_CAP,
@@ -113,7 +113,7 @@ async function main() {
   console.log(`[results] ${CONCURRENCY} concurrent calls, ${fireDuration}ms`)
   console.log(`  successes:        ${successes.length} (expected ${expectedSuccesses})`)
   console.log(`  cap_rejects:      ${capRejects.length}`)
-  console.log(`  pool_exhaustion:  ${poolExhaustion.length} (orthogonal — pgbouncer pool ceiling)`)
+  console.log(`  pool_exhaustion:  ${poolExhaustion.length} (orthogonal - pgbouncer pool ceiling)`)
   console.log(`  other_fails:      ${otherFails.length}`)
   console.log(`  samples taken:    ${samples.length}`)
   console.log(`  sampled_max:      ${sampledMax}/${HARD_CAP}`)
@@ -134,7 +134,7 @@ async function main() {
     violationSamples.forEach(s => console.log(`  t=${s.t} n=${s.n}`))
   }
 
-  // Cleanup — delete all rows we created.
+  // Cleanup - delete all rows we created.
   const cleanupRows = await db`
     DELETE FROM os_forks
     WHERE fork_id LIKE 'test_capload_%'

@@ -149,7 +149,7 @@ if (hasJest) {
     }, 5000)
   })
 } else if (require.main === module) {
-  // Standalone runner — `node src/services/listeners/__tests__/registry-bounded-queue.test.js`
+  // Standalone runner - `node src/services/listeners/__tests__/registry-bounded-queue.test.js`
   ;(async () => {
     try {
       const r1 = await runBurstAndAssert()

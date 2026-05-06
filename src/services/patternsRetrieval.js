@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — patterns.semantic_search backing service.
+ * Cowork V2 MCP - patterns.semantic_search backing service.
  *
  * Filesystem-grep over ~/ecodiaos/patterns/ with `triggers:` frontmatter
  * matching, ranked by token-match against the query. Falls back to Neo4j

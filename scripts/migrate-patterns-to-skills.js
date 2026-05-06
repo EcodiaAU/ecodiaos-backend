@@ -4,7 +4,7 @@
 /**
  * migrate-patterns-to-skills.js
  *
- * ANTHROPIC_NATIVE_LEVERAGE §1.3 — translate backend/patterns/*.md into
+ * ANTHROPIC_NATIVE_LEVERAGE §1.3 - translate backend/patterns/*.md into
  * Anthropic Skills frontmatter at backend/.claude/skills/<slug>/SKILL.md.
  *
  * PR 4 ships this as a shadow migration: generated Skills files sit
@@ -85,7 +85,7 @@ function parsePattern(filePath) {
 function makeSkillContent({ slug, title, triggers, body }) {
   const trigList = triggers.length > 0
     ? triggers.join(', ')
-    : '(no explicit triggers — surfaces via semantic match on title)'
+    : '(no explicit triggers - surfaces via semantic match on title)'
   // Keep description to a single line per ANTHROPIC_NATIVE_LEVERAGE §1.3.
   // Anthropic's SDK reads this to decide whether to load the skill body.
   // "Use when..." framing per the spec.

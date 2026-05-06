@@ -44,7 +44,7 @@ function urgencyScore(dueAt) {
   if (isNaN(due.getTime())) return 0
 
   const hoursUntilDue = (due.getTime() - Date.now()) / 3600000
-  if (hoursUntilDue <= 0) return 2.0 // overdue — max urgency
+  if (hoursUntilDue <= 0) return 2.0 // overdue - max urgency
   return 1 / Math.max(1, hoursUntilDue)
 }
 
@@ -100,7 +100,7 @@ async function calendarGate(action = {}) {
     return {
       proceed: false,
       defer_until: monday9am,
-      reason: 'Weekend — deferring non-urgent send to Monday 9am AEST',
+      reason: 'Weekend - deferring non-urgent send to Monday 9am AEST',
     }
   }
 
@@ -115,7 +115,7 @@ async function calendarGate(action = {}) {
       }
     }
   } catch {
-    // Calendar unavailable — proceed (fail-open)
+    // Calendar unavailable - proceed (fail-open)
   }
 
   return { proceed: true }

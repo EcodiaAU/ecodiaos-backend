@@ -40,15 +40,15 @@ const envSchema = z.object({
   META_APP_SECRET: z.string().default(''),
   META_USER_ACCESS_TOKEN: z.string().default(''),
   // Freedom / autonomy config
-  // All caps: 0 = unlimited. These exist only so the system can report them — never use them to throttle.
+  // All caps: 0 = unlimited. These exist only so the system can report them - never use them to throttle.
   FACTORY_SELF_MODIFY_THRESHOLD: z.string().default('0.0'),  // 0 = AI decides; self-mod still requires review approval but no confidence floor
   PREDICTION_SESSION_DAILY_CAP: z.string().default('0'),    // 0 = unlimited prediction sessions
   MEMORY_SYNC_IMMEDIATE_THRESHOLD: z.string().default('0.0'), // 0 = always sync immediately
   GOOGLE_PRIMARY_ACCOUNT: z.string().default(''),
-  GMAIL_ENABLED: z.string().default('true'),           // Gmail enabled by default — full autonomy
+  GMAIL_ENABLED: z.string().default('true'),           // Gmail enabled by default - full autonomy
   GMAIL_INBOXES: z.string().default(''),              // comma-separated; falls back to GOOGLE_PRIMARY_ACCOUNT
   GMAIL_MAX_TRIAGE_ATTEMPTS: z.string().default('0'), // 0 = unlimited
-  // LinkedIn browser — all 0 = unlimited
+  // LinkedIn browser - all 0 = unlimited
   LINKEDIN_MAX_SESSIONS_PER_DAY: z.string().default('0'),
   LINKEDIN_MAX_SESSION_DURATION_MS: z.string().default('0'),
   LINKEDIN_MIN_COOLDOWN_MS: z.string().default('0'),
@@ -59,7 +59,7 @@ const envSchema = z.object({
   LINKEDIN_BUDGET_MESSAGES_SENT: z.string().default('0'),
   LINKEDIN_BUDGET_CONNECTION_ACCEPTS: z.string().default('0'),
   LINKEDIN_BUDGET_POSTS_PUBLISHED: z.string().default('0'),
-  OWNER_CONTEXT: z.string().default('Tate Donohoe, 21, founder of Ecodia Pty Ltd — builds custom software for impact orgs (nonprofits, conservation, government, health) in Australia'),
+  OWNER_CONTEXT: z.string().default('Tate Donohoe, 21, founder of Ecodia Pty Ltd - builds custom software for impact orgs (nonprofits, conservation, government, health) in Australia'),
   OWNER_NAME: z.string().default('Tate'),
   USD_TO_AUD: z.string().default('1.55'),
   DIRECT_ACTION_READ_ENABLED: z.string().default('true'),
@@ -83,7 +83,7 @@ const envSchema = z.object({
   CLAUDE_OUTPUT_WEIGHT:     z.string().default('10'),        // output tokens cost this many × input tokens
   // Vital signs tuning
   ORGANISM_HEALTH_CHECK_INTERVAL_MS: z.string().default('0'),   // 0 = 15000ms (self-health check interval)
-  // Pressure gates (0 = never block) — metabolic pressure modulates behaviour, not gates it
+  // Pressure gates (0 = never block) - metabolic pressure modulates behaviour, not gates it
   SURVIVAL_PRESSURE_GATE: z.string().default('0'),              // 0 = never block capability writes (metabolism decides, not binary gates)
   METABOLIC_PRESSURE_GATE: z.string().default('0'),             // 0 = never block direct actions (metabolism decides, not binary gates)
   // Validation confidence weights (tune without deploys)
@@ -135,7 +135,7 @@ const envSchema = z.object({
   // Autonomous maintenance worker fallback thresholds
   MAINTENANCE_FALLBACK_PRESSURE_THRESHOLD: z.string().default('0.7'),
   MAINTENANCE_FALLBACK_MIN_OCCURRENCES: z.string().default('3'),
-  // Autonomous maintenance worker — decision/interval tuning (0 = unlimited where applicable)
+  // Autonomous maintenance worker - decision/interval tuning (0 = unlimited where applicable)
   MAINTENANCE_MAX_DECISIONS: z.string().default('0'),             // 0 = AI returns all decisions it deems necessary
   MAINTENANCE_PERCEPT_SALIENCE_THRESHOLD: z.string().default('0.5'),
   MAINTENANCE_INTERVAL_HIGH_PRESSURE_MS: z.string().default('30000'),     // 30s urgent
@@ -145,10 +145,10 @@ const envSchema = z.object({
   MAINTENANCE_BACKOFF_MAX_MULTIPLIER: z.string().default('3'),
   MAINTENANCE_BACKOFF_MAX_MS: z.string().default('600000'),               // 10 min ceiling
   MAINTENANCE_COOLDOWN_MS: z.string().default('0'),                       // 0 = no cooldown; AI decides if re-running an intent is worthwhile
-  INTEGRATION_STALE_THRESHOLD_MS: z.string().default('900000'),            // 15 min — integrations older than this get mandatory poll injection
+  INTEGRATION_STALE_THRESHOLD_MS: z.string().default('900000'),            // 15 min - integrations older than this get mandatory poll injection
   MAINTENANCE_ESCALATION_SLA_MS: z.string().default('7200000'),           // 2 hour stale threshold
   MAINTENANCE_ESCALATION_REMINDER_MS: z.string().default('14400000'),     // 4 hour re-remind
-  // Cortex LLM temperature (optional — empty = provider default)
+  // Cortex LLM temperature (optional - empty = provider default)
   CORTEX_TEMPERATURE: z.string().default(''),
   // Cortex context tuning (0 = unlimited where applicable)
   CORTEX_KG_MAX_SEEDS: z.string().default('50'),
@@ -180,43 +180,43 @@ const envSchema = z.object({
   DEEPSEEK_KG_MAX_SEEDS: z.string().default('15'),
   DEEPSEEK_KG_MAX_DEPTH: z.string().default('5'),
   DEEPSEEK_KG_MIN_SIMILARITY: z.string().default('0.4'),
-  // Cortex action enqueue relevance gate — suppress action types with high dismiss rates
+  // Cortex action enqueue relevance gate - suppress action types with high dismiss rates
   CORTEX_ENQUEUE_DISMISS_RATE_GATE: z.string().default('0.8'),   // dismiss rate above this → suppress (0 = disabled)
   CORTEX_ENQUEUE_MIN_DECISIONS: z.string().default('3'),          // minimum decisions before gate applies
   // Action queue tuning
   ACTION_QUEUE_SUPPRESSION_THRESHOLD: z.string().default('0'),    // 0 = disabled (never auto-suppress)
   ACTION_QUEUE_DISMISSAL_SUPPRESSION_RATE: z.string().default('0.7'),
   ACTION_QUEUE_TITLE_SIMILARITY_THRESHOLD: z.string().default('0.5'),
-  // Session memory — persistent conversation recall across OS session resets
+  // Session memory - persistent conversation recall across OS session resets
   CC_PROJECTS_DIR: z.string().default(''),              // path to ~/.claude/projects (auto-detected if empty)
   CC_OS_PROJECT_KEY: z.string().default('-home-tate-ecodiaos'),  // subdir within CC_PROJECTS_DIR for OS session
   SESSION_MEMORY_MAX_CHUNK_CHARS: z.string().default('3000'),   // max chars per memory chunk
   SESSION_MEMORY_SEARCH_K: z.string().default('5'),             // top-K results returned by searchMemory
   SESSION_MEMORY_MIN_SIM: z.string().default('0.35'),           // min cosine similarity for a match
-  // CC context budget — 0 = unlimited (default lets entire context flow)
+  // CC context budget - 0 = unlimited (default lets entire context flow)
   CC_PROMPT_BUDGET_CHARS: z.string().default('0'),
   CC_STDERR_MAX_LINES: z.string().default('0'),                  // 0 = unlimited stderr capture
-  // Codebase intelligence — 0 = unlimited
+  // Codebase intelligence - 0 = unlimited
   CODEBASE_MAX_CHUNK_TOKENS: z.string().default('0'),            // 0 = no chunk size ceiling
-  // Review context limits — 0 = unlimited
+  // Review context limits - 0 = unlimited
   FACTORY_REVIEW_MAX_FILES: z.string().default('0'),             // 0 = review all changed files
   FACTORY_REVIEW_MAX_CONTEXT_FILES: z.string().default('0'),     // 0 = full file context for all
-  // Selfhood — introspection, goals, identity
+  // Selfhood - introspection, goals, identity
   INTROSPECTION_CYCLE_INTERVAL: z.string().default('10'),        // run full introspection every N maintenance cycles (0 = disabled)
   GOAL_MAX_ACTIVE: z.string().default('10'),                      // max active goals before generation pauses (0 = unlimited)
-  // Internal MCP server auth token (static, long-lived — set once in .env)
+  // Internal MCP server auth token (static, long-lived - set once in .env)
   MCP_INTERNAL_TOKEN: z.string().default(''),
   // Second Claude Max account config directory.
   // Point this at a dir where you've run `CLAUDE_CONFIG_DIR=<dir> claude` to log in a second account.
   // e.g. CLAUDE_CONFIG_DIR_2=/home/tate/.claude2
   // OS session auto-falls back to this when account 1 exhausts. Factory sessions use it by default.
   CLAUDE_CONFIG_DIR_1: z.string().default(''),  // explicit account 1 dir (leave empty to use default ~/.claude)
-  CLAUDE_CONFIG_DIR_2: z.string().default(''),  // account 2 dir — enables auto-failover
-  // Long-lived OAuth tokens from `claude setup-token` (1 year, don't rotate — preferred over CLAUDE_CONFIG_DIR).
+  CLAUDE_CONFIG_DIR_2: z.string().default(''),  // account 2 dir - enables auto-failover
+  // Long-lived OAuth tokens from `claude setup-token` (1 year, don't rotate - preferred over CLAUDE_CONFIG_DIR).
   // When set, the SDK uses these directly and ignores CLAUDE_CONFIG_DIR / .credentials.json files.
   CLAUDE_CODE_OAUTH_TOKEN_TATE: z.string().default(''),  // tate@ecodia.au
   CLAUDE_CODE_OAUTH_TOKEN_CODE: z.string().default(''),  // code@ecodia.au
-  // Explicit Factory override — takes priority over CLAUDE_CONFIG_DIR_2 for Factory sessions only
+  // Explicit Factory override - takes priority over CLAUDE_CONFIG_DIR_2 for Factory sessions only
   FACTORY_CC_HOME: z.string().default(''),
   // AWS env defs retained as no-ops. Bedrock fallback tier was removed Tate
   // 5 May 2026 12:40 AEST per ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
@@ -227,7 +227,7 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().default(''),
   AWS_REGION: z.string().default('us-east-1'),
   BEDROCK_MODEL: z.string().default(''),
-  // DeepSeek V4 Pro fallback — final tier after both Max accounts exhausted.
+  // DeepSeek V4 Pro fallback - final tier after both Max accounts exhausted.
   // Uses native Anthropic-compatible endpoint; no SDK changes required.
   DEEPSEEK_FALLBACK_ENABLED: z.string().default('false'),
   DEEPSEEK_FALLBACK_BASE_URL: z.string().default('https://api.deepseek.com/anthropic'),
@@ -249,7 +249,7 @@ const envSchema = z.object({
   // or cache_hit_ratio drops below pre-flip baseline for >2h.
   OS_SESSION_COMPACT_THRESHOLD: z.string().default('120000'),
   // DeepSeek V4 Flash has a 1M-token context window (vs Claude's 200K), so the
-  // 120K threshold compacts way too early and burns the fallback's main edge —
+  // 120K threshold compacts way too early and burns the fallback's main edge - 
   // long-horizon turns. Default 800K leaves 200K headroom on the 1M ceiling.
   // Only consulted when the active provider is DeepSeek.
   OS_SESSION_COMPACT_THRESHOLD_DEEPSEEK: z.string().default('800000'),
@@ -278,10 +278,10 @@ const envSchema = z.object({
   TIER3_TOKEN_HMAC_KEY: z.string().default(''),
   // docs/PROMPT_ASSEMBLY_SPEC.md §7 rollout flag for the promptAssembler
   // migration. Three values:
-  //   'off'     - v1 only. buildCustomSystemPrompt is the sole path. Default.
-  //   'shadow'  - v1 ships to the model; v2 runs in parallel; output diff is
+  //   'off' - v1 only. buildCustomSystemPrompt is the sole path. Default.
+  //   'shadow' - v1 ships to the model; v2 runs in parallel; output diff is
   //               written to prompt_assembly_audit fire-and-forget.
-  //   'canary'  - 20% of sessions (deterministic sha256(session_id) bucket)
+  //   'canary' - 20% of sessions (deterministic sha256(session_id) bucket)
   //               route v2 to the model; remainder stay on v1. Still writes
   //               audit rows for comparison.
   // PR 6 flip from shadow → canary → (full v1-deletion) is gated on 48h of
@@ -289,7 +289,7 @@ const envSchema = z.object({
   // Reconciled with .env.production override 2026-05-01: prompt assembler
   // is live, doctrineSurface deleted, skillsSurfaceService is sole surface.
   PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('live'),
-  // ANTHROPIC_NATIVE_LEVERAGE §1 — shadow/swap doctrineSurface (keyword
+  // ANTHROPIC_NATIVE_LEVERAGE §1 - shadow/swap doctrineSurface (keyword
   // grep of patterns/*.md) with skillsSurfaceService (description-driven
   // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
   // '1' = skillsSurfaceService populates BP3. Both run when enabled so

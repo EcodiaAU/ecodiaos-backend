@@ -109,8 +109,8 @@ router.post('/requests/:id/reject', async (req, res, next) => {
     if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid ID format' })
     const [existing] = await db`SELECT id, status FROM code_requests WHERE id = ${req.params.id}`
     if (!existing) return res.status(404).json({ error: 'Not found' })
-    if (existing.status === 'dispatched') return res.status(409).json({ error: 'Cannot reject — already dispatched' })
-    if (existing.status === 'completed') return res.status(409).json({ error: 'Cannot reject — already completed' })
+    if (existing.status === 'dispatched') return res.status(409).json({ error: 'Cannot reject - already dispatched' })
+    if (existing.status === 'completed') return res.status(409).json({ error: 'Cannot reject - already completed' })
 
     await db`
       UPDATE code_requests

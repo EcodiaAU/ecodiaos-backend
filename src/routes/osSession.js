@@ -1,5 +1,5 @@
 /**
- * OS Session Routes — /api/os-session/*
+ * OS Session Routes - /api/os-session/*
  * Interface between frontend and the persistent CC OS session.
  */
 const express = require('express')
@@ -15,7 +15,7 @@ const { stampTateActive } = require('../services/tateActiveGate')
 
 // Send a message to the OS session.
 // Response streams in real-time via WebSocket (text_delta, tool_use, os-session:complete).
-// The HTTP response returns IMMEDIATELY with { accepted: true } — it does NOT block
+// The HTTP response returns IMMEDIATELY with { accepted: true } - it does NOT block
 // for the entire agentic loop. This prevents:
 //   1. Frontend hanging for 5-30 minutes on a single await
 //   2. User unable to send follow-up messages while previous is processing
@@ -23,8 +23,8 @@ const { stampTateActive } = require('../services/tateActiveGate')
 // The frontend relies on WebSocket for the actual conversation flow.
 //
 // Optional field: mode
-//   "direct" (default) — send immediately, draining any pending queued messages first
-//   "queue"            — hold until os_signal_handoff fires or max_age_hours elapses
+//   "direct" (default) - send immediately, draining any pending queued messages first
+//   "queue" - hold until os_signal_handoff fires or max_age_hours elapses
 router.post('/message', async (req, res, next) => {
   try {
     const { message, mode, source } = req.body
@@ -47,7 +47,7 @@ router.post('/message', async (req, res, next) => {
       return res.status(400).json({ error: 'mode must be "direct" or "queue"' })
     }
 
-    // Stamp Tate as active before queuing — crons stand down for 15 minutes.
+    // Stamp Tate as active before queuing - crons stand down for 15 minutes.
     // Fire-and-forget: never block the response if this errors.
     // DO NOT stamp when the message originated from our own scheduler (prevents
     // self-perpetuating defer loop - see Q1 resolution Apr 25 2026).
@@ -67,10 +67,10 @@ router.post('/message', async (req, res, next) => {
       logger.warn('OS Session /message: drain error', { error: err.message })
     }
 
-    // Return immediately — the real response streams via WebSocket
+    // Return immediately - the real response streams via WebSocket
     res.json({ accepted: true, status: 'streaming' })
 
-    // Process in background — errors are broadcast via WS, not HTTP.
+    // Process in background - errors are broadcast via WS, not HTTP.
     // priority: false (default) means user messages QUEUE behind any active
     // tool-call loop and fire after it completes (via _sendQueue chain in
     // osSessionService.js). This preserves mid-turn flow - Tate's check-in
@@ -121,8 +121,8 @@ router.get('/tokens', (_req, res) => {
 
 // Recover missed response after tab close / disconnect.
 // Accepts either:
-//   ?since_seq=N  — Pinnacle P1: return events from in-memory ring buffer with seq > N
-//   ?since=<ts>   — legacy: return transcript from DB since timestamp
+//   ?since_seq=N - Pinnacle P1: return events from in-memory ring buffer with seq > N
+//   ?since=<ts> - legacy: return transcript from DB since timestamp
 router.get('/recover', async (req, res, next) => {
   try {
     // Pinnacle P1: seq-based recovery from ring buffer (preferred).
@@ -145,7 +145,7 @@ router.get('/recover', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Compact — seamlessly transition to a new session with summary context
+// Compact - seamlessly transition to a new session with summary context
 router.post('/compact', async (req, res, next) => {
   res.setTimeout(1_800_000) // 30 min
   try {
@@ -161,7 +161,7 @@ router.post('/compact', async (req, res, next) => {
   }
 })
 
-// Manual handover trigger — generate brief + warm new session now
+// Manual handover trigger - generate brief + warm new session now
 router.post('/handover', async (_req, res, next) => {
   res.setTimeout(1_800_000) // 30 min
   try {
@@ -173,7 +173,7 @@ router.post('/handover', async (_req, res, next) => {
   }
 })
 
-// Get weekly energy snapshot — real % from Anthropic response headers
+// Get weekly energy snapshot - real % from Anthropic response headers
 router.get('/energy', async (_req, res, next) => {
   try {
     const energy = await usageEnergy.getEnergy()
@@ -192,7 +192,7 @@ router.post('/energy/refresh', async (_req, res, next) => {
 
 // Reset all in-memory account state to fresh defaults. Use when stale
 // rejected state with no reset timestamps wedges the router into permanent
-// fallback. Does NOT call refreshAllAccounts — the quota-check fetch is
+// fallback. Does NOT call refreshAllAccounts - the quota-check fetch is
 // disabled because it was crashing the process.
 router.post('/energy/reset', async (_req, res, next) => {
   try {
@@ -212,7 +212,7 @@ router.get('/energy/history', async (req, res, next) => {
 })
 
 // Upload an attachment to Supabase Storage and return a public URL.
-// Accepts either base64-encoded file data OR raw text content — no multipart needed.
+// Accepts either base64-encoded file data OR raw text content - no multipart needed.
 router.post('/upload', async (req, res, next) => {
   try {
     const { name, type, base64, text } = req.body
@@ -227,7 +227,7 @@ router.post('/upload', async (req, res, next) => {
     const { createClient } = require('@supabase/supabase-js')
     const sb = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY || env.SUPABASE_ANON_KEY)
 
-    // Decode payload — text files come through as raw UTF-8, binaries as base64
+    // Decode payload - text files come through as raw UTF-8, binaries as base64
     let buffer
     if (typeof text === 'string') {
       buffer = Buffer.from(text, 'utf-8')
@@ -252,7 +252,7 @@ router.post('/upload', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Abort — kill the active query immediately so the user can send a new message
+// Abort - kill the active query immediately so the user can send a new message
 router.post('/abort', async (_req, res, next) => {
   try {
     const result = await osSession.abort()
@@ -265,10 +265,10 @@ router.post('/abort', async (_req, res, next) => {
 
 // ── Fork-mode (Build 1, EcodiaOS_Spec_NextBuild §1) ─────────────────────────
 //
-// POST /api/os-session/fork — spawn a parallel sub-session with a brief.
-// GET  /api/os-session/forks — list all live + recently-finished forks.
-// GET  /api/os-session/fork/:id — single fork snapshot.
-// POST /api/os-session/fork/:id/abort — kill a specific fork.
+// POST /api/os-session/fork - spawn a parallel sub-session with a brief.
+// GET  /api/os-session/forks - list all live + recently-finished forks.
+// GET  /api/os-session/fork/:id - single fork snapshot.
+// POST /api/os-session/fork/:id/abort - kill a specific fork.
 //
 // The HTTP handler returns immediately with the fork's id. All output streams
 // via WS with envelope.fork_id, never via this response.

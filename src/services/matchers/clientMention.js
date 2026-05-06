@@ -14,7 +14,7 @@
  * Dedupe: per-domain key in dispatcher's _shouldDispatch already includes
  * source+kind. The 5min window prevents floods.
  *
- * Fires immediately on next pm2 restart — depends only on existing event
+ * Fires immediately on next pm2 restart - depends only on existing event
  * sources (fork output, factory session prompts, email kinds, etc).
  */
 
@@ -36,7 +36,7 @@ const _activeClients = [
 module.exports = {
   domain: 'client_mention',
 
-  // 5 min default — same as crm matcher; client mentions can spike during
+  // 5 min default - same as crm matcher; client mentions can spike during
   // delivery pushes. Per-source/kind dedupe at this grain is appropriate.
   // C3 (fork_mosn8o5x_7a0e54).
   dedupeWindowMs: 5 * 60 * 1000,

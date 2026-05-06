@@ -26,7 +26,7 @@ async function clickButtonByText(page, text) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
 
-  // Go directly to admin — see what it shows
+  // Go directly to admin - see what it shows
   console.log('=== Navigating directly to /admin ===');
   await page.goto('https://app.coexistaus.org/admin', { waitUntil: 'networkidle2', timeout: 30000 });
   await sleep(3000);

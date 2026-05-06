@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — conductor-side inbox helper.
+ * Cowork V2 MCP - conductor-side inbox helper.
  *
  * Spec: ~/ecodiaos/drafts/cowork-deep-integration-architecture-2026-04-30.md §6.
  *

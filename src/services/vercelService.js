@@ -130,7 +130,7 @@ async function syncDeployments(limit = 50) {
           },
         }).catch(() => {})
 
-        // Enqueue actionable item — human can trigger a CC fix session
+        // Enqueue actionable item - human can trigger a CC fix session
         const actionQueue = require('./actionQueueService')
         actionQueue.enqueue({
           source: 'vercel',
@@ -238,7 +238,7 @@ async function triggerDeploy(projectId) {
     return { triggered: true, project: project.name, deploymentId: result.id, url: result.url }
   }
 
-  // No projectId — trigger all projects
+  // No projectId - trigger all projects
   const projects = await db`SELECT id, vercel_project_id, name FROM vercel_projects`
   const results = []
   for (const project of projects) {

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Listener registry tests — Jest edition.
+ * Listener registry tests - Jest edition.
  *
  * 4 tests covering: load, register, broadcast fan-out, and error isolation.
  */
@@ -9,7 +9,7 @@
 describe('listener registry', () => {
   afterAll(async () => {
     // Drain pending setImmediate callbacks (logger's DBErrorTransport constructor
-    // schedules a setImmediate to require('./db') — without draining it here,
+    // schedules a setImmediate to require('./db') - without draining it here,
     // Jest tears down the module environment first and emits a ReferenceError).
     await new Promise(r => setImmediate(r))
     await new Promise(r => setImmediate(r))
@@ -66,7 +66,7 @@ describe('listener registry', () => {
     const smoke = require('../../src/services/listeners/_smoke')
     expect(smoke.relevanceFilter({ type: 'text_delta' })).toBe(false)
 
-    // Verify unsubscribe works — a second broadcast should not call handler
+    // Verify unsubscribe works - a second broadcast should not call handler
     const received2 = []
     const unsubscribe2 = wsManager.subscribe(['listener_test_event_2'], (e) => received2.push(e))
     unsubscribe2()

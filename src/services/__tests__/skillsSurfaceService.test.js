@@ -1,14 +1,14 @@
 'use strict'
 
 /**
- * Tests for skillsSurfaceService — description-driven retrieval shim.
+ * Tests for skillsSurfaceService - description-driven retrieval shim.
  *
  * Covers:
- *   - Skills index loads from .claude/skills/<slug>/SKILL.md
- *   - surfaceSkillsBlock returns a block formatted like doctrineSurface
- *   - matchedSkillNames returns ranked names for the hit-count metric
- *   - Token matching is case-insensitive + skips noise tokens
- *   - Missing Skills dir returns empty gracefully
+ * - Skills index loads from .claude/skills/<slug>/SKILL.md
+ * - surfaceSkillsBlock returns a block formatted like doctrineSurface
+ * - matchedSkillNames returns ranked names for the hit-count metric
+ * - Token matching is case-insensitive + skips noise tokens
+ * - Missing Skills dir returns empty gracefully
  */
 
 jest.mock('../../config/logger', () => ({

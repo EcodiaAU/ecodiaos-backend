@@ -28,7 +28,7 @@ registry.registerMany([
 
       if (!category) {
         // deepseek.categorize expects { description, amount, type, date }
-        // and returns { category, confidence, xeroAccountCode, notes } — extract .category
+        // and returns { category, confidence, xeroAccountCode, notes } - extract .category
         const [tx] = await db`
           SELECT description, amount_aud AS amount, type, date
           FROM transactions WHERE id = ${params.transactionId}
@@ -89,7 +89,7 @@ Description: ${tx.description}`,
           `
           categorized++
         } catch {
-          // continue — don't let one failure stop the batch
+          // continue - don't let one failure stop the batch
         }
       }
 

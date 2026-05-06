@@ -2,10 +2,10 @@ const db = require('../config/db')
 const logger = require('../config/logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// CRM SERVICE — Unified client intelligence hub
+// CRM SERVICE - Unified client intelligence hub
 //
 // Every system (gmail, factory, bookkeeping, linkedin, cortex) logs
-// interactions here. The CRM is the connective tissue — it knows every
+// interactions here. The CRM is the connective tissue - it knows every
 // touchpoint with every client across every channel.
 //
 // Other services call logActivity() to record what happened.

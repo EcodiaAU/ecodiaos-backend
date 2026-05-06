@@ -130,7 +130,7 @@ async function analyzeLeadSignals(dm, profileContext = null) {
   const messageText = messages.map(m => `${m.sender}: ${m.text}`).join('\n')
 
   const profileInfo = profileContext
-    ? `\nProfile: ${profileContext.name} — ${profileContext.headline || 'Unknown'} at ${profileContext.company || 'Unknown'}`
+    ? `\nProfile: ${profileContext.name} - ${profileContext.headline || 'Unknown'} at ${profileContext.company || 'Unknown'}`
     : ''
 
   const env = require('../config/env')
@@ -139,7 +139,7 @@ async function analyzeLeadSignals(dm, profileContext = null) {
 Conversation with ${dm.participant_name}:
 ${messageText}
 
-Is this person a potential client? What signals do you see — project needs, pain points, budget mentions, timeline pressure, referrals, decision-maker language? What should Tate do next?
+Is this person a potential client? What signals do you see - project needs, pain points, budget mentions, timeline pressure, referrals, decision-maker language? What should Tate do next?
 
 Respond as JSON:
 {
@@ -209,7 +209,7 @@ async function draftDMReply(dm, profileContext = null) {
 Conversation with ${dm.participant_name}:
 ${messageText}
 
-${dm.category === 'lead' ? 'This is a potential client.' : ''}${dm.category === 'recruiter' ? `${env.OWNER_NAME} runs their own company — not seeking employment.` : ''}
+${dm.category === 'lead' ? 'This is a potential client.' : ''}${dm.category === 'recruiter' ? `${env.OWNER_NAME} runs their own company - not seeking employment.` : ''}
 
 Return only the reply text.`
 

@@ -1,32 +1,32 @@
 /**
- * Usage Energy Service — Dual-Account + DeepSeek Fallback
+ * Usage Energy Service - Dual-Account + DeepSeek Fallback
  *
  * Tracks BOTH Claude Max accounts independently and picks the healthiest one.
  * Falls back to DeepSeek V4 when both Max accounts are exhausted.
  *
  * How it works:
  *   Every /v1/messages response from Anthropic includes:
- *     anthropic-ratelimit-unified-7d-utilization  — float 0–1 (real weekly % used)
- *     anthropic-ratelimit-unified-7d-reset        — Unix timestamp of next reset
- *     anthropic-ratelimit-unified-5h-utilization  — 5-hour session utilization
- *     anthropic-ratelimit-unified-5h-reset        — Unix seconds when 5h window resets
- *     anthropic-ratelimit-unified-status          — allowed | allowed_warning | rejected
+ *     anthropic-ratelimit-unified-7d-utilization - float 0–1 (real weekly % used)
+ *     anthropic-ratelimit-unified-7d-reset - Unix timestamp of next reset
+ *     anthropic-ratelimit-unified-5h-utilization - 5-hour session utilization
+ *     anthropic-ratelimit-unified-5h-reset - Unix seconds when 5h window resets
+ *     anthropic-ratelimit-unified-status - allowed | allowed_warning | rejected
  *
  *   We probe BOTH accounts via lightweight 1-token quota-checks (independent timers).
- *   This lets us always know which account has more headroom — weekly AND 5h session.
+ *   This lets us always know which account has more headroom - weekly AND 5h session.
  *
- * Provider priority (Tate 5 May 2026 12:40 AEST — Bedrock removed):
+ * Provider priority (Tate 5 May 2026 12:40 AEST - Bedrock removed):
  *   1. Healthiest Claude Max account (whichever has lower utilization)
  *   2. The other Claude Max account (if first is capped)
  *   3. DeepSeek V4 (final fallback when both Max accounts are exhausted, if enabled)
  *   See ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
  *
  * Energy states (derived from real utilization):
- *   full      0–10%  used  — opus freely, all schedules
- *   healthy  10–40%  used  — normal
- *   conserve 40–70%  used  — prefer sonnet for routine, opus for important
- *   low      70–90%  used  — sonnet only, reduce schedule frequency
- *   critical 90–100% used  — minimal ops, defer non-urgent, wait for weekly reset
+ *   full      0–10%  used - opus freely, all schedules
+ *   healthy  10–40%  used - normal
+ *   conserve 40–70%  used - prefer sonnet for routine, opus for important
+ *   low      70–90%  used - sonnet only, reduce schedule frequency
+ *   critical 90–100% used - minimal ops, defer non-urgent, wait for weekly reset
  */
 
 const fs = require('fs')
@@ -36,7 +36,7 @@ const logger = require('../config/logger')
 const db = require('../config/db')
 
 // Event bus for reset-driven notifications. Currently emits:
-//   'claude-available' { provider, reason } — fired after a reset window passes
+//   'claude-available' { provider, reason } - fired after a reset window passes
 //   and a Claude account becomes healthy again. osSessionService listens to
 //   flip _currentProvider back from deepseek at the next turn boundary;
 //   osHeartbeatService listens to wake immediately so autonomy resumes without
@@ -57,7 +57,7 @@ function _makeAccountState() {
     isUsingOverage: false,
     headersUpdatedAt: null,      // Date.now() when headers were last captured
     quotaCheckInFlight: null,    // promise if a quota-check is running
-    rejectionClearedAt: 0,       // Date.now() when we last auto-cleared 'rejected' — debounces re-marking
+    rejectionClearedAt: 0,       // Date.now() when we last auto-cleared 'rejected' - debounces re-marking
   }
 }
 
@@ -67,7 +67,7 @@ const _accounts = {
 }
 
 // Which provider is currently active (set by osSessionService).
-// Default to the code token (acct2) when tate@ is paused — avoids `active === null`
+// Default to the code token (acct2) when tate@ is paused - avoids `active === null`
 // on the first energy snapshot before setProvider() runs.
 let _activeProvider = process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE && !process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE
   ? 'claude_max_2'
@@ -78,7 +78,7 @@ let _cache = null
 let _cacheAt = 0
 const CACHE_TTL_MS = 60_000
 
-// How long before we proactively refresh via quota-check (10 min — tighter than before)
+// How long before we proactively refresh via quota-check (10 min - tighter than before)
 const HEADER_STALE_MS = 10 * 60 * 1000
 
 // ─── Called by osSessionService to keep active provider in sync ──────────────
@@ -154,7 +154,7 @@ function updateFromHeaders(headers, account = null) {
       rawStatus: status,
     })
 
-    // Reset moments may have just changed — re-arm the watcher so we wake at
+    // Reset moments may have just changed - re-arm the watcher so we wake at
     // the new earliest reset (handles both fresh reset times and account
     // transitions out of "no data").
     try { _armResetWatcher() } catch {}
@@ -245,13 +245,13 @@ async function _doQuotaCheck(account) {
     }
     logger.info('quota-check: token found, fetching', { account, tokenPrefix: oauthToken.slice(0, 16), source: process.env[account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' : 'CLAUDE_CODE_OAUTH_TOKEN_CODE'] ? 'env' : 'file' })
 
-    // Quota-check is a throwaway 1-token probe — any valid model ID works.
+    // Quota-check is a throwaway 1-token probe - any valid model ID works.
     // Picking a cheap current one so a retired default can't silently 400
     // the probe and blind the provider router. OS_SESSION_MODEL env var
     // wins if set.
     const model = process.env.OS_SESSION_MODEL || 'claude-haiku-4-5-20251001'
 
-    // 10s hard timeout — without this, an Anthropic endpoint partition hangs
+    // 10s hard timeout - without this, an Anthropic endpoint partition hangs
     // the quota-check forever, which in turn makes refreshQuotaCheck() return
     // the hanging promise to every subsequent caller (quotaCheckInFlight guard).
     // Result: provider routing blind to quota state until process restart.
@@ -286,7 +286,7 @@ async function _doQuotaCheck(account) {
       sampleStatus: resp.headers?.get?.('anthropic-ratelimit-unified-status'),
     })
 
-    // Extract headers regardless of status — 429s still carry utilization headers
+    // Extract headers regardless of status - 429s still carry utilization headers
     updateFromHeaders(resp.headers, account)
 
     if (resp.status === 429 && state.weeklyUtilization === null) {
@@ -298,29 +298,29 @@ async function _doQuotaCheck(account) {
 
     if (resp.status === 401) {
       // Long-lived OAuth tokens (from `claude setup-token`) are NOT valid
-      // against raw /v1/messages — they 401 here but still work fine through
+      // against raw /v1/messages - they 401 here but still work fine through
       // the SDK. Treat 401 as "can't read quota headers" (headers are null),
-      // NOT as "token dead". Do not trigger refresh — that clobbers the
+      // NOT as "token dead". Do not trigger refresh - that clobbers the
       // long-lived token with rotating-token garbage.
       const usingLongLived = !!(
         process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE ||
         process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
       )
       if (usingLongLived) {
-        logger.debug('quota-check: 401 with long-lived token — expected, skipping refresh', { account })
+        logger.debug('quota-check: 401 with long-lived token - expected, skipping refresh', { account })
         return
       }
       // Legacy rotating-token path: try refresh once.
-      logger.warn('quota-check: 401 Unauthorized — triggering token refresh', { account })
+      logger.warn('quota-check: 401 Unauthorized - triggering token refresh', { account })
       try {
         const tokenRefresh = require('./claudeTokenRefreshService')
         const result = await tokenRefresh.refreshAccount(account, { force: true })
         if (result.refreshed) {
-          logger.info('quota-check: token refreshed after 401 — retrying quota check', { account })
+          logger.info('quota-check: token refreshed after 401 - retrying quota check', { account })
           return _doQuotaCheck(account)
         }
         if (result.isRevoked) {
-          logger.error('quota-check: REFRESH TOKEN REVOKED — manual login required', { account })
+          logger.error('quota-check: REFRESH TOKEN REVOKED - manual login required', { account })
         }
       } catch (refreshErr) {
         logger.warn('quota-check: token refresh failed after 401', { account, error: refreshErr.message })
@@ -353,7 +353,7 @@ async function refreshQuotaCheck(account = null) {
   return state.quotaCheckInFlight
 }
 
-// Refresh BOTH accounts — used on startup and periodically
+// Refresh BOTH accounts - used on startup and periodically
 async function refreshAllAccounts() {
   const promises = []
   // Skip acct1 (tate) entirely when its subscription is paused and we're on the code token.
@@ -369,7 +369,7 @@ async function refreshAllAccounts() {
 
 // ─── Reset watcher ──────────────────────────────────────────────────────────
 // On fallback (deepseek), nothing in-flight re-evaluates providers
-// until the next user message or heartbeat — and the heartbeat itself is
+// until the next user message or heartbeat - and the heartbeat itself is
 // paused on fallback (osHeartbeatService:284). Without a watcher, Claude
 // reset windows pass silently and the OS stays on DeepSeek until Tate starts
 // a new session. The watcher arms a single setTimeout for the earliest
@@ -396,12 +396,12 @@ function _earliestPendingResetSec() {
 function _armResetWatcher() {
   const targetSec = _earliestPendingResetSec()
   if (!targetSec) {
-    // No known reset windows — nothing to arm. If a timer is outstanding for
+    // No known reset windows - nothing to arm. If a timer is outstanding for
     // a now-unknown target, leave it; it'll fire and self-clear harmlessly.
     return
   }
 
-  // Already armed for the same (or earlier) target — don't churn.
+  // Already armed for the same (or earlier) target - don't churn.
   if (_resetTimer && _resetTimerArmedFor !== null && targetSec >= _resetTimerArmedFor) {
     return
   }
@@ -438,7 +438,7 @@ function _armResetWatcher() {
 }
 
 async function _onResetFired() {
-  logger.info('reset watcher fired — probing both accounts')
+  logger.info('reset watcher fired - probing both accounts')
   await refreshAllAccounts()
 
   const best = getBestProvider()
@@ -446,9 +446,9 @@ async function _onResetFired() {
 
   if (!isClaude) {
     // Reset boundary passed but probe still shows both accounts capped.
-    // Arm a short retry — clock skew or staggered reset cadence on Anthropic's
+    // Arm a short retry - clock skew or staggered reset cadence on Anthropic's
     // side can leave the account rejected for a few minutes after the timestamp.
-    logger.info('reset watcher: still on fallback after probe — retry in 5min', {
+    logger.info('reset watcher: still on fallback after probe - retry in 5min', {
       provider: best.provider,
       reason: best.reason,
     })
@@ -463,15 +463,15 @@ async function _onResetFired() {
     return
   }
 
-  // Don't emit if we never left Claude in the first place — listeners only
+  // Don't emit if we never left Claude in the first place - listeners only
   // care about the deepseek → claude transition.
   const onFallback = _activeProvider === 'deepseek'
   if (!onFallback) {
-    logger.debug('reset watcher: Claude healthy but already on Claude — no event needed')
+    logger.debug('reset watcher: Claude healthy but already on Claude - no event needed')
     return
   }
 
-  logger.info('reset watcher: Claude available again — emitting claude-available', {
+  logger.info('reset watcher: Claude available again - emitting claude-available', {
     provider: best.provider,
     reason: best.reason,
     activeProvider: _activeProvider,
@@ -488,7 +488,7 @@ function _energyState(pctUsed) {
   if (pctUsed <= 0.40) return { level: 'healthy',  label: 'Healthy',            modelRec: 'opus',   scheduleMultiplier: 1.0 }
   if (pctUsed <= 0.70) return { level: 'conserve', label: 'Conserving',         modelRec: 'sonnet', scheduleMultiplier: 0.75 }
   if (pctUsed <= 0.90) return { level: 'low',      label: 'Low energy',         modelRec: 'sonnet', scheduleMultiplier: 0.5 }
-  return                      { level: 'critical',  label: 'Critical — minimal', modelRec: 'sonnet', scheduleMultiplier: 0.25 }
+  return                      { level: 'critical',  label: 'Critical - minimal', modelRec: 'sonnet', scheduleMultiplier: 0.25 }
 }
 
 // ─── Account health scoring ─────────────────────────────────────────────────
@@ -507,7 +507,7 @@ function _accountHealth(account) {
 
   // Rejected = completely unusable UNLESS the reset time has passed.
   // Without this, once we mark an account rejected we stay on the fallback forever.
-  // Check BOTH weekly reset AND 5-hour session reset — if either has passed,
+  // Check BOTH weekly reset AND 5-hour session reset - if either has passed,
   // the account is usable again. The quota-check will re-probe and update
   // with real headers.
   if (state.rateLimitStatus === 'rejected') {
@@ -527,7 +527,7 @@ function _accountHealth(account) {
       state.weeklyUtilization = null  // force re-probe
       state.sessionUtilization = null // clear 5h session too
       state.rejectionClearedAt = Date.now()  // debounce markAccountRejected for 5 min
-      // Fire a fresh quota-check in the background (don't await — decision needs a value now)
+      // Fire a fresh quota-check in the background (don't await - decision needs a value now)
       refreshQuotaCheck(account).catch(() => {})
       return { score: 30, reason: `reset_just_passed_reprobing (${resetType})` }
     }
@@ -535,7 +535,7 @@ function _accountHealth(account) {
     // timestamp AND no captured headers, treat as a stale wedge (typically:
     // boot-time probe got a 429 before reset headers parsed correctly, or
     // an SDK error mis-classified). Clear it and let the next real call
-    // re-establish ground truth — it'll either succeed (proving acct healthy)
+    // re-establish ground truth - it'll either succeed (proving acct healthy)
     // or 429 again (this time hopefully with proper headers).
     if (!state.weeklyResetsAt && !state.sessionResetsAt && !state.headersUpdatedAt) {
       logger.warn('Account rejection auto-cleared: stale wedge (no reset times, no headers)', { account })
@@ -550,7 +550,7 @@ function _accountHealth(account) {
     return { score: -10, reason: `rejected (${state.rateLimitType || 'unknown'})` }
   }
 
-  // No data yet — unknown, treat as moderately healthy (prefer known-good accounts)
+  // No data yet - unknown, treat as moderately healthy (prefer known-good accounts)
   if (state.weeklyUtilization === null) {
     return { score: 30, reason: 'no_data' }
   }
@@ -558,19 +558,19 @@ function _accountHealth(account) {
   const weeklyPct = state.weeklyUtilization  // 0–1
   const sessionPct = state.sessionUtilization // 0–1 or null
 
-  // 5h session capped (>=95%) — this account can't do heavy work right now
+  // 5h session capped (>=95%) - this account can't do heavy work right now
   if (sessionPct !== null && sessionPct >= 0.95) {
-    // But it might reset soon — check sessionResetsAt
+    // But it might reset soon - check sessionResetsAt
     const now = Date.now()
     const resetsInMs = state.sessionResetsAt ? (state.sessionResetsAt * 1000 - now) : Infinity
     if (resetsInMs > 5 * 60 * 1000) {
-      // More than 5 min until session reset — treat as capped
+      // More than 5 min until session reset - treat as capped
       return { score: -5, reason: `5h_session_capped (${Math.round(sessionPct * 100)}%, resets in ${Math.round(resetsInMs / 60000)}m)` }
     }
-    // Resets soon — still usable but slightly penalised
+    // Resets soon - still usable but slightly penalised
   }
 
-  // Weekly >= 99% — effectively exhausted
+  // Weekly >= 99% - effectively exhausted
   if (weeklyPct >= 0.99) {
     return { score: -8, reason: `weekly_exhausted (${Math.round(weeklyPct * 100)}%)` }
   }
@@ -581,7 +581,7 @@ function _accountHealth(account) {
     score -= sessionPct * 20  // 5h session pressure reduces score
   }
 
-  // Penalise "allowed_warning" — it's about to get capped
+  // Penalise "allowed_warning" - it's about to get capped
   if (state.rateLimitStatus === 'allowed_warning') {
     score -= 15
   }
@@ -607,7 +607,7 @@ function getBestProvider() {
     hasDeepseek,
   })
 
-  // Both usable — pick the healthier one
+  // Both usable - pick the healthier one
   if (health1.score > 0 && health2.score > 0) {
     if (health1.score >= health2.score) {
       return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isDeepseekFallback: false }
@@ -615,7 +615,7 @@ function getBestProvider() {
     return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isDeepseekFallback: false }
   }
 
-  // One usable — use it
+  // One usable - use it
   if (health1.score > 0) {
     return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isDeepseekFallback: false }
   }
@@ -625,16 +625,16 @@ function getBestProvider() {
 
   const bothDownReason = `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`
 
-  // Both down — try DeepSeek (final tier)
+  // Both down - try DeepSeek (final tier)
   if (hasDeepseek) {
-    return { provider: 'deepseek', reason: `${bothDownReason} — using DeepSeek V4 Pro`, isDeepseekFallback: true }
+    return { provider: 'deepseek', reason: `${bothDownReason} - using DeepSeek V4 Pro`, isDeepseekFallback: true }
   }
 
-  // Nothing available — return whichever is least bad
+  // Nothing available - return whichever is least bad
   const best = health1.score >= health2.score ? 'claude_max' : 'claude_max_2'
   return {
     provider: best,
-    reason: `all providers exhausted — using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
+    reason: `all providers exhausted - using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
     isDeepseekFallback: false,
   }
 }
@@ -677,14 +677,14 @@ function _getAccountSnapshot(account) {
   }
 }
 
-// ─── Get current energy snapshot (main API — used by routes + osSession) ─────
+// ─── Get current energy snapshot (main API - used by routes + osSession) ─────
 async function getEnergy() {
   const now = Date.now()
 
   // Return cached snapshot if fresh
   if (_cache && (now - _cacheAt) < CACHE_TTL_MS) return _cache
 
-  // Stale-header background refresh disabled 2026-05-05 — quota-check fetch
+  // Stale-header background refresh disabled 2026-05-05 - quota-check fetch
   // was crashing the api process (silent exit code 0 mid-fetch). Real SDK
   // turns populate headers via updateFromHeaders, which is enough for routing.
   const hasAcct2 = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
@@ -807,7 +807,7 @@ function _buildSummary({ acct1, acct2, active, hasRealData, turns, best }) {
 // tokens + estimated cost_usd so the /ops dashboard can surface
 // cache_hit_ratio + cost_per_turn_usd panels. Migration 082 added the
 // two cache columns; cost_usd column already existed but was never populated.
-// All new params optional — callers that don't pass them get the old shape.
+// All new params optional - callers that don't pass them get the old shape.
 async function logUsage({
   sessionId = null,
   source = 'os_session',
@@ -942,7 +942,7 @@ function markAccountRejected(account, rateLimitType = 'unknown') {
   _cache = null
   _cacheAt = 0
   logger.warn('Account marked rejected', { account, rateLimitType })
-  // Just got rejected — make sure the watcher is armed for whatever reset
+  // Just got rejected - make sure the watcher is armed for whatever reset
   // window we know about. If we only just learned this account is rejected
   // and don't have reset timestamps yet, refreshAllAccounts (called via
   // the next getBestProvider tick) will populate them.

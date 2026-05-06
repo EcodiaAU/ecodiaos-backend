@@ -1,21 +1,21 @@
 /**
- * Email Delegation Service — routes emails to the right system after triage.
+ * Email Delegation Service - routes emails to the right system after triage.
  *
  * Triage decides what to do. This service executes the delegation:
- *   - Receipts/invoices → bookkeeping pipeline (bk_receipts + auto-match)
- *   - Dev requests → factory session dispatch
- *   - Client emails → CRM pipeline (task creation, project linking)
- *   - Everything else → action queue (existing flow)
+ * - Receipts/invoices → bookkeeping pipeline (bk_receipts + auto-match)
+ * - Dev requests → factory session dispatch
+ * - Client emails → CRM pipeline (task creation, project linking)
+ * - Everything else → action queue (existing flow)
  *
  * Called from gmailService.autoAct() after triage completes.
- * Each delegate is fire-and-forget — failures don't block email processing.
+ * Each delegate is fire-and-forget - failures don't block email processing.
  */
 
 const db = require('../config/db')
 const logger = require('../config/logger')
 
 // ═══════════════════════════════════════════════════════════════════════
-// RECEIPT DELEGATION — invoices, receipts, payment confirmations
+// RECEIPT DELEGATION - invoices, receipts, payment confirmations
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
@@ -134,7 +134,7 @@ function _extractSupplierFromEmail(email, name) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// FACTORY DELEGATION — emails that need code work
+// FACTORY DELEGATION - emails that need code work
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
@@ -199,7 +199,7 @@ function _looksLikeDevRequest(thread, triageResult) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// CRM DELEGATION — link emails to clients/projects
+// CRM DELEGATION - link emails to clients/projects
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
@@ -241,12 +241,12 @@ async function delegateToCRM(thread) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MAIN DELEGATION ROUTER — called after triage
+// MAIN DELEGATION ROUTER - called after triage
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
  * Run all delegation checks on a triaged email.
- * Each delegate is independent — multiple can fire for the same email.
+ * Each delegate is independent - multiple can fire for the same email.
  * e.g., a receipt from a client triggers both receipt + CRM delegation.
  */
 async function delegateEmail(thread, triageResult) {

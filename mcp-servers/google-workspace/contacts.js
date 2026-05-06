@@ -1,5 +1,5 @@
 /**
- * Google Contacts MCP tools — list, search, create, update.
+ * Google Contacts MCP tools - list, search, create, update.
  */
 import { z } from 'zod'
 import { getPeopleClient, primaryAccount } from './auth.js'

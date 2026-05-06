@@ -4,7 +4,7 @@
  * GET /api/ops/listener-stats
  *
  * Per W3 listener audit (drafts/proposed-design-fixes/04-listener-stats-endpoint.md).
- * fork_mosmjqi4_20c41a — Wave B sub-task B3.
+ * fork_mosmjqi4_20c41a - Wave B sub-task B3.
  *
  * Surfaces per-matcher fire counts, dedupe-suppression counts, per-listener
  * drop counts, queue depth, bus-level event volume, and a "wired but dark"
@@ -12,7 +12,7 @@
  *
  * Defensive against B2 not yet shipped: if registry._drops / _pending /
  * _inFlight are not exported, the panel renders empty maps rather than
- * crashing. Same with dispatcher._stats — if Wave B B3 ships before B1's
+ * crashing. Same with dispatcher._stats - if Wave B B3 ships before B1's
  * matcher integration loads, the in-memory counters are simply zero.
  *
  * Persistent counts come from os_observations (durable, queryable for 1h /

@@ -4,14 +4,14 @@
  * Integration test for the PROMPT_ASSEMBLY_V2 shadow-mode wire-in.
  *
  * Can't spin up a real osSessionService.sendMessage() turn here (too many
- * live deps) — instead we exercise the dispatch code path by reconstructing
+ * live deps) - instead we exercise the dispatch code path by reconstructing
  * the exact call shape the wire-in uses and asserting:
  *
  *   1. Under shadow mode, promptAssemblyAudit.dispatch() is called once
  *      with the expected row shape (session_id, mode='shadow',
  *      semantic_equivalent, breakpoint_bytes).
  *   2. Under off mode, dispatch() is NEVER called (zero DB churn when flag
- *      is off — the default in prod).
+ *      is off - the default in prod).
  *   3. The dispatch call is fire-and-forget (returns undefined synchronously,
  *      does not block).
  *   4. buildAuditRow produces a row with the expected shape so the
@@ -63,7 +63,7 @@ function cleanupFixture(dir) { try { fs.rmSync(dir, { recursive: true, force: tr
 
 /**
  * Replays the exact wire-in snippet from osSessionService.js lines ~1806-1845.
- * Any drift between this helper and the live code would invalidate the test —
+ * Any drift between this helper and the live code would invalidate the test - 
  * keep this in sync if the wire-in changes.
  */
 function runShadowWireIn({ modeEnv, dbSessionId, cwd, content, continuityParts, _forksBlock, _doctrineBlock, _memoryBlock, recoveryBlock, recentExchangeBlock, breadcrumbBlock, customSystemPrompt }) {
@@ -96,11 +96,11 @@ function runShadowWireIn({ modeEnv, dbSessionId, cwd, content, continuityParts, 
       })
     }
   } catch (err) {
-    // swallowed — matches live belt-and-braces behavior
+    // swallowed - matches live belt-and-braces behavior
   }
 }
 
-describe('osSessionService — PROMPT_ASSEMBLY_V2 shadow wire-in', () => {
+describe('osSessionService - PROMPT_ASSEMBLY_V2 shadow wire-in', () => {
   beforeEach(() => {
     assembler._resetCacheForTest()
     audit.dispatch.mockClear()

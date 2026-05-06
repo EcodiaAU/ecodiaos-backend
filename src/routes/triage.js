@@ -1,11 +1,11 @@
 /**
- * Triage routes — /api/triage/*
+ * Triage routes - /api/triage/*
  *
  * One-call diagnostic surfaces designed to answer "what's actually happening
  * right now?" without requiring SSH + shell familiarity. Consumable by:
- *   - Tate's manual curl in a pinch
- *   - The rescue process (it reads these instead of shelling out)
- *   - External uptime monitors
+ * - Tate's manual curl in a pinch
+ * - The rescue process (it reads these instead of shelling out)
+ * - External uptime monitors
  *
  * Everything here is READ-ONLY. No action endpoints. Triage never modifies.
  */
@@ -20,11 +20,11 @@ function _safeExec(cmd, args, opts = {}) {
       encoding: 'utf-8', timeout: 5_000, maxBuffer: 5 * 1024 * 1024, ...opts,
     }).trim()
   } catch (err) {
-    return `[exec failed: ${cmd} ${args.join(' ')} — ${err.message}]`
+    return `[exec failed: ${cmd} ${args.join(' ')} - ${err.message}]`
   }
 }
 
-// In-memory ring buffer dump — the most useful triage endpoint when the
+// In-memory ring buffer dump - the most useful triage endpoint when the
 // OS is wedged. Gives you the last N log entries including debug-level
 // ones that would otherwise be filtered. Query by level or limit.
 router.get('/logs', (req, res) => {
@@ -43,7 +43,7 @@ router.get('/logs', (req, res) => {
 
 // Trim pm2 jlist down to the fields a diagnostician actually reads.
 // Raw `pm2 jlist` dumps every env var and every pm2 axm metric for each
-// process — easily 10KB of noise per proc that obscures the signal
+// process - easily 10KB of noise per proc that obscures the signal
 // (status, restart count, memory, uptime).
 function _pm2Summary() {
   const raw = _safeExec('pm2', ['jlist'])
@@ -82,7 +82,7 @@ router.get('/dump', async (_req, res, next) => {
       memFree: _safeExec('free', ['-h']),
     }
 
-    // OS session snapshot — active, last session row.
+    // OS session snapshot - active, last session row.
     try {
       const osSession = require('../services/osSessionService')
       snapshot.osSession = osSession.getStatus ? await osSession.getStatus().catch(() => ({ error: 'getStatus_failed' })) : null
@@ -91,8 +91,8 @@ router.get('/dump', async (_req, res, next) => {
     }
 
     // Last 20 actual problems from app_errors (warn+ only).
-    // The table stores every level — migrations, neo4j-init, debug breadcrumbs
-    // — because it's the "session sees its own failures" surface for the OS.
+    // The table stores every level - migrations, neo4j-init, debug breadcrumbs
+    // - because it's the "session sees its own failures" surface for the OS.
     // For human triage we only care about warn+ so real errors aren't buried
     // in migration chatter.
     try {
@@ -109,7 +109,7 @@ router.get('/dump', async (_req, res, next) => {
       snapshot.appErrors = { error: err.message }
     }
 
-    // Rescue state — use the probing variant so a fresh api process that
+    // Rescue state - use the probing variant so a fresh api process that
     // booted after rescue's initial `ready` broadcast still reports rescue
     // as alive. Falls back to plain getStatus if probing isn't available.
     try {
@@ -168,7 +168,7 @@ router.get('/health', async (_req, res) => {
     out.osSession.ok = false; out.osSession.error = err.message
   }
 
-  // Neo4j intentionally skipped — many subsystems make it optional.
+  // Neo4j intentionally skipped - many subsystems make it optional.
 
   res.json(out)
 })

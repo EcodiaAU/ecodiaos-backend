@@ -8,7 +8,7 @@ const registry = require('../services/capabilityRegistry')
 // context looks anomalous, or when Tate asks "is everything ok".
 //
 // Design principle: the OS reads these, not a human. Results are
-// structured JSON, compact, stable keys. No prose summaries — you
+// structured JSON, compact, stable keys. No prose summaries - you
 // reason about the facts yourself.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -31,7 +31,7 @@ registry.registerMany([
   {
     name: 'os_recent_incidents',
     description:
-      'Read the structured incident log — every non-success turn and subsystem failure. ' +
+      'Read the structured incident log - every non-success turn and subsystem failure. ' +
       'Use to diagnose repeated problems, find which MCP is flaky, or confirm a fix is holding. ' +
       'Params: hours (default 24), kind (optional filter: turn_failure | mcp_failure | provider_switch | tool_hung | db_error | empty_sdk_stream | etc.), severity (info|warn|error|critical).',
     tier: 'read',

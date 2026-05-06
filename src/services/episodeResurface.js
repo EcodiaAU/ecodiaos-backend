@@ -9,30 +9,30 @@
  * `feat/phase-d-failure-classifier-2026-04-29`, the queue-audit pass-2 anti-rec
  * forbids any new edit under src/services/telemetry/*. Layer 7 is a NEW module
  * not an extension of Layer 4's telemetry, so the placement is correct on
- * its own merit — the constraint just makes it non-negotiable.
+ * its own merit - the constraint just makes it non-negotiable.
  *
  * Responsibilities:
- *   - resurfaceEpisodes(query, opts):       run a semantic search against
+ * - resurfaceEpisodes(query, opts):       run a semantic search against
  *                                           Neo4j Episode nodes and return the
  *                                           top-K hits (above a min score).
- *   - recordResurfaces({...}, hits):        persist one episode_resurface_event
+ * - recordResurfaces({...}, hits):        persist one episode_resurface_event
  *                                           row per hit. Idempotent at the
  *                                           caller's discretion (see metadata
  *                                           keys for dedup hooks).
- *   - markAcknowledgement({id, ack}):       fill in acknowledged_in_response
+ * - markAcknowledgement({id, ack}):       fill in acknowledged_in_response
  *                                           after the dispatch response is
  *                                           inspected.
- *   - markRepeatedFailure({id, repeated}):  fill in repeated_failure once the
+ * - markRepeatedFailure({id, repeated}):  fill in repeated_failure once the
  *                                           dispatched action's outcome is
  *                                           classified.
- *   - getResurfaceFrequency({days}):        rolling-window aggregation for the
+ * - getResurfaceFrequency({days}):        rolling-window aggregation for the
  *                                           /api/telemetry/episode-resurface
  *                                           dashboard panel.
- *   - getRepeatedFailureRate({days}):       Layer-7 primary health metric.
+ * - getRepeatedFailureRate({days}):       Layer-7 primary health metric.
  *
  * Fail-open: any Neo4j or Postgres error is logged and yields an empty result
  * rather than throwing into the caller. The hot path here is dispatch
- * surfacing — a Layer-7 outage MUST NOT block forks or factory sessions.
+ * surfacing - a Layer-7 outage MUST NOT block forks or factory sessions.
  */
 
 'use strict'
@@ -50,7 +50,7 @@ const DEFAULT_MIN_SCORE = 0.72
  * @param {string} queryText - natural-language seed (typically the brief or
  *                             the proper-noun-rich slice of a dispatch).
  * @param {object} [opts]
- * @param {number} [opts.limit=3]       - max hits to return.
+ * @param {number} [opts.limit=3] - max hits to return.
  * @param {number} [opts.minScore=0.72] - cosine threshold below which Episodes
  *                                        are dropped.
  * @returns {Promise<Array<{label,name,description,score}>>}
@@ -84,8 +84,8 @@ async function resurfaceEpisodes(queryText, opts = {}) {
  * @param {string} [ctx.dispatchEventId] - uuid of the originating dispatch_event
  * @param {string} [ctx.hookName]
  * @param {string} [ctx.toolName]
- * @param {object} [ctx.metadataExtra]   - merged into row.metadata
- * @param {Array}  hits                  - output from resurfaceEpisodes
+ * @param {object} [ctx.metadataExtra] - merged into row.metadata
+ * @param {Array}  hits - output from resurfaceEpisodes
  * @returns {Promise<{inserted:number, ids:number[]}>}
  */
 async function recordResurfaces(ctx = {}, hits = []) {
@@ -232,7 +232,7 @@ async function getResurfaceFrequency({ days = 7 } = {}) {
  *   repeated_failure_rate = repeated / acked, over a rolling window.
  *
  * Rows where acknowledged_in_response IS NULL are excluded from the
- * denominator — we cannot judge repeated failure if we don't yet know whether
+ * denominator - we cannot judge repeated failure if we don't yet know whether
  * the resurfaced Episode was even consumed.
  */
 async function getRepeatedFailureRate({ days = 30 } = {}) {

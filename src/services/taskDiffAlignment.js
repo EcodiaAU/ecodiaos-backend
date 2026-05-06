@@ -24,7 +24,7 @@ const STOPWORDS = new Set([
   'deploy','deployed','deploying','approve','approved','reject','rejected',
   'claude','cc','mcp','docs','documentation',
   // NOTE: 'service','services','method','handler','helper','helpers','pattern','patterns','doctrine'
-  // were removed — they are domain-meaningful in this codebase and suppressing them caused
+  // were removed - they are domain-meaningful in this codebase and suppressing them caused
   // false misses (e.g. "bookkeeper service" task vs bookkeeperService.js diff).
 ])
 
@@ -83,12 +83,12 @@ function computeTaskDiffAlignment(statedTask, filesChanged) {
   }
 
   // Bug 2 fix: one-directional match only.
-  // Original: t.includes(kw) || kw.includes(t) — the kw.includes(t) clause let short path
+  // Original: t.includes(kw) || kw.includes(t) - the kw.includes(t) clause let short path
   // tokens (e.g. "set" from "dataset") match any keyword containing them ("settings", "reset"),
   // inflating scores for phantom sessions.
   // Fix: t.includes(kw) only (a long path token may contain the keyword as a meaningful part).
   // Edge case for 3-char keywords: require exact match because t.includes('iap') on 'iap.js'
-  // splits to 'iap' (exact), but 'api' could match 'capital' — exact avoids noise.
+  // splits to 'iap' (exact), but 'api' could match 'capital' - exact avoids noise.
   let hits = 0
   const matched = []
   for (const kw of statedKeywords) {

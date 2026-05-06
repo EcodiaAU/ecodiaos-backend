@@ -1,5 +1,5 @@
 /**
- * Cowork V2 MCP — bearer auth middleware.
+ * Cowork V2 MCP - bearer auth middleware.
  *
  * Reads `Authorization: Bearer <token>`, looks up the canonical token in
  * `kv_store.creds.cowork_mcp_bearer.token`, constant-time compares, and

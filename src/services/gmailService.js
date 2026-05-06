@@ -17,7 +17,7 @@ async function getInboxes() {
   try {
     const rows = await db`SELECT email FROM gmail_inboxes WHERE enabled = true ORDER BY added_at`
     if (rows.length > 0) return rows.map(r => r.email)
-  } catch { /* table not yet migrated — fall through */ }
+  } catch { /* table not yet migrated - fall through */ }
   return (env.GMAIL_INBOXES
     ? env.GMAIL_INBOXES.split(',').map(s => s.trim()).filter(Boolean)
     : [env.GOOGLE_PRIMARY_ACCOUNT]).filter(Boolean)
@@ -44,7 +44,7 @@ function getGmailClient(userEmail) {
 
 async function pollInbox() {
   if (!GMAIL_ENABLED) {
-    logger.debug('Gmail polling disabled (GMAIL_ENABLED=false) — set to "true" in .env to re-enable')
+    logger.debug('Gmail polling disabled (GMAIL_ENABLED=false) - set to "true" in .env to re-enable')
     return
   }
   for (const inbox of await getInboxes()) {
@@ -64,7 +64,7 @@ async function pollInbox() {
       }
     } catch (err) {
       logger.error(`Failed to poll ${inbox}`, { error: err.message })
-      // Continue to next inbox — don't let one failure block others
+      // Continue to next inbox - don't let one failure block others
     }
   }
 
@@ -75,7 +75,7 @@ async function pollInbox() {
 // ─── Full Sync ───────────────────────────────────────────────────────────────
 
 async function fullSync(gmail, inbox) {
-  // Sync all mail, not just INBOX — captures archived, read, sent, everything
+  // Sync all mail, not just INBOX - captures archived, read, sent, everything
   const res = await gmail.users.threads.list({
     userId: 'me',
     maxResults: 200,
@@ -196,7 +196,7 @@ async function processThread(gmail, inbox, threadId) {
   const [existing] = await db`SELECT id FROM email_threads WHERE gmail_thread_id = ${threadId}`
 
   if (existing) {
-    // Update labels, status, message count — track archive/read/trash changes
+    // Update labels, status, message count - track archive/read/trash changes
     await db`
       UPDATE email_threads SET
         gmail_message_ids = ${messageIds}, labels = ${allLabels}, status = ${status},
@@ -216,7 +216,7 @@ async function processThread(gmail, inbox, threadId) {
     )
   `
 
-  // Fire-and-forget KG ingestion — only for new threads
+  // Fire-and-forget KG ingestion - only for new threads
   kgHooks.onEmailProcessed({ threadId, fromEmail, fromName, subject, body, snippet, inbox, clientId: client?.id }).catch(() => {})
 
   logger.info(`[${inbox}] Processed: ${subject} from ${fromEmail}`)
@@ -246,7 +246,7 @@ async function triagePendingEmails() {
         ? (await db`SELECT name, status FROM clients WHERE id = ${thread.client_id}`)[0]
         : null
 
-      // Pull client's active projects + linked codebases — gives the AI
+      // Pull client's active projects + linked codebases - gives the AI
       // codebase awareness when deciding if an email is a code request
       let projectCodebaseContext = null
       try {
@@ -269,7 +269,7 @@ async function triagePendingEmails() {
             ).join('\n')
           }
         } else {
-          // Unknown sender — provide full codebase list so AI can still match
+          // Unknown sender - provide full codebase list so AI can still match
           const allCodebases = await db`
             SELECT name, language, repo_path FROM codebases ORDER BY name LIMIT 10
           `
@@ -295,7 +295,7 @@ async function triagePendingEmails() {
         logger.debug('KG context not available for triage', { error: kgErr.message })
       }
 
-      // Pull existing pending actions for this sender — helps the LLM
+      // Pull existing pending actions for this sender - helps the LLM
       // avoid re-surfacing the same topic that's already queued
       let pendingActionsContext = null
       let decisionContext = null
@@ -307,7 +307,7 @@ async function triagePendingEmails() {
         ])
         if (pending.length > 0) {
           pendingActionsContext = pending.map(p =>
-            `- [${p.priority}] "${p.title}" — ${p.summary || 'no summary'}${p.context?.consolidated_count > 1 ? ` (${p.context.consolidated_count} signals consolidated)` : ''}`
+            `- [${p.priority}] "${p.title}" - ${p.summary || 'no summary'}${p.context?.consolidated_count > 1 ? ` (${p.context.consolidated_count} signals consolidated)` : ''}`
           ).join('\n')
         }
         decisionContext = triageCtx
@@ -408,7 +408,7 @@ async function triagePendingEmails() {
         delegation.delegateEmail(thread, triage).catch(err =>
           logger.debug('Email delegation failed (non-blocking)', { error: err.message })
         )
-      } catch { /* delegation service not loaded — non-blocking */ }
+      } catch { /* delegation service not loaded - non-blocking */ }
 
       // Fire-and-forget KG ingestion of triage results
       kgHooks.onEmailTriaged({
@@ -461,12 +461,12 @@ async function autoAct(thread, triage) {
   const actionQueue = require('./actionQueueService')
 
   try {
-    // LLM decides if human should review — no confidence threshold override
+    // LLM decides if human should review - no confidence threshold override
     const shouldSurface = triage.surfaceToHuman
 
     // ── SURFACE PATH: AI can't handle this, or isn't confident enough ──
     if (shouldSurface) {
-      // Still save draft if we have one — human can approve sending
+      // Still save draft if we have one - human can approve sending
       if (triage.draftReply) {
         await saveDraftToGmail(thread, triage.draftReply).catch(err =>
           logger.warn(`Failed to save Gmail draft for ${thread.id}`, { error: err.message })
@@ -500,7 +500,7 @@ async function autoAct(thread, triage) {
     // ── AUTONOMOUS PATH: AI is confident, just do it ──
 
     if (action === 'send_reply' && triage.draftReply) {
-      // Actually send the reply — the AI is confident, act on it
+      // Actually send the reply - the AI is confident, act on it
       await sendReplyToThread(thread, triage.draftReply)
       await silentArchive(thread)
       // Log to CRM activity timeline for linked clients
@@ -522,12 +522,12 @@ async function autoAct(thread, triage) {
       logger.info(`Auto-sent reply & archived: ${thread.subject}`)
 
     } else if (action === 'create_task' && triage.shouldCreateTask) {
-      // Task already created in triagePendingEmails — just archive the email
+      // Task already created in triagePendingEmails - just archive the email
       await silentArchive(thread)
       logger.info(`Task created, auto-archived: ${thread.subject}`)
 
     } else if (action === 'snooze') {
-      // Repeated signal about something acknowledged — log to KG, archive, don't nag
+      // Repeated signal about something acknowledged - log to KG, archive, don't nag
       await silentArchive(thread)
       kgHooks.onEmailSnoozed({
         threadId: thread.id,
@@ -538,13 +538,13 @@ async function autoAct(thread, triage) {
       logger.info(`Snoozed (repeated signal): ${thread.subject}`)
 
     } else {
-      // archive, ignore, spam, or anything else — just archive
+      // archive, ignore, spam, or anything else - just archive
       await silentArchive(thread)
       logger.info(`Auto-archived [${priority}/${action}]: ${thread.subject}`)
     }
 
     // ── CODE WORK PATH: email requests code changes ──
-    // Runs alongside (not instead of) the normal action — an email might need
+    // Runs alongside (not instead of) the normal action - an email might need
     // a reply AND a Factory session. The code request service decides whether
     // to auto-dispatch or surface for confirmation based on confidence.
     // Validate: isCodeWorkRequest must be truthy AND factoryPrompt must be a
@@ -578,7 +578,7 @@ async function sendReplyToThread(thread, body) {
   const subject = `Re: ${thread.subject || ''}`
 
   // Route through the composite Tier-3 gate per SECURITY_HARDENING §3.2.
-  // This is the autonomous-triage path — the `autonomous_thread_reply`
+  // This is the autonomous-triage path - the `autonomous_thread_reply`
   // pattern (migration 081) auto-issues tokens when body_length <= 2000.
   // Longer bodies or high-risk commitment content fall through to the
   // SMS-OTP path; the email stays unsent and Tate is paged.
@@ -593,7 +593,7 @@ async function sendReplyToThread(thread, body) {
   })
 
   if (result?.pending_otp) {
-    logger.warn('sendReplyToThread: pending OTP — reply NOT sent', {
+    logger.warn('sendReplyToThread: pending OTP - reply NOT sent', {
       thread_id: thread.id, subject, otp_id: result.otp_id,
     })
     return result
@@ -794,7 +794,7 @@ function findPart(payload, mimeType) {
 
 // RFC 2047 encoded-word encoding for non-ASCII header values (RFC 2822 §2.2).
 // Without this, raw UTF-8 bytes in the Subject header are misread as Latin-1
-// by receiving clients, producing mojibake (e.g. Ã¢Â€Â" instead of —).
+// by receiving clients, producing mojibake (e.g. Ã¢Â€Â" instead of - ).
 function encodeHeaderValue(str) {
   if (!str || !/[^\x00-\x7F]/.test(str)) return str
   return `=?UTF-8?B?${Buffer.from(str, 'utf-8').toString('base64')}?=`
@@ -848,7 +848,7 @@ async function searchThreads(query, limit = 20) {
     ORDER BY received_at DESC LIMIT ${limit}`
   if (local.length > 0) return local
 
-  // Local DB empty — search Gmail API directly and sync matching threads
+  // Local DB empty - search Gmail API directly and sync matching threads
   const remoteResults = []
   for (const inbox of await getInboxes()) {
     try {
@@ -976,7 +976,7 @@ async function sendNewEmail(inbox, to, subject, body, opts = {}) {
 
   // Route through the composite Tier-3 gate. For mail to Ecodia domains
   // (tate@ecodia.au alerts, intra-org messages) the `internal_ecodia_comms`
-  // pattern auto-issues. Anything else requires SMS-OTP — the returned
+  // pattern auto-issues. Anything else requires SMS-OTP - the returned
   // `pending_otp: true` response tells the caller to surface to Tate.
   // Legacy callers that don't pass sessionId get a synthetic one tagged
   // with the source.
@@ -1000,7 +1000,7 @@ async function sendNewEmail(inbox, to, subject, body, opts = {}) {
 }
 
 /**
- * sendEmail — extended sender supporting cc, bcc, and threadId.
+ * sendEmail - extended sender supporting cc, bcc, and threadId.
  * Used by Cowork V2 MCP gmail.send endpoint.
  */
 async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
@@ -1022,27 +1022,27 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
 }
 
 /**
- * sendEmailGated — Tier-3 gated external-recipient send per
+ * sendEmailGated - Tier-3 gated external-recipient send per
  * SECURITY_HARDENING.md §3.2/§3.3/§3.4/§7.1.
  *
  * Flow (fail-closed on every error path):
- *   1. commitmentDetector.analyze(body) — if requiresManualTier3(result) is
+ *   1. commitmentDetector.analyze(body) - if requiresManualTier3(result) is
  *      true, the caller must have gone through the SMS-OTP path to get a
  *      token (the pattern-issued token won't verify because the detector
  *      finding causes verifyAndConsume to fail via mismatched target).
- *   2. outboundEmailDelayQueue.routeOutbound — if `action === 'queued'`,
+ *   2. outboundEmailDelayQueue.routeOutbound - if `action === 'queued'`,
  *      return { queued: true, row } without sending. 24h delay queue is
  *      the failsafe for unknown recipients.
- *   3. tier3GateService.verifyAndConsume — if false, throw with
+ *   3. tier3GateService.verifyAndConsume - if false, throw with
  *      code 'tier3_gate_denied'. Single-use token is consumed atomically.
- *   4. Internal sendEmail() — unchanged existing dispatcher.
- *   5. securityAuditLog.append — records every external send with
+ *   4. Internal sendEmail() - unchanged existing dispatcher.
+ *   5. securityAuditLog.append - records every external send with
  *      HMAC-signed content hash.
  *
  * Token acquisition (caller responsibility, not this function):
- *   - authorized_action_patterns row match (e.g. `internal_ecodia_comms`
+ * - authorized_action_patterns row match (e.g. `internal_ecodia_comms`
  *     for to_domain in {ecodia.au, ecodia.com.au}) → synchronous token.
- *   - Otherwise tier3GateService.issueToken({ ... }) kicks off the SMS-OTP
+ * - Otherwise tier3GateService.issueToken({ ... }) kicks off the SMS-OTP
  *     challenge; Tate replies, then the token is issued via
  *     completeOtpChallenge. Callers pass the resulting token here.
  *
@@ -1107,7 +1107,7 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
   //    token was OTP-issued; the commitment detector here surfaces the
   //    classification for audit+logging).
   const detection = await commitmentDetector.analyze(body || '').catch((err) => {
-    logger.warn('sendEmailGated: commitmentDetector.analyze threw — fail-closed', { error: err.message })
+    logger.warn('sendEmailGated: commitmentDetector.analyze threw - fail-closed', { error: err.message })
     throw Object.assign(new Error('tier3_gate_denied: commitment detector unavailable'), {
       code: 'tier3_gate_denied',
     })
@@ -1144,7 +1144,7 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
   //    test suites can stub it without exercising googleapis.
   const result = await module.exports.sendEmail({ from, to, cc, bcc, subject, body, threadId })
 
-  // 5. Audit log — best-effort, non-blocking. If HMAC signing or the
+  // 5. Audit log - best-effort, non-blocking. If HMAC signing or the
   //    INSERT throws, we log but don't reverse the send (email already
   //    left the building). `.append()` failing is its own incident signal
   //    that bootstrap monitoring should catch.
@@ -1166,16 +1166,16 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
 }
 
 /**
- * sendEmailAuto — attempts auto-token issuance via tier3GateService
+ * sendEmailAuto - attempts auto-token issuance via tier3GateService
  * pattern matching, then invokes sendEmailGated. Used by internal paths
  * (triagePendingEmails, certMonitor, osAlertingService) that have no
  * upstream human session but still need to go through the composite gate.
  *
  * Returns one of:
- *   { sent: true, ... }        — pattern matched, token consumed, sent.
- *   { queued: true, row }      — delay queue took it (unknown recipient).
- *   { deferred: true, ... }    — calendar gate deferred.
- *   { pending_otp: true, otp_id } — no pattern matched, SMS dispatched to Tate.
+ *   { sent: true, ... } - pattern matched, token consumed, sent.
+ *   { queued: true, row } - delay queue took it (unknown recipient).
+ *   { deferred: true, ... } - calendar gate deferred.
+ *   { pending_otp: true, otp_id } - no pattern matched, SMS dispatched to Tate.
  *                                   Caller records the otp_id and retries
  *                                   after Tate replies Y <code>.
  *
@@ -1187,10 +1187,10 @@ async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessi
   if (!to) throw new Error('sendEmailAuto: `to` is required')
   const effectiveSessionId = sessionId || `autonomous-${context?.source || 'gmail'}-${Date.now()}`
 
-  // Calendar gate — applies to all autonomous sends (thread replies, new emails,
+  // Calendar gate - applies to all autonomous sends (thread replies, new emails,
   // alert sends). calendarGate.urgency='critical' bypasses (alert paths set this).
   // sendEmailGated also has this gate for external Tier-3 sends, so external sends
-  // get it twice — acceptable; the first gate here catches all auto paths uniformly.
+  // get it twice - acceptable; the first gate here catches all auto paths uniformly.
   try {
     const timeSense = require('./timeSenseService')
     const calResult = await timeSense.calendarGate({ type: 'gmail_send', urgency: urgency || 'normal' })
@@ -1220,10 +1220,10 @@ async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessi
 
   if (issue.status === 'pending_otp') {
     // No matching authorized_action_patterns row. SMS-OTP challenge is
-    // now pending — caller should surface it to Tate via sms_tate or
+    // now pending - caller should surface it to Tate via sms_tate or
     // similar, then re-invoke with the completed token. We do NOT dispatch
     // the SMS here (decoupled from twilio per tier3GateService docs).
-    logger.warn('sendEmailAuto: no matching pattern — SMS-OTP challenge pending', {
+    logger.warn('sendEmailAuto: no matching pattern - SMS-OTP challenge pending', {
       to: Array.isArray(to) ? to[0] : to,
       subject,
       otp_id: issue.otp_id,
@@ -1286,7 +1286,7 @@ async function unsubscribe(threadId) {
       VALUES (${domain}, ${thread.from_email}, 'trash', 'unsubscribed', now())
       ON CONFLICT (from_email) DO UPDATE SET action = 'trash', reason = 'unsubscribed', created_at = now()
     `.catch(() => {
-      // Table might not exist yet — non-blocking
+      // Table might not exist yet - non-blocking
       logger.debug('email_sender_prefs table not available, skipping sender pref')
     })
   }

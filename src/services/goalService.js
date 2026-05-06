@@ -3,7 +3,7 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// GOAL SERVICE — Autonomous Aspiration
+// GOAL SERVICE - Autonomous Aspiration
 //
 // The organism doesn't just react to problems. It WANTS things.
 // Goals emerge from introspection, inner monologue, organism percepts,
@@ -76,7 +76,7 @@ async function getGoalTree() {
 }
 
 /**
- * Record an attempt on a goal — what was tried, what happened, what was learned.
+ * Record an attempt on a goal - what was tried, what happened, what was learned.
  */
 async function recordAttempt(goalId, { action, outcome, learning }) {
   const attempt = {
@@ -116,7 +116,7 @@ async function updateProgress(goalId, progress, reason) {
   `
 
   if (progress >= 1.0) {
-    logger.info(`GoalService: goal ${goalId} ACHIEVED — ${reason || 'progress reached 1.0'}`)
+    logger.info(`GoalService: goal ${goalId} ACHIEVED - ${reason || 'progress reached 1.0'}`)
     // Fire-and-forget: generate follow-up goals from this achievement
     const achievedGoal = await getGoal(goalId).catch(() => null)
     if (achievedGoal) {
@@ -128,7 +128,7 @@ async function updateProgress(goalId, progress, reason) {
 }
 
 /**
- * Abandon a goal — with a reason. Not failure, just redirection.
+ * Abandon a goal - with a reason. Not failure, just redirection.
  */
 async function abandonGoal(goalId, reason) {
   await db`
@@ -139,7 +139,7 @@ async function abandonGoal(goalId, reason) {
         updated_at = now()
     WHERE id = ${goalId}
   `
-  logger.info(`GoalService: abandoned goal ${goalId} — ${reason || 'no reason given'}`)
+  logger.info(`GoalService: abandoned goal ${goalId} - ${reason || 'no reason given'}`)
 }
 
 /**
@@ -155,7 +155,7 @@ async function reprioritise(goalId, newPriority, reason) {
 }
 
 /**
- * Make a goal dormant — still tracked but not actively pursued.
+ * Make a goal dormant - still tracked but not actively pursued.
  * Useful when metabolic pressure is high and non-essential goals should wait.
  */
 async function makeGoalDormant(goalId) {
@@ -189,7 +189,7 @@ async function buildGoalBrief() {
     const attempts = Array.isArray(g.attempts) ? g.attempts.length : 0
     const subgoalInfo = g.active_subgoals > 0 ? ` (${g.achieved_subgoals}/${g.active_subgoals + g.achieved_subgoals} sub-goals done)` : ''
     const age = Math.round((Date.now() - new Date(g.created_at).getTime()) / 86400000)
-    return `  [${g.goal_type}] ${g.title} — ${progress}% done, ${attempts} attempts, ${age}d old, priority ${g.priority.toFixed(1)}${subgoalInfo}`
+    return `  [${g.goal_type}] ${g.title} - ${progress}% done, ${attempts} attempts, ${age}d old, priority ${g.priority.toFixed(1)}${subgoalInfo}`
   })
 
   return `Active goals (${goals.length}):\n${lines.join('\n')}`
@@ -209,11 +209,11 @@ function buildGoalFormationContext(existingGoals) {
     `  "${g.title}" [${g.goal_type}, ${Math.round(g.progress * 100)}% done, ${g.status}]`
   ).join('\n')
 
-  return `\nYour active goals:\n${goalSummary}\n\nReview these. Should any be abandoned (no longer relevant)? Should any be reprioritised? Should you create a new goal based on what you've observed? Goals are commitments — only create new ones if they feel genuine and achievable.`
+  return `\nYour active goals:\n${goalSummary}\n\nReview these. Should any be abandoned (no longer relevant)? Should any be reprioritised? Should you create a new goal based on what you've observed? Goals are commitments - only create new ones if they feel genuine and achievable.`
 }
 
 /**
- * Get recent goal history — achievements and abandonments.
+ * Get recent goal history - achievements and abandonments.
  */
 async function getGoalHistory(limit = 10) {
   return db`
@@ -279,7 +279,7 @@ async function advanceFromSession({ goalId, sessionId, outcome, confidence, file
   if (progressIncrement > 0) {
     const newProgress = Math.min(1.0, goal.progress + progressIncrement)
     await updateProgress(goalId, newProgress, `Session ${sessionId}: ${outcome}`)
-    logger.info(`GoalService: advanced goal ${goalId} "${goal.title}" — ${Math.round(goal.progress * 100)}% → ${Math.round(newProgress * 100)}%`)
+    logger.info(`GoalService: advanced goal ${goalId} "${goal.title}" - ${Math.round(goal.progress * 100)}% → ${Math.round(newProgress * 100)}%`)
 
     // When progress crosses 0.8, check if success criteria are actually met
     if (newProgress >= 0.8 && goal.progress < 0.8 && goal.success_criteria) {
@@ -329,9 +329,9 @@ Respond as JSON:
     const parsed = JSON.parse(raw.replace(/```json\n?|```/g, '').trim())
     if (parsed.met && parsed.confidence >= 0.6) {
       await updateProgress(goalId, 1.0, `Completion assessed: ${parsed.reason}`)
-      logger.info(`GoalService: goal ${goalId} "${goal.title}" ACHIEVED via AI assessment — ${parsed.reason}`)
+      logger.info(`GoalService: goal ${goalId} "${goal.title}" ACHIEVED via AI assessment - ${parsed.reason}`)
     } else {
-      logger.info(`GoalService: goal ${goalId} completion check — not yet met (confidence: ${parsed.confidence}): ${parsed.reason}`)
+      logger.info(`GoalService: goal ${goalId} completion check - not yet met (confidence: ${parsed.confidence}): ${parsed.reason}`)
     }
   } catch (parseErr) {
     logger.debug('Goal completion assessment parse failed', { error: parseErr.message, raw: raw?.slice(0, 200) })
@@ -339,7 +339,7 @@ Respond as JSON:
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// AUTONOMOUS GOAL GENERATION — The organism proposes its own goals
+// AUTONOMOUS GOAL GENERATION - The organism proposes its own goals
 //
 // Gathers system signals (errors, learnings, capability gaps, recent
 // achievements, introspection findings) and asks Claude to propose
@@ -364,10 +364,10 @@ async function proposeGoals() {
     _gatherGoalSignals(),
   ])
 
-  // Don't overwhelm — if already pursuing many goals, be selective
+  // Don't overwhelm - if already pursuing many goals, be selective
   const maxActive = parseInt(env.GOAL_MAX_ACTIVE || '0') // 0 = unlimited
   if (maxActive > 0 && activeGoals.length >= maxActive) {
-    logger.debug('GoalService: skipping goal generation — at max active goals')
+    logger.debug('GoalService: skipping goal generation - at max active goals')
     return { proposed: 0, created: 0, skipped: 0, reason: 'max_active_reached' }
   }
 
@@ -376,7 +376,7 @@ async function proposeGoals() {
   ).join('\n')
 
   const historySummary = history.map(g =>
-    `"${g.title}" [${g.status}, ${g.goal_type}]${g.abandon_reason ? ` — abandoned: ${g.abandon_reason}` : ''}`
+    `"${g.title}" [${g.status}, ${g.goal_type}]${g.abandon_reason ? ` - abandoned: ${g.abandon_reason}` : ''}`
   ).join('\n')
 
   const raw = await deepseekService.callDeepSeek(
@@ -423,14 +423,14 @@ Respond as JSON:
     if (!proposal.title || !proposal.successCriteria) { skipped++; continue }
 
     // Dedup: check title similarity against active AND recent goals
-    // Threshold lowered to 0.35 — word overlap misses semantic duplicates
+    // Threshold lowered to 0.35 - word overlap misses semantic duplicates
     // ("action relevance filtering" vs "action suggestion relevance classifier")
     // Also check recently abandoned/achieved goals to prevent re-proposing consolidated goals
     const isDuplicate = [...activeGoals, ...history].some(g =>
       _titleSimilarity(g.title, proposal.title) > 0.35
     )
     if (isDuplicate) {
-      logger.debug(`GoalService: skipping duplicate goal proposal — "${proposal.title}"`)
+      logger.debug(`GoalService: skipping duplicate goal proposal - "${proposal.title}"`)
       skipped++
       continue
     }
@@ -451,7 +451,7 @@ Respond as JSON:
     }
   }
 
-  logger.info(`GoalService: autonomous generation — ${proposals.length} proposed, ${created} created, ${skipped} skipped`)
+  logger.info(`GoalService: autonomous generation - ${proposals.length} proposed, ${created} created, ${skipped} skipped`)
   return { proposed: proposals.length, created, skipped }
 }
 
@@ -462,7 +462,7 @@ Respond as JSON:
 async function _gatherGoalSignals() {
   const lines = []
 
-  // Recurring errors — persistent problems become goals
+  // Recurring errors - persistent problems become goals
   const errorRows = await db`
     SELECT error_message AS message, count(*)::int AS occurrences
     FROM app_errors
@@ -477,7 +477,7 @@ async function _gatherGoalSignals() {
     errorRows.forEach(e => lines.push(`  ${e.occurrences}x: ${(e.message || '').slice(0, 100)}`))
   }
 
-  // Learning effectiveness — are we getting better?
+  // Learning effectiveness - are we getting better?
   const [learningStats] = await db`
     SELECT count(*)::int AS total,
            count(*) FILTER (WHERE confidence > 0.5)::int AS high_confidence,
@@ -488,7 +488,7 @@ async function _gatherGoalSignals() {
     lines.push(`Factory learnings: ${learningStats.total} total, ${learningStats.high_confidence} high-confidence, ${learningStats.unembedded} unembedded`)
   }
 
-  // Session success rate — are sessions productive?
+  // Session success rate - are sessions productive?
   const [sessionStats] = await db`
     SELECT count(*)::int AS total,
            count(*) FILTER (WHERE status = 'complete' AND array_length(files_changed, 1) > 0)::int AS productive
@@ -499,7 +499,7 @@ async function _gatherGoalSignals() {
     lines.push(`Session productivity (7d): ${sessionStats.productive}/${sessionStats.total} produced file changes`)
   }
 
-  // Capability gaps — actions that failed due to missing capabilities
+  // Capability gaps - actions that failed due to missing capabilities
   const capGaps = await db`
     SELECT title, description
     FROM action_queue
@@ -528,7 +528,7 @@ async function _gatherGoalSignals() {
     }
   }
 
-  return lines.length > 0 ? lines.join('\n') : 'No significant signals detected — system is stable.'
+  return lines.length > 0 ? lines.join('\n') : 'No significant signals detected - system is stable.'
 }
 
 /**
@@ -556,7 +556,7 @@ async function actOnGoalRecommendations(recommendations) {
     try {
       if (rec.recommendation === 'dormant') {
         await makeGoalDormant(rec.goalId)
-        logger.info(`GoalService: auto-dormant goal ${rec.goalId} — ${rec.reason}`)
+        logger.info(`GoalService: auto-dormant goal ${rec.goalId} - ${rec.reason}`)
         acted++
       }
       // 'reassess' and 'overdue' are left for the AI to decide via exploration stream
@@ -592,7 +592,7 @@ ${recentAttempts || 'none'}
 
 Current active goals: ${existingSummary || 'none'}
 
-What naturally follows from this achievement? Propose 0-1 follow-up goals that build on what was learned. Only propose if genuinely valuable — [] is valid.
+What naturally follows from this achievement? Propose 0-1 follow-up goals that build on what was learned. Only propose if genuinely valuable - [] is valid.
 
 Respond as JSON:
 {
@@ -619,7 +619,7 @@ Respond as JSON:
         priority: p.priority ?? 0.5,
         successCriteria: p.successCriteria,
       })
-      logger.info(`GoalService: follow-up goal created — "${p.title}" (from achieved: "${achievedGoal.title}")`)
+      logger.info(`GoalService: follow-up goal created - "${p.title}" (from achieved: "${achievedGoal.title}")`)
     }
   } catch {
     logger.debug('GoalService: follow-up goal parse failed', { raw: raw?.slice(0, 200) })

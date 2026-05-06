@@ -5,14 +5,14 @@ const db = require('../config/db')
 const { recordHeartbeat } = require('./heartbeat')
 
 // ═══════════════════════════════════════════════════════════════════════
-// LINKEDIN WORKER — Adaptive loop
+// LINKEDIN WORKER - Adaptive loop
 //
 // No fixed cron schedules. Each job runs on an adaptive interval:
-//   - DM check:           1–4 hours (faster if DMs found)
-//   - Post publishing:    15–60 min (faster if posts are queued)
-//   - Connection requests: 6–24 hours (adaptive to network activity)
-//   - Network analytics:  6–24 hours (adaptive to staleness)
-//   - Post performance:   4–24 hours (adaptive to engagement signals)
+// - DM check:           1–4 hours (faster if DMs found)
+// - Post publishing:    15–60 min (faster if posts are queued)
+// - Connection requests: 6–24 hours (adaptive to network activity)
+// - Network analytics:  6–24 hours (adaptive to staleness)
+// - Post performance:   4–24 hours (adaptive to engagement signals)
 // ═══════════════════════════════════════════════════════════════════════
 
 let running = false
@@ -127,7 +127,7 @@ const stops = [
   startPostPerformanceLoop(),
 ]
 
-logger.info('LinkedIn multi-job worker started — adaptive loops')
+logger.info('LinkedIn multi-job worker started - adaptive loops')
 
 // ─── Manual Trigger Support ────────────────────────────────────────────
 

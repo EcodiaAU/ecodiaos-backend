@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * cacheKeepaliveWorker — refreshes the Anthropic prompt cache TTL every
+ * cacheKeepaliveWorker - refreshes the Anthropic prompt cache TTL every
  * 45 minutes during work hours (06:00-22:00 AEST) by sending a minimal
  * query with the current stable BP1+BP2 prefix.
  *
@@ -25,10 +25,10 @@
  * we're trying to span.
  *
  * Metrics emitted (structured log lines, /ops can aggregate):
- *   cache_keepalive_fires_total      — count of refresh attempts
- *   cache_keepalive_refresh_cost_tokens — input tokens per refresh
- *   cache_keepalive_skipped_total    — skipped (outside work hours / already refreshed)
- *   cache_keepalive_errors_total     — failed refreshes
+ *   cache_keepalive_fires_total - count of refresh attempts
+ *   cache_keepalive_refresh_cost_tokens - input tokens per refresh
+ *   cache_keepalive_skipped_total - skipped (outside work hours / already refreshed)
+ *   cache_keepalive_errors_total - failed refreshes
  */
 
 const logger = require('../config/logger')
@@ -94,7 +94,7 @@ async function fireRefresh({ sender, stablePrefix, now = new Date() } = {}) {
     return { ok: false, skipped: 'outside_hours' }
   }
 
-  // Skip if a real turn fired within the last INTERVAL_MS — no point
+  // Skip if a real turn fired within the last INTERVAL_MS - no point
   // keepaliving a cache that's already been touched. Caller provides the
   // last-turn timestamp via options.lastTurnAt; absent = don't skip.
   // (Keepalive always runs alongside; if a turn just happened, the cache
@@ -161,7 +161,7 @@ async function fireRefresh({ sender, stablePrefix, now = new Date() } = {}) {
 }
 
 /**
- * Start the keepalive interval. Idempotent — calling start() twice is a no-op.
+ * Start the keepalive interval. Idempotent - calling start() twice is a no-op.
  */
 function start() {
   if (_timer) return

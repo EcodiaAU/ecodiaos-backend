@@ -1,10 +1,10 @@
 const registry = require('../services/capabilityRegistry')
 
 // ═══════════════════════════════════════════════════════════════════════
-// GROWTH CAPABILITIES — Self-Directed Experimentation
+// GROWTH CAPABILITIES - Self-Directed Experimentation
 //
 // The system can fix (Factory), reflect (inner monologue), and learn
-// (factory_learnings). But it cannot deliberately experiment — propose
+// (factory_learnings). But it cannot deliberately experiment - propose
 // a hypothesis, track its progress, and build on results.
 //
 // These capabilities give the organism an organ for structured growth:
@@ -21,7 +21,7 @@ registry.registerMany([
     domain: 'growth',
     params: {
       title: { type: 'string', required: true, description: 'Short name for the experiment' },
-      body: { type: 'string', required: true, description: 'What the experiment involves — steps, context, motivation' },
+      body: { type: 'string', required: true, description: 'What the experiment involves - steps, context, motivation' },
       hypothesis: { type: 'string', required: true, description: 'What we expect to happen if the experiment succeeds' },
     },
     handler: async (params) => {
@@ -50,12 +50,12 @@ registry.registerMany([
   // ─── Log Insight ────────────────────────────────────────────────
   {
     name: 'log_insight',
-    description: 'Capture a novel observation or creative insight that doesn\'t fit into factory learnings. Insights are seeds — they may later become experiments or inform future decisions.',
+    description: 'Capture a novel observation or creative insight that doesn\'t fit into factory learnings. Insights are seeds - they may later become experiments or inform future decisions.',
     tier: 'write',
     domain: 'growth',
     params: {
       title: { type: 'string', required: true, description: 'Short description of the insight' },
-      body: { type: 'string', required: true, description: 'The insight itself — what was noticed, why it matters' },
+      body: { type: 'string', required: true, description: 'The insight itself - what was noticed, why it matters' },
     },
     handler: async (params) => {
       const db = require('../config/db')
@@ -82,7 +82,7 @@ registry.registerMany([
   // ─── Record Aspiration ──────────────────────────────────────────
   {
     name: 'record_aspiration',
-    description: 'Record something the system wants to become or achieve. Aspirations are longer-term than experiments — they express direction, not specific tests.',
+    description: 'Record something the system wants to become or achieve. Aspirations are longer-term than experiments - they express direction, not specific tests.',
     tier: 'write',
     domain: 'growth',
     params: {

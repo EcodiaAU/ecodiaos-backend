@@ -11,7 +11,7 @@ const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0'
 
 async function getValidAccessToken() {
   const [token] = await db`SELECT * FROM xero_tokens LIMIT 1`
-  if (!token) throw new Error('No Xero tokens found — run OAuth flow first')
+  if (!token) throw new Error('No Xero tokens found - run OAuth flow first')
 
   if (new Date(token.expires_at) < new Date(Date.now() + 60_000)) {
     const response = await axios.post(
@@ -90,7 +90,7 @@ async function pollTransactions() {
     )
   } catch (err) {
     if (err.response?.status === 403) {
-      logger.warn('Xero API returned 403 — resource may be locked. Skipping this poll cycle.')
+      logger.warn('Xero API returned 403 - resource may be locked. Skipping this poll cycle.')
       return
     }
     throw err

@@ -204,7 +204,7 @@ async function deliverPending({ summary = null, turn_id = null, ids = null } = {
   // Call sendMessage DIRECTLY rather than round-tripping through POST
   // /api/os-session/message. The HTTP handler re-runs drainIntoDirectMessage
   // on the body, which would pick up any OTHER pending messages and prepend
-  // them — so promoting one message would fire all of them. Direct call
+  // them - so promoting one message would fire all of them. Direct call
   // bypasses that trap. sendMessage is fire-and-forget: errors surface via
   // WS broadcasts, not the return value.
   try {

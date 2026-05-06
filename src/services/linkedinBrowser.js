@@ -17,7 +17,7 @@ const LOCALE = 'en-AU'
 
 const env = require('../config/env')
 
-// Rate limiting — all caps default to 0 (unlimited). Set env vars to restrict.
+// Rate limiting - all caps default to 0 (unlimited). Set env vars to restrict.
 const MAX_SESSIONS_PER_DAY = parseInt(env.LINKEDIN_MAX_SESSIONS_PER_DAY || '0', 10) || Infinity
 const MAX_SESSION_DURATION_MS = parseInt(env.LINKEDIN_MAX_SESSION_DURATION_MS || '0', 10) || Infinity
 const MIN_COOLDOWN_MS = parseInt(env.LINKEDIN_MIN_COOLDOWN_MS || '0', 10) || 0
@@ -257,7 +257,7 @@ async function withBrowser(callback) {
   let context = null
 
   try {
-    if (!chromium) throw new Error('Playwright not installed — run npm install playwright')
+    if (!chromium) throw new Error('Playwright not installed - run npm install playwright')
     browser = await chromium.launch({
       headless: true,
       args: ['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
@@ -297,7 +297,7 @@ async function withBrowser(callback) {
     await navigate('https://www.linkedin.com/feed/')
     const currentUrl = page.url()
     if (currentUrl.includes('/login') || currentUrl.includes('/authwall')) {
-      throw new Error('LinkedIn cookies expired — session not authenticated')
+      throw new Error('LinkedIn cookies expired - session not authenticated')
     }
 
     // Run callback with tools

@@ -1,5 +1,5 @@
 /**
- * Xero MCP tools — transactions, invoices, contacts.
+ * Xero MCP tools - transactions, invoices, contacts.
  * Calls the EcodiaOS backend API (which handles Xero OAuth token refresh).
  */
 import { z } from 'zod'

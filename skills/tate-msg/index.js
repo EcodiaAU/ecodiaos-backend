@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * tate-msg — primary contact channel via iMessage on SY094 (MacInCloud).
+ * tate-msg - primary contact channel via iMessage on SY094 (MacInCloud).
  *
  * Tate-directed 4 May 2026 18:30+18:39+18:46 AEST: wire iMessage as the
  * primary path to Tate, Twilio SMS as fallback. Apple ID is `code@ecodia.au`
@@ -19,12 +19,12 @@
  *      { ok: false, error: '...' } on failure. Caller decides fallback.
  *
  * Failure modes detected:
- *   - SSH connection refused / timeout
- *   - osascript exit -10810 (Messages.app not running / not signed in)
- *   - Apple delivery error in stderr
- *   - kv_store config missing (surfaced once, then caches the gap)
+ * - SSH connection refused / timeout
+ * - osascript exit -10810 (Messages.app not running / not signed in)
+ * - Apple delivery error in stderr
+ * - kv_store config missing (surfaced once, then caches the gap)
  *
- * No internal retry. No fallback to Twilio inside this module — the
+ * No internal retry. No fallback to Twilio inside this module - the
  * caller chooses the fallback path so the wiring stays explicit.
  *
  * Authored: 4 May 2026 by fork_moqyjzox_763fdb.
@@ -94,8 +94,8 @@ async function _loadConfig() {
  * Escape a message string for use inside an osascript double-quoted
  * literal that itself sits inside a single-quoted SSH command. Two
  * layers of quoting:
- *   - inside osascript "...": escape \ and "
- *   - inside SSH '...':       escape ' (we're in bash single-quote)
+ * - inside osascript "...": escape \ and "
+ * - inside SSH '...':       escape ' (we're in bash single-quote)
  * Newlines become "\n" (osascript literal).
  */
 function _escapeForOsascript(message) {
@@ -190,7 +190,7 @@ function _classifyResult({ exitCode, stderr, transportError }) {
  *   { ok: true,  sid: 'imsg-<ts>' }
  *   { ok: false, error: '<class>', detail?: string }
  *
- * Never throws. Caller decides fallback. Body is sent verbatim — the
+ * Never throws. Caller decides fallback. Body is sent verbatim - the
  * caller is responsible for length / formatting.
  */
 async function sendImessage(body, opts) {
@@ -226,7 +226,7 @@ async function sendImessage(body, opts) {
 }
 
 /**
- * Health probe — verifies the SSH path is reachable and Messages.app is
+ * Health probe - verifies the SSH path is reachable and Messages.app is
  * running, without actually sending Tate a message. Used by the
  * imessage-path-health-check cron.
  *
@@ -270,7 +270,7 @@ async function healthCheck() {
         if (stdout.trim().length > 0) {
           resolve({ ok: true, detail: 'ssh ok, Messages.app running' })
         } else {
-          // SSH worked but pgrep matched nothing — Messages.app not running.
+          // SSH worked but pgrep matched nothing - Messages.app not running.
           resolve({ ok: false, error: 'messages_app_not_running', detail: 'pgrep empty' })
         }
       } else if (code === 255) {

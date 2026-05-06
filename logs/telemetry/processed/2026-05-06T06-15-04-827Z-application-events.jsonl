@@ -1,0 +1,1 @@
+{"ts":"2026-05-06T06:12:13.004Z","matched_dispatch_ts":"2026-05-06T05:26:55.373Z","tool_name":"mcp__forks__spawn_fork","pattern_path":"secrets:iOS","trigger_keyword":"iOS","source_layer":"hook:cred-mention","applied":null,"tagged_silent":true,"reason":"","hook_name":"post-action-applied-tag-check"}

@@ -5,11 +5,11 @@ const postgres = require('postgres')
 const env = require('../config/env')
 const logger = require('../config/logger')
 
-// Use a single connection for migrations — avoids pool exhaustion
+// Use a single connection for migrations - avoids pool exhaustion
 // when the main app is running and holding connections
 const db = postgres(env.DATABASE_URL, {
   max: 1,
-  idle_timeout: 60,    // was 10s — too short for slow Supabase pooled connections
+  idle_timeout: 60,    // was 10s - too short for slow Supabase pooled connections
   connect_timeout: 30,
 })
 
@@ -45,7 +45,7 @@ async function migrate() {
     logger.info(`Applied: ${file}`)
   }
 
-  logger.info(`Migrations complete — ${pending.length} applied, ${files.length - pending.length} already up to date`)
+  logger.info(`Migrations complete - ${pending.length} applied, ${files.length - pending.length} already up to date`)
   await db.end()
 }
 

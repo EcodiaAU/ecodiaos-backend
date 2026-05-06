@@ -92,10 +92,10 @@ async function triagePendingDMs() {
         await queries.updateDM(dm.id, { status: 'drafting' })
       }
 
-      // Enqueue to action queue — AI decides what surfaces
+      // Enqueue to action queue - AI decides what surfaces
       const actionQueue = require('./actionQueueService')
 
-      // Feed decision history back into triage — if this sender's actions are
+      // Feed decision history back into triage - if this sender's actions are
       // consistently dismissed, the AI should know before surfacing more
       try {
         const triageCtx = await actionQueue.getTriageContext({
@@ -140,7 +140,7 @@ async function triagePendingDMs() {
         }).catch(() => {})
       }
 
-      // Code work detection — if the DM contains a code/feature request, bridge to Factory
+      // Code work detection - if the DM contains a code/feature request, bridge to Factory
       const hasCodeWork = triage.isCodeWorkRequest === true
         && typeof triage.factoryPrompt === 'string'
         && triage.factoryPrompt.trim().length >= 10
@@ -448,8 +448,8 @@ async function suggestPostTimes() {
   if (historicalPosts.length < 3) {
     return {
       suggestedSlots: [
-        { day: 'Tuesday', time: '09:00', reason: 'Default — not enough data yet' },
-        { day: 'Thursday', time: '12:00', reason: 'Default — not enough data yet' },
+        { day: 'Tuesday', time: '09:00', reason: 'Default - not enough data yet' },
+        { day: 'Thursday', time: '12:00', reason: 'Default - not enough data yet' },
       ],
       bestDay: 'Tuesday',
       bestTimeRange: '08:00-10:00 AEST',

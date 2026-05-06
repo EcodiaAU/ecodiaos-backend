@@ -125,7 +125,7 @@ router.post('/threads/:id/trash', async (req, res, next) => {
   }
 })
 
-// POST /api/gmail/threads/:id/triage — manually trigger triage for one thread
+// POST /api/gmail/threads/:id/triage - manually trigger triage for one thread
 router.post('/threads/:id/triage', async (req, res, next) => {
   try {
     await db`UPDATE email_threads SET triage_status = 'pending', triage_attempts = 0 WHERE id = ${req.params.id}`
@@ -149,7 +149,7 @@ router.post('/sync', async (req, res, next) => {
   }
 })
 
-// GET /api/gmail/stats — inbox overview
+// GET /api/gmail/stats - inbox overview
 router.get('/stats', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')
@@ -159,7 +159,7 @@ router.get('/stats', async (req, res, next) => {
   }
 })
 
-// GET /api/gmail/search — search threads
+// GET /api/gmail/search - search threads
 router.get('/search', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')
@@ -168,7 +168,7 @@ router.get('/search', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/gmail/threads/:id/label — add label
+// POST /api/gmail/threads/:id/label - add label
 router.post('/threads/:id/label', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')
@@ -176,7 +176,7 @@ router.post('/threads/:id/label', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/gmail/threads/:id/unlabel — remove label
+// POST /api/gmail/threads/:id/unlabel - remove label
 router.post('/threads/:id/unlabel', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')
@@ -209,7 +209,7 @@ router.post('/threads/:id/forward', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/gmail/threads/:id/followup — create task from email
+// POST /api/gmail/threads/:id/followup - create task from email
 router.post('/threads/:id/followup', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')
@@ -247,7 +247,7 @@ router.post('/batch/trash', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// POST /api/gmail/send — send new email (not reply)
+// POST /api/gmail/send - send new email (not reply)
 router.post('/send', async (req, res, next) => {
   try {
     const { to, subject, body, inbox } = req.body
@@ -257,7 +257,7 @@ router.post('/send', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/gmail/labels — list labels
+// GET /api/gmail/labels - list labels
 router.get('/labels', async (req, res, next) => {
   try {
     const gmailService = require('../services/gmailService')

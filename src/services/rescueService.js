@@ -1,5 +1,5 @@
 /**
- * Rescue Service (api-side) — lives in ecodia-api. Subscribes to
+ * Rescue Service (api-side) - lives in ecodia-api. Subscribes to
  * ecodia-rescue events via Redis, relays them to the frontend over WS,
  * and exposes a simple state surface for /api/rescue routes.
  */
@@ -7,13 +7,13 @@ const logger = require('../config/logger')
 const bridge = require('./rescueBridge')
 
 // In-memory state, keyed by the single rescue conversation in-flight.
-// Rescue is single-session (no multi-user) — this is all the state we need.
+// Rescue is single-session (no multi-user) - this is all the state we need.
 const state = {
   ready: false,
   lastReadyAt: null,
   status: 'unknown',   // 'idle' | 'streaming' | 'error' | 'unknown'
   lastStatusAt: null,
-  transcript: [],      // array of {role, content, ts} — mirrors what WS pushed
+  transcript: [],      // array of {role, content, ts} - mirrors what WS pushed
   lastActivityAt: null,
   lastHealthPongAt: null,
 }
@@ -102,7 +102,7 @@ async function abort(reason = 'user_abort') {
   return { aborted: true, reason }
 }
 
-// Start a fresh rescue conversation — drops ccSessionId on the rescue
+// Start a fresh rescue conversation - drops ccSessionId on the rescue
 // process so the next message starts without resume.
 async function resetSession() {
   bridge.publishAbort('reset_session')

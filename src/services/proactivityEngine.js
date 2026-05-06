@@ -232,7 +232,7 @@ async function nextAction(state) {
     return {
       action_class: 'overnight_batch',
       action: 'run_batch_maintenance',
-      reason: 'Overnight batch window — maintenance tasks',
+      reason: 'Overnight batch window - maintenance tasks',
     }
   }
 
@@ -254,13 +254,13 @@ async function nextAction(state) {
 // ─── Polling loop ───────────────────────────────────────────────────────────
 
 // Pre-execution probes for cheap action classes. Returns:
-//   { proceed: true }                   — enqueue as planned
-//   { proceed: false, reason: <str> }   — record no-value, skip enqueue
+//   { proceed: true } - enqueue as planned
+//   { proceed: false, reason: <str> } - record no-value, skip enqueue
 //
 // The damper consumes "no-value" signals to pause repeated useless fires
 // (3 consecutive → 24h pause). Without a probe the damper never engages
 // for `check_email`, because "successfully enqueued" was being conflated
-// with "produced value" — see Tate-flagged spam at 11:12 AEST 1 May 2026.
+// with "produced value" - see Tate-flagged spam at 11:12 AEST 1 May 2026.
 async function _probeAction(action) {
   if (action.action_class === 'check_email') {
     try {
@@ -273,7 +273,7 @@ async function _probeAction(action) {
         return { proceed: false, reason: 'no_unread_in_any_inbox', perInbox }
       }
       // Annotate the action so the conductor's prompt explains what's there.
-      action.reason = `Proactive inbox check — ${total} unread (${perInbox.map(p => `${p.inbox}:${p.unread}`).join(', ')})`
+      action.reason = `Proactive inbox check - ${total} unread (${perInbox.map(p => `${p.inbox}:${p.unread}`).join(', ')})`
       return { proceed: true, unreadCount: total }
     } catch (err) {
       // API failure → conservative: skip enqueue (don't spam) but DON'T damp

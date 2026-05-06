@@ -1,5 +1,5 @@
 /**
- * Rescue Bridge — Redis pub/sub between ecodia-api and ecodia-rescue.
+ * Rescue Bridge - Redis pub/sub between ecodia-api and ecodia-rescue.
  *
  * Pattern mirrors factoryBridge.js:
  *   ecodia-api publishes messages to rescue (rescue:message:send)
@@ -13,10 +13,10 @@
  *   process, dedicated event loop, only coupled via Redis.
  *
  * ioredis subscriber model:
- *   - A subscribed connection can't be used for commands → duplicate()
- *   - sub.subscribe(channel, ackCb) — ackCb receives subscription ack, not messages
- *   - sub.on('message', (channel, raw)) — actual dispatch
- *   - This is DIFFERENT from node-redis v4's `subscribe(channel, handler)` pattern
+ * - A subscribed connection can't be used for commands → duplicate()
+ * - sub.subscribe(channel, ackCb) - ackCb receives subscription ack, not messages
+ * - sub.on('message', (channel, raw)) - actual dispatch
+ * - This is DIFFERENT from node-redis v4's `subscribe(channel, handler)` pattern
  */
 const logger = require('../config/logger')
 const { getRedisClient } = require('../config/redis')
@@ -35,7 +35,7 @@ const CHANNELS = {
 function publish(channel, data) {
   const redis = getRedisClient()
   if (!redis) {
-    logger.warn('rescueBridge.publish: no Redis client — message dropped', { channel })
+    logger.warn('rescueBridge.publish: no Redis client - message dropped', { channel })
     return false
   }
   redis.publish(channel, JSON.stringify(data)).catch(err => {
@@ -62,7 +62,7 @@ function _getSubscriber() {
 function subscribeMany(handlerMap) {
   const sub = _getSubscriber()
   if (!sub) {
-    logger.warn('rescueBridge.subscribeMany: no Redis client — subscriptions skipped')
+    logger.warn('rescueBridge.subscribeMany: no Redis client - subscriptions skipped')
     return () => {}
   }
   const channels = Object.keys(handlerMap)
@@ -72,7 +72,7 @@ function subscribeMany(handlerMap) {
       else logger.info(`rescueBridge subscribed to ${channel}`)
     })
   }
-  // Listener is additive — multiple subscribeMany calls layer handlers by channel,
+  // Listener is additive - multiple subscribeMany calls layer handlers by channel,
   // so only one global 'message' listener is needed.
   if (!sub._rescueBridgeListenerAttached) {
     sub._rescueBridgeListenerAttached = true

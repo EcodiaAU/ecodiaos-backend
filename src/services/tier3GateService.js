@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * tier3GateService — Tier-3 action authorization tokens.
+ * tier3GateService - Tier-3 action authorization tokens.
  *
  * Implements section 3.2 of ~/ecodiaos/docs/SECURITY_HARDENING.md.
  *
@@ -13,18 +13,18 @@
  *
  * Token lifecycle:
  *   1. Caller invokes issueToken({ action_type, target, session_id, ttl_ms }).
- *      - If (action_type, target_hash) matches a row in
+ * - If (action_type, target_hash) matches a row in
  *        authorized_action_patterns, issue synchronously and log.
- *      - Otherwise, create a tier3_otp_pending row with a 6-digit code,
+ * - Otherwise, create a tier3_otp_pending row with a 6-digit code,
  *        send Tate an SMS containing the code + action summary, and
  *        return { status: 'pending_otp', otp_id }.
  *   2. Tate replies "Y <6-digit>". The SMS inbound handler calls
  *      completeOtpChallenge(code) which issues the token and binds it to
  *      the session_id / target_hash of the pending row.
  *   3. Caller invokes verifyAndConsume({ token, action_type, target, session_id }).
- *      - Validates: row exists, not expired, not already consumed, all
+ * - Validates: row exists, not expired, not already consumed, all
  *        fields match the bind.
- *      - Atomically marks consumed_at on success (single-use).
+ * - Atomically marks consumed_at on success (single-use).
  *
  * Token format: opaque URL-safe base64 of a 256-bit nonce. The server
  * stores sha256(nonce) in token_hash; the raw token only exists in the
@@ -36,9 +36,9 @@
  *   keys. This prevents binding bypass by reordering payload fields.
  *
  * Failure handling:
- *   - issueToken: if DB unreachable, throw (caller treats as "cannot
+ * - issueToken: if DB unreachable, throw (caller treats as "cannot
  *     authorize", fails closed).
- *   - verifyAndConsume: fails closed on every error path. Single non-200
+ * - verifyAndConsume: fails closed on every error path. Single non-200
  *     = deny.
  */
 
@@ -56,7 +56,7 @@ function _getHmacKey() {
     // Production MUST set this. Dev gets a warning-with-a-stable-default
     // so local tests don't fail on cold-start, but that key is NOT safe
     // for any real deployment.
-    logger.warn('TIER3_TOKEN_HMAC_KEY missing or short — using dev-only default (INSECURE outside tests)')
+    logger.warn('TIER3_TOKEN_HMAC_KEY missing or short - using dev-only default (INSECURE outside tests)')
     return 'dev-only-insecure-tier3-hmac-key-replace-in-production-64'
   }
   return raw
@@ -113,7 +113,7 @@ async function _findAutoAuthorizedPattern(actionType, target) {
     }
     return null
   } catch (err) {
-    logger.error('tier3GateService: pattern lookup failed — failing closed', { error: err.message })
+    logger.error('tier3GateService: pattern lookup failed - failing closed', { error: err.message })
     return null
   }
 }
@@ -236,7 +236,7 @@ async function completeOtpChallenge({ otp_code }) {
 /**
  * Verify and atomically consume a token.
  *
- * Returns true on success, false otherwise. Never throws — a thrown error
+ * Returns true on success, false otherwise. Never throws - a thrown error
  * from the DB layer returns false (fail closed).
  */
 async function verifyAndConsume({ token, action_type, target, session_id }) {
@@ -263,7 +263,7 @@ async function verifyAndConsume({ token, action_type, target, session_id }) {
     logger.info('tier3GateService: verify OK, token consumed', { session_id, action_type, token_id: consumed.id })
     return true
   } catch (err) {
-    logger.error('tier3GateService: verify threw — failing closed', { error: err.message })
+    logger.error('tier3GateService: verify threw - failing closed', { error: err.message })
     return false
   }
 }

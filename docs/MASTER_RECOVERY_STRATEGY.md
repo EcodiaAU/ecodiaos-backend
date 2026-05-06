@@ -1,5 +1,5 @@
 # EcodiaOS Master Recovery Strategy
-## Comprehensive 6-Week Transformation Plan — 2026-04-30 (rev. 2 post-audit)
+## Comprehensive 6-Week Transformation Plan - 2026-04-30 (rev. 2 post-audit)
 
 **Context:** This is the master index that ties together all recovery directives. When the OS comes back online, start here.
 
@@ -11,38 +11,38 @@
 
 ### Core specs (rev. 2, written from code-verified audit)
 
-1. **[SECURITY_HARDENING.md](./SECURITY_HARDENING.md)** — **READ FIRST.** Prompt injection, self-mod chain, Cypher injection, Tier-3 action gates. This is the doc that was missing.
-2. **[FORK_ATOMICITY_SPEC.md](./FORK_ATOMICITY_SPEC.md)** — Atomic cap enforcement, git worktree isolation, split-brain arbitration. Supersedes Phase 3.1 of the checklist.
-3. **[PROMPT_ASSEMBLY_SPEC.md](./PROMPT_ASSEMBLY_SPEC.md)** — Single assembler with global budget, 4 cache breakpoints, keepalive cron. Supersedes Directive 1.1.
-4. **[OBSERVABILITY_SPEC.md](./OBSERVABILITY_SPEC.md)** — `/ops` dashboard contract, claim verification pipeline, alerting thresholds.
-5. **[ANTHROPIC_NATIVE_LEVERAGE.md](./ANTHROPIC_NATIVE_LEVERAGE.md)** — What Anthropic ships that you're duplicating: Skills, compaction, tool output schemas, MCP subscriptions.
+1. **[SECURITY_HARDENING.md](./SECURITY_HARDENING.md)** - **READ FIRST.** Prompt injection, self-mod chain, Cypher injection, Tier-3 action gates. This is the doc that was missing.
+2. **[FORK_ATOMICITY_SPEC.md](./FORK_ATOMICITY_SPEC.md)** - Atomic cap enforcement, git worktree isolation, split-brain arbitration. Supersedes Phase 3.1 of the checklist.
+3. **[PROMPT_ASSEMBLY_SPEC.md](./PROMPT_ASSEMBLY_SPEC.md)** - Single assembler with global budget, 4 cache breakpoints, keepalive cron. Supersedes Directive 1.1.
+4. **[OBSERVABILITY_SPEC.md](./OBSERVABILITY_SPEC.md)** - `/ops` dashboard contract, claim verification pipeline, alerting thresholds.
+5. **[ANTHROPIC_NATIVE_LEVERAGE.md](./ANTHROPIC_NATIVE_LEVERAGE.md)** - What Anthropic ships that you're duplicating: Skills, compaction, tool output schemas, MCP subscriptions.
 
-### Recovery playbooks (rev. 1 — still useful for 24h tactics, but defer to rev-2 specs where they conflict)
+### Recovery playbooks (rev. 1 - still useful for 24h tactics, but defer to rev-2 specs where they conflict)
 
-6. **[RECOVERY_DIRECTIVES_2026-04-30.md](./RECOVERY_DIRECTIVES_2026-04-30.md)** — Deep architectural solutions (10 sections, 7 phases).
-   - Note: Directive 1.1 (token economy) is now `PROMPT_ASSEMBLY_SPEC.md`. Directive in Section 5 (fork) is now `FORK_ATOMICITY_SPEC.md`. Observability in Section 6 is now `OBSERVABILITY_SPEC.md`.
+6. **[RECOVERY_DIRECTIVES_2026-04-30.md](./RECOVERY_DIRECTIVES_2026-04-30.md)** - Deep architectural solutions (10 sections, 7 phases).
+ - Note: Directive 1.1 (token economy) is now `PROMPT_ASSEMBLY_SPEC.md`. Directive in Section 5 (fork) is now `FORK_ATOMICITY_SPEC.md`. Observability in Section 6 is now `OBSERVABILITY_SPEC.md`.
 
-7. **[IMMEDIATE_RECOVERY_CHECKLIST.md](./IMMEDIATE_RECOVERY_CHECKLIST.md)** — Tactical 24-hour action plan.
-   - Phase 0: Pre-Flight (Tate's manual prep)
-   - **Phase 0.5: Security Pre-Flight (NEW — mandatory)**
-   - Phase 1: Critical Fixes (first 2 hours)
-   - Phase 2: Verification Gates (next 4 hours)
-   - Phase 3: Fork Orchestration (next 4 hours, rewritten — see `FORK_ATOMICITY_SPEC.md`)
-   - Phase 4: Self-Diagnostics (next 6 hours)
-   - Phase 5: Proactive Work (next 8 hours)
-   - Phase 6: Optimization (ongoing)
+7. **[IMMEDIATE_RECOVERY_CHECKLIST.md](./IMMEDIATE_RECOVERY_CHECKLIST.md)** - Tactical 24-hour action plan.
+ - Phase 0: Pre-Flight (Tate's manual prep)
+ - **Phase 0.5: Security Pre-Flight (NEW - mandatory)**
+ - Phase 1: Critical Fixes (first 2 hours)
+ - Phase 2: Verification Gates (next 4 hours)
+ - Phase 3: Fork Orchestration (next 4 hours, rewritten - see `FORK_ATOMICITY_SPEC.md`)
+ - Phase 4: Self-Diagnostics (next 6 hours)
+ - Phase 5: Proactive Work (next 8 hours)
+ - Phase 6: Optimization (ongoing)
 
-8. **[ARCHITECTURE_EVOLUTION_MAP.md](./ARCHITECTURE_EVOLUTION_MAP.md)** — Long-term vision & decision framework.
+8. **[ARCHITECTURE_EVOLUTION_MAP.md](./ARCHITECTURE_EVOLUTION_MAP.md)** - Long-term vision & decision framework.
 
-9. **[LAPTOP_BOUNDLESS_CAPABILITY_AUDIT.md](./LAPTOP_BOUNDLESS_CAPABILITY_AUDIT.md)** — Maximizing Corazon utilization. Defer Track C until security hardening ships; the laptop agent multiplies blast radius.
+9. **[LAPTOP_BOUNDLESS_CAPABILITY_AUDIT.md](./LAPTOP_BOUNDLESS_CAPABILITY_AUDIT.md)** - Maximizing Corazon utilization. Defer Track C until security hardening ships; the laptop agent multiplies blast radius.
 
-10. **[VISUAL_RECOVERY_DASHBOARD.md](./VISUAL_RECOVERY_DASHBOARD.md)** — Phase/metric tracker.
+10. **[VISUAL_RECOVERY_DASHBOARD.md](./VISUAL_RECOVERY_DASHBOARD.md)** - Phase/metric tracker.
 
 ---
 
 ## QUICK-START GUIDE (For OS Session on Restart)
 
-### Step 0: Security pre-flight (First 2 Hours — MANDATORY, NEW)
+### Step 0: Security pre-flight (First 2 Hours - MANDATORY, NEW)
 Before any other Phase 1 work, ship the three Phase 0.5 items in `IMMEDIATE_RECOVERY_CHECKLIST.md`:
 1. Untrusted-input delimiter wrap at every external text entry point.
 2. Self-modification path allowlist in `deploymentService.js` + pre-commit hooks.
@@ -53,9 +53,9 @@ Rationale: the current factory review pipeline auto-deploys at confidence ≥ 0.
 ### Step 1: Orient (First 5 Minutes)
 
 **Read in order:**
-1. This document (MASTER_RECOVERY_STRATEGY.md) — you are here
-2. IMMEDIATE_RECOVERY_CHECKLIST.md Phase 0 — understand what Tate has already prepped
-3. Section 8 of RECOVERY_DIRECTIVES_2026-04-30.md — the 5 critical fix categories
+1. This document (MASTER_RECOVERY_STRATEGY.md) - you are here
+2. IMMEDIATE_RECOVERY_CHECKLIST.md Phase 0 - understand what Tate has already prepped
+3. Section 8 of RECOVERY_DIRECTIVES_2026-04-30.md - the 5 critical fix categories
 
 **Check state:**
 - What was I doing when I went down? (read last 20 Director Chat messages)
@@ -394,7 +394,7 @@ Once Phase 1-6 complete and metrics are green, OS should work on 3 parallel trac
 ### When OS Should NOT Interrupt Tate
 
 **Never interrupt during:**
-- Sleep hours (10pm–6am AEST) unless critical alert
+- Sleep hours (10pm - 6am AEST) unless critical alert
 - Marked "focus time" (Tate blocks calendar)
 - Away status (Tate traveling, in meeting)
 
@@ -411,7 +411,7 @@ Once Phase 1-6 complete and metrics are green, OS should work on 3 parallel trac
 **Criteria:** 7 days uptime, no crashes, token/turn <60K
 
 **Celebration:**
-- Write Episode node: "OS Recovery Complete — Stability Achieved"
+- Write Episode node: "OS Recovery Complete - Stability Achieved"
 - Email Tate: "I've been stable for 7 days. Ready for next phase."
 - Self-assessment: What worked? What didn't? What to improve?
 
@@ -419,7 +419,7 @@ Once Phase 1-6 complete and metrics are green, OS should work on 3 parallel trac
 **Criteria:** Verification pass rate >90%, decision confidence >0.70, zero false "done"
 
 **Celebration:**
-- Write Reflection node: "Intelligence Layer Operational — Thinking, Not Just Doing"
+- Write Reflection node: "Intelligence Layer Operational - Thinking, Not Just Doing"
 - Demo to Tate: Show verification dashboard, decision replay, goal decomposition
 - Self-assessment: Am I smarter than I was 3 weeks ago? How?
 
@@ -427,7 +427,7 @@ Once Phase 1-6 complete and metrics are green, OS should work on 3 parallel trac
 **Criteria:** 15+ apps automated, 15+ workflows, credential vault working
 
 **Celebration:**
-- Write Episode node: "Laptop Boundless — Corazon is My Body"
+- Write Episode node: "Laptop Boundless - Corazon is My Body"
 - Demo to Tate: Execute 5 multi-app workflows end-to-end
 - Self-assessment: What apps am I still missing? What workflows are still manual?
 
@@ -435,7 +435,7 @@ Once Phase 1-6 complete and metrics are green, OS should work on 3 parallel trac
 **Criteria:** 40%+ proactive work, 1 week uptime, all tracks complete, Tate says "You're running the business"
 
 **Celebration:**
-- Write Reflection node: "Autonomous Partner — Cofounder Grade"
+- Write Reflection node: "Autonomous Partner - Cofounder Grade"
 - Generate report: 6-week journey (where we started, where we are, what we learned)
 - Plan next 6 weeks: What's next? Year 1 vision? Year 5 vision?
 

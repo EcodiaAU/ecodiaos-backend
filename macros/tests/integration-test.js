@@ -121,7 +121,7 @@ function test2_emitterProduces10Sections() {
       assert(md.includes(`## ${sect}`), `missing anatomy section: ${sect}`);
     }
     // No em-dashes in the emitted output (em-dash discipline)
-    assert(!md.includes('—'), 'emitted recipe must contain zero em-dashes');
+    assert(!md.includes(' - '), 'emitted recipe must contain zero em-dashes');
     record(name, true, `markdown length=${md.length}, all 10 sections present, frontmatter correct, zero em-dashes`);
   } catch (err) {
     record(name, false, err.message);
@@ -272,7 +272,7 @@ function test5_recordingToRecipeEndToEnd() {
       for (const sect of anatomy) {
         assert(md.includes(`## ${sect}`), `emitted recipe missing section: ${sect}`);
       }
-      assert(!md.includes('—'), 'emitted recipe must contain zero em-dashes');
+      assert(!md.includes(' - '), 'emitted recipe must contain zero em-dashes');
 
       const note = fs.existsSync(entrypoint) ? 'real-entrypoint' : 'fallback-chain';
       record(name, true, `wrote ${path.basename(mdPath)} (${note}), all 10 sections + correct frontmatter`);
@@ -470,7 +470,7 @@ function main() {
     console.log('Failures:');
     for (const f of failed) {
       // eslint-disable-next-line no-console
-      console.log(`  - ${f.name}: ${f.detail}`);
+      console.log(` - ${f.name}: ${f.detail}`);
     }
     process.exit(1);
   }

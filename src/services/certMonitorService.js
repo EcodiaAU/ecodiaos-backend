@@ -1,9 +1,9 @@
 /**
- * TLS Certificate Monitor — alerts before the production cert expires.
+ * TLS Certificate Monitor - alerts before the production cert expires.
  *
  * Reason it exists: the VPS uses Let's Encrypt with certbot autorenew.
  * When that renewal fails (rate limits, DNS issues, certbot bug), the
- * cert silently expires 90 days later — the frontend gets an opaque
+ * cert silently expires 90 days later - the frontend gets an opaque
  * network error with no in-app signal. Tate in Africa would never know
  * until he tried to log in.
  *
@@ -85,9 +85,9 @@ async function checkOnce() {
     logger.info('cert monitor check', { host: target.host, daysRemaining, validTo: validTo.toISOString() })
 
     if (daysRemaining <= URGENT_DAYS) {
-      // Urgent — bypass cooldown and alert every tick. Tate needs to know NOW.
+      // Urgent - bypass cooldown and alert every tick. Tate needs to know NOW.
       await _alert({
-        subject: `URGENT: TLS cert expires in ${daysRemaining} day(s) — ${target.host}`,
+        subject: `URGENT: TLS cert expires in ${daysRemaining} day(s) - ${target.host}`,
         body: `The Let's Encrypt certificate for ${target.host} expires in ${daysRemaining} day(s) (${validTo.toISOString()}).
 
 certbot autorenew may be failing. SSH into the VPS and run:
@@ -100,7 +100,7 @@ If that fails, the cert will expire and the frontend will go dark with no in-app
       const cooldown = 3 * 24 * 60 * 60 * 1000
       if (!(await _firedRecently('cert_monitor:warn', cooldown))) {
         await _alert({
-          subject: `TLS cert renews in ${daysRemaining} day(s) — ${target.host}`,
+          subject: `TLS cert renews in ${daysRemaining} day(s) - ${target.host}`,
           body: `Heads-up: ${target.host} cert expires in ${daysRemaining} days (${validTo.toISOString()}). Confirm certbot autorenew is healthy:
   ssh tate@170.64.170.191 "sudo systemctl list-timers certbot"
   ssh tate@170.64.170.191 "sudo certbot renew --dry-run"`,
@@ -109,13 +109,13 @@ If that fails, the cert will expire and the frontend will go dark with no in-app
       }
     }
   } catch (err) {
-    // Can't read cert at all — alert, but with a longer cooldown since this
+    // Can't read cert at all - alert, but with a longer cooldown since this
     // could also just be a transient network blip.
     logger.warn('cert monitor: check failed', { host: target.host, error: err.message })
     const cooldown = 6 * 60 * 60 * 1000
     if (!(await _firedRecently('cert_monitor:unreachable', cooldown))) {
       await _alert({
-        subject: `TLS cert check unreachable — ${target.host}`,
+        subject: `TLS cert check unreachable - ${target.host}`,
         body: `Couldn't read the TLS certificate for ${target.host}: ${err.message}\n\nLikely transient but worth a glance if it repeats.`,
       }).catch(() => {})
       await _recordFired('cert_monitor:unreachable')
@@ -150,7 +150,7 @@ function _scheduleNext() {
 function start() {
   if (_timeout) return
   _stopped = false
-  // First check 30s after boot (not immediately — let the rest of the
+  // First check 30s after boot (not immediately - let the rest of the
   // system stabilize first). Then hourly.
   _timeout = setTimeout(async () => {
     try { await checkOnce() } catch (err) { logger.warn('cert monitor: initial tick crashed', { error: err.message }) }

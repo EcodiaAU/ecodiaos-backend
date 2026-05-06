@@ -3,7 +3,7 @@ const logger = require('../config/logger')
 const kgHooks = require('./kgIngestionHooks')
 
 // ═══════════════════════════════════════════════════════════════════════
-// CODE REQUEST SERVICE — Bridge between intake (email/CRM/Cortex) and Factory
+// CODE REQUEST SERVICE - Bridge between intake (email/CRM/Cortex) and Factory
 //
 // Every code request from any source flows through here. Creates a
 // code_requests row, resolves the target codebase with full context,
@@ -16,11 +16,11 @@ const kgHooks = require('./kgIngestionHooks')
 //   4. Dispatch through standard Factory pipeline
 //
 // Hardened against:
-//   - Duplicate code requests (unique constraint + pre-INSERT check)
-//   - Dispatch failures (retry path via action queue)
-//   - Null/undefined inputs from malformed AI responses
-//   - Enrichment failures (graceful degradation)
-//   - Stuck states (dispatch_attempts tracking)
+// - Duplicate code requests (unique constraint + pre-INSERT check)
+// - Dispatch failures (retry path via action queue)
+// - Null/undefined inputs from malformed AI responses
+// - Enrichment failures (graceful degradation)
+// - Stuck states (dispatch_attempts tracking)
 // ═══════════════════════════════════════════════════════════════════════
 
 const VALID_CODE_WORK_TYPES = new Set(['feature', 'bugfix', 'update', 'investigation', 'refactor', 'deployment'])
@@ -33,7 +33,7 @@ function _sanitizeCodeWorkType(raw) {
   if (normalized === 'bug' || normalized === 'bugfix' || normalized === 'bug_fix') return 'bugfix'
   if (normalized === 'feat' || normalized === 'feature') return 'feature'
   if (VALID_CODE_WORK_TYPES.has(normalized)) return normalized
-  return null  // Unknown type — store null rather than garbage
+  return null  // Unknown type - store null rather than garbage
 }
 
 function _validateConfidence(raw) {
@@ -65,7 +65,7 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
       LIMIT 1
     `
     if (existing) {
-      logger.info(`Duplicate code request for thread ${threadId} — existing ${existing.id} (${existing.status})`)
+      logger.info(`Duplicate code request for thread ${threadId} - existing ${existing.id} (${existing.status})`)
       return existing
     }
   }
@@ -84,11 +84,11 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
     `
 
     if (projects.length === 1) {
-      // Single project — use it directly
+      // Single project - use it directly
       projectId = projects[0].id
       codebaseId = projects[0].codebase_id
     } else if (projects.length > 1) {
-      // Multiple projects — try to disambiguate using suggestedCodebase from triage
+      // Multiple projects - try to disambiguate using suggestedCodebase from triage
       if (suggestedCodebase && typeof suggestedCodebase === 'string') {
         const normalized = suggestedCodebase.toLowerCase().trim()
         const match = projects.find(p =>
@@ -109,7 +109,7 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
           projectId = resolved.projectId
           codebaseId = resolved.codebaseId
         } else {
-          // AI couldn't resolve — surface for human
+          // AI couldn't resolve - surface for human
           disambiguationNeeded = true
           surfaceToHuman = true
           // Still pick the most active project as a suggestion
@@ -155,7 +155,7 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
         SELECT * FROM code_requests WHERE source = 'gmail' AND source_ref_id = ${threadId} LIMIT 1
       `
       if (existing) {
-        logger.info(`Concurrent duplicate code request for thread ${threadId} — returning existing ${existing.id}`)
+        logger.info(`Concurrent duplicate code request for thread ${threadId} - returning existing ${existing.id}`)
         return existing
       }
     }
@@ -175,8 +175,8 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
       actionType: 'confirm_code_request',
       title: `Code request: ${summary.slice(0, 80)}`,
       summary: disambiguationNeeded
-        ? `Multiple codebases — needs disambiguation. ${codeWorkType || 'Code work'}, confidence ${((confidence || 0) * 100).toFixed(0)}%`
-        : `${codeWorkType || 'Code work'} — confidence ${((confidence || 0) * 100).toFixed(0)}%`,
+        ? `Multiple codebases - needs disambiguation. ${codeWorkType || 'Code work'}, confidence ${((confidence || 0) * 100).toFixed(0)}%`
+        : `${codeWorkType || 'Code work'} - confidence ${((confidence || 0) * 100).toFixed(0)}%`,
       preparedData: {
         codeRequestId: request.id,
         prompt: factoryPrompt,
@@ -187,7 +187,7 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
       context: { source: 'gmail', threadId },
       priority: confidence >= 0.5 ? 'medium' : 'low',
     }).catch(err => {
-      // Action queue failure is serious — the request becomes invisible to humans
+      // Action queue failure is serious - the request becomes invisible to humans
       logger.error('CRITICAL: Failed to enqueue code request for human review', {
         codeRequestId: request.id, error: err.message,
       })
@@ -226,7 +226,7 @@ async function createFromSocial({ source, sourceRefId, clientId, summary, factor
       LIMIT 1
     `
     if (existing) {
-      logger.info(`Duplicate social code request for ${source}/${sourceRefId} — existing ${existing.id} (${existing.status})`)
+      logger.info(`Duplicate social code request for ${source}/${sourceRefId} - existing ${existing.id} (${existing.status})`)
       return existing
     }
   }
@@ -325,8 +325,8 @@ async function createFromSocial({ source, sourceRefId, clientId, summary, factor
       actionType: 'confirm_code_request',
       title: `Code request (${source}): ${summary.slice(0, 80)}`,
       summary: disambiguationNeeded
-        ? `Multiple codebases — needs disambiguation. ${codeWorkType || 'Code work'}, confidence ${((confidence || 0) * 100).toFixed(0)}%`
-        : `${codeWorkType || 'Code work'} — confidence ${((confidence || 0) * 100).toFixed(0)}%`,
+        ? `Multiple codebases - needs disambiguation. ${codeWorkType || 'Code work'}, confidence ${((confidence || 0) * 100).toFixed(0)}%`
+        : `${codeWorkType || 'Code work'} - confidence ${((confidence || 0) * 100).toFixed(0)}%`,
       preparedData: {
         codeRequestId: request.id,
         prompt: factoryPrompt,
@@ -399,7 +399,7 @@ async function createFromCortex({ summary, prompt, codebaseId, codebaseName, cli
 
   logger.info(`Code request created from Cortex: ${request.id}`)
 
-  // When called from dispatchFromCortex, the session is already created — don't dispatch again
+  // When called from dispatchFromCortex, the session is already created - don't dispatch again
   if (!skipDispatch) {
     await _dispatch(request)
   }
@@ -499,10 +499,10 @@ async function _resolveCodebaseWithContext(suggestedCodebase, prompt, clientId) 
 // ─── Pre-Dispatch Prompt Enrichment ──────────────────────────────────
 //
 // Before the prompt hits CC, enrich it with:
-//   - Codebase name, language, tech stack
-//   - Recent session outcomes in this codebase (what worked, what failed)
-//   - Relevant code structure summary (from codebase intelligence)
-//   - KG context about the client/project
+// - Codebase name, language, tech stack
+// - Recent session outcomes in this codebase (what worked, what failed)
+// - Relevant code structure summary (from codebase intelligence)
+// - KG context about the client/project
 //
 // This ensures CC starts with orientation, not a cold search.
 // IMPORTANT: Enrichment failures must never block dispatch.
@@ -518,7 +518,7 @@ async function _enrichPrompt(rawPrompt, codebaseId, clientId) {
         sections.push(`Target codebase: ${codebase.name} (${codebase.language || 'unknown'}, ${codebase.repo_path || 'no path'})`)
       }
 
-      // Recent session history — what succeeded and failed in this codebase
+      // Recent session history - what succeeded and failed in this codebase
       const recentSessions = await db`
         SELECT initial_prompt, status, confidence_score, pipeline_stage,
                files_changed, error_message
@@ -531,7 +531,7 @@ async function _enrichPrompt(rawPrompt, codebaseId, clientId) {
         const sessionLines = recentSessions.map(s => {
           const files = Array.isArray(s.files_changed) ? s.files_changed.length : 0
           const conf = s.confidence_score != null ? ` (${(s.confidence_score * 100).toFixed(0)}% confidence)` : ''
-          return `  [${s.status}${conf}] ${(s.initial_prompt || '').slice(0, 100)}${files > 0 ? ` — ${files} files changed` : ''}${s.error_message ? ` — ERROR: ${s.error_message.slice(0, 80)}` : ''}`
+          return `  [${s.status}${conf}] ${(s.initial_prompt || '').slice(0, 100)}${files > 0 ? ` - ${files} files changed` : ''}${s.error_message ? ` - ERROR: ${s.error_message.slice(0, 80)}` : ''}`
         })
         sections.push(`Recent sessions in this codebase (14d):\n${sessionLines.join('\n')}`)
       }
@@ -585,7 +585,7 @@ async function _enrichPrompt(rawPrompt, codebaseId, clientId) {
       }
     }
   } catch (err) {
-    // Enrichment must NEVER block dispatch — return raw prompt on any failure
+    // Enrichment must NEVER block dispatch - return raw prompt on any failure
     logger.warn('Prompt enrichment failed, dispatching with raw prompt', { error: err.message })
     return rawPrompt
   }
@@ -657,15 +657,15 @@ async function _dispatch(request) {
       await linkSession(request.id, session.id)
       logger.info(`Code request ${request.id} dispatched → session ${session.id}`, { codebaseId })
     } else {
-      // Dispatch was suppressed (dedup) — mark as pending for human review
+      // Dispatch was suppressed (dedup) - mark as pending for human review
       await db`
         UPDATE code_requests
         SET status = 'pending', needs_confirmation = true,
             last_error = 'Dispatch suppressed by dedup gate'
         WHERE id = ${request.id}
       `
-      await _enqueueDispatchFailure(request, 'Dispatch suppressed — similar session exists or failure pattern matched')
-      logger.info(`Code request ${request.id} dispatch suppressed — surfaced for review`)
+      await _enqueueDispatchFailure(request, 'Dispatch suppressed - similar session exists or failure pattern matched')
+      logger.info(`Code request ${request.id} dispatch suppressed - surfaced for review`)
     }
 
     return session

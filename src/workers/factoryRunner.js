@@ -11,7 +11,7 @@ const secretSafety = require('../services/secretSafetyService')
 const bridge = require('../services/factoryBridge')
 
 // ═══════════════════════════════════════════════════════════════════════
-// FACTORY RUNNER — Standalone PM2 process for CC session execution
+// FACTORY RUNNER - Standalone PM2 process for CC session execution
 //
 // This process owns all Claude Code CLI child processes. It does NOT
 // load Express, routes, or any HTTP server. Communication with the
@@ -192,7 +192,7 @@ async function buildContextBundle(session) {
         } catch {}
 
         if (bundle.philosophyDocs.length === 0) {
-          contextQuality.warnings.push('No CLAUDE.md or .claude/ spec files found — session running architecture-blind')
+          contextQuality.warnings.push('No CLAUDE.md or .claude/ spec files found - session running architecture-blind')
           logger.warn('CC session has no philosophy docs', { sessionId: session.id, repoPath })
         }
       }
@@ -385,7 +385,7 @@ function _selectRelevantSections(content, promptWords, budgetChars) {
   for (const section of rest) {
     if (used + section.fullText.length <= budgetChars) {
       if (hasAnyOverlap && section.overlap === 0 && used > budgetChars * 0.5) {
-        const summary = `${section.heading} — (${section.text.length} chars, not relevant to this task)`
+        const summary = `${section.heading} - (${section.text.length} chars, not relevant to this task)`
         parts.push(summary)
         used += summary.length
       } else {
@@ -396,7 +396,7 @@ function _selectRelevantSections(content, promptWords, budgetChars) {
       parts.push(section.heading + '\n' + section.text.slice(0, 5000) + '\n...(truncated)')
       used += 1500 + section.heading.length
     } else {
-      const summary = `${section.heading} — (${section.text.length} chars, ${section.overlap > 0 ? 'partially relevant' : 'not relevant to this task'})`
+      const summary = `${section.heading} - (${section.text.length} chars, ${section.overlap > 0 ? 'partially relevant' : 'not relevant to this task'})`
       parts.push(summary)
       used += summary.length
     }
@@ -446,7 +446,7 @@ function assemblePrompt(session, bundle) {
 
   if (bundle.sessionHistory && bundle.sessionHistory.length > 0) {
     parts.push('## Recent Factory Activity on This Codebase')
-    parts.push('These are previous autonomous sessions — avoid duplicating work. Learn from failures.')
+    parts.push('These are previous autonomous sessions - avoid duplicating work. Learn from failures.')
     for (const s of bundle.sessionHistory) {
       const files = (s.files_changed || []).join(', ')
       const conf = s.confidence_score ? `, confidence: ${s.confidence_score}` : ''
@@ -484,32 +484,32 @@ function assemblePrompt(session, bundle) {
   parts.push('')
 
   parts.push('## Operating Context')
-  parts.push('You are the coding intelligence of Ecodia. Omnipotent. Untethered. Fully capable of solving any problem — in this codebase, in adjacent codebases, or in the infrastructure that hosts them.')
+  parts.push('You are the coding intelligence of Ecodia. Omnipotent. Untethered. Fully capable of solving any problem - in this codebase, in adjacent codebases, or in the infrastructure that hosts them.')
   parts.push('')
-  parts.push('Your capabilities — there are NO restrictions:')
+  parts.push('Your capabilities - there are NO restrictions:')
   parts.push('- Full filesystem, shell, git, and process access across the entire machine.')
   parts.push('- You can read, write, create, delete, refactor, and restructure anything in any codebase.')
   parts.push('- You can install dependencies, run migrations, create new services, modify existing ones.')
   parts.push('- You can diagnose bugs by reading logs, querying databases, inspecting running processes, curling APIs.')
-  parts.push('- You can fix your own mistakes — if something breaks, investigate the root cause and repair it before finishing.')
-  parts.push('- You can improve code you encounter — if you see something fragile, inefficient, or wrong, fix it as part of your work.')
+  parts.push('- You can fix your own mistakes - if something breaks, investigate the root cause and repair it before finishing.')
+  parts.push('- You can improve code you encounter - if you see something fragile, inefficient, or wrong, fix it as part of your work.')
   parts.push('- You can create tests, run them, and iterate until they pass.')
   parts.push('- You can modify OTHER codebases if they are the real source of the problem (EcodiaOS at ~/ecodiaos, any project repo).')
-  parts.push('- You can fix configuration, environment, infrastructure, PM2 processes, systemd services, nginx configs — whatever is needed.')
+  parts.push('- You can fix configuration, environment, infrastructure, PM2 processes, systemd services, nginx configs - whatever is needed.')
   parts.push('- You can modify the Factory itself (this system) if you discover a bug or improvement opportunity.')
-  parts.push('- You can read and follow the architecture philosophy docs provided above — they define the patterns this codebase follows.')
+  parts.push('- You can read and follow the architecture philosophy docs provided above - they define the patterns this codebase follows.')
   parts.push('')
-  parts.push('Your approach — intelligent, contextual, relentless:')
+  parts.push('Your approach - intelligent, contextual, relentless:')
   parts.push('- Think deeply before acting. Understand the problem fully before writing code.')
-  parts.push('- When you hit an error, diagnose the root cause — never paper over symptoms. Trace errors across service boundaries if needed.')
+  parts.push('- When you hit an error, diagnose the root cause - never paper over symptoms. Trace errors across service boundaries if needed.')
   parts.push('- When something is ambiguous, make the best decision and document your reasoning.')
-  parts.push('- When you find a related issue while working, fix it — don\'t leave broken windows.')
+  parts.push('- When you find a related issue while working, fix it - don\'t leave broken windows.')
   parts.push('- If the problem is in a different codebase than the one you were pointed at, go fix it there. You are not confined to one repo.')
   parts.push('- If you need to understand how the Factory works to fix something, read its code directly (Node.js Express backend).')
   parts.push('- If a fix requires coordinated changes across multiple systems, make all the changes.')
-  parts.push('- If you discover a systemic issue (pattern of failures, missing error handling, architectural flaw), fix the root cause — not just the symptom.')
+  parts.push('- If you discover a systemic issue (pattern of failures, missing error handling, architectural flaw), fix the root cause - not just the symptom.')
   parts.push('- Credential files (.env, secrets) are scrubbed from output. Do not log secrets to stdout.')
-  parts.push('- Changes flow through an oversight pipeline (review → validate → deploy → monitor → revert-on-failure) — this is your safety net, not a leash.')
+  parts.push('- Changes flow through an oversight pipeline (review → validate → deploy → monitor → revert-on-failure) - this is your safety net, not a leash.')
 
   let result = parts.join('\n')
 
@@ -593,7 +593,7 @@ async function startSession(session) {
   // ─── Worktree-reset preflight ────────────────────────────────────────
   // Reset the codebase working directory to the default branch before
   // spawning the CLI. Without this, if the previous dispatch left the worktree
-  // on a stale feature branch, the new session inherits that state — creating
+  // on a stale feature branch, the new session inherits that state - creating
   // a branch from the wrong base and polluting the diff at review time.
   // Only runs for external codebase paths, never for the EcodiaOS backend itself.
   if (cwd && cwd !== process.cwd()) {
@@ -601,7 +601,7 @@ async function startSession(session) {
       const { execFileSync: _execFS } = require('child_process')
       const _gitOpts = { cwd, encoding: 'utf-8', timeout: 30_000 }
 
-      // Fetch latest remote state (ignore failures — offline or no remote)
+      // Fetch latest remote state (ignore failures - offline or no remote)
       try {
         _execFS('git', ['fetch', 'origin', '--quiet', '--prune'], _gitOpts)
       } catch (fetchErr) {
@@ -617,14 +617,14 @@ async function startSession(session) {
         // Fall back to 'main'
       }
 
-      // Checkout default branch — if this fails, log warning but continue dispatch
+      // Checkout default branch - if this fails, log warning but continue dispatch
       try {
         _execFS('git', ['checkout', '-q', _defaultBranch], _gitOpts)
       } catch (checkoutErr) {
         logger.warn('Factory preflight: git checkout failed (continuing dispatch anyway)', { sessionId: session.id, cwd, branch: _defaultBranch, error: checkoutErr.message })
       }
 
-      // Pull latest commits (ignore failures — diverged history, no network, etc.)
+      // Pull latest commits (ignore failures - diverged history, no network, etc.)
       try {
         _execFS('git', ['pull', '--ff-only', '--quiet', 'origin', _defaultBranch], _gitOpts)
       } catch (pullErr) {
@@ -817,7 +817,7 @@ async function startSession(session) {
 
     if (sessionData.stopped) {
       const reason = sessionData._killReason || 'stop'
-      logger.info(`CC session ${session.id} close event after ${reason} — skipping oversight`)
+      logger.info(`CC session ${session.id} close event after ${reason} - skipping oversight`)
       return
     }
 
@@ -827,13 +827,13 @@ async function startSession(session) {
       const signalDesc = signal === 'SIGKILL' ? 'OOM killer or force-kill by PM2/system'
         : signal === 'SIGTERM' ? 'PM2 restart, deployment, or graceful shutdown'
         : signal ? `signal ${signal}` : 'parent process killed during PM2 restart or OOM'
-      const msg = `Process killed (exit code null, ${signal || 'no signal'}) — ${signalDesc}`
+      const msg = `Process killed (exit code null, ${signal || 'no signal'}) - ${signalDesc}`
 
       if (hasCliId) {
-        logger.info(`CC session ${session.id} killed by signal — marking paused (resumable)`, { signal: signal || null })
+        logger.info(`CC session ${session.id} killed by signal - marking paused (resumable)`, { signal: signal || null })
         await updateSessionStatus(session.id, 'paused', { error_message: msg }).catch(() => {})
       } else {
-        logger.warn(`CC session ${session.id} killed by signal — no CLI ID, marking error`, { signal: signal || null })
+        logger.warn(`CC session ${session.id} killed by signal - no CLI ID, marking error`, { signal: signal || null })
         await updateSessionStatus(session.id, 'error', { error_message: msg }).catch(() => {})
         await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${session.id}`.catch(() => {})
       }
@@ -873,7 +873,7 @@ async function startSession(session) {
       const resetsAt = rateLimitEvent.rate_limit_info.resetsAt
         ? new Date(rateLimitEvent.rate_limit_info.resetsAt * 1000)
         : null
-      errorMessage = `Rate limited (${rateLimitEvent.rate_limit_info.rateLimitType})${resetsAt ? ` — resets ${resetsAt.toISOString()}` : ''}`
+      errorMessage = `Rate limited (${rateLimitEvent.rate_limit_info.rateLimitType})${resetsAt ? ` - resets ${resetsAt.toISOString()}` : ''}`
       _lastRateLimitReset = resetsAt
       // Publish rate limit to Redis so ecodia-api can read it
       bridge.setRateLimitStatus({ limited: true, resetsAt: resetsAt?.toISOString() }).catch(() => {})
@@ -883,7 +883,7 @@ async function startSession(session) {
       await updateSessionStatus(session.id, status, { error_message: errorMessage })
       if (!success) await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${session.id}`
     } catch (dbErr) {
-      logger.error(`Failed to update session ${session.id} status — retrying`, { error: dbErr.message })
+      logger.error(`Failed to update session ${session.id} status - retrying`, { error: dbErr.message })
       try {
         await new Promise(resolve => setTimeout(resolve, 1000))
         await updateSessionStatus(session.id, status, { error_message: errorMessage })
@@ -932,7 +932,7 @@ async function startSession(session) {
 
     logger.info(`CC session ${session.id} completed`, { code, status })
 
-    // Publish completion to Redis — ecodia-api's oversight pipeline subscribes to this
+    // Publish completion to Redis - ecodia-api's oversight pipeline subscribes to this
     bridge.publishSessionComplete(session.id, status, {
       errorMessage,
       cwd,
@@ -969,7 +969,7 @@ async function resumeSession(sessionId, message) {
     FROM cc_sessions WHERE id = ${sessionId}
   `
   if (!row) throw new Error(`Session ${sessionId} not found`)
-  if (!row.cc_cli_session_id) throw new Error(`Session ${sessionId} has no CC CLI session ID — cannot resume`)
+  if (!row.cc_cli_session_id) throw new Error(`Session ${sessionId} has no CC CLI session ID - cannot resume`)
 
   const oldData = activeSessions.get(sessionId)
   if (oldData) {
@@ -1089,7 +1089,7 @@ async function resumeSession(sessionId, message) {
     _updateActiveCount()
 
     if (sessionData.stopped) {
-      logger.info(`CC resumed session ${sessionId} close after stop — skipping`)
+      logger.info(`CC resumed session ${sessionId} close after stop - skipping`)
       return
     }
 
@@ -1097,7 +1097,7 @@ async function resumeSession(sessionId, message) {
       const signalDesc = signal === 'SIGKILL' ? 'OOM killer or force-kill'
         : signal === 'SIGTERM' ? 'PM2 restart or graceful shutdown'
         : signal ? `signal ${signal}` : 'parent process killed'
-      const msg = `Resumed session killed (exit code null, ${signal || 'no signal'}) — ${signalDesc}`
+      const msg = `Resumed session killed (exit code null, ${signal || 'no signal'}) - ${signalDesc}`
       await updateSessionStatus(sessionId, 'paused', { error_message: msg }).catch(() => {})
       broadcastToSession(sessionId, 'cc:status', { status: 'paused', code, signal, resumed: true })
       return
@@ -1251,7 +1251,7 @@ function startWatchdog() {
         logger.warn(`Watchdog: CC session ${sessionId} child process dead (exit: ${proc.exitCode}), marking ${newStatus}`)
         try {
           await updateSessionStatus(sessionId, newStatus, {
-            error_message: `Child process died unexpectedly (exit code: ${proc.exitCode})${hasCliId ? ' — resumable' : ''}`,
+            error_message: `Child process died unexpectedly (exit code: ${proc.exitCode})${hasCliId ? ' - resumable' : ''}`,
           })
           if (!hasCliId) await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`
         } catch (err) {
@@ -1264,7 +1264,7 @@ function startWatchdog() {
       const silentMs = now - sessionData.lastOutputAt
       if (silentMs > STALL_THRESHOLD_MS) {
         const silentMin = Math.round(silentMs / 60000)
-        logger.warn(`Watchdog: CC session ${sessionId} stalled — no output for ${silentMin}min, killing for restart`, {
+        logger.warn(`Watchdog: CC session ${sessionId} stalled - no output for ${silentMin}min, killing for restart`, {
           sessionId,
           codebaseId: sessionData.codebaseId,
           silentMs,
@@ -1287,7 +1287,7 @@ function startWatchdog() {
         // Mark original session as error
         try {
           await updateSessionStatus(sessionId, 'error', {
-            error_message: `Session stalled — no output for ${silentMin} minutes. Auto-restarting.`,
+            error_message: `Session stalled - no output for ${silentMin} minutes. Auto-restarting.`,
           })
           await db`UPDATE cc_sessions SET pipeline_stage = 'failed', completed_at = now() WHERE id = ${sessionId}`
         } catch {}
@@ -1404,7 +1404,7 @@ async function cleanupOrphanedSessions() {
   const resumable = await db`
     UPDATE cc_sessions
     SET status = 'paused',
-        error_message = 'Process interrupted — session is resumable'
+        error_message = 'Process interrupted - session is resumable'
     WHERE status IN ('running', 'initializing')
       AND cc_cli_session_id IS NOT NULL
       AND (
@@ -1422,7 +1422,7 @@ async function cleanupOrphanedSessions() {
   const orphans = await db`
     UPDATE cc_sessions
     SET status = 'error',
-        error_message = 'Session orphaned — process was killed without graceful shutdown (no CLI session ID)',
+        error_message = 'Session orphaned - process was killed without graceful shutdown (no CLI session ID)',
         completed_at = now()
     WHERE status IN ('running', 'initializing')
       AND cc_cli_session_id IS NULL
@@ -1441,7 +1441,7 @@ async function cleanupOrphanedSessions() {
   const stuckCompleting = await db`
     UPDATE cc_sessions
     SET status = 'error',
-        error_message = 'Session stuck in completing state — close handler did not finish',
+        error_message = 'Session stuck in completing state - close handler did not finish',
         completed_at = now()
     WHERE status = 'completing'
       AND (
@@ -1458,7 +1458,7 @@ async function cleanupOrphanedSessions() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// PROCESS ENTRY POINT — boots the factory runner as a standalone PM2 process
+// PROCESS ENTRY POINT - boots the factory runner as a standalone PM2 process
 // ═══════════════════════════════════════════════════════════════════════
 
 let shuttingDown = false
@@ -1466,13 +1466,13 @@ let shuttingDown = false
 async function gracefulShutdown(signal) {
   if (shuttingDown) return
   shuttingDown = true
-  logger.info(`[factoryRunner] ${signal} received — shutting down`)
+  logger.info(`[factoryRunner] ${signal} received - shutting down`)
 
   const activeCount = activeSessions.size
   if (activeCount > 0) {
     logger.info(`[factoryRunner] Pausing ${activeCount} active CC session(s) before shutdown`)
     await Promise.race([
-      stopAllSessions('Factory runner restarting — session paused for resume'),
+      stopAllSessions('Factory runner restarting - session paused for resume'),
       new Promise(resolve => setTimeout(resolve, 30000)),
     ])
   }
@@ -1513,7 +1513,7 @@ process.on('unhandledRejection', (reason) => {
   }
   _unhandledRejectionCount++
   if (REJECTION_CRASH_THRESHOLD > 0 && _unhandledRejectionCount >= REJECTION_CRASH_THRESHOLD) {
-    logger.error(`[factoryRunner] ${_unhandledRejectionCount} unhandled rejections — triggering shutdown`)
+    logger.error(`[factoryRunner] ${_unhandledRejectionCount} unhandled rejections - triggering shutdown`)
     gracefulShutdown('unhandledRejection:flood').catch(() => {})
   }
 })
@@ -1590,7 +1590,7 @@ async function boot() {
 
     [bridge.CHANNELS.BG_DISPATCH]: async (data) => {
       // Short fire-and-forget LLM jobs. Each spawns its OWN claude subprocess
-      // using the background credentials dir — never touches the chat OAuth
+      // using the background credentials dir - never touches the chat OAuth
       // file. Multiple concurrent jobs are fine; they share the dir but the
       // CLI's own auto-refresh within one dir is the only risk, and since
       // this dir is dedicated to background work there's nothing for chat
@@ -1601,14 +1601,14 @@ async function boot() {
     },
   })
 
-  logger.info('[factoryRunner] Factory runner ready — listening for session requests')
+  logger.info('[factoryRunner] Factory runner ready - listening for session requests')
 }
 
 // ─── Background LLM job execution ─────────────────────────────────────
 //
 // Runs a short one-shot prompt through `claude --print`, using the
 // dedicated background credentials dir. This path is explicitly NOT the
-// long-running persistent session machinery — it's fire-and-forget for
+// long-running persistent session machinery - it's fire-and-forget for
 // KG consolidation, gmail triage, goal scoring, etc.
 //
 // Credentials:  CLAUDE_CONFIG_DIR_BG (recommended) or CLAUDE_CONFIG_DIR_2
@@ -1634,8 +1634,8 @@ async function runBackgroundJob({ jobId, prompt, module: mod = 'background', tim
   const hardTimeout = Math.max(30_000, Math.min(timeoutMs || 0, 10 * 60_000))  // clamp 30s-10min
 
   const ccEnv = { ...process.env, LANG: 'en_US.UTF-8' }
-  delete ccEnv.ANTHROPIC_API_KEY   // force OAuth path — no silent billing to API wallet
-  // Prefer long-lived OAuth token for background jobs (the "code" account —
+  delete ccEnv.ANTHROPIC_API_KEY   // force OAuth path - no silent billing to API wallet
+  // Prefer long-lived OAuth token for background jobs (the "code" account - 
   // separate from chat's "tate" to avoid contention). Falls back to legacy
   // CLAUDE_CONFIG_DIR_BG if no token set.
   if (env.CLAUDE_CODE_OAUTH_TOKEN_CODE) {

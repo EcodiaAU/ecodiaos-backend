@@ -1,17 +1,17 @@
 'use strict'
 
 /**
- * Listener registry — loads, validates, and dispatches to in-process event listeners.
+ * Listener registry - loads, validates, and dispatches to in-process event listeners.
  *
  * Listeners are JS modules in src/services/listeners/ matching the explicit
  * allow-list LISTENER_FILES below. Each module must export:
  *   { name, subscribesTo, relevanceFilter, handle, ownsWriteSurface }
  *
  * Dispatch guarantees:
- *   - relevanceFilter called synchronously; false = skip handle
- *   - per-listener concurrency cap of 1: new events dropped (not queued) if handler is in-flight
- *   - handler throws are caught and logged at warn; never propagate
- *   - listeners that import osSessionService are rejected at load time
+ * - relevanceFilter called synchronously; false = skip handle
+ * - per-listener concurrency cap of 1: new events dropped (not queued) if handler is in-flight
+ * - handler throws are caught and logged at warn; never propagate
+ * - listeners that import osSessionService are rejected at load time
  *
  * Boot observability (load-loop fix 2026-04-30):
  *   The previous implementation used fs.readdirSync() and logger.info/.warn
@@ -64,7 +64,7 @@ const _drops = new Map()       // listener name -> drop count (counter for /api/
 // Memory cost: 8 listeners × 10 events × ~1KB envelope ≈ 80KB worst case.
 const QUEUE_LIMIT = 10
 
-// Synchronous stderr write — bypasses winston async-buffer log loss observed
+// Synchronous stderr write - bypasses winston async-buffer log loss observed
 // during boot. PM2 captures stderr to ecodia-api-err.log directly, so these
 // lines survive regardless of winston transport state. Used only for boot-time
 // observability of the listener load loop.
@@ -74,7 +74,7 @@ function _bootStderr(line) {
 
 function loadListeners() {
   const dir = __dirname
-  _bootStderr(`load: starting — ${LISTENER_FILES.length} files in allow-list`)
+  _bootStderr(`load: starting - ${LISTENER_FILES.length} files in allow-list`)
 
   const loaded = []
   const skipped = []
@@ -86,7 +86,7 @@ function loadListeners() {
       const content = fs.readFileSync(filePath, 'utf-8')
       if (/require\s*\(\s*['"][^'"]*osSessionService['"]/.test(content)) {
         _bootStderr(`load: rejected ${file} (imports osSessionService)`)
-        logger.warn(`listener: rejected ${file} — imports osSessionService (forbidden)`)
+        logger.warn(`listener: rejected ${file} - imports osSessionService (forbidden)`)
         skipped.push({ file, reason: 'imports osSessionService' })
         continue
       }
@@ -94,7 +94,7 @@ function loadListeners() {
       const mod = require(filePath)
       if (!mod || typeof mod !== 'object') {
         _bootStderr(`load: skipped ${file} (no object export)`)
-        logger.warn(`listener: skipped ${file} — module did not export an object`)
+        logger.warn(`listener: skipped ${file} - module did not export an object`)
         skipped.push({ file, reason: 'no object export' })
         continue
       }
@@ -107,7 +107,7 @@ function loadListeners() {
 
       if (missing.length > 0) {
         _bootStderr(`load: skipped ${file} (missing: ${missing.join(',')})`)
-        logger.warn(`listener: skipped ${file} — missing required fields: ${missing.join(', ')}`)
+        logger.warn(`listener: skipped ${file} - missing required fields: ${missing.join(', ')}`)
         skipped.push({ file, reason: `missing: ${missing.join(',')}` })
         continue
       }
@@ -116,21 +116,21 @@ function loadListeners() {
       _bootStderr(`load: loaded ${mod.name} (${file})`)
       logger.info(`listener: loaded ${mod.name} (subscribesTo: ${mod.subscribesTo.join(', ')})`)
     } catch (err) {
-      _bootStderr(`load: FAILED ${file} — ${err.message}`)
+      _bootStderr(`load: FAILED ${file} - ${err.message}`)
       logger.warn(`listener: failed to load ${file}`, { error: err.message })
       skipped.push({ file, reason: `error: ${err.message}` })
     }
   }
 
   _listeners = loaded
-  _bootStderr(`load: complete — loaded=${loaded.length} (expected=${EXPECTED_LOADED_COUNT}) skipped=${skipped.length}`)
+  _bootStderr(`load: complete - loaded=${loaded.length} (expected=${EXPECTED_LOADED_COUNT}) skipped=${skipped.length}`)
 
   // Boot-time assertion: surface load-loop regressions immediately. Server
   // stays up (no throw) but the stderr write is unmissable in
   // ecodia-api-err.log and logger.error escalates to DBErrorTransport.
   if (loaded.length !== EXPECTED_LOADED_COUNT) {
     const loadedNames = loaded.map(l => l.name).sort().join(',')
-    _bootStderr(`load: ASSERTION FAILED — expected ${EXPECTED_LOADED_COUNT} listeners, loaded ${loaded.length}: [${loadedNames}]`)
+    _bootStderr(`load: ASSERTION FAILED - expected ${EXPECTED_LOADED_COUNT} listeners, loaded ${loaded.length}: [${loadedNames}]`)
     logger.error('listener subsystem: loaded count mismatch (load-loop regression)', {
       expected: EXPECTED_LOADED_COUNT,
       actual: loaded.length,
@@ -157,7 +157,7 @@ async function dispatch(event, _testListeners) {
     const matched = (innerType && types.includes(innerType)) || types.includes(event.type)
     if (!matched) continue
 
-    // Relevance filter — synchronous
+    // Relevance filter - synchronous
     let relevant = false
     try {
       relevant = listener.relevanceFilter(event)

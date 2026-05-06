@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * TokenBudget — allocates tokens across context blocks by priority tier.
+ * TokenBudget - allocates tokens across context blocks by priority tier.
  *
  * docs/PROMPT_ASSEMBLY_SPEC.md §3.4. Fixes the "8 independent injectors
  * each decide their own truncation" problem by making budget decisions
@@ -10,30 +10,30 @@
  *
  * Priority tiers (from PROMPT_ASSEMBLY_SPEC §3.4):
  *   critical (never truncated, never dropped):
- *     - <now>
- *     - <restart_recovery>
- *     - <untrusted_input>  (when a turn has external text)
- *     - the current user message
+ * - <now>
+ * - <restart_recovery>
+ * - <untrusted_input>  (when a turn has external text)
+ * - the current user message
  *   high (>=70% of remainder, can shrink to elasticity floor):
- *     - doctrine (keyword-surfaced patterns / Skills)
- *     - state (forks_rollup, goals_rollup)    — cap 1K tokens for forks
+ * - doctrine (keyword-surfaced patterns / Skills)
+ * - state (forks_rollup, goals_rollup) - cap 1K tokens for forks
  *   medium (>=20% of remainder):
- *     - relevant_memory                        — cap 4K tokens
+ * - relevant_memory - cap 4K tokens
  *   low (whatever's left):
- *     - history / recent_exchanges             — FIFO drop oldest first
+ * - history / recent_exchanges - FIFO drop oldest first
  *
  * Tokens are approximated as floor(bytes / CHARS_PER_TOKEN). Good enough
  * for budget enforcement; the actual tokenizer is inside the Claude API.
  * When we're close to the budget edge we're conservative (over-estimate
  * token count) so real-API truncation won't surprise us.
  *
- * Not yet wired into the live path — assembler's existing per-block timeouts
+ * Not yet wired into the live path - assembler's existing per-block timeouts
  * + shrinkers keep working. This module is testable in isolation and will
  * be wired in PR 6 when PROMPT_ASSEMBLY_V2 flips to canary/full.
  */
 
 // ~4 chars per token is the rule-of-thumb for English text with Claude's
-// tokenizer. It's loose — code and XML can be denser (~3), natural prose
+// tokenizer. It's loose - code and XML can be denser (~3), natural prose
 // looser (~5). Using 4 gives us a slight over-estimate for most prompts
 // which is the right direction for budget safety.
 const CHARS_PER_TOKEN = 4
@@ -53,7 +53,7 @@ const DEFAULT_BLOCK_CAPS = {
   forks_rollup: 1000,
   recent_doctrine: 6000,
   doctrine_surface: 7000,
-  // recent_exchanges has no per-block cap — it's the "whatever's left"
+  // recent_exchanges has no per-block cap - it's the "whatever's left"
   // fallback and shrinks via FIFO truncation instead.
   recent_exchanges: null,
 }
@@ -99,7 +99,7 @@ function truncateFifo(text, tokenBudget) {
     if (estimateTokens(wrapped) <= tokenBudget) return wrapped
     exchanges.shift()
   }
-  // Even a single exchange doesn't fit — return an empty wrapped block.
+  // Even a single exchange doesn't fit - return an empty wrapped block.
   return (openTag ? openTag[0] : '') + (closeTag ? closeTag[0] : '')
 }
 
@@ -110,7 +110,7 @@ function truncateFifo(text, tokenBudget) {
  *   1. Sort candidates by priority (critical first).
  *   2. Reserve space for all critical blocks at full size (cannot truncate).
  *      If critical already exceeds budget, emit them anyway and note
- *      overflow — the model will hit its own limit later, but we must
+ *      overflow - the model will hit its own limit later, but we must
  *      not drop a restart_recovery or untrusted_input.
  *   3. Allocate remaining budget to high tier up to per-block caps.
  *   4. Allocate leftover to medium tier up to per-block caps.
@@ -153,7 +153,7 @@ function allocate(candidates, options = {}) {
 
     if (cand.priority === PRIORITY.CRITICAL) {
       // Critical blocks are emitted at full size. If that pushes us over
-      // budget, we emit anyway and mark overflow — the model's own context
+      // budget, we emit anyway and mark overflow - the model's own context
       // limit will kick in and that's the right place for the hard stop.
       allocated.push({ name: cand.name, text: cand.text, tokens: candTokens })
       spent += candTokens

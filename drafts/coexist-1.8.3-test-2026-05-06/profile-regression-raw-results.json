@@ -1,0 +1,93 @@
+[
+  {
+    "label": "self",
+    "userId": "4cc11fa1-8aec-4a92-928d-3c8a304dd4db",
+    "screenshotPath": "/home/tate/ecodiaos/drafts/coexist-1.8.3-test-2026-05-06/profile-loading-regression-self.png",
+    "pageTitle": "Co-Exist | Explore. Connect. Protect.",
+    "url": "https://app.coexistaus.org/profile/4cc11fa1-8aec-4a92-928d-3c8a304dd4db",
+    "renderState": {
+      "hasUserNotFound": false,
+      "hasPrivacyNotice": false,
+      "hasDisplayName": true,
+      "hasMemberSince": true,
+      "hasStats": true,
+      "bodyTextSnippet": "Skip to content\nEcodia\nSunshine Coast Regional, Queensland\n@ecodia.au\n\nMember since April 2026\n\n0\n\nEVENTS\n\n0hrs\n\nHOURS\n\n0\n\nTREES\n\nCollectives\nSunshine Coast\nInterests\ntree_planting\nland_regeneration\nworkshop\nshore_cleanup\nnature_walk\ncamp_out\nretreat\nfilm_screening\nmarine_restoration\nHome\n5\nChat\nProfile\nMore"
+    },
+    "consoleMessages": [
+      {
+        "type": "warn",
+        "text": "[sentry] No DSN configured - error reporting disabled"
+      },
+      {
+        "type": "warn",
+        "text": "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\"> is deprecated. Please include <meta name=\"mobile-web-app-capable\" content=\"yes\">"
+      }
+    ]
+  },
+  {
+    "label": "public",
+    "userId": "38d115fa-e138-432b-b15c-e0b7b2fec7b6",
+    "screenshotPath": "/home/tate/ecodiaos/drafts/coexist-1.8.3-test-2026-05-06/profile-loading-regression-public.png",
+    "pageTitle": "Co-Exist | Explore. Connect. Protect.",
+    "url": "https://app.coexistaus.org/profile/38d115fa-e138-432b-b15c-e0b7b2fec7b6",
+    "renderState": {
+      "hasUserNotFound": true,
+      "hasPrivacyNotice": false,
+      "hasDisplayName": false,
+      "hasMemberSince": false,
+      "hasStats": false,
+      "bodyTextSnippet": "Skip to content\nUser not found\n\nThis profile doesn't exist or has been removed\n\nGo Back\nHome\n5\nChat\nProfile\nMore"
+    },
+    "consoleMessages": [
+      {
+        "type": "warn",
+        "text": "[sentry] No DSN configured - error reporting disabled"
+      },
+      {
+        "type": "warn",
+        "text": "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\"> is deprecated. Please include <meta name=\"mobile-web-app-capable\" content=\"yes\">"
+      }
+    ],
+    "profileMeta": {
+      "id": "38d115fa-e138-432b-b15c-e0b7b2fec7b6",
+      "display_name": "Tass",
+      "role": "participant",
+      "is_suspended": false,
+      "onboarding_completed": true,
+      "created_at": "2026-05-06T04:08:29.749243+00:00"
+    }
+  },
+  {
+    "label": "private",
+    "userId": "84899edf-14e6-4a97-bcdd-ead28ac02d2d",
+    "screenshotPath": "/home/tate/ecodiaos/drafts/coexist-1.8.3-test-2026-05-06/profile-loading-regression-private.png",
+    "pageTitle": "Co-Exist | Explore. Connect. Protect.",
+    "url": "https://app.coexistaus.org/profile/84899edf-14e6-4a97-bcdd-ead28ac02d2d",
+    "renderState": {
+      "hasUserNotFound": true,
+      "hasPrivacyNotice": false,
+      "hasDisplayName": false,
+      "hasMemberSince": false,
+      "hasStats": false,
+      "bodyTextSnippet": "Skip to content\nUser not found\n\nThis profile doesn't exist or has been removed\n\nGo Back\nHome\n5\nChat\nProfile\nMore"
+    },
+    "consoleMessages": [
+      {
+        "type": "warn",
+        "text": "[sentry] No DSN configured - error reporting disabled"
+      },
+      {
+        "type": "warn",
+        "text": "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\"> is deprecated. Please include <meta name=\"mobile-web-app-capable\" content=\"yes\">"
+      }
+    ],
+    "profileMeta": {
+      "id": "84899edf-14e6-4a97-bcdd-ead28ac02d2d",
+      "display_name": "Erin Norton",
+      "role": "participant",
+      "is_suspended": false,
+      "onboarding_completed": true,
+      "created_at": "2026-05-06T03:07:04.020447+00:00"
+    }
+  }
+]

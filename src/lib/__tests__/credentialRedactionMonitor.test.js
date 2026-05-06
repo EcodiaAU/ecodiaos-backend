@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Tests for credentialRedactionMonitor — bootstrap window + burst detection.
+ * Tests for credentialRedactionMonitor - bootstrap window + burst detection.
  */
 
 jest.mock('../../config/logger', () => ({

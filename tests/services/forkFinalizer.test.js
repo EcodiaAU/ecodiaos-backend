@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * forkFinalizer.finalize tests — Jest.
+ * forkFinalizer.finalize tests - Jest.
  *
  * Verifies idempotent terminal-state writes for os_forks:
  *   1. finalize() on a non-terminal row -> {updated:true, alreadyTerminal:false, notFound:false}
@@ -157,7 +157,7 @@ describe('forkFinalizer.finalize', () => {
 
     const result = await finalize('fork_probe_err', 'done', null)
 
-    // Ambiguous result — caller treats as "neither confirmed-terminal nor confirmed-missing".
+    // Ambiguous result - caller treats as "neither confirmed-terminal nor confirmed-missing".
     expect(result).toEqual({ updated: false, alreadyTerminal: false, notFound: false })
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('probe SELECT failed'),

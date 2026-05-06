@@ -1,5 +1,5 @@
 /**
- * Calendar MCP tools — read, create, update, delete events.
+ * Calendar MCP tools - read, create, update, delete events.
  */
 import { z } from 'zod'
 import { getCalendarClient, primaryAccount } from './auth.js'

@@ -23,7 +23,7 @@ object `{username, password, hostname, agent_token, agent_port, ip, os, service,
 - `~/ecodiaos/scripts/laptop-agent-staging/macroHandlers/transporter-upload.js` (same)
 - `~/ecodiaos/clients/macincloud-access.md` (canonical access doctrine)
 - `~/ecodiaos/clients/app-release-flow-ios.md`
-- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` (Phase A pre-flight — `creds.macincloud.password` is the SSH password used by `mic-fast.ps1` to drive the RDP signin)
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` (Phase A pre-flight - `creds.macincloud.password` is the SSH password used by `mic-fast.ps1` to drive the RDP signin)
 
 ## Replaceable by macro?
 

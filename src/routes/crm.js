@@ -356,7 +356,7 @@ router.patch('/projects/:id', async (req, res, next) => {
   }
 })
 
-// GET /api/crm/clients/:id/sessions — CC sessions for a client (coding workspace integration)
+// GET /api/crm/clients/:id/sessions - CC sessions for a client (coding workspace integration)
 router.get('/clients/:id/sessions', async (req, res, next) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100)
@@ -384,7 +384,7 @@ router.get('/clients/:id/sessions', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /api/crm/clients/:id/coding-summary — Quick summary for CRM UI
+// GET /api/crm/clients/:id/coding-summary - Quick summary for CRM UI
 router.get('/clients/:id/coding-summary', async (req, res, next) => {
   try {
     const [stats] = await db`

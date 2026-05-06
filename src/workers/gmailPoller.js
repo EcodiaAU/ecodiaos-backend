@@ -5,10 +5,10 @@ const { createNotification } = require('../db/queries/transactions')
 const { recordHeartbeat } = require('./heartbeat')
 
 // ═══════════════════════════════════════════════════════════════════════
-// GMAIL POLLER — On-Demand
+// GMAIL POLLER - On-Demand
 //
 // No fixed schedule. Called by autonomousMaintenanceWorker when the AI
-// decides a poll is warranted — based on system pressure, time since
+// decides a poll is warranted - based on system pressure, time since
 // last poll, and any pending signals.
 //
 // Exported as a callable so other workers can trigger it too.

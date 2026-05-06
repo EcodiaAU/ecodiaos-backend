@@ -25,7 +25,7 @@ function parseKvValue(raw) {
 
 /**
  * Stamp the gate: Tate is active until now + 15 minutes.
- * Called on every inbound user message. Fails open — never throws.
+ * Called on every inbound user message. Fails open - never throws.
  */
 async function stampTateActive() {
   const until = new Date(Date.now() + ACTIVE_WINDOW_MS).toISOString()
@@ -39,7 +39,7 @@ async function stampTateActive() {
 
 /**
  * Check if Tate is currently active (within the 15-minute window).
- * Fails open — returns false on any error so crons are never blocked by a broken check.
+ * Fails open - returns false on any error so crons are never blocked by a broken check.
  */
 async function isTateActive() {
   try {

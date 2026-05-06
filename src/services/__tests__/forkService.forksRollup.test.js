@@ -1,6 +1,6 @@
 'use strict'
 
-// Unit tests for forkService.forksRollup() — specifically the phantom-bail
+// Unit tests for forkService.forksRollup() - specifically the phantom-bail
 // signal added 2026-05-03 (fork_mop2fyoz_25425d, SELF-EVOLUTION rotation C).
 //
 // Background
@@ -12,7 +12,7 @@
 //
 // The rollup the conductor sees on every turn is the only durable surface
 // the conductor has into recently-finished forks (the message-queue
-// fork_report enqueue at forkService.js:712 is gated on `if (report)` —
+// fork_report enqueue at forkService.js:712 is gated on `if (report)` - 
 // when no report is captured, no system message is delivered). Pre-fix the
 // rollup line read `[done]` regardless of whether the fork closed cleanly
 // or hit the transcript-tail fallback. The conductor could not distinguish
@@ -84,7 +84,7 @@ describe('forkService._isPhantomBail (helper)', () => {
   })
 })
 
-describe('forkService.forksRollup() — phantom-bail surfacing', () => {
+describe('forkService.forksRollup() - phantom-bail surfacing', () => {
   test('returns null when no live forks AND no recent finished AND includeRecentDone=true', async () => {
     mockDbQueue.push([]) // db query returns empty
     const out = await forkService.forksRollup({ includeRecentDone: true })

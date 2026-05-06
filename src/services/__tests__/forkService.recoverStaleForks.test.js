@@ -113,7 +113,7 @@ describe('forkService.recoverStaleForks (probe-then-flip)', () => {
     expect(result.results[0].status).toBe('done')
     expect(result.results[0].commits).toBe(1)
 
-    // Per-row UPDATE — second db call (after candidate SELECT)
+    // Per-row UPDATE - second db call (after candidate SELECT)
     const update = mockDbCalls[1]
     expect(update.sql).toContain('UPDATE os_forks')
     expect(update.values).toContain('done')
@@ -262,7 +262,7 @@ describe('forkService.recoverStaleForks (probe-then-flip)', () => {
     const mq = makeMq()
     forkService._setMessageQueueForTest(mq)
 
-    // All git commands "fail" — but probeForkDeliverables captures the error
+    // All git commands "fail" - but probeForkDeliverables captures the error
     // in errors[] and returns. Recovery should still flip the row to crashed.
     forkService._setExecGitForTest(jest.fn(async () => {
       return { stdout: '', stderr: 'fatal: not a git repository', error: 'fatal: not a git repository' }
@@ -273,7 +273,7 @@ describe('forkService.recoverStaleForks (probe-then-flip)', () => {
     expect(result.results[0].status).toBe('crashed')
     expect(result.results[0].errors).toBeGreaterThan(0)
 
-    // The UPDATE still happened (defence in depth — probe never blocks recovery).
+    // The UPDATE still happened (defence in depth - probe never blocks recovery).
     expect(mockDbCalls.length).toBe(2)
     expect(mockDbCalls[1].sql).toContain('UPDATE os_forks')
 
@@ -363,7 +363,7 @@ describe('forkService.probeForkDeliverables (direct)', () => {
         return { stdout: 'cccccccc\tnoise\n', stderr: '' }
       }
       if (k.startsWith('log --format=%B -n 1 cccccccc')) {
-        // Body does NOT contain forkId — defence vs grep regex mishaps.
+        // Body does NOT contain forkId - defence vs grep regex mishaps.
         return { stdout: 'unrelated commit, no co-author tag\n', stderr: '' }
       }
       if (k === 'status --porcelain') return { stdout: '', stderr: '' }

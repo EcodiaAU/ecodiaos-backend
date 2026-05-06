@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Vercel webhook handler — closes Wave B's deploy_event matcher loop.
+ * Vercel webhook handler - closes Wave B's deploy_event matcher loop.
  *
  * Manager: fork_mosn8o5x_7a0e54 (Wave C, worker C1, 5 May 2026).
  *
@@ -9,11 +9,11 @@
  *
  * Signature verification: Vercel signs payloads with HMAC-SHA1, header
  * `x-vercel-signature` (lowercase hex, no `sha1=` prefix per current Vercel
- * docs — but we accept either form to be tolerant of older payload shapes).
+ * docs - but we accept either form to be tolerant of older payload shapes).
  * Secret comes from kv_store.creds.vercel_webhook_secret. If the secret is
  * missing we log a warning, insert a P2 status_board row asking Tate to
  * register the webhook on the Vercel dashboard, and reject every unsigned
- * request with HTTP 401 — fail-closed by default.
+ * request with HTTP 401 - fail-closed by default.
  *
  * Mounted in src/app.js BEFORE express.json() so the raw body survives
  * for HMAC verification.
@@ -125,7 +125,7 @@ function _mapType(vercelType) {
 }
 
 function _extractData(payload) {
-  // Vercel webhook payloads vary by version. Keep this defensive — pull
+  // Vercel webhook payloads vary by version. Keep this defensive - pull
   // common fields where present, leave nulls where absent.
   const p = payload?.payload || payload || {}
   const deployment = p.deployment || p || {}
@@ -180,7 +180,7 @@ router.post(
     const vercelType = payload?.type || payload?.event || null
     const kind = _mapType(vercelType)
     if (!kind) {
-      // Unknown shape — accept but don't crash. Matchers won't fire.
+      // Unknown shape - accept but don't crash. Matchers won't fire.
       logger.info('vercel webhook: unknown event type, skipping publish', { type: vercelType })
       return res.json({ ok: true, skipped: true })
     }
@@ -196,7 +196,7 @@ router.post(
       })
     } catch (err) {
       logger.warn('vercel webhook: perceptionBus.publish failed', { error: err.message, kind })
-      // Acknowledge anyway — we don't want Vercel to retry-storm us.
+      // Acknowledge anyway - we don't want Vercel to retry-storm us.
       return res.json({ ok: true, published: false, error: err.message })
     }
 

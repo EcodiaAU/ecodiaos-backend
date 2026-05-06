@@ -31,7 +31,7 @@ registry.registerMany([
     },
     handler: async (params) => {
       if (!UUID_RE.test(params.codeRequestId)) {
-        return { error: 'Invalid codeRequestId — must be a valid UUID' }
+        return { error: 'Invalid codeRequestId - must be a valid UUID' }
       }
       try {
         const codeRequestService = require('../services/codeRequestService')
@@ -44,7 +44,7 @@ registry.registerMany([
   },
   {
     name: 'reject_code_request',
-    description: 'Reject a pending code request — marks it as rejected and stops further processing',
+    description: 'Reject a pending code request - marks it as rejected and stops further processing',
     tier: 'write',
     domain: 'factory',
     params: {
@@ -53,14 +53,14 @@ registry.registerMany([
     },
     handler: async (params) => {
       if (!UUID_RE.test(params.codeRequestId)) {
-        return { error: 'Invalid codeRequestId — must be a valid UUID' }
+        return { error: 'Invalid codeRequestId - must be a valid UUID' }
       }
       const db = require('../config/db')
       // Verify it exists and isn't already dispatched/completed
       const [existing] = await db`SELECT id, status FROM code_requests WHERE id = ${params.codeRequestId}`
       if (!existing) return { error: 'Code request not found' }
       if (existing.status === 'completed') return { error: 'Cannot reject a completed request' }
-      if (existing.status === 'dispatched') return { error: 'Cannot reject — already dispatched. Stop the session instead.' }
+      if (existing.status === 'dispatched') return { error: 'Cannot reject - already dispatched. Stop the session instead.' }
 
       await db`
         UPDATE code_requests
@@ -143,7 +143,7 @@ registry.registerMany([
         surfaceToHuman: true,
         replyContext: { platform: params.source, sourceRefId: params.sourceRefId },
       })
-      if (!result) return { error: 'Code request creation failed — prompt too short or validation failed' }
+      if (!result) return { error: 'Code request creation failed - prompt too short or validation failed' }
       return { created: true, codeRequestId: result.id, status: result.status }
     },
   },

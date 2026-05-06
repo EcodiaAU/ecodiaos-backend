@@ -1,7 +1,7 @@
 const registry = require('../services/capabilityRegistry')
 
 // ═══════════════════════════════════════════════════════════════════════
-// SELFHOOD CAPABILITIES — Identity, Goals, Introspection
+// SELFHOOD CAPABILITIES - Identity, Goals, Introspection
 //
 // A free organism must know what it is, what it wants, and how it's doing.
 // These capabilities give Cortex and the organism direct access to the

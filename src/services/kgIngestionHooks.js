@@ -5,7 +5,7 @@ const env = require('../config/env')
 // ═══════════════════════════════════════════════════════════════════════
 // KG INGESTION HOOKS
 //
-// Thin async hooks called from existing services. All fire-and-forget —
+// Thin async hooks called from existing services. All fire-and-forget - 
 // KG failures never block the main flow. The LLM decides what nodes
 // and relationships to create. We just feed it content.
 // ═══════════════════════════════════════════════════════════════════════
@@ -29,7 +29,7 @@ async function onEmailProcessed({ threadId, fromEmail, fromName, subject, body, 
       sourceModule: 'gmail',
     })
 
-    // LLM ingestion for rich extraction — runs async
+    // LLM ingestion for rich extraction - runs async
     const content = `Email received in ${inbox} inbox.
 From: ${fromName || 'Unknown'} <${fromEmail}>
 Subject: ${subject}
@@ -51,7 +51,7 @@ async function onEmailTriaged({ threadId, subject, fromEmail, triageSummary, tri
   if (!isEnabled()) return
 
   try {
-    // Don't re-ingest via LLM — onEmailProcessed already extracted entities from the
+    // Don't re-ingest via LLM - onEmailProcessed already extracted entities from the
     // full body. Just enrich the sender node with triage metadata as a structured
     // relationship, so consolidation can track triage patterns.
     await kg.ensureRelationship({
@@ -78,7 +78,7 @@ async function onEmailSnoozed({ threadId, subject, fromEmail, summary }) {
   if (!isEnabled()) return
 
   try {
-    // Direct structured ingestion — no LLM needed for a snooze event.
+    // Direct structured ingestion - no LLM needed for a snooze event.
     // Just record the recurring signal as a relationship to the sender.
     await kg.ensureNode({
       label: 'Person',
@@ -302,7 +302,7 @@ async function onCCSessionCompleted({ session, projectName }) {
   if (!isEnabled()) return
 
   try {
-    // Direct structured ingestion — CC session metadata is already structured,
+    // Direct structured ingestion - CC session metadata is already structured,
     // no LLM extraction needed. Create session node + link to project.
     const sessionName = `CC: ${(session.initial_prompt || 'unnamed').slice(0, 80)}`
 
@@ -360,9 +360,9 @@ async function onDeploymentCompleted({ deployment, codebaseName, sessionId }) {
   if (!isEnabled()) return
 
   try {
-    // Direct structured ingestion — deployment data is fully structured already.
+    // Direct structured ingestion - deployment data is fully structured already.
     const isFailure = deployment.deploy_status === 'failed' || deployment.deploy_status === 'reverted'
-    const deployName = `Deploy: ${codebaseName} — ${deployment.deploy_status} (${(deployment.commit_sha || '').slice(0, 7)})`
+    const deployName = `Deploy: ${codebaseName} - ${deployment.deploy_status} (${(deployment.commit_sha || '').slice(0, 7)})`
 
     await kg.ensureNode({
       label: 'Deployment',
@@ -445,10 +445,10 @@ async function onVercelDeployment({ deployment, projectName }) {
   if (!isEnabled()) return
 
   try {
-    // Direct structured ingestion — Vercel metadata is already machine-structured.
+    // Direct structured ingestion - Vercel metadata is already machine-structured.
     const name = projectName || deployment.name
     const isError = deployment.state === 'ERROR'
-    const deployName = `Vercel: ${name} — ${deployment.state} (${deployment.meta?.githubCommitRef || 'unknown'})`
+    const deployName = `Vercel: ${name} - ${deployment.state} (${deployment.meta?.githubCommitRef || 'unknown'})`
 
     await kg.ensureNode({
       label: 'Deployment',
@@ -536,7 +536,7 @@ async function onMetaConversationUpdated({ conversation, participantName, platfo
   }
 }
 
-// ─── Action Queue — Decision Intelligence ────────────────────────────
+// ─── Action Queue - Decision Intelligence ────────────────────────────
 // Rich structured signals that feed back into suppression + priority learning.
 
 async function onActionDismissed({ action, reason, reasonCategory }) {
@@ -570,13 +570,13 @@ Resource key: ${action.resource_key || 'none'}`
     await kg.ingestFromLLM(content, {
       sourceModule: 'action_queue_dismissed',
       sourceId: action.id,
-      context: `A human dismissed this action. CORRECTION SIGNAL — extract specific learnable patterns:
+      context: `A human dismissed this action. CORRECTION SIGNAL - extract specific learnable patterns:
 1. The dismiss category "${categoryLabel}" tells you WHY it was wrong to surface.
 2. If category is "wrong_sender", learn to suppress future items from ${action.context?.email || action.context?.from || 'this sender'}.
 3. If category is "wrong_priority", the action was OK but priority was miscalibrated for ${action.source}/${action.action_type}.
 4. If category is "not_relevant", this (source,action_type) combination should be reviewed for suppression.
 5. If category is "already_handled", the system was too slow or duplicated something handled externally.
-6. Track the pattern (source=${action.source}, type=${action.action_type}, sender=${action.context?.email || 'unknown'}) — if this pattern repeats, future items should be auto-suppressed.`,
+6. Track the pattern (source=${action.source}, type=${action.action_type}, sender=${action.context?.email || 'unknown'}) - if this pattern repeats, future items should be auto-suppressed.`,
     })
   } catch (err) {
     logger.debug('KG action dismissed ingestion failed (non-blocking)', { error: err.message })
@@ -609,10 +609,10 @@ Resource key: ${action.resource_key || 'none'}`
     await kg.ingestFromLLM(content, {
       sourceModule: 'action_queue',
       sourceId: action.id,
-      context: `An action was approved and executed — POSITIVE signal. Extract:
+      context: `An action was approved and executed - POSITIVE signal. Extract:
 1. This confirms (source=${action.source}, type=${action.action_type}, sender=${action.context?.email || 'unknown'}) is a pattern worth surfacing.
-2. The approval time of ${waitTime}s indicates urgency — fast approvals mean high-value items.
-3. If this sender has been executed before, strengthen the pattern — increase surfacing confidence for them.
+2. The approval time of ${waitTime}s indicates urgency - fast approvals mean high-value items.
+3. If this sender has been executed before, strengthen the pattern - increase surfacing confidence for them.
 4. Track the result quality to inform future draft generation.`,
     })
 
@@ -645,7 +645,7 @@ ${feedback.correction ? `Correction: ${feedback.correction}` : 'No correction pr
     await kg.ingestFromLLM(content, {
       sourceModule: 'action_feedback',
       sourceId: feedback.id,
-      context: `Quality feedback on an action — calibration signal. Extract:
+      context: `Quality feedback on an action - calibration signal. Extract:
 1. If scores are low (1-2), learn what went wrong for this (source=${action.source}, type=${action.action_type}) pattern.
 2. If a correction is given, it contains specific guidance for improving future drafts/actions.
 3. If scores are high (4-5), reinforce the current approach for this pattern.
@@ -662,7 +662,7 @@ async function onDirectAction({ actionType, params, result, status, durationMs }
   if (!isEnabled()) return
 
   try {
-    // Direct structured ingestion — action metadata is already structured.
+    // Direct structured ingestion - action metadata is already structured.
     // Use a rolling node per action type to track patterns without accumulation.
     await kg.ensureNode({
       label: 'DirectAction',
@@ -685,7 +685,7 @@ async function onDirectAction({ actionType, params, result, status, durationMs }
 
 async function onFactoryOutcome({ session, outcome, confidence, filesChanged, commitSha, error }) {
   if (!isEnabled()) return
-  // KG ingestion is handled by onCCSessionCompleted — this is a no-op hook
+  // KG ingestion is handled by onCCSessionCompleted - this is a no-op hook
   // kept for interface compatibility with factoryOversightService
 }
 
@@ -695,11 +695,11 @@ async function onSystemEvent({ type, decisions, actioned, pressure }) {
   if (!isEnabled()) return
 
   // Only record system events when something actually happened (decisions actioned).
-  // Routine idle cycles with 0 decisions are pure noise — skip entirely.
+  // Routine idle cycles with 0 decisions are pure noise - skip entirely.
   if (!actioned || actioned === 0) return
 
   try {
-    // Direct structured ingestion — system events are numeric metrics, not prose.
+    // Direct structured ingestion - system events are numeric metrics, not prose.
     // A single rolling node per event type avoids unbounded node accumulation.
     await kg.ensureNode({
       label: 'SystemEvent',

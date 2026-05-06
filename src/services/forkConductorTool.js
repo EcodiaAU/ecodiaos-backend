@@ -1,10 +1,10 @@
 /**
- * forkConductorTool — exposes fork-mode to the conductor as native SDK tools.
+ * forkConductorTool - exposes fork-mode to the conductor as native SDK tools.
  *
  * The conductor is the Claude Agent SDK process; tools registered here appear
  * in its tool list as `mcp__forks__spawn_fork`, `mcp__forks__list_forks`, and
  * `mcp__forks__abort_fork`. They run in-process (no MCP subprocess), share
- * memory with `forkService`, and return immediately — spawn_fork is fire-and-
+ * memory with `forkService`, and return immediately - spawn_fork is fire-and-
  * forget from the conductor's perspective.
  *
  * Design: the conductor decides parallelism. It can fan out up to 5 forks for
@@ -34,10 +34,10 @@ async function getForkConductorMcpServer() {
 
     const spawn_fork_tool = tool(
       'spawn_fork',
-      'Spawn a parallel fork sub-session that works on `brief` while you continue your own work. Returns immediately with a fork_id. The fork runs independently — it does NOT share state with you, and you cannot talk to it while it works. When it finishes, its [FORK_REPORT] arrives in your inbox as a [SYSTEM: fork_report] queue message on your next turn. Use this whenever a piece of work can run in parallel with whatever else you are doing. You can spawn up to 5 concurrent forks. MANAGER FORKS: if you include MANAGER: true in the brief, the fork is expected to decompose its task, spawn its own sub-forks (passing its own fork_id as parent_fork_id), and return a consolidated [FORK_REPORT] to you. Sub-fork reports go to the manager, not to you — you only see the manager summary. This gives you one clean line per piece of work regardless of how many workers are running under it.',
+      'Spawn a parallel fork sub-session that works on `brief` while you continue your own work. Returns immediately with a fork_id. The fork runs independently - it does NOT share state with you, and you cannot talk to it while it works. When it finishes, its [FORK_REPORT] arrives in your inbox as a [SYSTEM: fork_report] queue message on your next turn. Use this whenever a piece of work can run in parallel with whatever else you are doing. You can spawn up to 5 concurrent forks. MANAGER FORKS: if you include MANAGER: true in the brief, the fork is expected to decompose its task, spawn its own sub-forks (passing its own fork_id as parent_fork_id), and return a consolidated [FORK_REPORT] to you. Sub-fork reports go to the manager, not to you - you only see the manager summary. This gives you one clean line per piece of work regardless of how many workers are running under it.',
       {
-        brief: z.string().min(1).describe('A complete brief describing what the fork should do. The fork will not have your context; write the brief as if you are handing the task to a fresh OS instance — include the goal, any constraints, and what counts as done. Include MANAGER: true if the fork should decompose and spawn its own sub-forks.'),
-        context_mode: z.enum(['recent', 'brief']).optional().default('recent').describe('"recent" (default): fork inherits the recent conversation tail. "brief": fork gets only the brief, no context — use when the brief is self-contained and you want to minimize the fork token cost.'),
+        brief: z.string().min(1).describe('A complete brief describing what the fork should do. The fork will not have your context; write the brief as if you are handing the task to a fresh OS instance - include the goal, any constraints, and what counts as done. Include MANAGER: true if the fork should decompose and spawn its own sub-forks.'),
+        context_mode: z.enum(['recent', 'brief']).optional().default('recent').describe('"recent" (default): fork inherits the recent conversation tail. "brief": fork gets only the brief, no context - use when the brief is self-contained and you want to minimize the fork token cost.'),
         parent_fork_id: z.string().optional().describe('Set this to your own fork_id when spawning sub-forks from within a manager fork. Sub-fork reports will route to you (the manager) instead of the conductor. Leave unset when spawning from main.'),
       },
       async (args) => {
@@ -56,15 +56,15 @@ async function getForkConductorMcpServer() {
         } catch (err) {
           // Cap-rejected spawns return a recognisable shape so the conductor
           // can decide whether to retry, queue the brief, or hand it back to
-          // the user. We surface the error message verbatim — the model is
+          // the user. We surface the error message verbatim - the model is
           // smart enough to read it and adapt.
           const detail = err && err.code
-            ? `${err.code}: ${err.message}${err.details ? ' — ' + JSON.stringify(err.details) : ''}`
+            ? `${err.code}: ${err.message}${err.details ? ' - ' + JSON.stringify(err.details) : ''}`
             : err && err.message ? err.message : String(err)
           return {
             content: [{
               type: 'text',
-              text: `Fork spawn rejected — ${detail}\n\nIf cap_reached: wait for an active fork to finish, or do this work yourself. If energy_cap_reached: the weekly Claude Max budget is tight and parallelism is being throttled.`,
+              text: `Fork spawn rejected - ${detail}\n\nIf cap_reached: wait for an active fork to finish, or do this work yourself. If energy_cap_reached: the weekly Claude Max budget is tight and parallelism is being throttled.`,
             }],
             isError: true,
           }
@@ -100,10 +100,10 @@ async function getForkConductorMcpServer() {
 
     const abort_fork_tool = tool(
       'abort_fork',
-      'Abort a running fork by id. Use sparingly — the report you would have received is lost. Useful when the same work has been superseded by a later instruction or when a fork is clearly going wrong.',
+      'Abort a running fork by id. Use sparingly - the report you would have received is lost. Useful when the same work has been superseded by a later instruction or when a fork is clearly going wrong.',
       {
         fork_id: z.string().describe('The fork id to abort, as returned by spawn_fork.'),
-        reason: z.string().optional().describe('Short reason — recorded in the fork registry for post-hoc analysis.'),
+        reason: z.string().optional().describe('Short reason - recorded in the fork registry for post-hoc analysis.'),
       },
       async (args) => {
         try {

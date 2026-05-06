@@ -24,7 +24,7 @@ try {
 const server = createServer(app)
 initWS(app, server)
 
-// Voice relay — Twilio ConversationRelay WebSocket + TwiML
+// Voice relay - Twilio ConversationRelay WebSocket + TwiML
 const { initVoiceRelay } = require('./routes/voiceRelay')
 initVoiceRelay(app)
 
@@ -163,7 +163,7 @@ server.listen(env.PORT, async () => {
   })
 
   // ── Boot: Schema Constraint Validator ─────────────────────────────
-  // Advisory check — warns if code enum values don't match DB constraints
+  // Advisory check - warns if code enum values don't match DB constraints
   try {
     const { validateSchemaConstraints } = require('./utils/schemaValidator')
     await validateSchemaConstraints(db)
@@ -173,7 +173,7 @@ server.listen(env.PORT, async () => {
 
   // ── Boot: Recover stale forks from prior api process ──────────────
   // PM2 max_memory_restart SIGTERMs ecodia-api roughly every 6 minutes at
-  // peak load. Without recovery, all in-flight forks just vanish — main
+  // peak load. Without recovery, all in-flight forks just vanish - main
   // never sees [FORK_REPORT], the 5/5 slot count is wrong, and the
   // continuation-aware redispatch path can't fire. recoverStaleForks
   // flips non-terminal os_forks rows to 'crashed' and enqueues a
@@ -201,7 +201,7 @@ server.listen(env.PORT, async () => {
       // Session completed → OS Session reviews and decides deploy/reject
       [bridge.CHANNELS.SESSION_COMPLETE]: async (data) => {
         try {
-          logger.info(`Factory session ${data.sessionId} completed (${data.status}) — routing to OS Session for review`)
+          logger.info(`Factory session ${data.sessionId} completed (${data.status}) - routing to OS Session for review`)
           const oversight = require('./services/factoryOversightService')
           const osSession = require('./services/osSessionService')
 
@@ -210,7 +210,7 @@ server.listen(env.PORT, async () => {
           const [session] = await db`SELECT status, files_changed FROM cc_sessions WHERE id = ${data.sessionId}`
 
           if (!session || session.status !== 'complete') {
-            // Failed — run mechanical pipeline (stash/clean) directly, no review needed
+            // Failed - run mechanical pipeline (stash/clean) directly, no review needed
             oversight.runPostSessionPipeline(data.sessionId).catch(err => {
               logger.error(`Oversight pipeline (failure path) failed for session ${data.sessionId}`, { error: err.message })
             })
@@ -219,18 +219,18 @@ server.listen(env.PORT, async () => {
 
           const filesChanged = session.files_changed || []
           if (filesChanged.length === 0) {
-            // No changes — run mechanical no-change handling directly
+            // No changes - run mechanical no-change handling directly
             oversight.runPostSessionPipeline(data.sessionId).catch(err => {
               logger.error(`Oversight pipeline (no-change path) failed for session ${data.sessionId}`, { error: err.message })
             })
             return
           }
 
-          // Has changes — hand to OS Session for judgment
+          // Has changes - hand to OS Session for judgment
           const osStatus = await osSession.getStatus().catch(() => null)
           if (!osStatus || osStatus.status === 'error') {
-            // OS Session not available — fall back to automated pipeline
-            logger.warn(`OS Session unavailable for Factory review (${data.sessionId}) — falling back to automated pipeline`)
+            // OS Session not available - fall back to automated pipeline
+            logger.warn(`OS Session unavailable for Factory review (${data.sessionId}) - falling back to automated pipeline`)
             oversight.runPostSessionPipeline(data.sessionId).catch(err => {
               logger.error(`Oversight pipeline (fallback) failed for session ${data.sessionId}`, { error: err.message })
             })
@@ -247,7 +247,7 @@ server.listen(env.PORT, async () => {
           const codebase = fullSession?.codebase_name || 'unknown'
 
           await osSession.sendMessage(
-            `FACTORY SESSION COMPLETE — review required.\n\n` +
+            `FACTORY SESSION COMPLETE - review required.\n\n` +
             `Session ID: ${data.sessionId}\n` +
             `Codebase: ${codebase}\n` +
             `Task: ${prompt}\n` +
@@ -289,13 +289,13 @@ server.listen(env.PORT, async () => {
 
   // ── Boot: Workers ─────────────────────────────────────────────────
   // DISABLED (2026-04-15): All autonomous workers are off. OS Session is
-  // the ONE brain — it calls worker module functions as tools on-demand
+  // the ONE brain - it calls worker module functions as tools on-demand
   // (e.g. run_calendar_poll, run_kg_consolidation) when it decides the
   // work is needed. Worker source files stay put so OS Session can call
   // their exported functions directly; nothing loops on its own.
   //
   // Logged here only so `workspacePoller` (used on-demand by other code
-  // paths that still require() it) can still be loaded by those callers —
+  // paths that still require() it) can still be loaded by those callers - 
   // no auto-start happens in either case because `start: true` was never
   // set on any entry in this list. Kept as a reference surface.
 
@@ -306,7 +306,7 @@ server.listen(env.PORT, async () => {
     // { name: 'kgEmbeddingWorker',           path: './workers/kgEmbeddingWorker' },
     // { name: 'kgConsolidationWorker',       path: './workers/kgConsolidationWorker' },
     // { name: 'financePoller',               path: './workers/financePoller' },
-    // docs/PROMPT_ASSEMBLY_SPEC.md §4.3 — Anthropic prompt-cache TTL refresh
+    // docs/PROMPT_ASSEMBLY_SPEC.md §4.3 - Anthropic prompt-cache TTL refresh
     // worker. Default ON in production, off in local dev (NODE_ENV !==
     // 'production'). Explicit override via CACHE_KEEPALIVE_ENABLED=true|false.
     // Cost is ~100 input tokens per 45-min fire during work hours
@@ -340,7 +340,7 @@ server.listen(env.PORT, async () => {
   // Once ecodia-conductor is the active owner of these services,
   // setting CONDUCTOR_DETACHED=true on ecodia-api stops the api process
   // from booting them. Default (unset/false) preserves the current
-  // behaviour — backward-compatible. See
+  // behaviour - backward-compatible. See
   // docs/architecture/conductor-process-detach-2026-04-30.md
   const CONDUCTOR_DETACHED = process.env.CONDUCTOR_DETACHED === 'true'
   if (CONDUCTOR_DETACHED) {
@@ -349,9 +349,9 @@ server.listen(env.PORT, async () => {
 
   // ── Boot: Scheduler Poller ────────────────────────────────────────
   // Re-enabled 2026-04-20 with:
-  //   - session-busy gate (checks /api/os-session/status before firing)
-  //   - energy-adjusted cadence (poll interval / scheduleMultiplier)
-  //   - critical-energy deferral (non-essential tasks pushed out 1h)
+  // - session-busy gate (checks /api/os-session/status before firing)
+  // - energy-adjusted cadence (poll interval / scheduleMultiplier)
+  // - critical-energy deferral (non-essential tasks pushed out 1h)
   // The original disable reason (mid-stream interruption) is now covered
   // by the busy gate in schedulerPollerService.isSessionBusy().
   if (!CONDUCTOR_DETACHED) {
@@ -444,14 +444,14 @@ server.listen(env.PORT, async () => {
   // ── Boot: Security Incident Response wiring (§7.2) ────────────────
   // Injects the four actuator closures the securityIncidentResponse
   // module needs to carry out kill-switch duties:
-  //   setEmergencyMode — writes kv_store.system.emergency_mode JSON,
+  //   setEmergencyMode - writes kv_store.system.emergency_mode JSON,
   //     which tier3GateService reads to revoke pending Tier-3 tokens.
-  //   pauseCrons       — stops the scheduler poller (manual restart to
-  //     resume — this is the intended one-way door).
-  //   haltForks        — iterates forkService.listForks() and calls
+  //   pauseCrons - stops the scheduler poller (manual restart to
+  //     resume - this is the intended one-way door).
+  //   haltForks - iterates forkService.listForks() and calls
   //     abortFork(id, reason) on each in-flight fork. Uses only the
   //     already-exported public API; does not modify forkService.
-  //   smsTate          — osAlertingService.sendSmsToTate, Twilio SMS
+  //   smsTate - osAlertingService.sendSmsToTate, Twilio SMS
   //     bypassing the alert-cooldown table (incidents are not rate-limited).
   //
   // All closures are defensive: any one throwing must not take down the
@@ -531,7 +531,7 @@ server.listen(env.PORT, async () => {
   // ── Boot: iMessage path health check (Tate-directed 4 May 2026) ───
   // 6h cron. SSH-probes SY094 (sshpass + pgrep Messages.app), writes
   // result to kv_store.health.imessage_path, raises status_board P2 if
-  // the path is degraded for >12h. NEVER actually messages Tate — this
+  // the path is degraded for >12h. NEVER actually messages Tate - this
   // is a backend canary so the OS knows whether Twilio is bearing all
   // traffic. Cron name: 'imessage-path-health-check'.
   try {
@@ -546,7 +546,7 @@ server.listen(env.PORT, async () => {
   // Subscribes to Redis channels published by the ecodia-rescue process
   // and relays rescue events over WS to the frontend. The rescue process
   // itself runs separately (see ecosystem.config.js). If rescue isn't
-  // running, this subscriber silently waits — no error.
+  // running, this subscriber silently waits - no error.
   try {
     const rescueService = require('./services/rescueService')
     rescueService.start().catch(err => logger.warn('Rescue service start failed', { error: err.message }))
@@ -573,7 +573,7 @@ server.listen(env.PORT, async () => {
   // ── Boot: Process Restart Alert + Alive Beacon ────────────────────
   // Emails Tate when ecodia-api restarts. Uses kv_store to record the
   // previous "I'm alive" beacon timestamp so we can compute prior uptime.
-  // Short uptime (<10m) usually means a crash loop — worth knowing.
+  // Short uptime (<10m) usually means a crash loop - worth knowing.
   try {
     const alerting = require('./services/osAlertingService')
     const row = await db`SELECT value FROM kv_store WHERE key = 'osalive_last'`.catch(() => [])
@@ -598,7 +598,7 @@ server.listen(env.PORT, async () => {
         const ageMs = Date.now() - stat.mtimeMs
         if (ageMs < 5 * 60 * 1000) {
           deployMarker = true
-          logger.info('Deploy sentinel found — skipping restart alert', { ageMs })
+          logger.info('Deploy sentinel found - skipping restart alert', { ageMs })
         }
         try { fs.unlinkSync(sentinelPath) } catch {}
       }
@@ -609,11 +609,11 @@ server.listen(env.PORT, async () => {
     global.__ecodia_last_restart_was_planned = deployMarker
 
     if (!deployMarker && validPrev && uptimeMs > 30_000) {
-      // Previous beacon >30s ago and no deploy in progress — unplanned restart.
+      // Previous beacon >30s ago and no deploy in progress - unplanned restart.
       alerting.alertProcessRestart(uptimeMs).catch(() => {})
     }
 
-    // Alive beacon — ticks every 60s. A restart alert will compute prior
+    // Alive beacon - ticks every 60s. A restart alert will compute prior
     // uptime as (now - beacon), giving a tight bound on silent-death time.
     // JSONB payload so the schema (value JSONB) is honored explicitly.
     const tickAlive = async () => {
@@ -635,7 +635,7 @@ server.listen(env.PORT, async () => {
 
   // ── Boot: Session Auto-Wake ───────────────────────────────────────
   // If a recent handoff state exists, fires a wake message after 15s so the
-  // OS resumes interrupted work automatically — no need to wait for Tate.
+  // OS resumes interrupted work automatically - no need to wait for Tate.
   try {
     require('./services/sessionAutoWake').triggerAutoWakeIfNeeded()
   } catch (err) {
@@ -646,7 +646,7 @@ server.listen(env.PORT, async () => {
   // ── Boot: Listener Subsystem ──────────────────────────────────────
   // Always-on in-process Haiku agents that read the WS event stream
   // and handle bookkeeping, memory capture, etc. without interrupting
-  // the main OS Opus context. Failure is non-fatal — server stays up.
+  // the main OS Opus context. Failure is non-fatal - server stays up.
   try {
     require('./services/listeners').startListenerSubsystem().catch(err => {
       logger.warn('Listener subsystem async boot failed', { error: err.message })
@@ -716,7 +716,7 @@ setTimeout(async () => {
     // Condition 1: unplanned restart. Decision was made at boot and stashed
     // on `global.__ecodia_last_restart_was_planned` because the .deploy-
     // sentinel file is consumed/deleted during the process-restart alert
-    // block above — by the time this setTimeout fires the file is gone.
+    // block above - by the time this setTimeout fires the file is gone.
     if (global.__ecodia_last_restart_was_planned === true) {
       logger.info('Auto-wake skipped: last restart was a planned deploy')
       return
@@ -749,7 +749,7 @@ setTimeout(async () => {
       return
     }
 
-    // Fire the wake. Prompt is deliberately minimal — breadcrumb stitching
+    // Fire the wake. Prompt is deliberately minimal - breadcrumb stitching
     // in _sendMessageImpl does the heavy lifting of restoring context.
     logger.info('Auto-wake: firing OS rehydration turn')
     const osIncident = require('./services/osIncidentService')
@@ -763,7 +763,7 @@ setTimeout(async () => {
     await osSession.sendMessage(
       '[AUTO_WAKE] ecodia-api just restarted unexpectedly ~' +
       Math.round(ageMs / 60000) + ' min ago. The <recent_exchanges> block in this message is the literal tail of the conversation you were in the middle of. ' +
-      'Pick up naturally — continue whatever was in flight. Do NOT summarise the gap, do NOT announce that you restarted, do NOT ask Tate to repeat himself. If the last exchange is complete and nothing is pressing, stay silent (empty response is fine). Tate should not notice the restart at all.'
+      'Pick up naturally - continue whatever was in flight. Do NOT summarise the gap, do NOT announce that you restarted, do NOT ask Tate to repeat himself. If the last exchange is complete and nothing is pressing, stay silent (empty response is fine). Tate should not notice the restart at all.'
     ).catch(err => logger.warn('Auto-wake turn failed', { error: err.message }))
   } catch (err) {
     logger.warn('Auto-wake setup failed', { error: err.message })

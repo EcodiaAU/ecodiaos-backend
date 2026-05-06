@@ -1,5 +1,5 @@
 # The Jarvis Gap
-## Between What Claude Products Ship and What EcodiaOS Needs to Become — 2026-04-30
+## Between What Claude Products Ship and What EcodiaOS Needs to Become - 2026-04-30
 
 **Purpose:** You have Claude Max, Agent SDK, Claude Code, MCP, Cowork, Skills, Artifacts, Computer Use. You want Jarvis. This doc names the gap honestly, then fills it with concrete architecture.
 
@@ -29,16 +29,16 @@ This is the doc that says: Anthropic hasn't built Jarvis and won't. They've buil
 
 From the fiction and from what "running Ecodia while Tate travels 3 months" actually requires:
 
-1. **Continuity of self** — remembers what it is and what it's doing across minutes, days, months.
-2. **Volition / proactivity** — decides what to do when nothing is asked.
-3. **Embodiment** — can act in the physical/digital world through persistent machines, not just chat.
-4. **Perception** — observes the environment (screens, emails, code, sensors) continuously.
-5. **Coordination** — delegates, spawns helpers, reconciles their work.
-6. **Time sense** — knows deadlines, durations, drift, urgency.
-7. **Economic governance** — doesn't spend itself out of existence; tracks its own cost.
-8. **Accountability** — tells the truth about what it did and didn't do. Claims have handles.
-9. **Security posture** — survives adversarial input without being weaponized.
-10. **Evolution** — gets measurably better over time from its own traces, not just from model upgrades.
+1. **Continuity of self** - remembers what it is and what it's doing across minutes, days, months.
+2. **Volition / proactivity** - decides what to do when nothing is asked.
+3. **Embodiment** - can act in the physical/digital world through persistent machines, not just chat.
+4. **Perception** - observes the environment (screens, emails, code, sensors) continuously.
+5. **Coordination** - delegates, spawns helpers, reconciles their work.
+6. **Time sense** - knows deadlines, durations, drift, urgency.
+7. **Economic governance** - doesn't spend itself out of existence; tracks its own cost.
+8. **Accountability** - tells the truth about what it did and didn't do. Claims have handles.
+9. **Security posture** - survives adversarial input without being weaponized.
+10. **Evolution** - gets measurably better over time from its own traces, not just from model upgrades.
 
 Match each to Anthropic's substrate:
 
@@ -47,7 +47,7 @@ Match each to Anthropic's substrate:
 | **1. Continuity of self** | Session resume (~weeks). | **Durable identity + memory**: Neo4j + pgvector + `CLAUDE.md` + episodic reflection. Owns who "I am" across model versions. |
 | **2. Volition / proactivity** | Nothing. Agent only acts when invoked. | **Proactivity engine**: work-discovery crons, idle-time utilization, intent inference from incoming signals. |
 | **3. Embodiment** | Computer Use (beta, single-machine). | **Peer-machine mesh**: VPS + Corazon laptop + future IoT as one organism with advisory locks for arbitration. |
-| **4. Perception** | Text + image inputs to the model. | **Continuous observation pipeline**: email listeners, screen observation, log tailers, sensor ingest — all structured, timestamped, feeding memory. |
+| **4. Perception** | Text + image inputs to the model. | **Continuous observation pipeline**: email listeners, screen observation, log tailers, sensor ingest - all structured, timestamped, feeding memory. |
 | **5. Coordination** | Single agent or one-level Agent SDK subagents. | **Multi-tier orchestration**: conductor ↔ forks ↔ factory ↔ laptop agent, with lease arbitration and rollup grammar. |
 | **6. Time sense** | Timestamp in prompt. Nothing more. | **Scheduler + cron + delayed execution + deadline tracker**. Already partly present; needs slack-aware retry and calendar-grounded urgency. |
 | **7. Economic governance** | Usage fields on API response. Claude Max monthly cap. | **Usage-energy model**: per-turn accounting, per-goal budget, cross-account rotation, graceful degradation under energy pressure. |
@@ -55,13 +55,13 @@ Match each to Anthropic's substrate:
 | **9. Security posture** | Tool-use guardrails, content policies. | **Full threat model**: prompt injection defense, self-mod allowlist, Cypher injection, Tier-3 action gates, audit log. |
 | **10. Evolution** | New models ship every 6-18 months. | **Self-improvement loop**: failure pattern mining with traces, counterfactual replay, pattern validation gates. |
 
-This is the gap map. Every row where "EcodiaOS must build" is nonempty is a layer you own. The good news: the substrate is strong enough that each layer is a service, not a research project — with two exceptions called out in §7.
+This is the gap map. Every row where "EcodiaOS must build" is nonempty is a layer you own. The good news: the substrate is strong enough that each layer is a service, not a research project - with two exceptions called out in §7.
 
 ---
 
 ## 3. THE LAYER-BY-LAYER FILL PLAN
 
-### Layer 1 — Continuity of self
+### Layer 1 - Continuity of self
 
 **What it means:** Ask the OS "who are you, what are you doing, what's outstanding?" at any time → coherent answer grounded in current reality.
 
@@ -74,7 +74,7 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 
 **Ship order:** `SELF.md` (day 1) → event-sourced facts (week 2) → model-version bridge (week 6).
 
-### Layer 2 — Volition / proactivity
+### Layer 2 - Volition / proactivity
 
 **What it means:** OS decides to do things without being asked. Correctly, at the right tempo.
 
@@ -87,19 +87,19 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 
 **Architectural primitive:** `proactivityEngine.nextAction(state) → action | null`. Runs every 60s during work hours (6am-10pm AEST), every 15min overnight. Writes a Decision node per non-null return.
 
-### Layer 3 — Embodiment
+### Layer 3 - Embodiment
 
-**What it means:** The organism has body parts that persist — machines running 24/7 with defined roles.
+**What it means:** The organism has body parts that persist - machines running 24/7 with defined roles.
 
 **What's built:** VPS + Corazon. MCP topology. `handsBridge`, `peerMonitor`.
 
 **What's missing:**
 - **Split-brain arbitration.** See `FORK_ATOMICITY_SPEC.md` §4. Postgres advisory locks on task_id. Without this, the laptop waking after sleep can double-execute actions.
-- **Liveness contract.** Each peer heartbeats every 30s to `peer_status`. Below 2 missed heartbeats, the peer is declared "napping" — its queued work redistributes. Above 5 missed, "down" — pages Tate.
+- **Liveness contract.** Each peer heartbeats every 30s to `peer_status`. Below 2 missed heartbeats, the peer is declared "napping" - its queued work redistributes. Above 5 missed, "down" - pages Tate.
 - **Role boundaries.** Right now: who owns Canva autofill? Cowork or Puppeteer? See `ANTHROPIC_NATIVE_LEVERAGE.md` §9. Document the decision tree as a spec all peers read.
 - **Roadmap beyond laptop+VPS.** The 2030 "runs a suburb" ambition implies kiosks, sensors, outdoor terminals. The embodiment layer should be *n*-peer ready, not 2-peer hardcoded. Use the same `peer_status` table schema today so adding peer 3 later is config, not refactor.
 
-### Layer 4 — Perception
+### Layer 4 - Perception
 
 **What it means:** The OS knows what's happening in its world without being told every time.
 
@@ -111,7 +111,7 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 - **Sensor abstraction.** The suburb vision requires room sensors, presence detection, environmental data. Even at demo scale now, build a `SensorReading` canonical shape (`{source, kind, value, ts, confidence}`) so future ingestion doesn't rewrite perception.
 - **Observation → memory promotion.** Most observations are noise. A promotion policy picks which get consolidated to durable Neo4j nodes vs kept in the 7-day window vs discarded immediately.
 
-### Layer 5 — Coordination
+### Layer 5 - Coordination
 
 **What it means:** Work gets to the right sub-agent, results get back, nothing duplicates or drops.
 
@@ -119,11 +119,11 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 
 **What's missing:**
 - **Atomic fork cap** (`FORK_ATOMICITY_SPEC.md` §2).
-- **Parent-goal fork budget** (`FORK_ATOMICITY_SPEC.md` §6) — prevents amplification.
+- **Parent-goal fork budget** (`FORK_ATOMICITY_SPEC.md` §6) - prevents amplification.
 - **Rollup grammar enforcement.** `[FORK_REPORT]`/`[NEXT_STEP]` is defined but not mandatory. Make it a required structured output. See `ANTHROPIC_NATIVE_LEVERAGE.md` §3.
 - **Three-tier decision tree** (subagent / fork / factory) documented and enforced. See `ANTHROPIC_NATIVE_LEVERAGE.md` §7.4.
 
-### Layer 6 — Time sense
+### Layer 6 - Time sense
 
 **What it means:** The OS knows "urgent means today," "overdue by 3 days means escalate," "weekly review fires Friday 5pm."
 
@@ -132,10 +132,10 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 **What's missing:**
 - **Deadline-aware scheduling.** Goals carry `due_at`. Proactivity engine factors deadline-pressure into action priority. Tasks overdue by N days escalate severity class.
 - **Calendar grounding.** Every action is aware of *Tate's calendar*. "Don't send a client a 'following up' email at 2am." "Don't page Tate during marked focus time." Already present in CLAUDE.md intent; needs enforcement in send paths.
-- **Slack-aware retries.** Failed actions retry with expected-delay-back-off (not just exponential) — if the downstream service is slow, wait for its window.
+- **Slack-aware retries.** Failed actions retry with expected-delay-back-off (not just exponential) - if the downstream service is slow, wait for its window.
 - **Tempo awareness.** OS tempo shifts by time zone, day of week, Tate's availability (via calendar). Daily rhythm becomes part of context, not just timestamp.
 
-### Layer 7 — Economic governance
+### Layer 7 - Economic governance
 
 **What it means:** The organism cannot bankrupt itself. Tracks spend per turn, per fork, per goal. Degrades gracefully.
 
@@ -147,7 +147,7 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 - **Non-Anthropic fallback**: shadow-routing to Deepseek or Gemini for 5% of turns to calibrate quality delta; auto-fallback on Anthropic outage. Half-built today (see `deepseekService.js`); finish or delete.
 - **Cost attribution.** A turn serving a client project should tag its spend to that client's budget, not a general pool. This is load-bearing for the commercial vision (`project_goodreach.md` multi-tenant).
 
-### Layer 8 — Accountability
+### Layer 8 - Accountability
 
 **What it means:** When the OS says "done," it is done, and it can prove it.
 
@@ -159,7 +159,7 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 - **Signed audit log** (`SECURITY_HARDENING.md` §7.1).
 - **"Unverified" as a first-class state.** The UI, the metrics, the status board all distinguish `done` from `claimed-done-but-unverified` from `verified`. Currently they conflate.
 
-### Layer 9 — Security posture
+### Layer 9 - Security posture
 
 **What it means:** An adversary who emails the organism cannot make it act against itself or Tate.
 
@@ -167,7 +167,7 @@ This is the gap map. Every row where "EcodiaOS must build" is nonempty is a laye
 
 **What's missing:** All of `SECURITY_HARDENING.md`. This is the most important layer; without it, every other capability multiplies the blast radius of one injection.
 
-### Layer 10 — Evolution
+### Layer 10 - Evolution
 
 **What it means:** Next month's OS is measurably better than this month's, not just because of a model upgrade.
 
@@ -195,7 +195,7 @@ Models drift on 30-turn tasks; actively diverge at 1000 turns. Compaction helps,
 
 ### 4.2 Sub-second grounded perception
 
-Voice in, video out, multimodal grounding — all ~1.5-3s end-to-end in 2026. Real-time ambient presence needs <500ms.
+Voice in, video out, multimodal grounding - all ~1.5-3s end-to-end in 2026. Real-time ambient presence needs <500ms.
 
 **Workaround:** asynchronous perception. Screenshots every 5 min, email polling, cron triggers. The organism is not *present*; it *catches up every few minutes*. For the 3-month autonomous operation goal, this is enough.
 
@@ -203,15 +203,15 @@ Voice in, video out, multimodal grounding — all ~1.5-3s end-to-end in 2026. Re
 
 ### 4.3 Calibrated uncertainty at action time
 
-Current models score confidence but the calibration is loose — a "0.8 confident" action succeeds less than 80% of the time, usually.
+Current models score confidence but the calibration is loose - a "0.8 confident" action succeeds less than 80% of the time, usually.
 
-**Workaround:** for Tier-3 actions, calibrate empirically — record claimed confidence vs actual outcome per action class, and shift the auto-deploy threshold per class based on observed calibration (`factoryOversightService.js` self-mod threshold is 0.7 today; if calibration shows coding-fixes need 0.85 for parity, raise it). This is ad-hoc calibration, not true calibrated probability.
+**Workaround:** for Tier-3 actions, calibrate empirically - record claimed confidence vs actual outcome per action class, and shift the auto-deploy threshold per class based on observed calibration (`factoryOversightService.js` self-mod threshold is 0.7 today; if calibration shows coding-fixes need 0.85 for parity, raise it). This is ad-hoc calibration, not true calibrated probability.
 
 **Gap:** true calibrated decision-making requires either RLHF-for-this-task or formal verification. Not solvable at agent layer.
 
 ### 4.4 Cross-agent alignment proofs
 
-When two EcodiaOS instances (or EcodiaOS + a client's council system) disagree, there's no formal mechanism to reconcile — they'll just both insist they're right.
+When two EcodiaOS instances (or EcodiaOS + a client's council system) disagree, there's no formal mechanism to reconcile - they'll just both insist they're right.
 
 **Workaround:** for now, one organism per tenant. No multi-agent reconciliation needed until 2028+.
 
@@ -258,13 +258,13 @@ Jarvis knows it's Jarvis. It knows it's running Stark's business. It knows the t
 
 **Ship this within 2 weeks:**
 
-1. `/.claude/SELF.md` — OS-authored, OS-maintained, versioned in git. Contains:
-   - One-line identity statement (signed by the OS itself, dated, renewed monthly).
-   - Top 5 active goals with IDs.
-   - Top 5 unverified claims with handles.
-   - Current operational concerns (things going wrong that haven't been fixed).
-   - Current celebration items (things going well that should be amplified).
-   - "What I'd tell myself if I started fresh tomorrow" reflection, rewritten weekly.
+1. `/.claude/SELF.md` - OS-authored, OS-maintained, versioned in git. Contains:
+ - One-line identity statement (signed by the OS itself, dated, renewed monthly).
+ - Top 5 active goals with IDs.
+ - Top 5 unverified claims with handles.
+ - Current operational concerns (things going wrong that haven't been fixed).
+ - Current celebration items (things going well that should be amplified).
+ - "What I'd tell myself if I started fresh tomorrow" reflection, rewritten weekly.
 
 2. `SELF.md` loads into every session start, alongside CLAUDE.md. Cache it (prompt-cache breakpoint 1).
 
@@ -299,7 +299,7 @@ The composition:
 - Continuity of self done right (foundational; do this first).
 - Frontier breakthrough unlocks in layers 4.1/4.3/4.5 (2028-2032, not on you).
 
-At the end of the deliverable part — call it Q4 2026 — you have a system that is *not* Jarvis in the fictional sense, but *is* a cofounder-grade autonomous operator for Ecodia Pty Ltd across all 10 layers at workable capability. That's the 3-month-travel promise delivered.
+At the end of the deliverable part - call it Q4 2026 - you have a system that is *not* Jarvis in the fictional sense, but *is* a cofounder-grade autonomous operator for Ecodia Pty Ltd across all 10 layers at workable capability. That's the 3-month-travel promise delivered.
 
 The difference between that and the fictional Jarvis is the three frontier gaps. They close on research timelines, not your engineering timeline. Don't block on them.
 

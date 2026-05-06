@@ -6,7 +6,7 @@
 // Running twice in a row produces no diff.
 //
 // Exit codes:
-//   0  success (table written, even if some patterns lack frontmatter — those get
+//   0  success (table written, even if some patterns lack frontmatter - those get
 //      a placeholder row AND a stderr warning naming the file)
 //   1  structural error (cannot find table boundaries in INDEX.md)
 //
@@ -71,7 +71,7 @@ for (const file of files) {
   }
 
   // Strip any em-dashes (defensive; should already be clean per voice doctrine)
-  triggers = triggers.replace(/—/g, ' - ');
+  triggers = triggers.replace(/ - /g, ' - ');
 
   rows.push(`| [${file}](${file}) | ${triggers} |`);
 }

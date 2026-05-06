@@ -4,7 +4,7 @@ const registry = require('../services/capabilityRegistry')
 // CONTEXT TRACKING CAPABILITIES
 //
 // Let the Cortex and organism dismiss items, resolve issues, set
-// preferences, and check whether something should be surfaced — all
+// preferences, and check whether something should be surfaced - all
 // through the standard capability registry.
 // ═══════════════════════════════════════════════════════════════════════
 

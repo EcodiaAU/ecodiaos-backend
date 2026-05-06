@@ -1,15 +1,15 @@
 'use strict'
 
 /**
- * Integration test: gmailService.sendEmailGated — the §3.2/§3.3/§3.4/§7.1
+ * Integration test: gmailService.sendEmailGated - the §3.2/§3.3/§3.4/§7.1
  * composite gate wrapping the existing sendEmail dispatcher.
  *
  * Mocks every side-effect dep so the test runs in isolation without DB,
  * network, or googleapis. What we assert is ordering + fail-closed behaviour:
  *
  *   1. commitmentDetector.analyze runs first.
- *   2. outboundEmailDelayQueue.routeOutbound next — if queued, short-circuit.
- *   3. tier3GateService.verifyAndConsume — if false, throw tier3_gate_denied.
+ *   2. outboundEmailDelayQueue.routeOutbound next - if queued, short-circuit.
+ *   3. tier3GateService.verifyAndConsume - if false, throw tier3_gate_denied.
  *   4. Internal sender fires only on verified.
  *   5. securityAuditLog.append fires after successful send.
  */

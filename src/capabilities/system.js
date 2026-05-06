@@ -2,11 +2,11 @@ const registry = require('../services/capabilityRegistry')
 const env = require('../config/env')
 
 // ═══════════════════════════════════════════════════════════════════════
-// SYSTEM CAPABILITIES — Self-Introspection & Quick Operations
+// SYSTEM CAPABILITIES - Self-Introspection & Quick Operations
 //
 // These give the system (and the organism) the ability to inspect its
 // own state, run quick shell commands, read files, and query its own
-// database — without spinning up a full CC session for trivial ops.
+// database - without spinning up a full CC session for trivial ops.
 //
 // This is the difference between "I need to check a log" taking 30s
 // vs 3 minutes through Factory.
@@ -81,17 +81,17 @@ registry.registerMany([
   // ─── Shell Command ───────────────────────────────────────────────
   {
     name: 'run_shell_command',
-    description: 'Run a shell command on the VPS. Backend code is at ~/ecodiaos/ (Node/Express, no Prisma — uses raw postgres.js). Python organism is at ~/organism/. PM2 manages processes. For quick operations: checking logs, service status, disk space, git status, process info. NOT for code changes.',
+    description: 'Run a shell command on the VPS. Backend code is at ~/ecodiaos/ (Node/Express, no Prisma - uses raw postgres.js). Python organism is at ~/organism/. PM2 manages processes. For quick operations: checking logs, service status, disk space, git status, process info. NOT for code changes.',
     tier: 'write',
     domain: 'system',
-    priority: 'critical',  // always allowed — needed for diagnostics even under pressure
+    priority: 'critical',  // always allowed - needed for diagnostics even under pressure
     params: {
       command: { type: 'string', required: true, description: 'Shell command to execute' },
       cwd: { type: 'string', required: false, description: 'Working directory (default: home)' },
       timeout: { type: 'number', required: false, description: 'Timeout in ms (default: 30000)' },
     },
     handler: async (params) => {
-      // execSync is intentional — this capability is designed for ad-hoc admin commands
+      // execSync is intentional - this capability is designed for ad-hoc admin commands
       // on the VPS where shell features (pipes, globs, env expansion) are needed.
       // Input comes from the AI (Cortex/organism), not external users.
       const { execSync } = require('child_process') // eslint-disable-line security/detect-child-process
@@ -107,7 +107,7 @@ registry.registerMany([
         })
         return { output: output.slice(0, 10_000), exitCode: 0, command: params.command, cwd }
       } catch (err) {
-        // execSync throws on non-zero exit — return stderr/stdout as data, not an error.
+        // execSync throws on non-zero exit - return stderr/stdout as data, not an error.
         // The caller (Cortex, organism) needs to see the output to diagnose, not get a 500.
         return {
           output: (err.stdout || '').slice(0, 5_000),
@@ -125,7 +125,7 @@ registry.registerMany([
     name: 'query_database',
     description: `Run a read-only SQL query against the EcodiaOS database. For diagnostics: checking session counts, error patterns, action queue state, integration health.
 
-IMPORTANT — use exact table names (there is NO table called "goals"):
+IMPORTANT - use exact table names (there is NO table called "goals"):
 Core: clients, projects, tasks, pipeline_events, transactions, notifications, app_errors
 Sessions: cc_sessions, cc_session_logs, cortex_sessions, cortex_context, os_task_sessions
 Factory: factory_learnings, factory_dispatch_log, validation_runs, deployments
@@ -237,7 +237,7 @@ Discard: discard_rules`,
         health.redis = { connected: false, error: err.message }
       }
 
-      // Organism health check removed — organism decoupled
+      // Organism health check removed - organism decoupled
 
       return health
     },
@@ -326,7 +326,7 @@ Discard: discard_rules`,
     },
   },
 
-  // get_cc_session_details — registered in capabilities/factory.js (single source)
+  // get_cc_session_details - registered in capabilities/factory.js (single source)
 
   // ─── List Registered Codebases ───────────────────────────────────
   {
@@ -446,7 +446,7 @@ Discard: discard_rules`,
     name: 'execute_database',
     description: `Execute a SQL mutation (INSERT, UPDATE, DELETE, ALTER, CREATE) against the EcodiaOS database. For operational fixes, data corrections, and schema changes without a full Factory session.
 
-IMPORTANT — use exact table names (there is NO table called "goals"):
+IMPORTANT - use exact table names (there is NO table called "goals"):
 Core: clients, projects, tasks, pipeline_events, transactions, notifications, app_errors
 Sessions: cc_sessions, cc_session_logs, cortex_sessions, cortex_context, os_task_sessions
 Factory: factory_learnings, factory_dispatch_log, validation_runs, deployments

@@ -4,16 +4,16 @@
  * Fork-mode parallelism smoke test - Jest edition.
  *
  * Verifies the load-bearing claim of Build 1: spawnFork() actually runs in
- * parallel — 3 forks each "sleeping" 1.5s should finish in well under the
+ * parallel - 3 forks each "sleeping" 1.5s should finish in well under the
  * sequential 4.5s. We mock the Agent SDK's query() with a generator that
  * sleeps then emits a synthetic [FORK_REPORT] so we don't burn real Anthropic
  * tokens to test the orchestration layer.
  *
  * What's covered:
- *   - 3 forks complete concurrently (wall-clock ~ 1 fork's duration, not 3x).
- *   - The hard cap (5) rejects a 6th simultaneous spawn with HTTP 429-ish.
- *   - abortFork on a live fork transitions it to status='aborted'.
- *   - Every fork-spawn broadcast carries fork_id.
+ * - 3 forks complete concurrently (wall-clock ~ 1 fork's duration, not 3x).
+ * - The hard cap (5) rejects a 6th simultaneous spawn with HTTP 429-ish.
+ * - abortFork on a live fork transitions it to status='aborted'.
+ * - Every fork-spawn broadcast carries fork_id.
  */
 
 // ---- dependency mocks (must be declared before any require of the module under test) ----
@@ -90,7 +90,7 @@ function makeFakeQuery() {
         ac.signal.addEventListener('abort', () => { clearTimeout(t); resolve() }, { once: true })
       }
     })
-    // prompt is an async-iterable message stream — consume the first message
+    // prompt is an async-iterable message stream - consume the first message
     // to get the brief text for the FORK_REPORT, matching forkService's API.
     const promptIter = prompt && typeof prompt[Symbol.asyncIterator] === 'function'
       ? prompt[Symbol.asyncIterator]()
@@ -99,7 +99,7 @@ function makeFakeQuery() {
       yield { type: 'system', subtype: 'init', session_id: `fake-${Math.random().toString(36).slice(2, 8)}`, model: 'fake-sonnet', tools: [] }
       await sleep(delay)
       if (ac && ac.signal && ac.signal.aborted) {
-        // Throw an AbortError-like — production SDK does this via AbortController.
+        // Throw an AbortError-like - production SDK does this via AbortController.
         const err = new Error('aborted')
         err.name = 'AbortError'
         throw err
@@ -111,7 +111,7 @@ function makeFakeQuery() {
         type: 'assistant',
         message: {
           content: [
-            { type: 'text', text: `Did the work for ${briefHead}.\n\n[FORK_REPORT] Synthetic test report — 3 things checked, no issues.` },
+            { type: 'text', text: `Did the work for ${briefHead}.\n\n[FORK_REPORT] Synthetic test report - 3 things checked, no issues.` },
           ],
           usage: { input_tokens: 100, output_tokens: 30 },
         },
@@ -156,7 +156,7 @@ describe('forkService parallelism / cap / abort / broadcast', () => {
     expect(s1.fork_id).not.toBe(s2.fork_id)
 
     // Wait until all three are done. We poll the registry rather than racing
-    // fixed timeouts — that makes the test resilient to slow CI machines.
+    // fixed timeouts - that makes the test resilient to slow CI machines.
     const deadline = Date.now() + 8000
     while (Date.now() < deadline) {
       const live = fork.listForks()
@@ -178,7 +178,7 @@ describe('forkService parallelism / cap / abort / broadcast', () => {
 
   test('hard cap rejects a 6th concurrent fork (cap = 5)', async () => {
     _sdkDelayMs = 1500
-    // Spawn five concurrently — these all succeed.
+    // Spawn five concurrently - these all succeed.
     await Promise.all([
       fork.spawnFork({ brief: 'a' }),
       fork.spawnFork({ brief: 'b' }),

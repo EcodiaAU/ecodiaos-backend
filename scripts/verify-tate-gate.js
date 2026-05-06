@@ -24,7 +24,7 @@ async function run() {
       if (ok) { console.log(`  PASS: ${label}`); passed++ }
       else     { console.log(`  FAIL: ${label}`); failed++ }
     } catch (err) {
-      console.log(`  FAIL: ${label} — threw: ${err.message}`)
+      console.log(`  FAIL: ${label} - threw: ${err.message}`)
       failed++
     }
   }

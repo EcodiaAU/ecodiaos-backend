@@ -36,13 +36,13 @@
  * Exit code: 0 always (advisory), even on errors. Log to stderr.
  *
  * Substrates probed:
- *   - signal_fork              os_forks.started_at IN window
- *   - signal_neo4j_write       neo4j Decision/Episode/Reflection/Realization
+ * - signal_fork              os_forks.started_at IN window
+ * - signal_neo4j_write       neo4j Decision/Episode/Reflection/Realization
  *                              with created_at IN window
- *   - signal_status_board_write status_board.last_touched IN window
+ * - signal_status_board_write status_board.last_touched IN window
  *                              (created or updated, archived rows count
  *                              because archive is itself a write)
- *   - signal_draft_file        ~/ecodiaos/drafts/* mtime IN window
+ * - signal_draft_file        ~/ecodiaos/drafts/* mtime IN window
  *
  * Author: fork_mon9668q_03808e self-evolution session 1 May 2026
  */
@@ -65,7 +65,7 @@ const NEO4J_DATABASE = process.env.NEO4J_DATABASE || 'neo4j';
 
 const DRAFTS_DIR = path.resolve(process.env.HOME || '/home/tate', 'ecodiaos/drafts');
 
-const STATUS_BOARD_ROW_NAME = 'cron silent-fire detector — rolling report';
+const STATUS_BOARD_ROW_NAME = 'cron silent-fire detector - rolling report';
 const NEO4J_ALERT_THRESHOLD = 0.4; // 40% silent fire rate triggers Decision write
 
 // ---------------- arg parsing ----------------
@@ -97,7 +97,7 @@ function parseArgs(argv) {
 
 // ---------------- signal classifier ----------------
 // Each entry: only HARD-MANDATE language counts. Casual mentions of a
-// substrate name are intentionally NOT signals — the doctrine is "the cron
+// substrate name are intentionally NOT signals - the doctrine is "the cron
 // PROMPT advertised a deliverable and the receiving turn delivered nothing."
 // If the prompt does not advertise a hard deliverable, there is nothing to
 // silently fail.
@@ -146,7 +146,7 @@ function classifySignals(prompt) {
 //   "Exit silent on errors=0. If errors>0 insert into status_board..."
 //   "If any deployment has status ERROR: email tate@ecodia.au"
 //   "If 0 rows: log healthy and exit."
-// The substrate write is correctly NOT performed on a healthy fire — silence
+// The substrate write is correctly NOT performed on a healthy fire - silence
 // is the by-design outcome. Treating these as silent-fires produces noise.
 //
 // detectConditionalEscape(prompt) returns { conditional: bool, matches: [...] }.
@@ -155,28 +155,28 @@ function classifySignals(prompt) {
 // 'silent_fire_suspected'. Origin: 2 May 2026 6/6 false-positive sweep on
 // status_board row 0df47f4b. See ~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md.
 const CONDITIONAL_ESCAPE_PATTERNS = [
-  // "Exit silent on" / "silent on" / "exit silent if" — explicit by-design silence
+  // "Exit silent on" / "silent on" / "exit silent if" - explicit by-design silence
   /\bexit\s+silent\s+(?:on|when|if)\b/i,
   /\bsilent\s+(?:on|when|if)\b/i,
   // "silent exit" / "log healthy and exit" / "exit silent/cleanly/early"
   /\b(?:silent\s+exit|log\s+healthy\s+and\s+exit|exit\s+(?:silent|cleanly|early))\b/i,
-  // "If errors>0" / "if rows>0" / "if count<=N" — comparison-gated work
+  // "If errors>0" / "if rows>0" / "if count<=N" - comparison-gated work
   /\bif\s+(?:errors?|count|rows?|deploys?|deployments?|drift|findings?|issues?|gaps?|flags?|results?|stuck_count|delta_\w+|rate_per_min)\s*[><=!]/i,
   // "If 0 rows" / "If 4+ gaps" / "If 1-3 gaps"
   /\bif\s+\d+\+?\s+(?:rows?|gaps?|flags?|errors?|deploys?|deployments?|findings?|issues?|stuck|tasks?)\b/i,
   /\bif\s+\d+\s*[-]\s*\d+\s+(?:rows?|gaps?|flags?|errors?|deploys?|deployments?|findings?|issues?)\b/i,
-  // "Only if/when X: insert/email/update" — explicit only-on-condition imperative
+  // "Only if/when X: insert/email/update" - explicit only-on-condition imperative
   /\bonly\s+(?:if|when)\b[\s\S]{0,80}?(?:write|fork|insert|update|email|spawn|dispatch|append)/i,
-  // "If any/some/no/anything X" — common AS conditional opener
+  // "If any/some/no/anything X" - common AS conditional opener
   /\bIf\s+(?:any|some|no|anything|nothing|all|none|each)\b/i,
-  // "If LOOP CONDITION true" / "if X CONDITION true" — predicate-style
+  // "If LOOP CONDITION true" / "if X CONDITION true" - predicate-style
   /\bif\s+[A-Z_][\w\s]{0,30}\bCONDITION\b/i,
   /\bif\s+\w+\s+(?:true|false)\b/i,
   // Single-keyword tag of advisory / monitoring / conditional / optional
   /\b(?:advisory|monitoring|conditional|optionally|conditionally)\b/i,
-  // "Otherwise X" — implies the prior branch was the silent-by-design path
+  // "Otherwise X" - implies the prior branch was the silent-by-design path
   /\bOtherwise\b[\s\S]{0,80}?(?:send|email|insert|update|write|spawn)/i,
-  // Self-declaring "no action — keep watching" loop (the detector itself uses this)
+  // Self-declaring "no action - keep watching" loop (the detector itself uses this)
   /\bnext_action[^\n]{0,40}["']no\s+action\b/i,
   // "Exit on 0/zero/clean/healthy"
   /\bExit\s+(?:on|with)\s+(?:0|zero|clean|healthy)\b/i,
@@ -402,7 +402,7 @@ async function main() {
       report.green_count += 1;
     } else if (escape.conditional) {
       // Prompt declared the deliverable inside a conditional clause and the
-      // condition did not fire on this run. Silence is by design — green.
+      // condition did not fire on this run. Silence is by design - green.
       taskEntry.verdict = 'green_silent_by_design';
       taskEntry.unmet_signals = unmet;
       report.conditional_silent_count += 1;
@@ -415,7 +415,7 @@ async function main() {
     report.tasks.push(taskEntry);
   }
 
-  // silent_fire_rate denominator excludes conditional_silent — they are NOT
+  // silent_fire_rate denominator excludes conditional_silent - they are NOT
   // failures and skewing the rate would defeat the alert threshold.
   const decided = report.silent_fire_count + report.green_count;
   report.silent_fire_rate = decided > 0 ? report.silent_fire_count / decided : 0;

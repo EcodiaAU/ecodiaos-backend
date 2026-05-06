@@ -35,7 +35,7 @@ app.use(cors({
     const allowed = [
       'https://admin.ecodia.au',
       'http://localhost:5173',
-      // Anthropic — claude.ai custom MCP connector + general Anthropic surfaces.
+      // Anthropic - claude.ai custom MCP connector + general Anthropic surfaces.
       // Bare + subdomain forms (mcp.claude.ai, etc.) per Anthropic's MCP fetcher.
       'https://claude.ai',
       'https://anthropic.com',
@@ -55,7 +55,7 @@ app.use(cors({
 }))
 app.use(compression())
 
-// ── Webhook routes — MUST mount BEFORE express.json() ───────────────────
+// ── Webhook routes - MUST mount BEFORE express.json() ───────────────────
 // Vercel + Stripe webhook handlers need the raw request body for HMAC
 // signature verification. Each router declares its own express.raw() body
 // parser scoped to the route, so once we hand the request off the global
@@ -95,17 +95,17 @@ app.use((req, res, next) => {
   next()
 })
 
-// Health check (no auth) — heavier, includes route registration signal.
+// Health check (no auth) - heavier, includes route registration signal.
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
 // Ultra-lightweight liveness probe for external monitors (and the rescue
-// process). No DB, no Neo4j, no shared state — just "the event loop is
+// process). No DB, no Neo4j, no shared state - just "the event loop is
 // alive and Express is responding." If this fails, the process is dead.
 app.get('/api/healthz', (_req, res) => {
   res.json({ ok: true, pid: process.pid, uptime: process.uptime(), ts: Date.now() })
 })
 
-// Static file serving — generated docs, invoices, reports (no auth needed, files are not guessable)
+// Static file serving - generated docs, invoices, reports (no auth needed, files are not guessable)
 const path = require('path')
 app.use('/api/files', express.static(path.join(__dirname, '../public')))
 
@@ -148,7 +148,7 @@ app.use('/api/telemetry', require('./routes/telemetry'))
 app.use('/api/hands', require('./routes/hands'))
 app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
 app.use('/api/ops', require('./routes/ops'))
-// /api/ops/listener-stats — perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
+// /api/ops/listener-stats - perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
 app.use('/api/ops/listener-stats', require('./routes/ops/listenerStats'))
 app.use('/api/dispatch-queue', require('./routes/dispatchQueue'))
 

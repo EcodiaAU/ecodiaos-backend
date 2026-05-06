@@ -95,7 +95,7 @@ function shouldSkipFile(filePath) {
   return false
 }
 
-// ─── Git Operations (execFileSync — no shell injection) ─────────────
+// ─── Git Operations (execFileSync - no shell injection) ─────────────
 
 function gitExec(args, cwd) {
   try {
@@ -120,25 +120,25 @@ async function syncCodebase(codebaseId) {
     const stashed = stashOut && !stashOut.includes('No local changes')
 
     // Try fast-forward first (clean linear history). If that fails (diverged branches),
-    // fall back to rebase so local commits replay on top of remote — this is the exact
+    // fall back to rebase so local commits replay on top of remote - this is the exact
     // scenario that was causing "fatal: Not possible to fast-forward, aborting." in prod.
     const ffResult = gitExec(['pull', '--ff-only'], codebase.repo_path)
     if (ffResult === null) {
       logger.info('Fast-forward pull failed, falling back to rebase', { repoPath: codebase.repo_path })
       const rebaseResult = gitExec(['pull', '--rebase'], codebase.repo_path)
       if (rebaseResult === null) {
-        // Rebase failed (conflicts) — abort to leave repo in clean state
+        // Rebase failed (conflicts) - abort to leave repo in clean state
         gitExec(['rebase', '--abort'], codebase.repo_path)
-        logger.error('Pull rebase failed (conflicts) — aborting rebase, repo unchanged', { repoPath: codebase.repo_path })
+        logger.error('Pull rebase failed (conflicts) - aborting rebase, repo unchanged', { repoPath: codebase.repo_path })
       }
     }
 
     if (stashed) {
       const popResult = gitExec(['stash', 'pop'], codebase.repo_path)
       if (popResult === null) {
-        // Stash pop conflict — drop the stash entry to avoid it piling up,
+        // Stash pop conflict - drop the stash entry to avoid it piling up,
         // the files are still in the working dir as conflict markers
-        logger.warn('Stash pop had conflicts — dropping stash, check working dir', { repoPath: codebase.repo_path })
+        logger.warn('Stash pop had conflicts - dropping stash, check working dir', { repoPath: codebase.repo_path })
         gitExec(['stash', 'drop'], codebase.repo_path)
       }
     }
@@ -237,7 +237,7 @@ const _indexingInProgress = new Set()
 async function indexCodebase(codebaseId) {
   // Prevent concurrent indexing of the same codebase
   if (_indexingInProgress.has(codebaseId)) {
-    logger.debug(`Codebase ${codebaseId} already being indexed — skipping`)
+    logger.debug(`Codebase ${codebaseId} already being indexed - skipping`)
     return { indexed: 0, skipped: 0, reason: 'already_indexing' }
   }
   _indexingInProgress.add(codebaseId)
@@ -328,7 +328,7 @@ async function _indexCodebaseInner(codebaseId) {
 
 async function embedStaleChunks(batchSize = 50) {
   if (!env.OPENAI_API_KEY) {
-    logger.debug('Code chunk embedding skipped — no OpenAI API key')
+    logger.debug('Code chunk embedding skipped - no OpenAI API key')
     return 0
   }
 

@@ -1,5 +1,5 @@
 /**
- * Fork Finalizer — idempotent terminal-state writes for os_forks.
+ * Fork Finalizer - idempotent terminal-state writes for os_forks.
  *
  * Authored: 30 Apr 2026, fork_mol0k7vp_cb8a60
  * Refs: Decision 3993, Strategic_Direction 3986, Pattern 3976.
@@ -18,13 +18,13 @@
  * The finalizer guarantees that once finalize() is called (or once the
  * UPDATE has landed), the os_forks row converges to a terminal status
  * regardless of subsequent process state. Idempotent: multiple calls for
- * the same fork are safe — the WHERE clause excludes already-terminal rows.
+ * the same fork are safe - the WHERE clause excludes already-terminal rows.
  *
  * Public API
  * ──────────
  *   await finalize(forkId, terminalStatus, result?)
  *     terminalStatus ∈ {'done', 'aborted', 'error'}
- *     result          string|null — preserved if column already non-null
+ *     result          string|null - preserved if column already non-null
  *
  *   Returns { updated, alreadyTerminal, notFound }
  *     updated         true if this call wrote terminal status to the row
@@ -33,9 +33,9 @@
  *
  * Idempotency
  * ───────────
- *  - SQL: UPDATE … WHERE fork_id=$1 AND status NOT IN ('done','aborted','error')
- *  - ended_at: COALESCE(ended_at, now()) — preserves the original terminal time
- *  - result:   COALESCE(result, $supplied) — preserves any earlier result write
+ * - SQL: UPDATE … WHERE fork_id=$1 AND status NOT IN ('done','aborted','error')
+ * - ended_at: COALESCE(ended_at, now()) - preserves the original terminal time
+ * - result:   COALESCE(result, $supplied) - preserves any earlier result write
  *
  * Note on 'crashed'
  * ─────────────────
@@ -46,7 +46,7 @@
  * startup BEFORE any new forks spawn, so finalize() never races against a
  * 'crashed' row in commit 1's scope. If a 'crashed' row coexists with a
  * later finalize() (post-recovery), this WHERE would still let the finalize
- * overwrite it — that case is currently unreachable but worth flagging if
+ * overwrite it - that case is currently unreachable but worth flagging if
  * commit 2's pm2-detach work introduces a new race.
  */
 'use strict'
@@ -70,7 +70,7 @@ async function finalize(forkId, terminalStatus, result = null) {
   }
   if (!TERMINAL_STATES.has(terminalStatus)) {
     throw new Error(
-      `forkFinalizer.finalize: invalid terminalStatus "${terminalStatus}" — must be one of: done, aborted, error`
+      `forkFinalizer.finalize: invalid terminalStatus "${terminalStatus}" - must be one of: done, aborted, error`
     )
   }
 
@@ -89,7 +89,7 @@ async function finalize(forkId, terminalStatus, result = null) {
       RETURNING fork_id, status
     `
   } catch (err) {
-    // Surface DB errors — caller decides whether to re-throw or swallow. Logs
+    // Surface DB errors - caller decides whether to re-throw or swallow. Logs
     // here so a guarantor-style swallowed catch in forkService still leaves a
     // breadcrumb for post-mortem.
     logger.error('forkFinalizer.finalize: UPDATE failed', {
@@ -104,7 +104,7 @@ async function finalize(forkId, terminalStatus, result = null) {
     return { updated: true, alreadyTerminal: false, notFound: false }
   }
 
-  // Step 2: 0 rows updated — disambiguate alreadyTerminal vs notFound.
+  // Step 2: 0 rows updated - disambiguate alreadyTerminal vs notFound.
   // A separate SELECT is the cheapest way to distinguish; we deliberately
   // avoid pre-fetching in step 1 to keep the happy-path a single round trip.
   let probe
@@ -116,7 +116,7 @@ async function finalize(forkId, terminalStatus, result = null) {
       LIMIT 1
     `
   } catch (err) {
-    // Probe failure is non-fatal — we report ambiguity rather than throwing.
+    // Probe failure is non-fatal - we report ambiguity rather than throwing.
     logger.warn('forkFinalizer.finalize: probe SELECT failed (non-fatal)', {
       fork_id: forkId,
       error: err.message,
@@ -129,7 +129,7 @@ async function finalize(forkId, terminalStatus, result = null) {
     return { updated: false, alreadyTerminal: true, notFound: false }
   }
 
-  // Truly missing — finalize() called for an id that never had an os_forks row.
+  // Truly missing - finalize() called for an id that never had an os_forks row.
   // This is the case the brief calls out as warn-worthy.
   logger.warn('forkFinalizer.finalize: row truly missing (no os_forks entry)', {
     fork_id: forkId,

@@ -9,7 +9,7 @@
  *   3. consumeHandoffState returns the formatted block AND marks row consumed.
  *   4. peekHandoffState returns null after consume.
  *   5. consumeHandoffState returns null after consume.
- *   6. saveHandoffState with NEW data resets — subsequent peek returns the new block.
+ *   6. saveHandoffState with NEW data resets - subsequent peek returns the new block.
  *
  * The db mock simulates kv_store JSONB operations in-memory so this runs
  * without a real Postgres connection.
@@ -115,7 +115,7 @@ describe('sessionHandoff consume-vs-peek separation', () => {
     expect(second).toBeNull()
   })
 
-  test('5. saveHandoffState with new data resets — peek returns new block', async () => {
+  test('5. saveHandoffState with new data resets - peek returns new block', async () => {
     await saveHandoffState({ current_work: 'old work' })
     await consumeHandoffState() // consume the old one
 
@@ -132,7 +132,7 @@ describe('sessionHandoff consume-vs-peek separation', () => {
     expect(result).not.toContain('old work')
   })
 
-  test('6. peek is non-destructive — multiple peeks return same block', async () => {
+  test('6. peek is non-destructive - multiple peeks return same block', async () => {
     await saveHandoffState({ current_work: 'peek-safe work' })
 
     const first = await peekHandoffState()

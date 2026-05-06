@@ -6,7 +6,7 @@ const queries = require('../db/queries/contextTracking')
 //
 // Persistent memory for the Cortex: what was dismissed, what was resolved,
 // what the human prefers, and what topics are being tracked. This is the
-// filter that prevents the system from being annoying — re-surfacing
+// filter that prevents the system from being annoying - re-surfacing
 // things the human already dealt with, re-investigating solved problems,
 // or violating stated preferences.
 //
@@ -40,7 +40,7 @@ async function shouldSurface(itemKey) {
 
     return { surface: true, reason: 'no_prior_context' }
   } catch (err) {
-    logger.debug('Context tracking check failed — surfacing by default', { itemKey, error: err.message })
+    logger.debug('Context tracking check failed - surfacing by default', { itemKey, error: err.message })
     return { surface: true, reason: 'check_failed' }
   }
 }
@@ -63,13 +63,13 @@ async function filterSurfaceable(items) {
       return !dismissedSet.has(item.itemKey)
     })
   } catch (err) {
-    logger.debug('Context tracking bulk filter failed — returning all', { error: err.message })
+    logger.debug('Context tracking bulk filter failed - returning all', { error: err.message })
     return items
   }
 }
 
 /**
- * Dismiss an item — mark it as dealt with so it won't be re-surfaced.
+ * Dismiss an item - mark it as dealt with so it won't be re-surfaced.
  */
 async function dismiss({ source, actionType, identifier, title, reason, metadata, expiresAt, permanent }) {
   const itemKey = buildItemKey(source, actionType, identifier)
@@ -111,7 +111,7 @@ async function reopen({ source, issueType, identifier }) {
 }
 
 /**
- * Undismiss an item — allow it to be surfaced again.
+ * Undismiss an item - allow it to be surfaced again.
  */
 async function undismiss({ source, actionType, identifier }) {
   const itemKey = buildItemKey(source, actionType, identifier)
@@ -142,14 +142,14 @@ async function getContextSummary() {
     if (recentDismissals.length > 0) {
       parts.push(`Recently dismissed (${recentDismissals.length} items):`)
       for (const d of recentDismissals.slice(0, 10)) {
-        parts.push(`  - ${d.item_key}${d.reason ? ` (${d.reason})` : ''}`)
+        parts.push(` - ${d.item_key}${d.reason ? ` (${d.reason})` : ''}`)
       }
     }
 
     if (activeTopics.length > 0) {
       parts.push('Active conversation topics:')
       for (const t of activeTopics) {
-        parts.push(`  - ${t.topic}${t.summary ? `: ${t.summary}` : ''}`)
+        parts.push(` - ${t.topic}${t.summary ? `: ${t.summary}` : ''}`)
       }
     }
 

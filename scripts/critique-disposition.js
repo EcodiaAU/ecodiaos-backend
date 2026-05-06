@@ -4,7 +4,7 @@
 /**
  * critique-disposition.js
  *
- * Layer 8 consumer cron — disposes Critique nodes produced by the Phase G
+ * Layer 8 consumer cron - disposes Critique nodes produced by the Phase G
  * audit cron. Runs daily 09:00 AEST (cron `critique-disposition`).
  *
  * Producer side: phase-G self-audit cron writes Critique nodes with
@@ -82,7 +82,7 @@ function neoTimeToIso(t) {
   if (typeof t.toString === 'function') {
     try {
       const s = t.toString();
-      // DateTime.toString() looks like "2026-05-04T12:06:11.457000000Z" — usable.
+      // DateTime.toString() looks like "2026-05-04T12:06:11.457000000Z" - usable.
       return s;
     } catch (_) { return null; }
   }
@@ -223,7 +223,7 @@ async function insertStatusBoardRow({ critique, priority, isRepeat, repeatRef })
     status: isRepeat ? 'repeat_critique_escalated' : 'graduated_from_critique',
     next_action: critique.target
       ? `Address: ${critique.target.slice(0, 280)}`
-      : 'Triage critique target — see context for details',
+      : 'Triage critique target - see context for details',
     next_action_by: 'ecodiaos',
     priority,
     context: JSON.stringify(contextObj),
@@ -438,7 +438,7 @@ async function main() {
           title_snippet: safeText(critique.title).slice(0, 80),
         });
       }
-      console.log(`  - ${result.decision} sev=${critique.severity} class=${critique.failure_class} audit=${critique.audit_id}`);
+      console.log(` - ${result.decision} sev=${critique.severity} class=${critique.failure_class} audit=${critique.audit_id}`);
     } catch (err) {
       console.error('[critique-disposition] disposeOne error:', err.message, 'critique=', critique.elementId);
     }
@@ -451,7 +451,7 @@ async function main() {
       console.error('[critique-disposition] writeRunEpisode error:', err.message);
     }
   } else {
-    console.log('[critique-disposition] zero processed — silent success per cron-deliverables-can-be-conditional doctrine');
+    console.log('[critique-disposition] zero processed - silent success per cron-deliverables-can-be-conditional doctrine');
   }
 
   const elapsed = Date.now() - start;

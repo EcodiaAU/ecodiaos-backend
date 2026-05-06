@@ -99,7 +99,7 @@ async function isSecretPath(filePath, repoPath) {
 // ─── Gate 2: Content Scrubbing ──────────────────────────────────────
 
 const SECRET_PATTERNS = [
-  // API keys (various formats) — bounded quantifiers to prevent ReDoS
+  // API keys (various formats) - bounded quantifiers to prevent ReDoS
   /(?:api[_-]?key|apikey|api_secret)\s*[:=]\s*['"]?[\w\-./+=]{20,256}['"]?/gi,
   // Bearer tokens
   /Bearer\s+[\w\-./+=]{20,512}/g,
@@ -110,7 +110,7 @@ const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]{10,8192}?-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/g,
   // JWT tokens (3 base64 segments)
   /eyJ[A-Za-z0-9_-]{10,512}\.[A-Za-z0-9_-]{10,512}\.[A-Za-z0-9_-]{10,512}/g,
-  // Generic secret assignments — bounded value length
+  // Generic secret assignments - bounded value length
   /(?:password|passwd|pwd|secret|token|auth_token|access_token|refresh_token)\s*[:=]\s*['"][^'"]{8,256}['"]/gi,
   // Connection strings with credentials (postgres, postgresql, mysql, mongodb, mongodb+srv, redis, amqp)
   /(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp):\/\/[^:]+:[^@]+@[^\s'"]{1,512}/gi,

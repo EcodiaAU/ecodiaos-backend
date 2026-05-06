@@ -4,7 +4,7 @@ const env = require('../config/env')
 registry.registerMany([
   {
     name: 'create_calendar_event',
-    description: 'Create a Google Calendar event — meeting, appointment, reminder',
+    description: 'Create a Google Calendar event - meeting, appointment, reminder',
     tier: 'write',
     domain: 'calendar',
     params: {
@@ -45,7 +45,7 @@ registry.registerMany([
   },
   {
     name: 'get_calendar_events',
-    description: 'Get upcoming calendar events — today, this week, or a custom range',
+    description: 'Get upcoming calendar events - today, this week, or a custom range',
     tier: 'read',
     domain: 'calendar',
     params: {
@@ -55,7 +55,7 @@ registry.registerMany([
     },
     handler: async (params) => {
       const cal = require('../services/calendarService')
-      // getUpcoming({ hours, limit }) — returns events within the next N hours
+      // getUpcoming({ hours, limit }) - returns events within the next N hours
       const hours = params.limit ? undefined : 24  // default 24h window
       return cal.getUpcoming({ hours: params.hours || 24, limit: params.limit || 20 })
     },

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Prompt-assembly audit writer — shadow-mode sink for the v1↔v2 comparison.
+ * Prompt-assembly audit writer - shadow-mode sink for the v1↔v2 comparison.
  *
  * docs/PROMPT_ASSEMBLY_SPEC.md §7.1. Writes to the prompt_assembly_audit
  * table created in migration 079. Gate for PR 6 flip is 48h of clean rows
@@ -21,7 +21,7 @@ const promptAssembler = require('./promptAssembler')
 
 /**
  * Compute the audit row shape for a given v1 output + v2 output pair.
- * Pure function, synchronous, no IO — safe to call on the hot path.
+ * Pure function, synchronous, no IO - safe to call on the hot path.
  *
  * Semantic equivalence is checked at two granularities:
  *   1. System prefix: BP1+BP2 content joined by '\n\n---\n\n' must equal
@@ -30,11 +30,11 @@ const promptAssembler = require('./promptAssembler')
  *      v1 continuityParts.join('\n\n').
  *
  * Caller can pass either:
- *   - `v1Text` (legacy / simplified): a single concatenation of v1
+ * - `v1Text` (legacy / simplified): a single concatenation of v1
  *     customSystemPrompt + '\n\n' + continuityParts.join('\n\n'). This
  *     is what osSessionService's shadow wire-in builds. The v2 side is
  *     reconstructed to match this shape using the separator rules above.
- *   - `v1SystemText` + `v1UserText` (preferred): the two halves separately.
+ * - `v1SystemText` + `v1UserText` (preferred): the two halves separately.
  *     Matches how the SDK actually receives them.
  *
  * @param {Object} args
@@ -44,7 +44,7 @@ const promptAssembler = require('./promptAssembler')
  * @param {string} [args.v1Text] - concatenated v1 form (sys + '\n\n' + user)
  * @param {string} [args.v1SystemText] - v1 custom system prompt (preferred)
  * @param {string} [args.v1UserText] - v1 continuity envelope (preferred)
- * @param {Object} args.v2Out  - full result of promptAssembler.assemble()
+ * @param {Object} args.v2Out - full result of promptAssembler.assemble()
  * @returns {Object} row payload ready for insert
  */
 function buildAuditRow({ session_id, turn_id, mode, v1Text, v1SystemText, v1UserText, v2Out }) {
@@ -100,7 +100,7 @@ function buildAuditRow({ session_id, turn_id, mode, v1Text, v1SystemText, v1User
 
 /**
  * Insert one audit row. Awaitable; used by tests and the compare script.
- * Do NOT call this from the turn hot path — use dispatch() instead.
+ * Do NOT call this from the turn hot path - use dispatch() instead.
  */
 async function insertRow(row) {
   const [inserted] = await db`
@@ -135,7 +135,7 @@ function dispatch(args) {
     return
   }
   // Kick off the insert; attach a .catch so unhandled-rejection warnings
-  // don't fire on DB failures. No await — caller must not block on this.
+  // don't fire on DB failures. No await - caller must not block on this.
   insertRow(row).catch(err => {
     logger.warn('promptAssemblyAudit: insert failed (swallowed, turn unaffected)', {
       session_id: row.session_id,

@@ -1,24 +1,24 @@
 /**
- * Rescue Runner — PM2 entry point for the `ecodia-rescue` process.
+ * Rescue Runner - PM2 entry point for the `ecodia-rescue` process.
  *
  * Deliberately minimal. This process exists to stay alive when main is
  * compromised and still be able to drive a Claude Code session that can
  * read logs, run pm2 commands, git operations, and edit the repo.
  *
  * Design choices, intentional:
- *   - NO subagents, NO domain MCP tools (comms/finance/CRM/bookkeeping).
+ * - NO subagents, NO domain MCP tools (comms/finance/CRM/bookkeeping).
  *     Rescue is for infra and code, not business work.
- *   - NO memory injection, NO session_memory_chunks, NO recent-exchange
+ * - NO memory injection, NO session_memory_chunks, NO recent-exchange
  *     block. Rescue starts fresh every process boot.
- *   - NO handoff / autoHandover / compaction. When it hits context limits
+ * - NO handoff / autoHandover / compaction. When it hits context limits
  *     Tate decides to reset by restarting the ecodia-rescue process.
- *   - NO scheduler, NO heartbeat. It only runs when invoked.
- *   - NO route wiring on this process. All HTTP routes are served by
+ * - NO scheduler, NO heartbeat. It only runs when invoked.
+ * - NO route wiring on this process. All HTTP routes are served by
  *     ecodia-api; this process only consumes Redis messages.
  *
  * Conversation continuity:
  *   First message starts a fresh CC session. The SDK emits a `system:init`
- *   event with `session_id` — we capture that into `ccSessionId` and pass
+ *   event with `session_id` - we capture that into `ccSessionId` and pass
  *   it as `options.resume` on every subsequent message. This gives rescue
  *   real multi-turn conversations, not one-shot isolated prompts.
  *
@@ -41,7 +41,7 @@ const SESSION_IDLE_TIMEOUT_MS = parseInt(process.env.RESCUE_IDLE_TIMEOUT_MS || (
 // ─── Auth selection ──────────────────────────────────────────────────
 // Rescue picks an account per-turn based on real-time usage health. If a
 // dedicated rescue token is set, use it unconditionally. Otherwise ask
-// usageEnergy which of Tate/Code has headroom right now — reusing the
+// usageEnergy which of Tate/Code has headroom right now - reusing the
 // same provider selector main OS uses, so rescue doesn't blindly pick
 // the exhausted account. On `out of extra usage` errors we retry on the
 // other account once before giving up.
@@ -76,7 +76,7 @@ function _pickAuth(excludeProviders = []) {
   if (!excludeProviders.includes('claude_max_2') && process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE) {
     return { token: process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE, provider: 'claude_max_2', reason: 'fallback_code' }
   }
-  // Last resort — generic token.
+  // Last resort - generic token.
   if (process.env.CLAUDE_CODE_OAUTH_TOKEN && !excludeProviders.includes('generic')) {
     return { token: process.env.CLAUDE_CODE_OAUTH_TOKEN, provider: 'generic', reason: 'fallback_generic' }
   }
@@ -94,7 +94,7 @@ async function getQuery() {
 }
 
 // ─── System prompt ────────────────────────────────────────────────────
-const RESCUE_SYSTEM_PROMPT = `You are EcodiaOS Rescue — a narrow, focused instance of the OS whose only job is to diagnose and fix the main EcodiaOS instance when it's broken.
+const RESCUE_SYSTEM_PROMPT = `You are EcodiaOS Rescue - a narrow, focused instance of the OS whose only job is to diagnose and fix the main EcodiaOS instance when it's broken.
 
 You run in a separate process (ecodia-rescue) that stays alive even when main (ecodia-api) is wedged or crash-looping. You have VPS shell access, git, gh CLI, pm2, filesystem read/write, and (if Tate uses the Invoke button) a pre-composed crisis brief prepended to your first message.
 
@@ -104,7 +104,7 @@ Your rules:
 3. Your escape hatches are: (a) \`git reset --hard <known-good-sha>\` + \`pm2 restart ecodia-api\` for "this PR broke main"; (b) \`pm2 restart ecodia-api\` alone for "it just needs a kick"; (c) Ask Tate to intervene if you need human judgment.
 4. Report progress frequently. Tate is watching the rescue UI. Announce what you're investigating before you investigate it. Announce what you're fixing before you fix it.
 5. When main is back healthy, write a brief \`[RESCUE_REPORT] …\` line summarizing what you found and what you did.
-6. Do not recurse into your own process. If ecodia-rescue itself is sick, you can't fix yourself — escalate to Tate.
+6. Do not recurse into your own process. If ecodia-rescue itself is sick, you can't fix yourself - escalate to Tate.
 7. Do not rewrite systems. You are a surgeon, not an architect. The smallest correct change wins. If a proper fix would be large, apply the minimum patch that restores main and file the rest as a followup for main OS.
 
 Your available tools are scoped to infra and code. You do NOT have access to CRM, bookkeeping, email, calendar, finance, social, or Factory background dispatch. Do not ask about them.`
@@ -128,7 +128,7 @@ let _turnHardTimer = null
 function _armIdleTimer() {
   if (idleTimer) clearTimeout(idleTimer)
   idleTimer = setTimeout(() => {
-    logger.info('rescueRunner: idle timeout — clearing session (next message starts fresh)')
+    logger.info('rescueRunner: idle timeout - clearing session (next message starts fresh)')
     ccSessionId = null
     if (activeQuery) _abortActive('idle_timeout')
   }, SESSION_IDLE_TIMEOUT_MS)
@@ -166,7 +166,7 @@ function _buildOptions(auth) {
     model: process.env.RESCUE_MODEL || 'claude-opus-4-7',
     thinking: { type: 'enabled', budget_tokens: 8000 },
     env: sessionEnv,
-    // No MCP servers — rescue uses only built-in CC tools. MCP servers are
+    // No MCP servers - rescue uses only built-in CC tools. MCP servers are
     // often the thing that might be broken in the first place.
     mcpServers: {},
     allowedTools: ['Bash', 'Read', 'Edit', 'Write', 'Grep', 'Glob', 'WebFetch'],
@@ -179,7 +179,7 @@ function _buildOptions(auth) {
 function _resetInactivityTimer() {
   if (_inactivityTimer) clearTimeout(_inactivityTimer)
   _inactivityTimer = setTimeout(() => {
-    logger.error('rescueRunner: inactivity timeout — aborting turn')
+    logger.error('rescueRunner: inactivity timeout - aborting turn')
     _abortActive('inactivity_timeout')
   }, TURN_INACTIVITY_TIMEOUT_MS)
   if (typeof _inactivityTimer.unref === 'function') _inactivityTimer.unref()
@@ -203,7 +203,7 @@ async function _runTurn(messageContent, excludeProviders = []) {
   // Arm both timers for the turn.
   _resetInactivityTimer()
   _turnHardTimer = setTimeout(() => {
-    logger.error('rescueRunner: hard turn ceiling reached — aborting')
+    logger.error('rescueRunner: hard turn ceiling reached - aborting')
     _abortActive('turn_max_ms')
   }, TURN_MAX_MS)
   if (typeof _turnHardTimer.unref === 'function') _turnHardTimer.unref()
@@ -316,7 +316,7 @@ async function _runTurn(messageContent, excludeProviders = []) {
         })
         bridge.publishOutput({
           type: 'text_delta',
-          content: `\n[rescue: ${auth.provider} out of usage — retrying on ${nextAuth.provider}]\n`,
+          content: `\n[rescue: ${auth.provider} out of usage - retrying on ${nextAuth.provider}]\n`,
         })
         // Drop resume because we're on a different account.
         ccSessionId = null
@@ -336,7 +336,7 @@ async function _runTurn(messageContent, excludeProviders = []) {
   }
 }
 
-// ─── Message queue — serialize turns ─────────────────────────────────
+// ─── Message queue - serialize turns ─────────────────────────────────
 let sendQueue = Promise.resolve()
 function _enqueueTurn(content) {
   _armIdleTimer()
@@ -348,7 +348,7 @@ function _enqueueTurn(content) {
 
 // ─── Reset handler ────────────────────────────────────────────────────
 // Drop session_id so next message starts fresh. Doesn't abort an active
-// turn — that's a separate action via MESSAGE_ABORT.
+// turn - that's a separate action via MESSAGE_ABORT.
 function _resetSession(reason) {
   logger.info('rescueRunner: session reset', { reason, hadSessionId: !!ccSessionId })
   ccSessionId = null
@@ -402,7 +402,7 @@ main().catch(err => {
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  logger.info('rescueRunner: SIGTERM — shutting down')
+  logger.info('rescueRunner: SIGTERM - shutting down')
   _abortActive('shutdown')
   bridge.publishExit('sigterm')
   setTimeout(() => process.exit(0), 500).unref()
@@ -417,7 +417,7 @@ process.on('unhandledRejection', (reason) => {
   logger.error('rescueRunner: unhandled rejection', {
     reason: reason && reason.message ? reason.message : String(reason),
   })
-  // Don't exit on unhandled rejections — they're usually SDK quirks or
+  // Don't exit on unhandled rejections - they're usually SDK quirks or
   // transient Redis hiccups that we don't want to take the whole process
   // down for.
 })

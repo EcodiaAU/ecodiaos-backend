@@ -2,17 +2,17 @@ const logger = require('../config/logger')
 const env = require('../config/env')
 
 if (!env.GOOGLE_SERVICE_ACCOUNT_JSON || env.GOOGLE_SERVICE_ACCOUNT_JSON === '{}') {
-  logger.info('Calendar poller skipped — GOOGLE_SERVICE_ACCOUNT_JSON not set')
+  logger.info('Calendar poller skipped - GOOGLE_SERVICE_ACCOUNT_JSON not set')
   module.exports = {}
 } else {
 
 // ═══════════════════════════════════════════════════════════════════════
-// CALENDAR POLLER — Adaptive loop
+// CALENDAR POLLER - Adaptive loop
 //
 // Poll frequency adapts to how busy the calendar is:
-//   - Events upcoming in <2 hours → poll every 2 min
-//   - Events today → poll every 5 min
-//   - Nothing imminent → poll every 15 min
+// - Events upcoming in <2 hours → poll every 2 min
+// - Events today → poll every 5 min
+// - Nothing imminent → poll every 15 min
 // Meeting prep surfaces whenever the loop finds something upcoming.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -20,7 +20,7 @@ const calendarService = require('../services/calendarService')
 const { createNotification } = require('../db/queries/transactions')
 const { recordHeartbeat } = require('./heartbeat')
 
-logger.info('Calendar poller started — adaptive loop')
+logger.info('Calendar poller started - adaptive loop')
 
 let running = true
 let pollTimer = null
@@ -51,7 +51,7 @@ async function poll() {
     nextDelayMs = 5 * 60_000  // retry in 5 min on error
   }
 
-  // Meeting prep runs every cycle — calendarService decides if there's anything to surface
+  // Meeting prep runs every cycle - calendarService decides if there's anything to surface
   try {
     await calendarService.surfaceUpcomingMeetingPrep()
   } catch (err) {

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Filesystem watcher — closes Wave B's doctrine_authored matcher loop.
+ * Filesystem watcher - closes Wave B's doctrine_authored matcher loop.
  *
  * Manager: fork_mosn8o5x_7a0e54 (Wave C, worker C1, 5 May 2026).
  *
@@ -10,8 +10,8 @@
  * to the perception bus on actual change events (NOT on initial scan).
  *
  * Wave B's doctrineAuthored matcher subscribes via:
- *   - kind === 'pattern_file_created' || kind === 'pattern_file_updated'
- *   - OR (event.source === 'fs_watcher' && data.path includes '/patterns/')
+ * - kind === 'pattern_file_created' || kind === 'pattern_file_updated'
+ * - OR (event.source === 'fs_watcher' && data.path includes '/patterns/')
  * The kind-based path is what fires for us; matching the brief verbatim.
  *
  * Strategy: prefer chokidar (richer events, ignoreInitial flag). If chokidar
@@ -97,7 +97,7 @@ function _startChokidar(chokidar) {
 function _startFsWatch() {
   // fs.watch on a directory emits { eventType: 'rename'|'change', filename }.
   // 'rename' fires for both create and delete, so we statSync to disambiguate.
-  // No synthetic initial-scan events — change-driven only.
+  // No synthetic initial-scan events - change-driven only.
   if (!fs.existsSync(PATTERNS_DIR)) {
     logger.warn('fsWatcher: patterns dir does not exist, skipping fs.watch start', { dir: PATTERNS_DIR })
     return null
@@ -115,7 +115,7 @@ function _startFsWatch() {
     let exists = false
     try { exists = fs.statSync(filePath).isFile() } catch { exists = false }
     if (!exists) {
-      // delete — not part of the brief's published kinds, ignore
+      // delete - not part of the brief's published kinds, ignore
       _knownFiles.delete(filePath)
       return
     }
@@ -126,7 +126,7 @@ function _startFsWatch() {
       _knownFiles.add(filePath)
       _debounced(filePath, action)
     } else {
-      // 'change' — content updated. Always update; if we somehow didn't
+      // 'change' - content updated. Always update; if we somehow didn't
       // know about it, also treat as created.
       const action = _knownFiles.has(filePath) ? 'updated' : 'created'
       _knownFiles.add(filePath)

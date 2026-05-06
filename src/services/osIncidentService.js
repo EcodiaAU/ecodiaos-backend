@@ -1,5 +1,5 @@
 /**
- * Structured incident log — one row per non-trivial failure.
+ * Structured incident log - one row per non-trivial failure.
  *
  * The OS reads this to diagnose itself. Not for a human dashboard.
  * Every callsite logs a normalized `kind` so the OS can group and
@@ -11,10 +11,10 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
 
-// Fixed vocabulary — keep this small. The OS learns to reason about
+// Fixed vocabulary - keep this small. The OS learns to reason about
 // these specific labels, so introducing new ones is a semantic break.
 const KNOWN_KINDS = new Set([
-  'turn_failure',        // SDK stream ended bad — empty, inactivity, tool hang
+  'turn_failure',        // SDK stream ended bad - empty, inactivity, tool hang
   'mcp_failure',         // MCP server unreachable or returned error repeatedly
   'provider_switch',     // DeepSeek fallback triggered OR returned to Max
   'tool_hung',           // tool watchdog fired
@@ -26,13 +26,13 @@ const KNOWN_KINDS = new Set([
   'neo4j_unreachable',   // KG context fetch failed
   'empty_sdk_stream',    // CC CLI exited with no result message
   'subsystem_recovered', // a previously-failed subsystem came back
-  'context_reset',       // ccSessionId was nulled — auto-handover, stale-retry, empty-stream retry. Why matters.
+  'context_reset',       // ccSessionId was nulled - auto-handover, stale-retry, empty-stream retry. Why matters.
 ])
 
 async function log({ kind, severity = 'warn', component = null, message, context = {} }) {
   try {
     if (!KNOWN_KINDS.has(kind)) {
-      // Log unknown kinds but still store them — don't lose signal because
+      // Log unknown kinds but still store them - don't lose signal because
       // a callsite drifted. Just warn so we notice vocabulary drift.
       logger.debug('osIncident: unknown kind', { kind })
     }
@@ -41,7 +41,7 @@ async function log({ kind, severity = 'warn', component = null, message, context
       VALUES (${kind}, ${severity}, ${component}, ${String(message || '').slice(0, 2000)}, ${context})
     `.catch(err => logger.debug('osIncident: write failed', { error: err.message, kind }))
   } catch (err) {
-    // Swallow — incident logging must never break the caller's path.
+    // Swallow - incident logging must never break the caller's path.
     logger.debug('osIncident: log call crashed', { error: err.message })
   }
 }
@@ -107,7 +107,7 @@ async function patterns({ hours = 24 } = {}) {
   }
 }
 
-// Summary counters for the heartbeat's grounded context — cheap single row
+// Summary counters for the heartbeat's grounded context - cheap single row
 // so every heartbeat can check "is anything repeatedly failing right now?"
 async function recentSummary({ hours = 4 } = {}) {
   const since = new Date(Date.now() - hours * 3_600_000)

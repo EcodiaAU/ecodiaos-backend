@@ -4,8 +4,8 @@
  * /api/ops - Observability dashboard per docs/OBSERVABILITY_SPEC.md §2.
  *
  * Two endpoints:
- *   GET /api/ops/metrics   - JSON snapshot of the 6 core signals + security
- *   GET /api/ops           - minimal server-rendered HTML dashboard
+ *   GET /api/ops/metrics - JSON snapshot of the 6 core signals + security
+ *   GET /api/ops - minimal server-rendered HTML dashboard
  *
  * Metrics covered:
  *   1. Per-turn token breakdown (from claude_usage table)
@@ -16,10 +16,10 @@
  *   6. Context saturation (os_session_compact_events if present)
  *
  * Security panel (bonus):
- *   - Credential redactions (24h)
- *   - Tier-3 gate invocations
- *   - Review B verdicts
- *   - Quarantined doctrine count
+ * - Credential redactions (24h)
+ * - Tier-3 gate invocations
+ * - Review B verdicts
+ * - Quarantined doctrine count
  *
  * Failure shape: each panel is its own Promise.allSettled branch. If one
  * table is missing, the panel returns null and the page renders a
@@ -307,7 +307,7 @@ function kv(label, value, cls) {
   const k = el('span', { class: 'k' }, [label])
   const v = el('span', { class: 'v ' + (cls || '') })
   if (value === null || value === undefined) {
-    v.appendChild(el('span', { class: 'warn' }, ['—']))
+    v.appendChild(el('span', { class: 'warn' }, [' - ']))
   } else {
     v.appendChild(document.createTextNode(String(value)))
   }
@@ -363,7 +363,7 @@ function renderCacheHit(d) {
   const r24 = t.cache_hit_ratio_24h
   const rwk = t.cache_hit_ratio_this_week
   // Cache hit ratio threshold for color: <30% is cold (warn), 30-60% is
-  // ok, >60% is good. These are heuristics — adjust as we learn the actual
+  // ok, >60% is good. These are heuristics - adjust as we learn the actual
   // distribution post-flip.
   const cls24 = r24 === null ? '' : (r24 > 0.6 ? 'ok' : r24 > 0.3 ? 'warn' : 'err')
   return panel('cache hit ratio', [

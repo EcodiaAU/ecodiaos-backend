@@ -1,5 +1,5 @@
 /**
- * Zernio MCP tools — unified social media API (14+ platforms).
+ * Zernio MCP tools - unified social media API (14+ platforms).
  * Replaces per-platform integrations (LinkedIn posts, Meta posts) with a single API.
  * Docs: https://docs.zernio.com
  */
@@ -61,7 +61,7 @@ export function registerZernioTools(server) {
         platform: z.string().describe('Platform name: twitter, instagram, facebook, linkedin, tiktok, youtube, pinterest, reddit, bluesky, threads, telegram, whatsapp'),
         accountId: z.string().describe('Account ID from zernio_list_accounts'),
       }), 'Array of {platform, accountId} objects. Get accountIds from zernio_list_accounts.'),
-      scheduledFor: z.string().optional().describe('ISO datetime to schedule (optional — publishes immediately if omitted)'),
+      scheduledFor: z.string().optional().describe('ISO datetime to schedule (optional - publishes immediately if omitted)'),
       timezone: z.string().optional().describe('Timezone for scheduling (default: Australia/Sydney)'),
       mediaUrls: optionalArrayParam(z.string(), 'Array of media URLs to attach (optional)'),
     },
@@ -132,7 +132,7 @@ export function registerZernioTools(server) {
   server.tool('zernio_best_time_to_post',
     'Get optimal posting times based on historical engagement data.',
     {
-      accountId: z.string().optional().describe('Account ID to analyze (optional — all accounts if omitted)'),
+      accountId: z.string().optional().describe('Account ID to analyze (optional - all accounts if omitted)'),
     },
     async ({ accountId } = {}) => {
       const params = accountId ? `?accountId=${accountId}` : ''

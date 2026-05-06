@@ -21,33 +21,33 @@
  *       any block whose content is genuinely new since previous turn.
  *
  * Always-on blocks (never deduped):
- *   - <now>  - load-bearing per ~/ecodiaos/CLAUDE.md "Temporal Injection".
+ * - <now> - load-bearing per ~/ecodiaos/CLAUDE.md "Temporal Injection".
  *
  * Conditionally on:
- *   - <forks_rollup>  - only emit when active forks > 0 OR includeRecentDone
+ * - <forks_rollup> - only emit when active forks > 0 OR includeRecentDone
  *                        produced lines (forkService already handles this).
- *   - <last_turn_breadcrumb>  - only when a previous turn exists (ts present).
+ * - <last_turn_breadcrumb> - only when a previous turn exists (ts present).
  *
  * Dedupe-eligible (compared against previous turn's emission):
- *   - <skills_surface> / <doctrine_surface>
- *   - <recent_doctrine>
- *   - <relevant_memory>
- *   - <perception_summary>
- *   - <restart_recovery>  (already one-shot via consumeHandoffState, but the
+ * - <skills_surface> / <doctrine_surface>
+ * - <recent_doctrine>
+ * - <relevant_memory>
+ * - <perception_summary>
+ * - <restart_recovery>  (already one-shot via consumeHandoffState, but the
  *                           ledger still records emitted=true for telemetry)
  *
  * Storage:
- *   - Per-session ledger: kv_store key `session.injection_ledger.<sessionId>`
+ * - Per-session ledger: kv_store key `session.injection_ledger.<sessionId>`
  *     {
  *       turn_idx: 42,
  *       prev: { '<now>': '...', '<skills_surface>': '...', ... },
  *       updated_at: '2026-05-01T...'
  *     }
- *   - Per-block telemetry: rows in `injection_event` table (see migration
+ * - Per-block telemetry: rows in `injection_event` table (see migration
  *     083_injection_event.sql), exposed via /api/telemetry/per-turn-injection-cost.
  *
  * Cache discipline:
- *   - The dedupe path SKIPS emission. It does NOT replace the block with a
+ * - The dedupe path SKIPS emission. It does NOT replace the block with a
  *     stub - that would itself bust the SDK prompt cache for downstream
  *     blocks. Skip means "this block is absent from this turn's user message
  *     entirely". Per-turn block presence is already cache-busting (the
@@ -77,7 +77,7 @@ const TELEMETRY_DIR = process.env.TELEMETRY_DIR
 const TELEMETRY_FILE = path.join(TELEMETRY_DIR, 'injection-events.jsonl')
 
 // Block hierarchy. Order matters for the assembler's splice logic in
-// osSessionService — we mirror it here so the caller can iterate in the
+// osSessionService - we mirror it here so the caller can iterate in the
 // same order without leaking ordering knowledge to two places.
 //
 // `always` means the block is ALWAYS emitted when its content is non-empty.
@@ -115,7 +115,7 @@ function _hashContent(s) {
 }
 
 /**
- * blockTagOf(text) — extract the leading XML-ish tag from a block.
+ * blockTagOf(text) - extract the leading XML-ish tag from a block.
  * `<skills_surface>\n...` => '<skills_surface>'. Returns null when the
  * input isn't a recognised tagged block (handled gracefully upstream).
  */
@@ -189,11 +189,11 @@ function _emitTelemetry(row) {
  * blocks for THIS turn.
  *
  * @param {Object} params
- * @param {string} params.sessionId   - dbSessionId from osSessionService
- * @param {Object} params.candidates  - map of blockTag => block content (or null)
+ * @param {string} params.sessionId - dbSessionId from osSessionService
+ * @param {Object} params.candidates - map of blockTag => block content (or null)
  *                                       e.g. { '<now>': '<now>...</now>', '<skills_surface>': '<skills_surface>...' }
  * @returns {Promise<{ emitted: Object, skipped: Object, stats: Object }>}
- *           emitted: { tag: content }   - blocks to splice into the user message
+ *           emitted: { tag: content } - blocks to splice into the user message
  *           skipped: { tag: skipReason } - blocks gated/deduped (reason ∈
  *                                          'not_present' | 'dedupe' | 'minimal_mode')
  *           stats: { turn_idx, total_emit_chars, total_skip_chars,
@@ -217,7 +217,7 @@ async function processBlocks({ sessionId, candidates }) {
 
   for (const [tag, content] of Object.entries(candidates)) {
     if (!content) {
-      // Caller produced nothing for this block — record as not_present and move on.
+      // Caller produced nothing for this block - record as not_present and move on.
       _emitTelemetry({
         ts: new Date().toISOString(),
         session_id: sessionId,
@@ -242,7 +242,7 @@ async function processBlocks({ sessionId, candidates }) {
     } else {
       // Dedupe: same content as previous turn -> skip. This is also the
       // "no_new signal" implementation for <recent_doctrine> and
-      // <perception_summary> — when no new data has arrived, the producer
+      // <perception_summary> - when no new data has arrived, the producer
       // returns the same snapshot and the byte-identical hash short-circuits
       // emission.
       if (rule.dedupe) {
