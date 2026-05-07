@@ -1433,16 +1433,14 @@ async function _sendMessageImpl(content, opts = {}) {
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Extended thinking — unconditional, maximum budget. Tate's directive:
-    // the conductor should be the absolute smartest it can be on every turn.
-    // Previous energy-gated tiers (5k/10k/off) were trading quality for weekly
-    // budget; weekly-budget pressure is now handled upstream via account
-    // routing + DeepSeek fallback, so there's no reason to throttle reasoning.
-    // 10k was empirically the right ceiling before — keeping it as the cap to
-    // avoid eating into the response budget on turns that need long output.
+    // Adaptive thinking — Claude decides when and how much to think.
+    // Recommended for opus-4-7+. Fixed budget_tokens with type:'enabled'
+    // caused 400 "thinking must be passed back" errors on long sessions
+    // because the SDK's internal context editing can strip thinking blocks
+    // after the 1h idle latch. Adaptive mode lets the API manage thinking
+    // lifecycle end-to-end, avoiding client-side round-trip obligations.
     thinking: {
-      type: 'enabled',
-      budget_tokens: 10000,
+      type: 'adaptive',
     },
     // Conductor-level MCP servers only (neo4j, scheduler, factory, supabase).
     // Subagent domains (comms, finance, ops, social) are defined below in agents.

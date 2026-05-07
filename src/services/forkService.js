@@ -858,10 +858,8 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
     maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
-    // Explicitly disable thinking on DeepSeek — if absent, CLI defaults to enabled
-    // and DeepSeek auto-activates thinking mode, then fails on the 2nd request
-    // because the proxy stripped thinking blocks from the 1st response.
-    thinking: isDeepseek ? { type: 'disabled' } : { type: 'enabled', budget_tokens: 1500 },
+    // Adaptive on Claude (avoids thinking round-trip 400s), disabled on DeepSeek.
+    thinking: isDeepseek ? { type: 'disabled' } : { type: 'adaptive' },
     mcpServers,
     allowedTools: [
       ...Object.keys(mcpServers).map(n => `mcp__${n}__*`),
