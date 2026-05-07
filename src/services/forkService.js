@@ -120,17 +120,44 @@ function _isPhantomBail(result) {
 // loop.
 //
 // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
-function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult }) {
+function _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult, transcriptTail }) {
   // report is null when regex did NOT match (truly no FORK_REPORT).
   // report is '' when regex matched but body was empty
   // (e.g. [FORK_REPORT] all on one line followed by \n\n[NEXT_STEP]).
   // Both cases must be distinguished — empty body is still a valid report.
   if (report !== null) {
+    // Non-empty body: render verbatim with no diagnostic tag.
+    if (report) {
+      return [
+        `[SYSTEM: fork_report ${fork_id}]`,
+        `Brief: ${brief}`,
+        '',
+        `Report: ${report}`,
+        nextStep ? `\nNext step suggested: ${nextStep}` : '',
+      ].filter(Boolean).join('\n')
+    }
+    // Empty body (report === ''): marker emitted but no content. This is a
+    // model-side bug we defend against — surface diagnostic tag + transcript
+    // tail (if available) so the conductor has something to anchor probes
+    // to. Origin: Tate verbatim 6 May 2026 21:44 AEST "We need to fix the
+    // empty fork reports and bail managers once and for all please".
+    const tailRaw = typeof transcriptTail === 'string' ? transcriptTail : ''
+    let tailRender
+    if (!tailRaw.trim()) {
+      tailRender = '(no transcript captured)'
+    } else if (tailRaw.length > 500) {
+      tailRender = `…${tailRaw.slice(-500)}`
+    } else {
+      tailRender = tailRaw
+    }
     return [
-      `[SYSTEM: fork_report ${fork_id}]`,
+      `[SYSTEM: fork_report ${fork_id} empty_body=true]`,
       `Brief: ${brief}`,
       '',
-      `Report: ${report || '(empty body — FORK_REPORT immediately followed by NEXT_STEP)'}`,
+      `Report: (empty body - FORK_REPORT marker emitted but no content; transcript tail surfaced below for diagnosis)`,
+      '',
+      `Transcript tail (last 500 chars before marker):`,
+      tailRender,
       nextStep ? `\nNext step suggested: ${nextStep}` : '',
     ].filter(Boolean).join('\n')
   }
@@ -207,7 +234,7 @@ function _isCleanNoop(report, brief) {
   return CLEAN_NOOP_PATTERNS.some(p => p.test(report))
 }
 
-async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult, is_cron = false }) {
+async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep, fallbackResult, transcriptTail, is_cron = false }) {
   // Suppress clean no-op reports from cron-spawned forks — they pollute main chat
   if (_isCleanNoop(report, brief)) {
     logger.debug('forkService: suppressed clean no-op cron fork_report', { fork_id })
@@ -240,7 +267,7 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
     return { enqueued: false, reason: 'cron_routed_substrate_only' }
   }
 
-  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult })
+  const body = _buildForkReportBody({ fork_id, brief, report, nextStep, fallbackResult, transcriptTail })
 
   // Sub-fork routing: if parent_id is a live fork (not 'main'), inject the report
   // directly into the parent fork's message stream. The parent aggregates sub-reports
@@ -520,13 +547,40 @@ You do NOT have: os-session lifecycle (restart/compact/handover) — that's main
   const forkBlock = `# Fork operating rules
 Your fork id: ${fork_id}
 
-- Work on the brief, then end your final message with a single line:
-    [FORK_REPORT] <one paragraph: what you did, results, anything main needs to know>
-- If main should take a follow-up, append after the summary:
-    [NEXT_STEP] <one short sentence>
+- Work on the brief, then end your final message with the FORK_REPORT block.
 - Stamp every external side-effect (commits, emails, SMS, Neo4j writes) with your fork id (${fork_id}) so duplicate-detection works.
 - If you hit something only main should decide, write it into [FORK_REPORT] and stop.
 - Keep your output tight. Main's context is the precious one, but you still cost tokens.
+
+## CRITICAL EXIT PROTOCOL — emit FORK_REPORT or you phantom-bail
+
+The conductor cannot read your transcript. The ONLY signal that main sees is the
+FORK_REPORT block in your final assistant message. If you close the fork without
+emitting this block (or emit it with an empty body), it counts as a phantom_bail
+and the work is invisible to main even if you shipped real artefacts to disk/DB.
+
+REQUIRED SHAPE — emit EXACTLY this block as the final content of your final
+assistant message (after all tool calls, before the turn closes):
+
+    [FORK_REPORT] <one paragraph (40-200 words): what you did, what shipped (commits/file paths/row counts), what failed, anything main needs to verify>
+    [NEXT_STEP] <one short sentence: what main should do next, or "no action needed">
+
+Rules:
+- The body content goes ON THE SAME LINE as [FORK_REPORT], OR on the line(s)
+  immediately after — both are parsed correctly. Do NOT leave the body empty.
+- [NEXT_STEP] is REQUIRED. If there is genuinely nothing to do, write "no action needed".
+- Do NOT emit the block in the middle of your response, then keep working — the
+  parser greps the whole transcript but expects the block to be the closing
+  artefact. Emit once, at the end.
+- Do NOT emit the literal string \`<one paragraph...>\` or any of the angle-bracket
+  placeholders verbatim — substitute real content.
+
+Failure modes to avoid:
+- Closing the fork after a tool call without any final assistant text → phantom_bail
+- Emitting [FORK_REPORT] alone with no body content → empty_body=true
+- Emitting only [FORK_REPORT] without [NEXT_STEP] → next_step missing in inbox
+- Burying the block 5 paragraphs up in a longer narrative → still parsed but harder
+  to read; put it at the end
 
 # Manager forks (only if brief contains MANAGER: true)
 If your brief marks you as a MANAGER fork, you are the project manager for your subtree.
@@ -948,9 +1002,28 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       }
 
       // Stream complete — extract [FORK_REPORT] / [NEXT_STEP] from transcript.
+      //
+      // ROOT-CAUSE FIX 7 May 2026 (fork_moutrkyg_044204):
+      // Pre-fix the regex was `/\[FORK_REPORT\][^\n]*([\s\S]*?)…/i` which
+      // greedily consumed the rest of the SAME LINE after `[FORK_REPORT]`
+      // with `[^\n]*`. The brief literally instructs the model to emit:
+      //   `[FORK_REPORT] <one paragraph: what you did, results, …>`
+      // i.e. body content ON THE SAME LINE as the marker. The parser then
+      // captured only the gap between `\n` and `[NEXT_STEP]`, which trimmed
+      // to "" — triggering the "report body empty" placeholder writer at
+      // state.result. 37.2% of forks (246/661) over the last 7d phantom-
+      // bailed via this exact path, including 5/5 forks in a 90-min arc on
+      // 7 May 2026 that all shipped real work to disk + DB.
+      //
+      // Fix: replace `[^\n]*` with `\s*` so the same-line body content is
+      // CAPTURED by the lazy `([\s\S]*?)` group, not consumed before it.
+      // Same fix on the [NEXT_STEP] regex (also had `[^\n]*`, also lost
+      // the one-sentence next-step content). Origin: Tate verbatim 11:44
+      // AEST 7 May 2026 "we need to quash phantom bails for the last time".
+      // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
       const fullText = state.transcript.join('\n\n')
-      const reportMatch = fullText.match(/\[FORK_REPORT\][^\n]*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i)
-      const nextMatch = fullText.match(/\[NEXT_STEP\][^\n]*([\s\S]*?)$/i)
+      const reportMatch = fullText.match(/\[FORK_REPORT\]\s*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i)
+      const nextMatch = fullText.match(/\[NEXT_STEP\]\s*([\s\S]*?)$/i)
       const report = reportMatch ? reportMatch[1].trim() : null
       const nextStep = nextMatch ? nextMatch[1].trim() : null
 
@@ -964,7 +1037,26 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // 600 chars`. Origin: fork_moo6esm9_565a0e debunk-or-confirm investigation.
       // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
       if (reportMatch) {
-        state.result = report || '(report body empty — FORK_REPORT immediately followed by NEXT_STEP)'
+        // Fix B (parser hardening, 7 May 2026): if regex matched but body
+        // is still empty after trim (e.g. model emitted just `[FORK_REPORT]\n
+        // [NEXT_STEP]` with no body — itself a model-side bug, but defend
+        // against it), synthesise a body from the last 500 chars of transcript
+        // BEFORE the [FORK_REPORT] marker. Better than empty: the conductor
+        // gets actual work-product context to anchor probes to. Tagged with
+        // a distinct marker so the rollup can distinguish synthetic from
+        // verbatim bodies.
+        if (report) {
+          state.result = report
+        } else {
+          const reportIdx = fullText.search(/\[FORK_REPORT\]/i)
+          const preReport = reportIdx > 0 ? fullText.slice(0, reportIdx) : ''
+          const synthTail = preReport.length > 500 ? preReport.slice(-500) : preReport
+          if (synthTail.trim().length > 0) {
+            state.result = `(report body empty — synthesised from transcript tail)\n\n${synthTail.trim()}`
+          } else {
+            state.result = '(report body empty — FORK_REPORT immediately followed by NEXT_STEP, no transcript context)'
+          }
+        }
       } else if (fullText.length > 0) {
         const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
         state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
@@ -1048,6 +1140,16 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       //
       // Routed through _enqueueForkReport so the test seam (_messageQueueOverride)
       // applies on the success path too, matching the recoverStaleForks pattern.
+      // Compute transcript tail BEFORE the [FORK_REPORT] marker for the
+      // empty_body diagnostic body (per _buildForkReportBody empty-body path).
+      // When the model emitted the marker but no body, this tail is the only
+      // breadcrumb the conductor has to anchor a probe-then-trust verification.
+      let _transcriptTail
+      if (report === '' && fullText) {
+        const _markerIdx = fullText.search(/\[FORK_REPORT\]/i)
+        const _pre = _markerIdx > 0 ? fullText.slice(0, _markerIdx) : ''
+        _transcriptTail = _pre.length > 500 ? _pre.slice(-500) : _pre
+      }
       await _enqueueForkReport({
         fork_id,
         parent_id: state.parent_id,
@@ -1055,6 +1157,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         report,
         nextStep,
         fallbackResult: state.result,
+        transcriptTail: _transcriptTail,
         is_cron: state.is_cron,
       })
     } catch (err) {

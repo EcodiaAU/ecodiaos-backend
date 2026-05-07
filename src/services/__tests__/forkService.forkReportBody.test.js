@@ -341,6 +341,105 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
 })
 
 // ──────────────────────────────────────────────────────────────────────────────
+describe('parser regex: same-line body capture (7 May 2026 root-cause fix)', () => {
+  // Pure-function test of the regex — the same regex used at forkService.js
+  // line ~952 to extract [FORK_REPORT] / [NEXT_STEP] from the assembled
+  // transcript. Pre-fix the regex was `/\[FORK_REPORT\][^\n]*([\s\S]*?)…/i`
+  // which greedily consumed the rest of the SAME LINE after the marker via
+  // `[^\n]*`. The brief instructs the model to emit:
+  //   `[FORK_REPORT] <one paragraph: what you did…>`
+  // i.e. body content on the same line. The pre-fix parser stripped that
+  // body. Phantom_bail rate over 7d at ship time: 246/661 = 37.2%.
+  // Origin: Tate verbatim 11:44 AEST 7 May 2026, fork_moutrkyg_044204.
+  // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+  const REPORT_RE = /\[FORK_REPORT\]\s*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i
+  const NEXT_RE = /\[NEXT_STEP\]\s*([\s\S]*?)$/i
+
+  function parse(text) {
+    const r = text.match(REPORT_RE)
+    const n = text.match(NEXT_RE)
+    return {
+      report: r ? r[1].trim() : null,
+      nextStep: n ? n[1].trim() : null,
+      reportMatched: !!r,
+    }
+  }
+
+  test('same-line body: [FORK_REPORT] body content\\n[NEXT_STEP] next', () => {
+    const text = '[FORK_REPORT] Built X. Pushed deadbeef. Tests 11/11 pass.\n[NEXT_STEP] Monitor next 5 turns.'
+    const out = parse(text)
+    expect(out.report).toBe('Built X. Pushed deadbeef. Tests 11/11 pass.')
+    expect(out.nextStep).toBe('Monitor next 5 turns.')
+  })
+
+  test('multi-line body: marker on its own line, body on following lines', () => {
+    const text = '[FORK_REPORT]\nBuilt X.\nPushed deadbeef.\n[NEXT_STEP]\nMerge it.'
+    const out = parse(text)
+    expect(out.report).toBe('Built X.\nPushed deadbeef.')
+    expect(out.nextStep).toBe('Merge it.')
+  })
+
+  test('all-on-one-line: [FORK_REPORT] body [NEXT_STEP] next', () => {
+    const text = '[FORK_REPORT] short body [NEXT_STEP] do thing'
+    const out = parse(text)
+    expect(out.report).toBe('short body')
+    expect(out.nextStep).toBe('do thing')
+  })
+
+  test('body present, no NEXT_STEP', () => {
+    const text = 'preamble narration\n[FORK_REPORT] just the body, nothing else.'
+    const out = parse(text)
+    expect(out.report).toBe('just the body, nothing else.')
+    expect(out.nextStep).toBeNull()
+  })
+
+  test('marker emitted but truly no body and no NEXT_STEP', () => {
+    const text = 'narration\n[FORK_REPORT]'
+    const out = parse(text)
+    expect(out.reportMatched).toBe(true)
+    expect(out.report).toBe('')
+  })
+
+  test('marker emitted, body empty, NEXT_STEP present (the empty_body case)', () => {
+    const text = '[FORK_REPORT]\n[NEXT_STEP] do thing'
+    const out = parse(text)
+    expect(out.reportMatched).toBe(true)
+    expect(out.report).toBe('')
+    expect(out.nextStep).toBe('do thing')
+  })
+
+  test('REGRESSION: pre-fix regex would have lost same-line body — confirm post-fix captures it', () => {
+    // The exact production failure: model emits body on the same line as
+    // marker. Pre-fix regex (`[^\n]*` after marker) consumed the body.
+    // Post-fix regex (`\s*` after marker) preserves it.
+    const PRE_FIX_RE = /\[FORK_REPORT\][^\n]*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i
+    const text = '[FORK_REPORT] real body content here\n[NEXT_STEP] next'
+
+    const preFixMatch = text.match(PRE_FIX_RE)
+    const preFixBody = preFixMatch ? preFixMatch[1].trim() : null
+    expect(preFixBody).toBe('') // confirms the bug
+
+    const postFixMatch = text.match(REPORT_RE)
+    const postFixBody = postFixMatch ? postFixMatch[1].trim() : null
+    expect(postFixBody).toBe('real body content here') // confirms the fix
+  })
+
+  test('typical real-world fork emission shape with multi-paragraph body', () => {
+    const text = [
+      'Some narration explaining what I did first.',
+      '',
+      '[FORK_REPORT] Built the feature. Migration 070 applied. Pushed commit abc123 to main. All 14 tests pass. Inbox 7 -> 3 unread.',
+      '[NEXT_STEP] No action needed; verify deploy lands on Vercel.',
+    ].join('\n')
+    const out = parse(text)
+    expect(out.report).toContain('Built the feature.')
+    expect(out.report).toContain('commit abc123')
+    expect(out.report).toContain('14 tests pass')
+    expect(out.nextStep).toBe('No action needed; verify deploy lands on Vercel.')
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
 describe('integration: phantom_bail body shape (5 May 2026 tight version)', () => {
   // Mirror the writer at forkService.js (state.result fallback path) so that
   // future drift in either the marker constant or the wrapper line is caught
