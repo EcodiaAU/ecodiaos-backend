@@ -35,11 +35,11 @@ Path proven live. Tate ran the install in his SY094 RDP terminal himself (FDA wa
 1. **Live process predated the route registration**: ecodia-api had been restarted at 03:00 AEST 7 May, but commit `84a81a6` (which added `app.use('/api/imessage', ...)`) landed on disk at 22:20 UTC 6 May — *before* the restart? Yes, but the live process module-cache loaded an older app.js path. Resolution: pm2 restart ecodia-api after Tate's "go" at 10:53 AEST 7 May, route went live.
 2. **Express.json consumed the raw body before router-scoped express.raw could read it** (router was originally mounted at line 147 *after* the global `express.json({ limit: '5mb' })` at line 67). Resolution: moved the imessage route mount to line ~66, alongside `webhooks/vercel` and `webhooks/stripe` which use the same raw-body-then-HMAC pattern. pm2 restart, route returned 400 → 200 on next watcher tick.
 
-Tate's test message "Yo yo" delivered ROWID 10 from `chat.db` → watcher HMAC-signed POST → `/api/imessage/inbound` → status_board P1 row upserted (`entity_ref=imessage_tate_inbound_unread`) → `/api/os-session/message` queued → conductor brief delivered as a system-reminder block on the next conductor turn. Round-trip user-typed → conductor-aware: ~7s. Conductor reply via Twilio SMS fallback because outbound `sendImessage` still uses SSH (forbidden per never-use-ssh-on-macincloud-rdp-only.md); outbound migration off SSH is the next visible substrate work item.
+Tate's test message "Yo yo" delivered ROWID 10 from `chat.db` → watcher HMAC-signed POST → `/api/imessage/inbound` → status_board P1 row upserted (`entity_ref=imessage_tate_inbound_unread`) → `/api/os-session/message` queued → conductor brief delivered as a system-reminder block on the next conductor turn. Round-trip user-typed → conductor-aware: ~7s. Conductor reply via Twilio SMS fallback because outbound `sendImessage` still uses SSH (forbidden per macincloud-substrate-selection-ssh-vs-rdp.md); outbound migration off SSH is the next visible substrate work item.
 
 ## What changed substrate-wise (7 May 2026 outbound migration)
 
-Shipped 7 May 2026 commit `d94f74a` (manager fork `fork_mousbxym_89ac2e`, recovery completion `fork_moussk45_decd05`). The SSH+osascript path in `skills/tate-msg/index.js` is retired per `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`. Outbound is now queue-based, mirroring the inbound watcher-pull substrate.
+Shipped 7 May 2026 commit `d94f74a` (manager fork `fork_mousbxym_89ac2e`, recovery completion `fork_moussk45_decd05`). The SSH+osascript path in `skills/tate-msg/index.js` is retired per `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`. Outbound is now queue-based, mirroring the inbound watcher-pull substrate.
 
 Components:
 
@@ -67,7 +67,7 @@ End-to-end verification 7 May 2026 ~11:19 UTC: live `curl POST /api/imessage/out
 ## What not to do
 
 - Don't reach for Twilio when iMessage is healthy. Cost: $0.05/segment vs $0. Quality: Tate's iPhone shows the green-bubble degradation visibly.
-- Don't poll Messages.app over SSH. SSH on SY094 is forbidden absolutely per `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`.
+- Don't poll Messages.app over SSH. Messages.app is GUI-bound (FDA / Aqua context); SSH-driven `osascript` GUI calls silently fail. Per `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` Messages.app interactive is RDP-only; the queue-based outbound watcher running under FDA-bound launchd is the canonical path.
 - Don't poll `chat.db` from VPS. SY094 is not on Tailscale; the only path that could work there (eos-laptop-agent HTTP API) is unreachable from VPS today. The watcher-push substrate is what works.
 - Don't write a parallel inbound webhook. There is exactly one: `/api/imessage/inbound`.
 - Don't disable `USE_IMESSAGE_PRIMARY` casually. The fallback exists for outage handling, not cost optimization (iMessage is free).
@@ -104,7 +104,7 @@ End-to-end verification 7 May 2026 ~11:19 UTC: live `curl POST /api/imessage/out
 - Supabase Storage `documents/imessage-outbound-installer-2026-05-07.sh` — paste-able SY094 LaunchAgent installer
 - `~/ecodiaos/src/services/imessagePathHealthCheck.js` — composite inbound + outbound canary (rewritten 7 May 2026)
 - `~/ecodiaos/src/services/osAlertingService.js` — fallback wiring (iMessage → Twilio)
-- `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md` — RDP-only canonical access path for SY094 install steps
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` — RDP-only canonical access path for SY094 install steps
 - `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` — verified 23.6s recipe for entering SY094 via Corazon
 - `~/ecodiaos/patterns/code-at-ecodia-au-is-only-google-workspace-and-claude-max.md` — Apple ID code@ecodia.au is the iMessage handle
 - `~/ecodiaos/patterns/sms-segment-economics.md` — SMS cost discipline for the Twilio fallback path

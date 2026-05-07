@@ -29,6 +29,12 @@ object `{username, password, hostname, agent_token, agent_port, ip, os, service,
 
 No. SSH to SY094 IS the bootstrap that ENABLES the macro path on the Mac. The `password` field is what `sshpass` types into the SSH challenge from the VPS.
 
+## Substrate selection (7 May 2026)
+
+SSH password live and authorised for headless work over the Remote Build Port (paid add-on activated 7 May 2026); see `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`. SSH for headless work (git/scp/build scripts/`xcodebuild`/log tail/launchctl/db migrations). RDP from Corazon for GUI-bound work (Xcode IDE, ASC upload UI, screencapture, cliclick, Messages.app interactive, Android Studio).
+
+The `port` field in the row metadata may need updating to the Remote Build Port number once Tate forwards the activation email or screenshots the MacInCloud Server Details panel; the `remote_build_port_pending: true` flag in the row marks this state. Until updated, use whatever port the row currently exposes.
+
 ## Rotation
 
 **No automatic rotation. The password is designated by MacInCloud at purchase time and stays fixed for the life of the rental** (Tate verbatim 2026-05-04 20:14 AEST). If `sshpass` fails with `Permission denied`, the most likely cause is NOT a rotation: check (a) typo or trailing-whitespace contamination in `creds.macincloud.password`, (b) MacInCloud kicked the session due to inactivity (reconnect retries), (c) the rental lapsed (renew via control panel - separate Tate action), or (d) Tate manually changed the password in the panel (rare).

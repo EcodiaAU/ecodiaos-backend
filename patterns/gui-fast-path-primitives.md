@@ -170,7 +170,7 @@ Cumulative: a single iOS release flow goes from ~12 minutes (with manual recover
 The 100x lift would be direct VPS→SY094 agent calls, eliminating Corazon as middleman for non-GUI commands. As of 6 May 2026 12:55 AEST:
 - SY094 is NOT on the Tailscale tailnet (only `ecodia-vps` and `corazon` are)
 - Direct curl to `103.246.99.94:7456/api/health` from VPS times out (port not exposed externally)
-- Path forward: install Tailscale on SY094 inside the RDP terminal (one-time, requires Tate authorisation per `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`)
+- Path forward: install Tailscale on SY094 inside the RDP terminal (one-time, requires Tate authorisation per `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`)
 
 Once SY094 is on the tailnet, Worker 3 of the original GUI speed-up plan re-fires: the conductor calls `screenshot.screenshot` and `shell.shell` directly against SY094's agent at its tailnet IP, no Corazon hop. Estimated latency reduction: 5-10x per primitive.
 
@@ -186,5 +186,5 @@ Pattern authored on main thread (energy cap rejected the manager fork at the tim
 - `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` — RDP entry recipe; due for the same update pass
 - `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` — the meta-doctrine that calls for 7-step optimisation; this pattern IS the second worked example
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` — the peer paradigm; fast-path primitives are peer-surface compositions
-- `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md` — the constraint that motivates the Tailscale-on-SY094 reachability path
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` — the constraint that motivates the Tailscale-on-SY094 reachability path
 - `~/ecodiaos/patterns/gui-step-verify-protocol.md` — step-verify protocol; fast-path's primitive 2 is a refinement (verify at branches, not all steps)

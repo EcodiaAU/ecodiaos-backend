@@ -246,20 +246,39 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 - macOS 15.7.4, Apple Silicon, 16GB, Xcode 26.3
 - Has Claude.app, Cursor, Android Studio, Firefox, Messages.app (signed into Apple ID code@ecodia.au for iMessage primary contact channel)
 
-**Canonical access path is RDP from Corazon. SSH is forbidden as of 5 May 2026.**
+**Substrate selection rule (7 May 2026, supersedes 5 May absolute SSH ban):** select access substrate by what the work needs. SSH for headless work, RDP from Corazon for GUI-bound work. Tate paid the +AU$9/mo "Enable Remote Build Port (SSH)" MacInCloud add-on at ~11:28 AEST 7 May 2026, authorising SSH as a first-class substrate for headless work.
 
 - **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - verified 23.6s end-to-end on 4 May 2026.
-- Operate from inside the RDP session: terminal, GUI, agent, all there.
-- The eos-laptop-agent on SY094 MUST be started from inside the RDP terminal so it inherits the GUI Aqua context. SSH-spawned agents are functionally dead.
+- The eos-laptop-agent on SY094 MUST be started from inside the RDP terminal so it inherits the GUI Aqua context. SSH-spawned agents have no Window Server and silently fail every screenshot/input tool.
 
-Forbidden access paths (Tate verbatim 4 May 2026 19:22 AEST + 5 May 2026 ~10:58 AEST):
+**SSH-appropriate work (headless, no GUI Aqua context required):**
+- Git operations (`git pull/push/status/checkout`)
+- File copy / `scp`
+- Package installs (`brew`, `npm`, `pod install`)
+- Headless `xcodebuild` (CLI archive, `xcrun altool` upload, `xcrun simctl`)
+- Log tails (`tail -f /var/log/...`, `tail -f ~/Library/Logs/...`)
+- DB migrations / SQL scripts on local SY094 DBs
+- `launchctl load/unload` (no GUI prompts)
+- `defaults write` for non-GUI app preferences
+- Scripted tests, file CRUD, killing rogue processes (`pkill`)
+
+**RDP-appropriate work (GUI-bound, needs Window Server / TCC / Aqua context):**
+- Xcode IDE (manual signing, scheme tweaks, asset catalogue, Interface Builder)
+- App Store Connect upload via Xcode Organizer or Transporter UI
+- `screencapture` and any pixel-verification flow
+- `cliclick`-driven flows (Accessibility-permission-bound)
+- AppleScript GUI calls (`tell application "Messages"`, `tell application "System Events"`)
+- Messages.app interactive (incl. iMessage outbound watcher under FDA-bound launchd)
+- Android Studio IDE
+- Anything needing the active GUI session
+
+Forbidden access paths (Tate verbatim 4 May 2026 19:22 AEST):
 - macincloud.com web portal in any browser
 - desktop.macincloud.com Citrix HTML5
 - Fullscreen Citrix Workspace
 - Third-party VNC
-- **SSH (`sshpass -p ... ssh user276189@SY094.macincloud.com`)** - added 5 May 2026
 
-See [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](patterns/never-use-ssh-on-macincloud-rdp-only.md) for full doctrine + the diagnosis showing why SSH on SY094 is functionally useless (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
+See [`~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`](patterns/macincloud-substrate-selection-ssh-vs-rdp.md) for full doctrine + the diagnosis showing why GUI tools over SSH still fail (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
 
 ### How to call Corazon API (SY094 calls happen from inside the RDP terminal, not from VPS)
 ```bash
@@ -350,7 +369,7 @@ Read triggers, pick matching files, read in full. Same protocol as patterns/. 30
 |-----|------|--------|--------|
 | `creds.laptop_agent` | Corazon agent bearer token | object | [laptop-agent.md](docs/secrets/laptop-agent.md) |
 | `creds.laptop_passkey` | Windows unlock for Corazon. Drives Windows Hello / passkey 2FA via `input.type`. Used by 5-point check before any `next_action_by='tate'` | string (current `6969`) | [laptop-passkey.md](docs/secrets/laptop-passkey.md) |
-| `creds.macincloud` | SY094 RDP host metadata + agent_token (SSH password retained but SSH path is forbidden per `never-use-ssh-on-macincloud-rdp-only.md`; canonical access is RDP from Corazon) | object | [macincloud.md](docs/secrets/macincloud.md) |
+| `creds.macincloud` | SY094 host metadata + SSH password + agent_token. SSH live and authorised for headless work over Remote Build Port (paid add-on activated 7 May 2026). RDP from Corazon for GUI work. Per `macincloud-substrate-selection-ssh-vs-rdp.md` | object | [macincloud.md](docs/secrets/macincloud.md) |
 | `creds.bitbucket_api_token` | Atlassian API key (all Bitbucket: [redacted] `[redacted]`, Ecodia repos). NOT a personal access token (those don't exist anymore - Atlassian switched to API keys 2026) | string `ATATT...` | [bitbucket.md](docs/secrets/bitbucket.md) |
 | `creds.bitbucket_account_email` | Which Atlassian account the API key belongs to | `code@ecodia.au` | [bitbucket.md](docs/secrets/bitbucket.md) |
 

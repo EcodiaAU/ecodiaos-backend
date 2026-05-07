@@ -2,9 +2,9 @@
 triggers: macincloud-web, macincloud.com-portal, citrix-fullscreen, mac-access-route, sy094-access, sy094-route, ios-build-route, web-macincloud-blocked, no-citrix-html5, no-fullscreen-citrix, desktop-not-fullscreen, mac-gui-route, sshpass-only, mac-no-web-client
 ---
 
-> **SUPERSEDED 5 May 2026** — the SSH-as-canonical-path framing in this file is no longer correct.
-> The new absolute rule: NEVER use SSH on MacInCloud SY094.
-> See [`~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md`](never-use-ssh-on-macincloud-rdp-only.md) for the canonical path (RDP-only).
+> **PARTIAL-SUPERSEDED 5 May 2026, REVISED 7 May 2026** — the original "SSH-as-canonical-path-for-headless" framing in this file was first replaced with an absolute SSH ban (5 May), then revised again to substrate-selection (7 May).
+> Current canonical doctrine: SSH for headless work, RDP from Corazon for GUI-bound work.
+> See [`~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`](macincloud-substrate-selection-ssh-vs-rdp.md) for the substrate-selection rule (replaces the absolute ban).
 > The forbidden-list portion of THIS file (macincloud.com web portal, Citrix HTML5, fullscreen Citrix Workspace, third-party VNC) remains in force.
 
 # SY094 access goes via SSH from VPS, never via the macincloud.com web portal

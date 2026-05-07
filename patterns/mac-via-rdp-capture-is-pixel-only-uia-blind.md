@@ -106,5 +106,5 @@ Tate verbatim 6 May 2026 ~20:32 AEST authorising codification: "Yeah codify it, 
 - `~/ecodiaos/patterns/macros-record-mode-and-auto-author-from-runs.md` - parent doctrine for the macro Phase 2 pipeline.
 - `~/ecodiaos/patterns/gui-step-verify-protocol.md` - per-step pre-and-post verify protocol the pixel-replay protocol implements.
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - Corazon's tool surface; filesystem.* + input.* + screenshot.* are the substrates this rule operates on.
-- `~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md` - sibling constraint on the Mac access path; SSH is forbidden, RDP is canonical.
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` - sibling constraint on the Mac access path; SSH for headless work, RDP for GUI-bound work.
 - `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - real-run-before-validated_v1 still applies; pixel coords don't substitute for replay validation.
