@@ -78,6 +78,13 @@ app.use('/api/imessage', require('./routes/imessageOutbound'))
 // json parser ran first.
 app.use('/api/imessage', require('./routes/imessageInbound'))
 
+// GKG (GUI Knowledge Graph) ingest - capture daemon on Corazon POSTs
+// HMAC-signed NDJSON. MUST mount before express.json() so the raw body
+// the daemon HMACed is the body we verify. See src/routes/gkg.js +
+// src/middleware/validateGkgSignature.js. Spec:
+// ~/ecodiaos/docs/gkg-spec-v0.1.md. Authored 7 May 2026 fork_mov3r45p_73555d.
+app.use('/api/gkg', require('./routes/gkg'))
+
 app.use(express.json({ limit: '5mb' }))
 app.use(express.urlencoded({ extended: false }))
 
