@@ -694,7 +694,7 @@ function _resolveProviderForFork() {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
-    model = 'deepseek-v4-flash'
+    model = 'deepseek-v4-pro'
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   } else if (best.provider === 'claude_max_2') {

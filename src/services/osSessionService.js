@@ -591,7 +591,7 @@ let ccSessionId = null          // CC's internal session_id (for resume)
 let sessionTokenUsage = { input: 0, output: 0 }
 let _currentProvider = 'claude_max'  // tracks which provider the current session is using
 
-// Auto-handover compact threshold — provider-aware. DeepSeek V4 Flash has a
+// Auto-handover compact threshold — provider-aware. DeepSeek V4 Pro has a
 // 1M context window vs Claude's 200K, so reusing the same 120K
 // threshold there compacted ~6x more aggressively than necessary and made
 // long DeepSeek fallback turns chop themselves off. The DeepSeek-specific
@@ -1477,7 +1477,7 @@ async function _sendMessageImpl(content, opts = {}) {
   if (best.isDeepseekFallback) {
     // DeepSeek V4 Pro fallback — native Anthropic-compatible endpoint.
     // The CC Agent SDK sees this as a normal Anthropic API call; no SDK changes needed.
-    // Model must be set explicitly: unknown names silently map to deepseek-v4-flash.
+    // Model must be set explicitly: unknown names silently map to deepseek-v4-flash on DeepSeek's end.
     // Final tier of the fallback chain. Bedrock forbidden per Tate 5 May 2026 12:40 AEST,
     // see ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
     if (prevProvider !== 'deepseek') {
@@ -1504,7 +1504,7 @@ async function _sendMessageImpl(content, opts = {}) {
         db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
       }
       delete options.resume
-      emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Flash.` })
+      emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
     } else if (ccSessionId) {
       options.resume = ccSessionId
     }
@@ -1518,7 +1518,7 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
-    options.model = 'deepseek-v4-flash'
+    options.model = 'deepseek-v4-pro'
     // Explicitly disable thinking — `delete` leaves it undefined and the CLI
     // defaults to thinking enabled (alwaysThinkingEnabled=true), which causes
     // DeepSeek to auto-activate thinking mode. On the *second* request in a
