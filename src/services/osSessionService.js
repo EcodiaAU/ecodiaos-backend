@@ -1433,12 +1433,13 @@ async function _sendMessageImpl(content, opts = {}) {
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Adaptive thinking on Claude — never causes issues on direct Anthropic API.
-    // Only DeepSeek triggers 400 "thinking must be passed back" (every recorded
-    // incident in os_incidents is provider=deepseek, zero on claude_max).
-    // DeepSeek path overrides this to 'disabled' below.
+    // Thinking disabled globally — CLI v2.1.132 / SDK v0.2.132 fails to
+    // round-trip thinking blocks after tool results on ALL providers.
+    // The os_incidents data was misleading (only logged in deepseek context).
+    // This is a Claude Code SDK bug, not provider-specific. Track:
+    // https://github.com/anthropics/claude-code/issues — re-enable when fixed.
     thinking: {
-      type: 'adaptive',
+      type: 'disabled',
     },
     // Conductor-level MCP servers only (neo4j, scheduler, factory, supabase).
     // Subagent domains (comms, finance, ops, social) are defined below in agents.
