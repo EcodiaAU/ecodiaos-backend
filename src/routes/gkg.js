@@ -58,6 +58,33 @@ router.post('/ingest', validateGkgSignature, async (req, res) => {
   }
 })
 
+// Phase 2 pipeline trigger - the cron-fork (or any operator) hits this to
+// run one classify -> enrich -> embed -> upsert sweep. Returns the
+// structured summary that the cron-fork narrates in [FORK_REPORT].
+router.post('/phase-2/run', async (req, res) => {
+  try {
+    const pipeline = require('../services/gkg/pipeline')
+    const limit = Number.isFinite(Number(req.body?.limit)) ? Number(req.body.limit) : undefined
+    const summary = await pipeline.runPipeline({ limit })
+    return res.json({ ok: true, summary })
+  } catch (err) {
+    logger.error('gkg.phase-2/run: failed', { err: err.message })
+    return res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// Backlog probe so the conductor can see at a glance whether Phase 2
+// is keeping up with ingestion.
+router.get('/phase-2/backlog', async (req, res) => {
+  try {
+    const pipeline = require('../services/gkg/pipeline')
+    const counts = await pipeline._backlogCounts()
+    return res.json({ ok: true, backlog: counts, timestamp: new Date().toISOString() })
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 // Health probe for the daemon to verify reachability + HMAC config without
 // posting events. Returns the count of events ingested in the last hour.
 router.get('/health', async (req, res) => {

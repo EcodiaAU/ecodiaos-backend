@@ -127,6 +127,10 @@ const HIGH_PRIORITY_FORK_CRONS = new Set([
                                     //   HIGH membership is mandatory: budget reset must
                                     //   bypass the budget gate (otherwise zero-budget = no
                                     //   reset = stuck zero forever).
+  'gkg-phase-2-pipeline',          // every 5m - GKG classifier + vision-enrich +
+                                    //   embed + graph-upsert. HIGH because the GKG is the
+                                    //   memory layer Anthropic computer-use will query;
+                                    //   silent skip = stale graph = degraded replay.
 ])
 
 // ─── Route 4: LOW-priority forks (skipped when budget tight) ────────────────
