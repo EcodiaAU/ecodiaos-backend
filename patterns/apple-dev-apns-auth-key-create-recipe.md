@@ -1,8 +1,9 @@
 ---
-triggers: macro-recipe, captured-recipe, apple-dev-bundle-id-register, apple, dev, bundle, register, new, google, chrome, chrome-exe, ecodia, certificates, identifiers, profiles, developer
+triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
-flow_slug: apple-dev-bundle-id-register
+flow_slug: apple-dev-apns-auth-key-create
+note: Renamed 7 May 2026 13:22 AEST per Tate correction — captured flow is APNs Auth Key creation/download, NOT bundle-id register (Xcode automatic signing handled bundle-id automatically; no recording needed). Original slug apple-dev-bundle-id-register was a brief-time mislabel.
 status: untested_spec
 replay_method: uia_or_pixel
 raw_event_count: 12
