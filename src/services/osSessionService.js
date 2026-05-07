@@ -1519,7 +1519,13 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
     options.model = 'deepseek-v4-flash'
-    delete options.thinking
+    // Explicitly disable thinking — `delete` leaves it undefined and the CLI
+    // defaults to thinking enabled (alwaysThinkingEnabled=true), which causes
+    // DeepSeek to auto-activate thinking mode. On the *second* request in a
+    // multi-turn tool loop, DeepSeek then validates that thinking blocks from
+    // the first response are round-tripped — but the proxy stripped them from
+    // the response, causing 400 "thinking must be passed back to the API".
+    options.thinking = { type: 'disabled' }
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   } else if (best.provider === 'claude_max_2') {
@@ -2479,12 +2485,15 @@ async function _sendMessageImpl(content, opts = {}) {
             if (msg.is_error) {
               const errTexts = (msg.errors || []).join(' ') + ' ' + (msg.result || '') + ' ' + (msg.stop_reason || '')
 
-              // Stale resume ID — CC CLI no longer has this session (e.g. after PM2 restart).
-              // Clear it and retry fresh, once.
+              // Stale resume ID or thinking-block mismatch — clear and retry fresh, once.
               if (!opts._staleCleaned && (
                 errTexts.includes('No conversation found') ||
                 errTexts.includes('session') && errTexts.includes('not found') ||
-                errTexts.includes('Invalid session')
+                errTexts.includes('Invalid session') ||
+                errTexts.includes('Invalid signature in thinking block') ||
+                errTexts.includes('invalid_signature') ||
+                errTexts.includes('thinking in the thinking mode must be passed back') ||
+                errTexts.includes('thinking_mode')
               )) {
                 logger.warn('OS Session: stale resume ID in result, starting fresh', { staleCcSessionId: ccSessionId })
                 osIncident.log({

@@ -26,9 +26,20 @@ let _server = null
 //   content_block_start  where block.type === 'thinking'
 //   content_block_delta  where delta.type === 'thinking_delta'
 //   content_block_stop   for the index that was a thinking block
+//
+// TCP chunks can split a single SSE line across multiple `data` events.
+// We buffer incomplete trailing lines and prepend them to the next chunk.
 function _transformSSEChunk(chunk, state) {
-  const text = chunk.toString('utf8')
+  const text = (state.partialLine || '') + chunk.toString('utf8')
+  state.partialLine = ''
+
   const lines = text.split('\n')
+
+  // If the chunk doesn't end with \n, the last element is an incomplete line
+  if (!text.endsWith('\n')) {
+    state.partialLine = lines.pop()
+  }
+
   const out = []
 
   for (const line of lines) {
@@ -216,7 +227,7 @@ function start() {
         res.writeHead(proxyRes.statusCode, responseHeaders)
 
         if (isStream) {
-          const state = { thinkingIndices: new Set() }
+          const state = { thinkingIndices: new Set(), partialLine: '' }
           proxyRes.on('data', chunk => {
             try {
               res.write(_transformSSEChunk(chunk, state))

@@ -858,9 +858,10 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
     maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
-    // DeepSeek thinking blocks carry Anthropic-signed signatures invalid on replay — omit.
-    // V4 Pro activates its own native thinking automatically without the SDK option.
-    ...(!isDeepseek && { thinking: { type: 'enabled', budget_tokens: 1500 } }),
+    // Explicitly disable thinking on DeepSeek — if absent, CLI defaults to enabled
+    // and DeepSeek auto-activates thinking mode, then fails on the 2nd request
+    // because the proxy stripped thinking blocks from the 1st response.
+    thinking: isDeepseek ? { type: 'disabled' } : { type: 'enabled', budget_tokens: 1500 },
     mcpServers,
     allowedTools: [
       ...Object.keys(mcpServers).map(n => `mcp__${n}__*`),
