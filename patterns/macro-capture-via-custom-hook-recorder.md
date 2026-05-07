@@ -12,7 +12,7 @@ Workflow:
 
 1. Tate presses Ctrl+Shift+R on Corazon. AHK `macro-recorder.ahk` starts.
 2. Tate performs the GUI flow.
-3. Tate presses Ctrl+Shift+R again. AHK stops, writes `events.jsonl` + `uia-enrichments.jsonl` + `manifest.json` + `frames/` to a session directory under `D:\.code\eos-laptop-agent\macros\recordings\<session-id>\`.
+3. Tate presses Ctrl+Shift+R again. AHK stops, writes `events.jsonl` + (when the UIA pass ran) `uia-enrichments.jsonl` + `manifest.json` + `frames\` to a session directory under `D:\.code\macro-recordings\<session-id>\`. Session id format: `YYYY-MM-DD-HHMM-<6-char-slug>` (e.g. `2026-05-07-1245-brmt01`). Recorder source: `D:\.code\eos-laptop-agent\macros\macro-recorder.ahk` line ~36 sets `g_RecordingsRoot := "D:\.code\macro-recordings"`.
 4. Conductor (or a fork) pulls the session directory to the VPS, then runs `node ~/ecodiaos/macros/parsers/recording-to-recipe.js <session-dir> <flow-slug>`.
 5. Joiner stitches events + UIA selectors. Vision pass adds semantic descriptions per click via Anthropic's `claude-sonnet-4-7`. Emitter produces the 10-section markdown recipe via the shared `recipe-emitter.js`.
 6. Recipe emits with `status: untested_spec` per `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md`.
@@ -80,15 +80,16 @@ The denylist is intentionally narrow in v0. v2.1 broadens it via UIA-driven pass
     <flow-slug>-<YYYY-MM-DD-HHMM>.md   # emitted recipes (status: untested_spec)
 
 D:\.code\eos-laptop-agent\macros\
-  macro-recorder.ahk           # AHK Ctrl+Shift+R hook recorder
+  macro-recorder.ahk           # AHK Ctrl+Shift+R hook recorder (g_RecordingsRoot points at D:\.code\macro-recordings)
   uia-probe.ps1                # PowerShell UIA selector probe (called per-click by AHK)
-  recordings\<session-id>\
-    events.jsonl
-    uia-enrichments.jsonl
-    manifest.json
-    frames\
-      pre-<event_index>.png
-      post-<event_index>.png
+
+D:\.code\macro-recordings\<session-id>\   # raw recordings root (sibling of eos-laptop-agent, NOT under it)
+  events.jsonl                 # one JSON object per line; meta event_type=record_start, click_left, click_right, key_down, key_combo, post_capture meta
+  uia-enrichments.jsonl        # only present when UIA probe ran during recording
+  manifest.json                # ahk_version, denylist_hits, end_ts, event_count, platform, screen_resolution, session_id, start_ts
+  frames\
+    <event_index>-pre.png      # screenshot just before the event
+    <event_index>-post.png     # screenshot just after the event
 ```
 
 ## Origin

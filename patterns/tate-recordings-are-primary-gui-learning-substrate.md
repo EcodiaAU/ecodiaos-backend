@@ -16,20 +16,22 @@ When Tate is at the keyboard and a GUI flow is needed (any web SaaS UI, any desk
 2. Tate hits Ctrl+Shift+R on Corazon.
 3. Tate performs the flow with his hands.
 4. Tate says "stop" (or hits Ctrl+Shift+R again).
-5. Conductor reviews the produced 10-section recipe at `D:\.code\eos-laptop-agent\macros\handlers\proposed\<name>.js` (status `untested_spec`).
-6. Conductor smoke-tests the recipe via `macro.run({name})` in a controlled context.
-7. Conductor calls `macro.promote({name})` which moves it into `handlers/` and registers it in `registry.json`.
+5. Recorder writes a raw session directory on Corazon at `D:\.code\macro-recordings\<session-id>\` containing `events.jsonl` + `manifest.json` + `frames\` (pre/post screenshots per event). `<session-id>` is auto-generated, format `YYYY-MM-DD-HHMM-<6-char-slug>`.
+6. Conductor pulls the session directory to the VPS (via `filesystem.readFile` per file, or `shell.shell` `Compress-Archive` then `filesystem.readFile` of the zip).
+7. Conductor runs `node ~/ecodiaos/macros/parsers/recording-to-recipe.js <session-dir> <flow-slug>`. The joiner stitches events + UIA + vision-enrichment, the emitter produces a 10-section markdown recipe at `~/ecodiaos/macros/captures/<flow-slug>-<YYYY-MM-DD-HHMM>.md` with frontmatter `status: untested_spec`.
+8. Conductor reviews the emitted recipe, smoke-tests it (replay end-to-end against the live UI).
+9. On a clean replay, conductor flips frontmatter to `status: validated_v1` and (when the destination is high-leverage / reusable) promotes the file to `~/ecodiaos/patterns/<flow-slug>-recipe.md`. There is NO `macro.promote(...)` API and NO `registry.json` - promotion is a deliberate edit + git commit, governed by `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md`.
 
-After promotion the flow is callable forever. Every subsequent session reaches the same destination in one tool call.
+After promotion the flow is callable forever. Every subsequent session reaches the same destination by reading the recipe and replaying it.
 
 ## Mechanic (substrate, shipped 6 May 2026)
 
 - Hotkey: `Ctrl+Shift+R` on Corazon. Toggle (start, then again to stop).
 - Two paired versions live side by side, both emit through `~/ecodiaos/macros/lib/recipe-emitter.js`:
-  - **v1 (psr.exe wrapper):** Win-builtin Problem Steps Recorder. Captures UIA element name + screenshot only, no raw X/Y. Parser at `~/ecodiaos/macros/parsers/psr-exe-to-recipe.js`. Detail in `~/ecodiaos/patterns/macro-capture-via-psr-exe.md`.
-  - **v2 (custom OS hook recorder):** AHK + UIA + per-event vision-language enrichment via Anthropic claude-sonnet-4-7. Captures raw X/Y, modifier state, UIA selector, and a vision description per event. Glue at `~/ecodiaos/macros/parsers/recording-to-recipe.js`. Detail in `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md`.
-- Output: a 10-section recipe per `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins, failure modes, anti-patterns), frontmatter `status: untested_spec`, sitting in `proposed/` until reviewed and promoted.
-- Promotion is conductor work, fork-dispatched per `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`. The fork reads the recipe, runs the smoke test, edits if needed, then calls `macro.promote`.
+  - **v1 (psr.exe wrapper):** Win-builtin Problem Steps Recorder. Captures UIA element name + screenshot only, no raw X/Y. Raw .mht lands at `~/ecodiaos/macros/captures/_raw/<slug>-<ts>.mht` after pull from Corazon. Parser at `~/ecodiaos/macros/parsers/psr-exe-to-recipe.js`. Detail in `~/ecodiaos/patterns/macro-capture-via-psr-exe.md`.
+  - **v2 (custom OS hook recorder):** AHK + UIA + per-event vision-language enrichment via Anthropic claude-sonnet-4-7. Recorder source: `D:\.code\eos-laptop-agent\macros\macro-recorder.ahk`. Output: `D:\.code\macro-recordings\<session-id>\events.jsonl` + `manifest.json` + `frames\`. Captures raw X/Y, modifier state, UIA selector, foreground app + window title, and a vision description per event. Glue at `~/ecodiaos/macros/parsers/recording-to-recipe.js`. Detail in `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md`.
+- Emitted recipe: a 10-section markdown file per `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins, failure modes, anti-patterns), frontmatter `status: untested_spec`, written to `~/ecodiaos/macros/captures/<flow-slug>-<YYYY-MM-DD-HHMM>.md` until reviewed and promoted. There is NO `proposed/` directory and NO .js handler files - emitted recipes are markdown.
+- Promotion is conductor work, fork-dispatched per `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`. The fork reads the captures/ recipe, runs the smoke replay, edits coords/triggers if needed, flips frontmatter to `status: validated_v1`, and (for high-leverage destinations) moves the file to `~/ecodiaos/patterns/<flow-slug>-recipe.md` via git mv + commit. There is NO `macro.promote(...)` API surface; promotion is a manual edit-and-commit gate.
 
 ## Do
 
