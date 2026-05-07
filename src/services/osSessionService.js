@@ -1434,11 +1434,8 @@ async function _sendMessageImpl(content, opts = {}) {
     // internally based on context-window pressure; we can't override that from JS.
     //
     // Adaptive thinking — Claude decides when and how much to think.
-    // Recommended for opus-4-7+. Fixed budget_tokens with type:'enabled'
-    // caused 400 "thinking must be passed back" errors on long sessions
-    // because the SDK's internal context editing can strip thinking blocks
-    // after the 1h idle latch. Adaptive mode lets the API manage thinking
-    // lifecycle end-to-end, avoiding client-side round-trip obligations.
+    // Requires SDK >= 0.2.132 / CLI >= 2.1.132 to properly round-trip
+    // thinking blocks during multi-tool turns.
     thinking: {
       type: 'adaptive',
     },
