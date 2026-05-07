@@ -1,5 +1,9 @@
 ---
 triggers: macincloud-web, macincloud.com-portal, citrix-fullscreen, mac-access-route, sy094-access, sy094-route, ios-build-route, web-macincloud-blocked, no-citrix-html5, no-fullscreen-citrix, desktop-not-fullscreen, mac-gui-route, sshpass-only, mac-no-web-client
+status: archived
+archived_at: 2026-05-07
+archived_reason: 'Superseded by macincloud-substrate-selection-ssh-vs-rdp.md when Tate paid +AU$9/mo Remote Build Port add-on at 11:28 AEST 7 May 2026.'
+superseded_by: macincloud-substrate-selection-ssh-vs-rdp.md
 ---
 
 > **PARTIAL-SUPERSEDED 5 May 2026, REVISED 7 May 2026** — the original "SSH-as-canonical-path-for-headless" framing in this file was first replaced with an absolute SSH ban (5 May), then revised again to substrate-selection (7 May).

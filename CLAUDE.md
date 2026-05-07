@@ -49,6 +49,8 @@ Read triggers, pick matching files, read in full, proceed. 30sec cost.
 
 **Authoring new patterns:** failure cost non-trivial time/trust OR same mistake twice = write file. See `~/ecodiaos/patterns/INDEX.md`. Split doctrine from event.
 
+**Pattern lifecycle and tuning.** Patterns are provisional, not sacred. Three explicit states tracked in frontmatter: `active` (default, may be omitted), `narrowed` (triggers tightened after false-positive cluster, frontmatter records `narrowed_at` + `narrowed_reason`), `archived` (file moved to `~/ecodiaos/patterns/_archived/<slug>.md`, frontmatter records `archived_at` + `archived_reason` + `superseded_by`). Tuning thresholds: `[NOT-APPLIED]` rate >70% over 7d -> narrow triggers; zero fires >30d -> archive candidate (release recipes excepted); `tagged_silent` rate (Phase C) >50% over 7d -> retire OR restate; Tate-flagged false-positive in chat -> narrow OR archive same-arc. The weekly `pattern-corpus-health-check` cron (Sunday 21:00 AEST) reads Phase C telemetry, classifies each pattern, surfaces tuning candidates to a single status_board P3 row. Origin: Tate verbatim 16:20 AEST 7 May 2026. Full: `~/ecodiaos/patterns/pattern-lifecycle-active-narrowed-archived.md`.
+
 Origin: Tate Apr 21 2026, "No point logging if we dont actually act on it in the future."
 
 ---
@@ -135,6 +137,8 @@ Two remote machines via HTTP API. Your physical bodies.
 Cross-refs: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`. Live tool inventory + Chrome profile + SSH state: `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md`.
 
 **GUI recipes (codified GUI flows) are governed by `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property -> tree walk -> process check -> filesystem -> cropped pixel -> full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18x speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Sister recipe for Android: `~/ecodiaos/patterns/play-console-android-release-recipe.md` - Co-Exist Android release flow on Play Console, paired with the iOS recipe for the cross-platform release pipeline. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
+
+**iOS release pipeline cluster (7 May 2026):** four sister recipes cover the per-app iOS release pipeline alongside the Co-Exist GUI recipe. (1) `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` (status: validated_v1, SSH-headless path via xcrun altool, ASC API key auth, end-to-end ~70s build+upload, 7 May verified shipped EcodiaOS-mobile 0.1.0(2)). (2) `~/ecodiaos/patterns/apple-dev-apns-auth-key-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, Apple Developer portal APNs auth key create + download). (3) `~/ecodiaos/patterns/asc-app-record-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, ASC create-app-record + internal-group access setup). (4) `~/ecodiaos/patterns/xcode-signing-team-select-recipe.md` (status: untested_spec, captured Mac-via-RDP flow, Xcode automatic-signing team selection, pixel-only-screenshot-verify replay because Mac-via-RDP is UIA-blind per `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md`). Cluster sequencing: per-app one-time setup runs (2) -> (3) -> (4), then per-build runs (1).
 
 **GUI doctrine cluster (5-6 May 2026):** the GUI-recipes meta-doctrine is supported by an interlocking pattern set authored across the macro-recorder ship-out window. Read these together when authoring or driving any GUI flow:
 - `~/ecodiaos/patterns/gui-step-verify-protocol.md` (verify each step lands before proceeding)
@@ -334,6 +338,20 @@ Full: `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codificat
 
 **Helper script gotchas + privacy/blocked-paths + discovery endpoint:** see `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md` (subcommands, `D:\PRIVATE` block, `/api/info` vs `/api/health`, PowerShell `;` vs `&&` / Write-Output / Get-ChildItem / Select-String gotchas).
 
+### GKG - GUI Knowledge Graph (Phase 1 shipped 7 May 2026)
+
+Long-running daemon on Corazon that captures GUI state across allowlisted SaaS / desktop apps as encrypted events for a future graph-builder cron (Phase 2). Phase 1 just ships the capture-and-store path; Phase 2 is the graph-builder that turns events into queryable nodes.
+
+- Spec: `~/ecodiaos/docs/gkg-spec-v0.1.md`
+- Capture daemon code: `~/ecodiaos/laptop-agent/daemons/` (ships through eos-laptop-agent on Corazon)
+- Allowlist file: `~/ecodiaos/laptop-agent/daemons/gkg-allowlist.json`
+- Allowlist doctrine: `~/ecodiaos/patterns/gkg-allowlist-generous-default.md` (broad default, narrow only on Tate-flagged noise)
+- Privacy posture: layered (1) sensitive-context redaction by window-title / focused-element pattern match, (2) per-Tate AES-256-GCM at rest with `kv_store.gkg.tate_payload_key`, (3) tray pause toggle for one-click off
+- Allowlist covers: every SaaS Tate uses regularly (developer.apple.com, appstoreconnect, console.firebase, vercel, supabase, github, bitbucket, stripe, xero, zernio, claude.ai, etc) plus dev desktop apps (Code.exe, Cursor.exe, Slack, Discord, Teams, Postman, AutoHotkey)
+- GKG is the memory layer Anthropic computer-use queries; it is NOT a parallel build (per `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md`)
+
+Origin: Tate verbatim 16:05 AEST 7 May 2026 ("default to broad allowlist, narrow only if I flag noise. Overcollection in Phase 1 is cheaper than missing a workflow") + 17:09 AEST authorising Phase 1 daemon ship.
+
 ### Laptop vs VPS
 
 | Laptop | VPS |
@@ -486,7 +504,7 @@ Tate may enable Extra Usage at claude.ai/settings/usage on either account, OR wa
 
 **Live workaround:** SDK-based forks (`mcp__forks__spawn_fork`) bypass - run on SDK stream not Factory CLI. Use forks for code-changing work until paywall lifts. Same constraint on WebSearch - internal-data mining (CRM + email_threads + Neo4j) substitutes for external research.
 
-**DeepSeek-only fallback (5 May 2026):** the provider chain is exactly `claude_max → claude_max_2 → deepseek` (when `DEEPSEEK_FALLBACK_ENABLED=true` + `DEEPSEEK_API_KEY` set). Bedrock is forbidden per `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` (Tate verbatim 12:40 AEST). The 1 May 2026 Bedrock validation deliverable is superseded.
+**DeepSeek-only fallback (5 May 2026):** the provider chain is exactly `claude_max → claude_max_2 → deepseek` (when `DEEPSEEK_FALLBACK_ENABLED=true` + `DEEPSEEK_API_KEY` set). Bedrock is forbidden per `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` (Tate verbatim 12:40 AEST). The 1 May 2026 Bedrock validation deliverable is superseded. The DeepSeek proxy must sanitise Anthropic-shape requests at the wire boundary (strip top-level `thinking` param + thinking content blocks + `cache_control` markers) per `~/ecodiaos/patterns/deepseek-fallback-strips-anthropic-thinking-blocks.md` (origin: 18-event 400-storm on cc_session a427439a, 7 May 03:51-03:58 UTC, fix commit 68a5da9). The arrow character is a U+2192 single arrow, not an em-dash.
 
 Track: status_board P1 row "Factory phantom-failing - both Claude Max CLI accounts credit-exhausted". Full handling: `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - classify `credit_exhaustion` not `fork_error`, mark resumable with brief snapshot, schedule auto-resume on parsed reset window with verify-before-redo, anti-flood backoff at 3+ consecutive, single status_board P2 row per wave.
 
