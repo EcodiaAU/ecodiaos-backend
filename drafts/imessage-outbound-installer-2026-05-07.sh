@@ -33,7 +33,16 @@ hmac_post() {
   local ts
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   local sig
-  sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$SECRET" -hex 2>/dev/null | awk '{print $2}')
+  # awk $NF (last field) instead of $2 because LibreSSL on macOS outputs
+  # just '<hex>' (single field) while GNU OpenSSL on Linux outputs
+  # '(stdin)= <hex>' (two fields). $NF works for both.
+  # 2>&1 instead of 2>/dev/null so any openssl error is visible in logs
+  # rather than silently producing an empty signature → 401.
+  sig=$(printf '%s.%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')
+  if [ -z "$sig" ]; then
+    echo "hmac_post: empty signature for url=$url (openssl/awk failed)" >&2
+    return 1
+  fi
   curl -fsS -X POST "$url" \
     -H "Content-Type: application/json" \
     -H "X-Imessage-Signature: $sig" \
