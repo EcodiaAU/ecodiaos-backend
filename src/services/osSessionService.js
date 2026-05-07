@@ -1433,13 +1433,12 @@ async function _sendMessageImpl(content, opts = {}) {
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Thinking disabled — even adaptive mode causes 400 "thinking must be
-    // passed back" on the 2nd+ API call within multi-tool turns (confirmed
-    // on SDK 0.2.132 / CLI 2.1.132). The CLI's thinking-block round-trip is
-    // broken. Quality comes from the system prompt and tool use, not from
-    // thinking tokens. Re-enable when Anthropic ships a fix.
+    // Adaptive thinking on Claude — never causes issues on direct Anthropic API.
+    // Only DeepSeek triggers 400 "thinking must be passed back" (every recorded
+    // incident in os_incidents is provider=deepseek, zero on claude_max).
+    // DeepSeek path overrides this to 'disabled' below.
     thinking: {
-      type: 'disabled',
+      type: 'adaptive',
     },
     // Conductor-level MCP servers only (neo4j, scheduler, factory, supabase).
     // Subagent domains (comms, finance, ops, social) are defined below in agents.
