@@ -280,10 +280,48 @@ async function sendSmsToTate(body) {
   return _sendSms(String(body || ''))
 }
 
+/**
+ * APNs push wrapper. Delegates to pushApnsService. Re-exported here so
+ * callers depending on osAlertingService for "all things contact-Tate"
+ * can use a single surface. Loaded lazily so tests that mock kv_store at
+ * import time don't trip cred-loading.
+ *
+ * Returns { ok, status_code, apns_id?, error? }.
+ * Never throws.
+ */
+async function pushApns({ device_token, payload }) {
+  try {
+    const svc = require('./pushApnsService')
+    return svc.pushApns({ device_token, payload })
+  } catch (err) {
+    logger.error('alerting: pushApns delegation failed', { error: err.message })
+    return { ok: false, status_code: 0, error: err.message }
+  }
+}
+
+/**
+ * Multi-channel Tate notification: iMessage first, then APNs to all
+ * registered push tokens for user_id='tate', then Twilio SMS as final
+ * fallback. Per ~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md.
+ *
+ * Returns { ok, channels: { imessage, apns: [...], sms } }.
+ */
+async function notifyTateMultiChannel(opts) {
+  try {
+    const svc = require('./pushApnsService')
+    return svc.notifyTateMultiChannel(opts || {})
+  } catch (err) {
+    logger.error('alerting: notifyTateMultiChannel delegation failed', { error: err.message })
+    return { ok: false, channels: {}, error: err.message }
+  }
+}
+
 module.exports = {
   alertQuotaHigh,
   alertConsecutiveFailures,
   alertProcessRestart,
   sendDailyDigest,
   sendSmsToTate,
+  pushApns,
+  notifyTateMultiChannel,
 }

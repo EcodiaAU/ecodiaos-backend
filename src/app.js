@@ -175,6 +175,9 @@ app.use('/api/ops', require('./routes/ops'))
 // /api/ops/listener-stats - perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
 app.use('/api/ops/listener-stats', require('./routes/ops/listenerStats'))
 app.use('/api/dispatch-queue', require('./routes/dispatchQueue'))
+// /api/push - mobile device push token registration (APNs / FCM).
+// fork_mov3s5fq_a7009b 2026-05-07.
+app.use('/api/push', require('./routes/push'))
 
 // Error handler (must be last)
 app.use(errorHandler)
