@@ -80,22 +80,97 @@ function _transformJSON(body) {
 }
 
 // ─── Outgoing request body transformer ───────────────────────────────────────
-// Strip thinking/redacted_thinking blocks from assistant messages before
-// forwarding to DeepSeek. The CC SDK echoes prior assistant messages including
-// thinking blocks that carry Anthropic signatures - DeepSeek rejects these with
-// 400 "Invalid signature in thinking block".
+// Sanitise an Anthropic-shaped request before forwarding to DeepSeek.
+//
+// Three coupled strips are required for cross-provider compatibility:
+//
+//   (1) Top-level `thinking` parameter. Anthropic's extended-thinking mode is
+//       opt-in via `thinking: { type: "enabled", budget_tokens: N }` on the
+//       request root. DeepSeek's Anthropic-compat endpoint accepts this param
+//       but then VALIDATES that any assistant turn carries thinking blocks
+//       round-tripped from a prior response. If we leave the param set and
+//       strip the blocks (per (2) below), DeepSeek 400s with:
+//         "The `content[].thinking` in the thinking mode must be passed back
+//          to the API."
+//       That was the 7 May 2026 03:51-03:58 UTC storm root cause. Removing
+//       the param disables thinking-mode validation and the same payload
+//       lands cleanly. status_board row 8834dd85.
+//
+//   (2) `thinking` / `redacted_thinking` content blocks on assistant messages.
+//       The Claude Agent SDK echoes prior assistant messages verbatim,
+//       including thinking blocks that carry Anthropic signatures. DeepSeek
+//       cannot validate those signatures and rejects with 400 "Invalid
+//       signature in thinking block".
+//
+//   (3) `cache_control` markers. Anthropic prompt caching uses
+//       `cache_control: { type: "ephemeral" }` on individual content blocks
+//       and on the system prompt. DeepSeek does not implement prompt caching;
+//       leaving the markers is best-case ignored, worst-case a schema
+//       rejection. Cheap defensive strip.
+//
+// IMPORTANT: each provider call may flow back to Anthropic on a future turn
+// (when claude_max_2 token wedge resolves and the chain returns to claude_max).
+// The Claude Agent SDK owns its own state in its child process — this proxy
+// only mutates the in-flight HTTP body. The SDK's internal message store is
+// untouched. So Anthropic still receives properly-rounded thinking blocks
+// when the chain switches back. Cross-ref:
+// ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
 function _stripThinkingFromRequest(body) {
   try {
     const parsed = JSON.parse(body)
-    if (!Array.isArray(parsed.messages)) return body
     let mutated = false
-    parsed.messages = parsed.messages.map(msg => {
-      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return msg
-      const filtered = msg.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking')
-      if (filtered.length === msg.content.length) return msg
+
+    // (1) Top-level thinking parameter.
+    if (parsed.thinking !== undefined) {
+      delete parsed.thinking
       mutated = true
-      return { ...msg, content: filtered }
-    })
+    }
+
+    // (3a) cache_control on the system prompt (string OR array form).
+    if (Array.isArray(parsed.system)) {
+      const cleanedSystem = parsed.system.map(part => {
+        if (part && typeof part === 'object' && part.cache_control !== undefined) {
+          mutated = true
+          const { cache_control, ...rest } = part
+          return rest
+        }
+        return part
+      })
+      parsed.system = cleanedSystem
+    }
+
+    if (Array.isArray(parsed.messages)) {
+      parsed.messages = parsed.messages.map(msg => {
+        if (!msg || typeof msg !== 'object') return msg
+        if (!Array.isArray(msg.content)) return msg
+
+        // (2) thinking/redacted_thinking blocks - assistant role only.
+        // (3b) cache_control on any content block - all roles.
+        let msgMutated = false
+        const filtered = []
+        for (const block of msg.content) {
+          if (!block || typeof block !== 'object') {
+            filtered.push(block)
+            continue
+          }
+          if (msg.role === 'assistant' && (block.type === 'thinking' || block.type === 'redacted_thinking')) {
+            msgMutated = true
+            continue
+          }
+          if (block.cache_control !== undefined) {
+            msgMutated = true
+            const { cache_control, ...rest } = block
+            filtered.push(rest)
+            continue
+          }
+          filtered.push(block)
+        }
+        if (!msgMutated) return msg
+        mutated = true
+        return { ...msg, content: filtered }
+      })
+    }
+
     return mutated ? JSON.stringify(parsed) : body
   } catch {
     return body
@@ -190,4 +265,15 @@ function getBaseUrl() {
   return `http://127.0.0.1:${PROXY_PORT}`
 }
 
-module.exports = { start, stop, getBaseUrl }
+module.exports = {
+  start,
+  stop,
+  getBaseUrl,
+  // Exposed for unit tests so the sanitiser logic can be verified without
+  // standing up the HTTP server. Treat as private to this module.
+  _internal: {
+    _stripThinkingFromRequest,
+    _transformJSON,
+    _transformSSEChunk,
+  },
+}
