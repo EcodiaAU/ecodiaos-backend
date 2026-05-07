@@ -27,19 +27,17 @@
       "verified_runtime": "23.6s end-to-end (4 May 2026)"
     },
     {
-      "label": "ssh-sy094-forbidden",
+      "label": "sy094-substrate-selection",
       "keywords": [
         "sshpass sy094",
         "sshpass macincloud",
-        "ssh sy094",
-        "ssh macincloud",
         "ssh user276189",
         "user276189@sy094",
         "user276189@macincloud"
       ],
-      "recipe": "~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md",
-      "summary": "SSH on SY094 is forbidden (5 May 2026); RDP-shortcut is canonical. Anti-pattern surface.",
-      "verified_runtime": "n/a (anti-pattern)"
+      "recipe": "~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md",
+      "summary": "SY094 substrate selection (7 May 2026): SSH for headless work (git/scp/xcodebuild/log tail), RDP for GUI work (Xcode IDE, ASC upload UI, screencapture, cliclick, Messages.app interactive). Original 5 May absolute SSH ban superseded when Tate paid the +AU$9/mo Remote Build Port add-on.",
+      "verified_runtime": "n/a (substrate-selection rule)"
     },
     {
       "label": "ios-release",

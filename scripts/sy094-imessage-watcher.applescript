@@ -12,7 +12,8 @@
 --   - kv_store key imessage.webhook.hmac_secret
 --
 -- Installation (one-time, must be done from inside the SY094 RDP session
--- per ~/ecodiaos/patterns/never-use-ssh-on-macincloud-rdp-only.md):
+-- per ~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md
+-- because Messages.app interactive is GUI-bound, not SSH-headless):
 --
 --   1. RDP into SY094 from Corazon via the MacinCloud_Full_Screen.rdp
 --      desktop shortcut.
