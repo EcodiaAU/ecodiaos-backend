@@ -81,13 +81,19 @@ let _messageQueueOverride = null       // { enqueueMessage: (...) => Promise<voi
 // Hard cap is the absolute concurrency ceiling. Energy soft caps step down
 // proportionally as the weekly budget tightens — at "low" we still allow 2
 // forks so the conductor isn't single-threaded just because we're past 70%.
-const HARD_FORK_CAP = 5
+// Tate verbatim 7 May 2026 12:21 AEST: "Need to get rid of whatever tf is
+// capping us to 2 forks, should be soft 3, hard 4 cap." Floor at 3 even when
+// budget is critical, ceiling at 4 when healthy. Trade-off: gives up the 5th
+// concurrent slot at full energy in exchange for never falling below 3 under
+// budget pressure. Conductor + 4 forks = 5 total parallel streams, still
+// substantial parallelism without burning weekly tokens on slot-fill.
+const HARD_FORK_CAP = 4
 const ENERGY_FORK_CAPS = {
-  full:     5,
-  healthy:  5,
+  full:     4,
+  healthy:  4,
   conserve: 4,
-  low:      2,
-  critical: 2,
+  low:      3,
+  critical: 3,
 }
 
 // ── Phantom-bail signal (per fork-result-fallback-must-be-marked.md) ────────
