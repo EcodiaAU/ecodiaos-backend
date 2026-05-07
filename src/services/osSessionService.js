@@ -1433,11 +1433,13 @@ async function _sendMessageImpl(content, opts = {}) {
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Adaptive thinking — Claude decides when and how much to think.
-    // Requires SDK >= 0.2.132 / CLI >= 2.1.132 to properly round-trip
-    // thinking blocks during multi-tool turns.
+    // Thinking disabled — even adaptive mode causes 400 "thinking must be
+    // passed back" on the 2nd+ API call within multi-tool turns (confirmed
+    // on SDK 0.2.132 / CLI 2.1.132). The CLI's thinking-block round-trip is
+    // broken. Quality comes from the system prompt and tool use, not from
+    // thinking tokens. Re-enable when Anthropic ships a fix.
     thinking: {
-      type: 'adaptive',
+      type: 'disabled',
     },
     // Conductor-level MCP servers only (neo4j, scheduler, factory, supabase).
     // Subagent domains (comms, finance, ops, social) are defined below in agents.
