@@ -271,7 +271,16 @@ describe('forkService._buildForkReportBody (pure helper)', () => {
 
 // ──────────────────────────────────────────────────────────────────────────────
 describe('forkService._enqueueForkReport (mq integration)', () => {
-  test('clean path - enqueues to message queue with fork:<id> source and queue mode', async () => {
+  test('clean path - SKIPS queue (duplicate-delivery gate, 7 May 2026 fork_mouuhla4_128a27)', async () => {
+    // Pre-7-May-2026: clean reports were enqueued AND woken-on-done via the
+    // forkComplete listener, producing the same body twice in one turn (queue
+    // drain prepended via drainIntoDirectMessage + wake_on_done excerpt below
+    // the separator). The duplicate-delivery gate skips the queue when report
+    // is a non-empty string; wake_on_done becomes the sole conductor surface.
+    // Tate verbatim 12:05 AEST 7 May 2026: "shouldnt be giving you the body
+    // twice, once properly and that 2nd one in the chat, pretending to be my
+    // message".
+    // Doctrine: ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md
     const mq = makeMq()
     forkService._setMessageQueueForTest(mq)
 
@@ -283,13 +292,38 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
       fallbackResult: null,
     })
 
+    expect(out).toEqual({
+      enqueued: false,
+      reason: 'clean_report_wake_on_done_sufficient',
+      had_report: true,
+    })
+    // The mq must NOT have been called - that's the whole point of the gate.
+    expect(mq.enqueueMessage).not.toHaveBeenCalled()
+    expect(mq.enqueued).toHaveLength(0)
+  })
+
+  test('empty-body path - STILL enqueues (listener silent on empty body, queue is sole surface)', async () => {
+    // forkComplete listener treats `result === ''` (marker emitted but no body)
+    // as silent (forkComplete.js isEmpty branch). The queue path must remain
+    // open for this case so the conductor still gets a diagnostic inbox row
+    // surfacing the empty_body=true tag and (when available) transcript tail.
+    const mq = makeMq()
+    forkService._setMessageQueueForTest(mq)
+
+    const out = await forkService._enqueueForkReport({
+      fork_id: 'fork_e_empty',
+      brief: 'b',
+      report: '',
+      nextStep: null,
+      fallbackResult: null,
+    })
+
+    // had_report=true because the FORK_REPORT marker WAS emitted (report !== null).
+    // The body was just empty; that is a separate diagnostic case from phantom-bail.
     expect(out).toEqual({ enqueued: true, had_report: true })
     expect(mq.enqueueMessage).toHaveBeenCalledTimes(1)
-    expect(mq.enqueued).toHaveLength(1)
-    expect(mq.enqueued[0].source).toBe('fork:fork_e_001')
-    expect(mq.enqueued[0].mode).toBe('queue')
-    expect(mq.enqueued[0].body).toMatch(/\[SYSTEM: fork_report fork_e_001\]/)
-    expect(mq.enqueued[0].body).toMatch(/Report: r/)
+    expect(mq.enqueued[0].source).toBe('fork:fork_e_empty')
+    expect(mq.enqueued[0].body).toMatch(/empty_body=true/)
   })
 
   test('phantom_bail path - STILL enqueues (the regression guard for the 2026-05-03 fix)', async () => {
@@ -313,6 +347,10 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
   })
 
   test('mq.enqueueMessage throws - returns enqueued=false but does not throw outward', async () => {
+    // Uses phantom_bail (report=null) so the duplicate-delivery gate doesn't
+    // short-circuit before the mq.enqueueMessage call. The throw-suppression
+    // contract still applies: the success-path caller awaits this and must
+    // not see a throw bubble out.
     const mq = {
       enqueueMessage: jest.fn(async () => { throw new Error('db dead') }),
     }
@@ -321,17 +359,16 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
     const out = await forkService._enqueueForkReport({
       fork_id: 'fork_e_throws',
       brief: 'b',
-      report: 'r',
+      report: null,
       nextStep: null,
-      fallbackResult: null,
+      fallbackResult: `${FALLBACK_MARKER}; last 0 chars)\n\n`,
     })
 
     expect(out.enqueued).toBe(false)
     expect(out.reason).toBe('enqueue_threw')
     expect(out.error).toBe('db dead')
-    // Critical: the success-path caller awaits this and must not see a throw.
-    // (The whole point of the success-path enqueue being best-effort is so a
-    // queue failure doesn't take the fork into the outer catch error path.)
+    // Critical: the caller awaits this and must not see a throw.
+    // (Queue failure must not take the fork into the outer catch error path.)
   })
 
   test('exports the helpers for downstream callers / tests', () => {

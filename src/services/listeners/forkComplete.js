@@ -166,17 +166,26 @@ module.exports = {
         }
 
         // Real successful completion with FORK_REPORT body - wake conductor.
-        // Wake POST runs in 'direct' mode → drainIntoDirectMessage prepends
-        // any queued fork_report rows already in messageQueue, so the
-        // conductor sees the full queued report PLUS this brief wake header
-        // in a single turn. The wake body itself is short (excerpt-only) to
-        // minimise overlap with the queue-drained content.
+        // Wake POST runs in 'direct' mode. Per the duplicate-delivery gate in
+        // forkService._enqueueForkReport (sibling fix to this patch, fork
+        // fork_mouuhla4_128a27, 7 May 2026 12:05 AEST), clean reports SKIP the
+        // messageQueue.enqueueMessage path - so this wake is the SOLE conductor-
+        // facing delivery surface for non-empty FORK_REPORT bodies. The full
+        // body lives durably on os_forks.${forkId}.result; the conductor can
+        // probe via mcp__forks__get_fork or db_query if the excerpt is
+        // insufficient.
+        //
+        // Empty-body and phantom-bail cases (handled in the isEmpty/isPhantomBail
+        // silent branch above) DO still flow through the queue path, since this
+        // listener stays silent for them and the queue drain on a future turn
+        // is the only surface they have.
         const excerpt = result.length > 400 ? result.slice(0, 400) + '…' : result
+        const truncated = result.length > 400
         const wakeMessage = [
           `[SYSTEM: fork_report ${forkId} wake_on_done=true]`,
-          `Fork completed with [FORK_REPORT]. Full report (if enqueued via messageQueue) drained on this same wake.`,
+          `Fork completed with [FORK_REPORT]. ${truncated ? `Full body in os_forks.${forkId}.result (probe via mcp__forks__get_fork if excerpt insufficient).` : 'Full body shown below.'}`,
           '',
-          `Report excerpt:`,
+          `Report${truncated ? ' excerpt' : ''}:`,
           excerpt,
         ].join('\n')
 

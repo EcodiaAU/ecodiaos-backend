@@ -293,6 +293,40 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
     }
   }
 
+  // Clean fork_report duplicate-delivery gate (Tate verbatim 7 May 2026 12:05 AEST:
+  // "shouldnt be giving you the body twice, once properly and that 2nd one in the
+  // chat, pretending to be my message"). When a fork emits a NON-EMPTY [FORK_REPORT]
+  // body, the forkComplete listener's wake_on_done direct-mode POST is the proper
+  // delivery path — it carries an excerpt header and the conductor can probe
+  // os_forks.${fork_id}.result for the full body. Enqueueing a queue row in addition
+  // causes drainIntoDirectMessage (called by the same wake POST handler) to prepend
+  // the same body in `[Pending queued messages delivered opportunistically]` framing,
+  // producing the duplicate Tate flagged.
+  //
+  // This skip is the SUCCESS-path mirror of the error-path rule in
+  // ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md
+  // (forkComplete listener never POSTs to /api/os-session/message for terminal
+  // failures). The same principle applies to the success path: pick ONE delivery
+  // surface, not two.
+  //
+  // Queue path is RETAINED for cases where the wake_on_done listener stays SILENT
+  // (forkComplete.js lines 140-144), so the conductor would otherwise have no
+  // inbox surface for the fork:
+  //   - report === null  (phantom-bail; FALLBACK_MARKER + transcript tail body)
+  //   - report === ''    (empty body; marker emitted but no content + diagnostic)
+  //   - cron-routed forks (handled by is_cron return above; substrate-only)
+  //   - sub-fork reports  (handled by parent_id !== 'main' route above; -> parent)
+  //
+  // Doctrine: ~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md
+  // Origin:   fork_mouuhla4_128a27, 7 May 2026, sibling patch to phantom-bail fix 58bb87a.
+  const isCleanReport = typeof report === 'string' && report.length > 0
+  if (isCleanReport) {
+    logger.info('forkService: clean fork_report wake_on_done sufficient - skipping queue enqueue (duplicate-delivery gate)', {
+      fork_id, parent_id, report_chars: report.length,
+    })
+    return { enqueued: false, reason: 'clean_report_wake_on_done_sufficient', had_report: true }
+  }
+
   let mq = _messageQueueOverride
   if (!mq) {
     try { mq = require('./messageQueue') }
