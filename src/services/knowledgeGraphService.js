@@ -840,4 +840,11 @@ module.exports = {
   ensureVectorIndex,
   healthCheck,
   getEmbedding,
+  // Exported for GKG Phase 2 embeddings.js (and any other batch consumer).
+  // Missing export was the root cause of L5 silent-fail: gkg/embeddings.js
+  // called kg.getBatchEmbeddings which was undefined; the wrapper try/catch
+  // swallowed the TypeError and returned an array of nulls, leaving every
+  // gkg_event with embedded_at marked but no embedding vector. Surfaced
+  // 8 May 2026 by fork_mowp4ktz_6086f8.
+  getBatchEmbeddings,
 }

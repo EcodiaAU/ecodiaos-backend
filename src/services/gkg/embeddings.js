@@ -61,11 +61,30 @@ async function embedActionsBatch(actions) {
   if (!actions || !actions.length) return []
 
   const texts = actions.map(_embeddingTextFor)
+
+  // Sanity-check the helper exists before calling. Hot-fix forensic note:
+  // pre-8 May 2026, kg.getBatchEmbeddings was DEFINED in
+  // knowledgeGraphService.js but NOT EXPORTED, so this call evaluated to
+  // `undefined(...)` and threw `TypeError: kg.getBatchEmbeddings is not a
+  // function`. The catch silently swallowed it and every batch returned
+  // all-nulls. Surface it loudly so the same drift can't recur silently.
+  if (typeof kg.getBatchEmbeddings !== 'function') {
+    logger.error('gkg.embeddings: kg.getBatchEmbeddings is not a function (export drift?)', {
+      typeofValue: typeof kg.getBatchEmbeddings,
+      kgKeys: Object.keys(kg).slice(0, 30),
+    })
+    throw new Error('gkg.embeddings: knowledgeGraphService.getBatchEmbeddings is not exported')
+  }
+
   let vectors
   try {
     vectors = await kg.getBatchEmbeddings(texts)
   } catch (err) {
-    logger.warn('gkg.embeddings: getBatchEmbeddings threw', { err: err.message })
+    logger.error('gkg.embeddings: getBatchEmbeddings threw', {
+      err: err.message,
+      stack: err.stack,
+      sampleText: texts[0]?.slice(0, 200),
+    })
     vectors = texts.map(() => null)
   }
 

@@ -101,11 +101,21 @@ RETURN count(u) AS upserted
 
 function _toNeo4jShape(action) {
   const a = action.anchor || {}
+  // CRITICAL: timestamp_iso comes off Postgres as a JS Date (timestamptz column).
+  // Passing a JS Date through to neo4j as a parameter and wrapping it in
+  // `datetime($p)` fails with "At least one temporal unit must be specified"
+  // (Neo.ClientError.Statement.ArgumentError 22N30) because the driver
+  // converts the Date to a temporal value, and `datetime()` cannot wrap an
+  // already-temporal. Coerce to an ISO 8601 string so `datetime(a.timestamp_iso)`
+  // sees a string and parses cleanly. Surfaced 8 May 2026 by fork_mowp4ktz_6086f8.
+  let ts = action.timestamp_iso
+  if (ts instanceof Date) ts = ts.toISOString()
+  else if (ts && typeof ts !== 'string') ts = String(ts)
   return {
     action_id: action.action_id,
     session_id: action.session_id,
     sequence_no: action.sequence_no,
-    timestamp_iso: action.timestamp_iso,
+    timestamp_iso: ts,
     handler_name: action.handler_name,
     handler_source_file: action.handler_source_hint || HANDLER_SOURCE_FILE_DEFAULT,
     anchor_name: a.name || '',
@@ -157,8 +167,28 @@ async function upsertActionsBatch(actions, opts = {}) {
       upserted = typeof v === 'object' && typeof v.toNumber === 'function' ? v.toNumber() : Number(v) || 0
     }
   } catch (err) {
-    logger.error('gkg.graphUpsert: cypher failed', { err: err.message })
-    return { upserted: 0, failed: actions.length, reason: 'cypher_failed', error: err.message }
+    logger.error('gkg.graphUpsert: cypher failed', {
+      err: err.message,
+      code: err.code,
+      neo4jName: err.name,
+      // First action shape on failure is invaluable for diagnosing
+      // param-type drift (e.g. JS Date vs ISO string for timestamp_iso).
+      firstActionShape: params.actions[0] ? {
+        action_id: params.actions[0].action_id,
+        timestamp_iso: params.actions[0].timestamp_iso,
+        timestamp_iso_type: typeof params.actions[0].timestamp_iso,
+        prev_action_id: params.actions[0].prev_action_id,
+        has_purpose: !!params.actions[0].purpose,
+        has_embedding: Array.isArray(params.actions[0].embedding),
+      } : null,
+    })
+    return {
+      upserted: 0,
+      failed: actions.length,
+      reason: 'cypher_failed',
+      error: err.message,
+      code: err.code,
+    }
   }
 
   // Mark graph_upserted_at + processed_at for every event.
