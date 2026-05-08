@@ -128,6 +128,7 @@ async function getDispatchTagState(client, dispatchEventId) {
     `SELECT s.pattern_path,
             ae.applied,
             ae.tagged_silent,
+            ae.was_false_positive,
             ae.id AS app_id
      FROM surface_event s
      LEFT JOIN application_event ae
@@ -141,9 +142,20 @@ async function getDispatchTagState(client, dispatchEventId) {
     if (!p) continue
     surfaced.add(p)
     if (row.applied === true) applied.add(p)
+    // was_false_positive=true rows are excluded from the silent set: the
+    // conductor named the surface as an FP keyword-scanner trip, not an
+    // ignored relevant doctrine. Treating them as silent corrupts the
+    // pattern_silent_majority drift signal. Wired by Gap 2 of the Phase C
+    // tag-feedback loop (fork_mowv43mg_2a9414, 8 May 2026).
+    else if (row.was_false_positive === true) {
+      // explicitly drop from silent and applied; this is a "scanner-FP"
+      // signal that should feed trigger-narrowing telemetry, not silence
+      // detection.
+    }
     else if (row.app_id === null || row.tagged_silent === true) silent.add(p)
-    // explicit applied=false (NOT-APPLIED) is neither applied nor silent;
-    // the conductor named the pattern and explicitly chose not to apply it.
+    // explicit applied=false (NOT-APPLIED) without was_false_positive=true
+    // is neither applied nor silent; the conductor named the pattern and
+    // explicitly chose not to apply it.
   }
   return { surfaced, applied, silent }
 }

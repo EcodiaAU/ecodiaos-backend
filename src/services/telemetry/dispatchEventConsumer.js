@@ -224,6 +224,90 @@ async function consumeFile(filePath, client) {
 }
 
 /**
+ * Classify whether an [APPLIED] / [NOT-APPLIED] explanation reads as a
+ * false-positive trip of the keyword-scanner hook (e.g. cred-mention-surface
+ * matched on "apple" but the brief touches no Apple/iOS surfaces).
+ *
+ * Returns:
+ *   true   - explanation contains a clear false-positive signal
+ *   null   - no FP signal detected (default; we deliberately do not set FALSE
+ *            because absence of FP language does not imply the surface was
+ *            relevant — it just means the conductor did not name it as FP)
+ *
+ * Conservative bias: prefer FALSE NEGATIVE (return null) over FALSE POSITIVE
+ * (return true). Wrongly-set-true rows would corrupt the Phase D tuning
+ * signal by hiding genuine silent-majority drift behind FP exclusions.
+ *
+ * Higher-confidence path: when applied === false (an explicit [NOT-APPLIED])
+ * AND the explanation is short (<200 chars) AND matches the FP lexicon,
+ * we have stronger evidence the conductor was rejecting an irrelevant
+ * surface rather than ignoring relevant doctrine.
+ *
+ * Wired by Gap 2 of the Phase C tag-feedback loop (fork_mowv43mg_2a9414,
+ * 8 May 2026). See ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
+ * Layer 3.
+ */
+function classifyApplicationEventFalsePositive({ reason, applied }) {
+  if (!reason || typeof reason !== 'string') return null
+  const text = reason.toLowerCase()
+
+  // FP lexicon, ordered by specificity (most specific first).
+  // Match patterns are deliberately literal substrings so the classifier is
+  // grep-readable and easy to extend. Regex would add complexity without
+  // catching meaningfully more cases.
+  const fpPhrases = [
+    'false positive',
+    'false-positive',
+    'false-match',
+    'false match',
+    'keyword scanner',
+    'keyword scan',
+    'regex matched',
+    'regex match',
+    'scanner mismatch',
+    'irrelevant',
+    'unrelated',
+    'not applicable',
+    'matched on ',
+  ]
+  for (const phrase of fpPhrases) {
+    if (text.includes(phrase)) return true
+  }
+
+  // "fork ships" is FP-shaped only when paired with explicit [NOT-APPLIED].
+  // When applied=true, "this fork ships X, not symbolic" is the conductor
+  // justifying WHY the pattern applies (correct usage of the no-symbolic
+  // pattern), not declaring an FP. Conservative: require applied=false to
+  // count as FP signal.
+  if (applied === false && text.includes('fork ships')) return true
+
+  // "no <X> surfaces" / "no <X> calls" / "no <X> touched" pattern. Captures
+  // "no Apple/iOS surfaces", "no Corazon laptop-agent calls", "no iOS keys
+  // touched", "no <client> data" etc. These are the dominant false-positive
+  // shape when cred-mention-surface trips on a single keyword unrelated to
+  // the actual brief scope.
+  //
+  // Allow up to 4 intervening tokens between `no` and the trailing keyword
+  // so multi-word descriptors ("no Corazon laptop-agent calls", "no Apple
+  // Developer portal access") still match.
+  if (/\bno (?:[a-z0-9/_-]+(?:[ /-][a-z0-9/_-]+){0,4})\s+(surfaces|calls|touched|invoked|involved|access|interaction|present|used|in scope)\b/i.test(reason)) {
+    return true
+  }
+
+  // "VPS only" / "server-side only" / "runs on VPS" - signals the fork's
+  // work is decoupled from the surfaced credential/laptop-agent/client domain.
+  if (/\b(vps[ -]only|server[ -]side only|runs on vps|on the vps)\b/i.test(reason)) {
+    // Higher confidence when paired with explicit [NOT-APPLIED].
+    if (applied === false) return true
+    // Standalone "VPS only" without the [NOT-APPLIED] context could appear
+    // in [APPLIED] explanations too; treat as FP only when paired with FALSE.
+    return null
+  }
+
+  return null
+}
+
+/**
  * Drain application-events.jsonl into application_event Postgres rows.
  *
  * Each JSONL line carries:
@@ -234,6 +318,13 @@ async function consumeFile(filePath, client) {
  * ts = matched_dispatch_ts::timestamptz AND tool_name matches. If no exact
  * match found, fall back to nearest within +/- 5 minutes for the same tool.
  * If still no match, the line is skipped (orphan) and counted as lineErrors.
+ *
+ * was_false_positive is classified at write-time from the explanation text
+ * via classifyApplicationEventFalsePositive(). NULL when no FP signal,
+ * TRUE when the explanation contains FP lexicon. The Phase D classifier
+ * (failureClassifier.js) excludes was_false_positive=true rows from the
+ * silent-rate / pattern_silent_majority drift detection so genuine silent
+ * majorities are not masked by keyword-scanner FP noise.
  *
  * Layer 4 of the Decision Quality Self-Optimization Architecture, second-half
  * (the dispatch-event drainage is the first-half). See Phase C ship spec on
@@ -301,11 +392,13 @@ async function consumeApplicationEventFile(filePath, client) {
         continue
       }
 
+      const wasFalsePositive = classifyApplicationEventFalsePositive({ reason, applied })
+
       try {
         await client.query(
-          `INSERT INTO application_event (dispatch_event_id, ts, pattern_path, reason, inferred_from, applied, tagged_silent)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [dispatchId, ts, patternPath, reason, inferredFrom, applied, taggedSilent]
+          `INSERT INTO application_event (dispatch_event_id, ts, pattern_path, reason, inferred_from, applied, tagged_silent, was_false_positive)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [dispatchId, ts, patternPath, reason, inferredFrom, applied, taggedSilent, wasFalsePositive]
         )
         applicationInserts += 1
       } catch (err) {
@@ -468,4 +561,5 @@ module.exports = {
   consumeApplicationEventFile,
   actionTypeForHook,
   extractContextKeywords,
+  classifyApplicationEventFalsePositive,
 }
