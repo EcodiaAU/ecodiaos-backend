@@ -183,6 +183,11 @@ app.use('/api/dispatch-queue', require('./routes/dispatchQueue'))
 // /api/push - mobile device push token registration (APNs / FCM).
 // fork_mov3s5fq_a7009b 2026-05-07.
 app.use('/api/push', require('./routes/push'))
+// /api/voice/chunk - Whisper transcription of short browser-uploaded
+// audio blobs (Tate brainstorming aloud while walking) -> coalesced
+// [VOICE] messages into the conductor chat. Sister to /api/voice/incoming
+// (Twilio call relay). fork_mownezy2_77bebd 2026-05-08 (W2).
+app.use(require('./routes/voiceChunk'))
 
 // Error handler (must be last)
 app.use(errorHandler)
