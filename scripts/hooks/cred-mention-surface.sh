@@ -57,6 +57,23 @@ fi
 
 warnings=()
 
+# Parallel surfaces array. Each entry is "PRIMARY_PATH|TRIGGER_KEYWORD"
+# where PRIMARY_PATH is the canonical doctrine path under
+# ~/ecodiaos/docs/secrets/ that the conductor is expected to tag with
+# [APPLIED] / [NOT-APPLIED] in the dispatch brief or tool result. Storing the
+# canonical path at WRITE time (vs the legacy "secrets:<class>" synthetic
+# key) makes the post-action-applied-tag-check.sh hook's path-alternation
+# match what the conductor actually writes.
+#
+# Origin: 8 May 2026 ship of gap (1) of status_board row 18f02513-b12d-4d69-9628-98ae6f62db6b.
+# Pre-fix surface_event silent_count/app_count was ~95% across all 12 secrets:*
+# pattern_paths because the post-action hook expected paths like
+# `~/ecodiaos/docs/secrets/laptop-agent.md` but surface_event rows held
+# `secrets:Corazon` (the warning-text shorthand, not the file slug).
+# See: ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
+#      Layer 3.
+surfaces=()
+
 # --- Helper: count regex matches in a group ---
 count_matches() {
   echo "$1" | grep -ciE "$2"
@@ -77,6 +94,7 @@ ios_high=$(count_matches "$brief" '\b(testflight|app store connect|\basc\b|xcode
 ios_broad=$(count_matches "$brief" '\b(ios|ipa|code signing)\b')
 if [ "$ios_high" -gt 0 ] || [ "$ios_broad" -ge 2 ]; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions iOS / ASC / TestFlight work but does not reference ~/ecodiaos/docs/secrets/. Read: apple.md, apple-asc-keys.md, asc-api-fallback.md, macincloud.md before dispatching. The GUI-macro doctrine in ~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md says Apple uploads use the macro path, NOT the API-key path.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/apple.md|ios")
 fi
 
 # --- Android / Play Console / keystore ---
@@ -84,26 +102,31 @@ android_high=$(count_matches "$brief" '\b(play console|google play|keystore|\.jk
 android_broad=$(count_matches "$brief" '\b(android|coexist[- ]?android|roam[- ]?android)\b')
 if [ "$android_high" -gt 0 ] || [ "$android_broad" -ge 2 ]; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Android / Play Console work but does not reference ~/ecodiaos/docs/secrets/. Read: _pending-android-keystores.md, _pending-google-play-service-account.md before dispatching. Keystores are PENDING (NEEDS-TATE) and the Play SA is DEMOTED to fallback under the GUI-macro doctrine.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/android-keystores.md|android")
 fi
 
 # --- Bitbucket / [redacted] / git push to [redacted] ---
 if echo "$brief" | grep -qiE '\b(bitbucket|[redacted]|[redacted]|[redacted].*push|ATATT|atlassian.*token|api\.bitbucket\.org)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Bitbucket / [redacted] work but does not reference ~/ecodiaos/docs/secrets/. Read: bitbucket.md before dispatching. Note the two-context auth split (git remote uses x-bitbucket-api-token-auth username; REST API uses code@ecodia.au).")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/bitbucket.md|bitbucket")
 fi
 
 # --- Supabase Management / Edge Function deploy ---
 if echo "$brief" | grep -qiE '\b(supabase.*deploy|edge function deploy|npx supabase functions|sbp_|supabase access token|supabase management api)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Supabase Management / Edge Function deploy but does not reference ~/ecodiaos/docs/secrets/. Read: supabase-access-token.md before dispatching.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/supabase-access-token.md|supabase")
 fi
 
 # --- Co-Exist Graph API / Microsoft Graph / excel-sync ---
 if echo "$brief" | grep -qiE '\b(coexist[- ]?graph|microsoft graph|graph api|entra|azure ad|excel-sync|excel sync|coexistaus\.org|client_secret.*tenant)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Microsoft Graph / Co-Exist excel-sync work but does not reference ~/ecodiaos/docs/secrets/. Read: coexist-graph-api.md, coexist-excel-file.md, coexist-supabase.md before dispatching.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/coexist-graph-api.md|microsoft-graph")
 fi
 
 # --- MacInCloud / SY094 / Mac SSH ---
 if echo "$brief" | grep -qiE '\b(macincloud|sy094|sshpass.*mac|ssh.*mac|mac.*ssh|user276189|MacInCloud\.com)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions MacInCloud / SY094 / Mac SSH work but does not reference ~/ecodiaos/docs/secrets/. Read: macincloud.md before dispatching. Note: MacInCloud auto-rotates passwords on certain panel events; if SSH fails with Permission denied, the password is stale.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/macincloud.md|macincloud")
 fi
 
 # --- Corazon laptop agent / Tailscale ---
@@ -111,31 +134,37 @@ fi
 # nearly always means actual automation work (not cross-platform testing).
 if echo "$brief" | grep -qiE '\b(corazon|laptop[- ]?agent|tailscale|100\.114\.219\.69|eos-laptop-agent|/api/tool|browser\.enableCDP|screenshot\.screenshot|input\.click|input\.type)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Corazon / laptop-agent work but does not reference ~/ecodiaos/docs/secrets/. Read: laptop-agent.md, laptop-passkey.md before dispatching. The 5-point check (~/CLAUDE.md 'Tate-blocked is a last resort') uses laptop_passkey to clear Windows Hello prompts.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/laptop-agent.md|corazon")
 fi
 
 # --- Resend / transactional email ---
 if echo "$brief" | grep -qiE '\b(resend\.com|resend api|re_[a-z0-9]|transactional email|smtp.*setup|coexist.*email)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Resend / transactional email work but does not reference ~/ecodiaos/docs/secrets/. Read: resend.md before dispatching.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/resend.md|resend")
 fi
 
 # --- Canva / design automation ---
 if echo "$brief" | grep -qiE '\b(canva|canva connect|canva api|design automation|brand asset)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Canva work but does not reference ~/ecodiaos/docs/secrets/. Read: canva-connect-api.md, canva-mfa-backup-codes.md before dispatching.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/canva-connect-api.md|canva")
 fi
 
 # --- Xero ---
 if echo "$brief" | grep -qiE '\b(xero\.com|xero api|xero login|xero org|xero dashboard|xero category)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Xero work but does not reference ~/ecodiaos/docs/secrets/. Read: xero-code-login.md before dispatching. Note: bookkeeping MCP uses a separate OAuth integration not held in kv_store today.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/xero-code-login.md|xero")
 fi
 
 # --- RevenueCat / IAP ---
 if echo "$brief" | grep -qiE '\b(revenuecat|iap|in-app purchase|subscription paywall|roam[- ]?iap)\b'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions IAP / RevenueCat work but does not reference ~/ecodiaos/docs/secrets/. Read: _pending-revenuecat.md before dispatching.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/_pending-revenuecat.md|iap")
 fi
 
 # --- Generic 'creds.*' mention without registry ref ---
 if echo "$brief" | grep -qiE 'creds\.[a-z_][a-z_0-9.]+'; then
   warnings+=("[CRED-SURFACE WARN] ${tool_name} brief references kv_store creds.* keys directly but does not consult ~/ecodiaos/docs/secrets/INDEX.md. The registry catalogues all 24+ creds with their schemas, classes (gui-macro-replaces vs programmatic-required), rotation cadence, and drift status. Grep ~/ecodiaos/docs/secrets/ for trigger keywords matching the workflow before authoring the brief.")
+  surfaces+=("/home/tate/ecodiaos/docs/secrets/INDEX.md|cred-class")
 fi
 
 # --- Telemetry emission (Layer 4) ---
@@ -150,16 +179,20 @@ if [ -f "$TELEM_LIB" ]; then
   brief_excerpt=$(printf '%s' "$brief" | head -c 500)
   ctx_json=$(jq -nc --arg be "$brief_excerpt" '{brief_excerpt:$be}' 2>/dev/null || echo '{}')
   surfaces_array='[]'
-  if [ "${#warnings[@]}" -gt 0 ]; then
+  # Iterate the canonical `surfaces` array (parallel to `warnings`). Each entry
+  # is "PRIMARY_PATH|TRIGGER_KEYWORD". Emit one surface_event per entry with
+  # the canonical path as pattern_path so the post-action-applied-tag-check
+  # join key matches what the conductor writes in [APPLIED]/[NOT-APPLIED].
+  if [ "${#surfaces[@]}" -gt 0 ]; then
     surfaces_jq='[]'
-    for w in "${warnings[@]}"; do
-      # Extract cred class from the warn (the last word before "work" usually,
-      # but we just use the whole warn excerpt as the trigger_keyword for now).
-      kw=$(echo "$w" | grep -oE 'mentions [^[:space:]]+( /[^[:space:]]+)?' | head -1 | sed -E 's/^mentions //')
-      [ -z "$kw" ] && kw="cred-class"
+    for entry in "${surfaces[@]}"; do
+      primary_path="${entry%%|*}"
+      trigger_kw="${entry#*|}"
+      [ -z "$primary_path" ] && continue
+      [ -z "$trigger_kw" ] && trigger_kw="cred-class"
       surfaces_jq=$(echo "$surfaces_jq" | jq -c \
-        --arg p "secrets:${kw}" \
-        --arg k "$kw" \
+        --arg p "$primary_path" \
+        --arg k "$trigger_kw" \
         '. + [{pattern_path:$p, trigger_keyword:$k, source_layer:"hook:cred-mention"}]' 2>/dev/null || echo "$surfaces_jq")
     done
     surfaces_array="$surfaces_jq"
