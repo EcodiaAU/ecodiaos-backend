@@ -620,8 +620,34 @@ let isCompacting = false
 //
 // Cooldown: 15m between auto-restarts via kv_store to prevent crash loops if
 // something is persistently broken (PM2 also has its own max_restarts guard).
+//
+// 8 May 2026 fix (Tate flagged restart loop killing every fork). Three guards added:
+//   (a) ROLLING WINDOW: failures only count toward the threshold if they happen
+//       within FAILURE_WINDOW_MS of each other. Isolated failures spaced apart
+//       (e.g. one DeepSeek 400 every 20min from background polling) no longer
+//       accumulate to 3 across hours.
+//   (b) PROVIDER-SIDE EXCLUSION: credit_exhaustion errors don't count - restart
+//       can't fix the weekly Claude Max cap; we just wait for reset.
+//   (c) DEEPSEEK SHAPE-ERROR EXCLUSION: 400s caused by Anthropic-shape passback
+//       to the DeepSeek proxy don't count - that's a content-shape bug fixed
+//       at the proxy layer (commit 68a5da9), not a host failure.
 let _consecutiveFailures = 0
+let _lastFailureAt = 0
 const AUTO_RESTART_COOLDOWN_MS = 15 * 60 * 1000
+const FAILURE_WINDOW_MS = 5 * 60 * 1000
+
+function _isProviderSideError(errMsg) {
+  if (!errMsg) return false
+  const t = String(errMsg).toLowerCase()
+  // Credit / quota / rate-limit exhaustion - host restart cannot fix
+  if (_isUsageExhausted(t)) return true
+  // DeepSeek proxy 400s on Anthropic-shape passback (thinking blocks,
+  // cache_control markers). Fixed at deepseekProxyService.js commit 68a5da9.
+  // Recurrence here means the proxy-side fix needs extending, not a host kick.
+  if (t.includes('deepseek') && t.includes('400')) return true
+  if (t.includes('thinking') && t.includes('400')) return true
+  return false
+}
 
 async function _shouldAutoRestart() {
   try {
@@ -663,8 +689,28 @@ async function _markAutoRestart(reason) {
 function _recordTurnOutcome(ok, errorMsg) {
   if (ok) {
     _consecutiveFailures = 0
+    _lastFailureAt = 0
     return
   }
+  // Guard (b)+(c): provider-side errors don't count toward host-restart trigger
+  if (_isProviderSideError(errorMsg)) {
+    logger.warn('auto-restart: provider-side error excluded from failure counter', {
+      errorMsg: String(errorMsg || '').slice(0, 200),
+      currentCount: _consecutiveFailures,
+    })
+    return
+  }
+  // Guard (a): rolling window - reset counter if last failure was outside window
+  const now = Date.now()
+  if (_lastFailureAt && (now - _lastFailureAt) > FAILURE_WINDOW_MS) {
+    logger.info('auto-restart: failure outside rolling window, counter reset', {
+      msSinceLastFailure: now - _lastFailureAt,
+      windowMs: FAILURE_WINDOW_MS,
+      previousCount: _consecutiveFailures,
+    })
+    _consecutiveFailures = 0
+  }
+  _lastFailureAt = now
   _consecutiveFailures += 1
   if (_consecutiveFailures >= 3) {
     // Fire-and-forget async restart; caller returns immediately.
