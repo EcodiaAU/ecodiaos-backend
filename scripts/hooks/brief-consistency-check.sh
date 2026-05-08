@@ -53,9 +53,23 @@ else
   _perf_start=0
 fi
 
-# emit_perf_done is called via trap so every exit path (early-return on bad
-# JSON, empty brief, normal exit) lands a perf row. Hook is warn-only and
-# perf emission is fail-open, so this never blocks output.
+# Layer 6 reliability fix (fork_moxeov7z_5eddd4, 9 May 2026):
+# Emit perf row at hook START with status='started' and duration=0 so the
+# fire-event lands even when Claude Code SIGKILLs the hook on timeout (the
+# settings.json timeout is 5s; this hook can run 28s on briefs that hit
+# Check 5's pattern-loop). Without this, the EXIT trap below never runs
+# under SIGKILL and the fire is lost. With this, every fire produces at
+# minimum one row regardless of hook completion. The EXIT-trap "ok" row
+# below still produces the duration-accurate record when the hook does
+# complete within timeout. Consumer treats both rows as valid; downstream
+# analytics can dedupe on (ts within 1s, primitive_name) if needed.
+emit_perf_safe "hook:brief-consistency-check" 0 "started" "" '{}'
+
+# emit_perf_done is called via trap on hook completion paths (early-return
+# on bad JSON, empty brief, normal exit). When the hook is SIGKILL'd by
+# Claude Code's timeout, this trap does NOT fire - the start-of-hook row
+# above is the only signal. When hook completes under timeout, this records
+# the actual duration with status='ok'.
 emit_perf_done() {
   if [ -n "${_perf_start:-}" ] && [ "$_perf_start" != "0" ]; then
     local _now _dur
