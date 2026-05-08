@@ -33,6 +33,11 @@ const claimGrammar = require('../lib/claimGrammar')
 const neo4jRetrieval = require('./neo4jRetrieval')
 const perceptionBus = require('./perceptionBus')
 const turnInjection = require('./turnInjectionService')
+// Phase F (Layer 7) - episode resurface telemetry. Records each Episode node
+// surfaced into <relevant_memory> to episode_resurface_event. Fire-and-forget;
+// must never delay the user turn. Wired by fork_moxci516_f30b5d (Phase E+F
+// activation 8 May 2026).
+const episodeResurface = require('./episodeResurface')
 // docs/PROMPT_ASSEMBLY_SPEC.md §3 — consolidated prompt envelope + 4-breakpoint
 // cache layout. Under PROMPT_ASSEMBLY_V2=shadow the assembler runs alongside
 // this service's v1 path and diffs are written fire-and-forget to
@@ -1199,6 +1204,36 @@ async function _injectRelevantMemory(userMessage, lastAssistantTail) {
     })
 
     if (!results || results.length === 0) return null
+
+    // ─── Layer 7 (Phase F) — episode_resurface_event telemetry ──────────
+    // Filter Episode hits and record each as a row in episode_resurface_event.
+    // Fire-and-forget: never await. Failures are swallowed by the service.
+    // Drives the repeated_failure_rate health metric (Layer 7 primary).
+    try {
+      const episodeHits = results.filter(r => r && r.label === 'Episode')
+      if (episodeHits.length > 0) {
+        // Fire-and-forget. The service has its own try/catch + fail-open path.
+        // Pass node id when available (graph_id / elementId / id), with name
+        // as the fallback that the recorder accepts.
+        const ctx = {
+          queryText,
+          hookName: 'os_session_relevant_memory',
+          toolName: 'os_session_message',
+          metadataExtra: {
+            phase: 'F',
+            layer: 7,
+            wired_by: 'fork_moxci516_f30b5d',
+          },
+        }
+        // Don't await: keep the user turn unblocked. The Promise resolves to
+        // {inserted, ids}; we don't need it here. Logger swallows rejection.
+        Promise.resolve(episodeResurface.recordResurfaces(ctx, episodeHits))
+          .catch(err => logger.debug('Layer 7 resurface recordResurfaces failed (non-fatal)', { error: err.message }))
+      }
+    } catch (recordErr) {
+      // Defence-in-depth - any synchronous throw in setup must not affect the turn.
+      logger.debug('Layer 7 resurface setup failed (non-fatal)', { error: recordErr.message })
+    }
 
     const lines = results.map((r, i) => {
       const desc = r.description ? `: ${r.description.replace(/\s+/g, ' ').trim().slice(0, 200)}` : ''

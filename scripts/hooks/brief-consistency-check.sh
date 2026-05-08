@@ -39,6 +39,35 @@
 
 set -u
 
+# ── Layer 6 (Phase E) per-primitive perf telemetry ────────────────────────
+# Source emit-perf.sh and capture start-of-hook timestamp. The matching
+# emit_perf_safe call at the bottom records hook duration to
+# logs/telemetry/perf-events.jsonl, drained by perfEventConsumer.js into
+# primitive_perf_event. Wiring stamp: fork_moxci516_f30b5d (Phase E activation).
+PERF_LIB="$(dirname "$0")/lib/emit-perf.sh"
+if [ -f "$PERF_LIB" ]; then
+  # shellcheck disable=SC1090
+  source "$PERF_LIB"
+  _perf_start=$(perf_now_ms 2>/dev/null || echo 0)
+else
+  _perf_start=0
+fi
+
+# emit_perf_done is called via trap so every exit path (early-return on bad
+# JSON, empty brief, normal exit) lands a perf row. Hook is warn-only and
+# perf emission is fail-open, so this never blocks output.
+emit_perf_done() {
+  if [ -n "${_perf_start:-}" ] && [ "$_perf_start" != "0" ]; then
+    local _now _dur
+    _now=$(perf_now_ms 2>/dev/null || echo 0)
+    if [ "$_now" != "0" ]; then
+      _dur=$(( _now - _perf_start ))
+      emit_perf_safe "hook:brief-consistency-check" "$_dur" "ok" "" '{}'
+    fi
+  fi
+}
+trap emit_perf_done EXIT
+
 input=$(cat)
 
 # Tolerate non-JSON input gracefully.
