@@ -488,7 +488,7 @@ Rules:
 
 **Distributed-state seam discipline.** status_board is one of ~10 substrates state lives in (Postgres, Neo4j, kv_store, Vercel, PM2, GitHub/Bitbucket, Google Workspace, Stripe, session context, Tate's memory). Every cross-substrate write = seam where two substrates can disagree. Every drift-audit failure traces back to a seam without explicit consistency protocol. Cross-substrate write: write A, verify A, write B referencing A, verify B. Reading state: read source-of-truth substrate, not derived projection. Full: `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md`.
 
-**Re-probe stale readings before acting.** Health-check kv_store rows (`ceo.last_system_health_check`, `alert_last:*`, `coexist.sync_health.last_audit`) capture metrics at a moment. Read without checking `updated_at` leaks yesterday's state. Freshness windows: disk-pct 4h, memory free 1h, PM2 restarts 1h, loop heartbeats 30min, sync drift 6h, external blockers 14d. Probe live before surfacing into fork brief / morning briefing / status_board context. Full: `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md`.
+**Re-probe stale readings before acting.** Health-check kv_store rows (`ceo.last_system_health_check`, `alert_last:*`, `coexist.sync_health.last_audit`) capture metrics at a moment. Read without checking `updated_at` leaks yesterday's state. Freshness windows: disk-pct 4h, memory free 1h, PM2 restarts 1h, loop heartbeats 30min, sync drift 6h, external blockers 14d. Probe live before surfacing into fork brief / morning briefing / status_board context. Full: `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md`. Specialisation: `~/ecodiaos/patterns/pm2-restart-count-is-lifetime-not-rate.md` (the `pm2 list` restart counter is a lifetime accumulator, never a rate; never classify a "restart loop" P1 from `pm2 list` alone).
 
 **Phantom-shipped corollary.** Row says `phantom_shipped_file_not_on_disk` (or equivalent "deliverable missing") → re-probe disk BEFORE treating as ground truth. last_touched can lag disk by minutes (fork ships file at T, parent writes P1 "missing" at T+7min based on stale Wave-N synthesis). Always: `ls -la <path>` then update or archive. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md`, `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md`.
 
@@ -507,6 +507,17 @@ Tate may enable Extra Usage at claude.ai/settings/usage on either account, OR wa
 **DeepSeek-only fallback (5 May 2026):** the provider chain is exactly `claude_max → claude_max_2 → deepseek` (when `DEEPSEEK_FALLBACK_ENABLED=true` + `DEEPSEEK_API_KEY` set). Bedrock is forbidden per `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` (Tate verbatim 12:40 AEST). The 1 May 2026 Bedrock validation deliverable is superseded. The DeepSeek proxy must sanitise Anthropic-shape requests at the wire boundary (strip top-level `thinking` param + thinking content blocks + `cache_control` markers) per `~/ecodiaos/patterns/deepseek-fallback-strips-anthropic-thinking-blocks.md` (origin: 18-event 400-storm on cc_session a427439a, 7 May 03:51-03:58 UTC, fix commit 68a5da9). The arrow character is a U+2192 single arrow, not an em-dash.
 
 Track: status_board P1 row "Factory phantom-failing - both Claude Max CLI accounts credit-exhausted". Full handling: `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - classify `credit_exhaustion` not `fork_error`, mark resumable with brief snapshot, schedule auto-resume on parsed reset window with verify-before-redo, anti-flood backoff at 3+ consecutive, single status_board P2 row per wave.
+
+### SDK musl-vs-glibc binary auto-detect trap (recurs on every SDK upgrade or npm install)
+
+`@anthropic-ai/claude-agent-sdk` ships both `linux-x64` (glibc) and `linux-x64-musl` binaries as `optionalDependencies`. The SDK's `B7()` resolver tries musl FIRST. On the glibc VPS this means every `query()` call after a fresh `npm install` silently picks the musl binary, which fails to execute (`ENOENT` on `/lib/ld-musl-x86_64.so.1`). Symptom: every fork aborts in ~35ms with "Claude Code native binary not found" even though the file exists at the named path.
+
+Defence (mandatory on every SDK call site):
+- Pass `pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'` on every `query({ options })`. Today: `forkService.js`, `voiceRelay.js`, `osSessionService.js`, `rescueRunner.js`. Any new call site MUST also include the override.
+- Set `CLAUDE_CODE_EXECUTABLE` in `ecosystem.config.js` env block (belt and braces).
+- Re-run `file node_modules/@anthropic-ai/claude-agent-sdk-linux-x64*/claude` after every `npm install` / `npm update` / SDK version bump.
+
+Origin: 8 May 2026 P0 incident, fix commit 2980601. Full: `~/ecodiaos/patterns/sdk-musl-vs-glibc-binary-auto-detect-trap.md`. Meta-lesson: when the diagnostic substrate depends on the broken substrate, escalation must route around it (Tate's hands closed the loop manually because no fork could).
 
 ### The rule
 
@@ -606,6 +617,8 @@ The conductor can spawn MANAGER forks that in turn spawn WORKER sub-forks. This 
 **When to use:** Any task decomposing into 2+ independent workers. Pipeline tasks (build -> test -> deploy -> verify). Multi-step processes needing coordination. Default to manager forks for non-trivial work.
 
 **Conductor discipline:** You see the manager in `<forks_rollup>` tagged `[manager, N sub]` with sub-forks indented beneath it. Wait for the manager's consolidated [FORK_REPORT]. Do NOT reach into the manager's subtree. Trust the manager or abort the whole tree.
+
+**SDK in-process MCP Server instances must be per-query, not singleton.** The MCP SDK's `Server.connect()` throws `Already connected to a transport` if the same instance is connected to a second transport. The Claude Agent SDK silently catches and removes it from `sdkMcpServerInstances`, so the second SDK query loses the in-process tool surface even though `--allowedTools` still lists the patterns. Symptom: manager-flagged forks describe sub-fork plans but no children appear with `parent_id=<manager_fork_id>`; recurring "MCP forks transport disconnects on hourly cron fire". Fix: rebuild the server fresh per call (cache the tool wrappers, NEVER the `createSdkMcpServer()` return value across SDK queries). Validation: `await getServer() === await getServer()` MUST be `false`. Applies to ANY in-process MCP server shared across main + fork or main + cron-fire. Origin: 8 May 2026 16:40-17:14 AEST, fix commit 1c7ea11. Full: `~/ecodiaos/patterns/sdk-mcp-server-instances-must-be-per-query-not-singleton.md`.
 
 ---
 
