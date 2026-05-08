@@ -90,3 +90,8 @@ Root cause: I'd been touching individual entities ([redacted] in [redacted].md, 
 Remediation: (a) this pattern file as a grep-addressable reminder, (b) audit sweep archiving 17 rows and refreshing 4 + inserting the missing [redacted] row, (c) potentially a pre-commit or session-end hook that flags status_board rows untouched in >7 days for review.
 
 2026-04-27 (fork_mogoid3v_75f10a): Tate flagged drift again 4 days after the original sweep. Audit of 52 active rows: 4 archived (3 completed-not-archived, 1 cold opportunity), 6 updated (4 stale-relative-day-language, 2 unmerged-branch needing concrete merge instruction). Drift mode breakdown: Mode 2 (completed-not-archived) = 3 [coexist-prod-broken back green, Xero-trial paid+superseded, peer-monitor deployed]; Mode 4 (newly named: opportunity-cold + stale-relative-day-language) = 5; branch-state-needing-refresh = 2. Doctrine alone proven insufficient — shipped `status-board-reconciliation` cron (every 12h) as mechanical enforcement. The cron probes ground truth via vercel/gmail/git/cc_sessions and mutates rows directly. First fire: 2026-04-27 16:17 UTC (02:17 AEST Apr 28).
+
+## Cross-references
+
+- `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md` — when meta-loop fires with fork-cap full / mcp__forks__* disconnected, the PHASE 2 drift audit IS the canonical thin-on-main work.
+- `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` — >50-row boards MUST use `count(*) FILTER (WHERE ...)` slice-queries; full-dump SELECTs blow the tool-result token cap.

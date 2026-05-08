@@ -492,6 +492,8 @@ Rules:
 
 **Phantom-shipped corollary.** Row says `phantom_shipped_file_not_on_disk` (or equivalent "deliverable missing") → re-probe disk BEFORE treating as ground truth. last_touched can lag disk by minutes (fork ships file at T, parent writes P1 "missing" at T+7min based on stale Wave-N synthesis). Always: `ls -la <path>` then update or archive. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md`, `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md`.
 
+**Drift-audit on main when fork-cap full or mcp__forks__* disconnected.** When the hourly meta-loop fires and no fork can be spawned, the canonical thin-on-main work is the PHASE 2 status_board drift audit — slice-query first, drill down, classify into 4 buckets (still-accurate / status-changed / completed / duplicate), UPDATE atomically per row, write audit numbers to `kv_store.ceo.meta_loop_last_run.accomplishments`. Do NOT exit "nothing to do." Full: `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`. At-scale technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (>50-row boards MUST slice-query — `SELECT *` row dump exceeds tool-result token cap; the categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates).
+
 ---
 
 ## Factory - Your Coding Workforce
