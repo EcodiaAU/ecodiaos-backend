@@ -19,18 +19,38 @@ const logger = require('../config/logger')
 // zod is fine but sized) so we only pay the cost when the conductor actually
 // spawns. The factory returns the SDK MCP server config object, which is
 // passed verbatim into options.mcpServers.forks.
-let _serverConfig = null
-let _building = null
+//
+// IMPORTANT: do NOT cache the returned server instance across SDK queries.
+// `@modelcontextprotocol/sdk` Server.connect() throws "Already connected to a
+// transport" if the same Server instance is connected to a second transport
+// (protocol.js:215-218). Sharing one instance across the conductor + every
+// fork meant the second SDK query's connect() threw, the SDK silently caught
+// it in connectSdkMcpServer() and removed the server from sdkMcpServerInstances,
+// and the fork ended up without mcp__forks__* tools — even though
+// `--allowedTools` listed them. The manager-fork primitive silently degraded:
+// managers could describe sub-fork plans but could not actually call
+// mcp__forks__spawn_fork. (Diagnosis: fork_mowkbcm4_ca76a0, 8 May 2026.
+// Earlier signal: fork_mov38cpu_054df5 self-reported the same on 7 May 2026.)
+//
+// We DO cache the SDK module load + the tool wrappers (which are pure-data
+// definitions) since rebuilding zod schemas + tool() wrappers on every spawn
+// is wasted work. The createSdkMcpServer() call is the only thing that must
+// run fresh per call so each query gets its own Server instance with its own
+// _transport slot.
+let _toolsCache = null
+let _toolsBuilding = null
+let _createSdkMcpServer = null
 
-async function getForkConductorMcpServer() {
-  if (_serverConfig) return _serverConfig
-  if (_building) return _building
+async function _buildTools() {
+  if (_toolsCache) return _toolsCache
+  if (_toolsBuilding) return _toolsBuilding
 
-  _building = (async () => {
+  _toolsBuilding = (async () => {
     const sdk = await import('@anthropic-ai/claude-agent-sdk')
     const { createSdkMcpServer, tool } = sdk
     const z = require('zod')
     const fork = require('./forkService')
+    _createSdkMcpServer = createSdkMcpServer
 
     const spawn_fork_tool = tool(
       'spawn_fork',
@@ -146,20 +166,26 @@ async function getForkConductorMcpServer() {
       },
     )
 
-    const server = createSdkMcpServer({
-      name: 'forks',
-      version: '1.0.0',
-      tools: [spawn_fork_tool, list_forks_tool, abort_fork_tool, send_message_tool],
-    })
-
-    logger.info('forkConductorTool: in-process MCP server "forks" ready', {
+    const tools = [spawn_fork_tool, list_forks_tool, abort_fork_tool, send_message_tool]
+    logger.info('forkConductorTool: tool wrappers built (per-query server factory ready)', {
       tools: ['spawn_fork', 'list_forks', 'abort_fork', 'send_message'],
     })
-    _serverConfig = server
-    return server
+    _toolsCache = tools
+    return tools
   })()
 
-  return _building
+  return _toolsBuilding
+}
+
+async function getForkConductorMcpServer() {
+  // Always build a fresh Server instance — see header comment for why caching
+  // the wrapper across SDK queries breaks the second-and-later connect() call.
+  const tools = await _buildTools()
+  return _createSdkMcpServer({
+    name: 'forks',
+    version: '1.0.0',
+    tools,
+  })
 }
 
 module.exports = { getForkConductorMcpServer }
