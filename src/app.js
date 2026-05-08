@@ -166,6 +166,10 @@ app.use('/api/sms', require('./routes/smsWebhook'))
 // router-scoped express.raw() could read it, yielding 400 malformed_body.
 app.use('/api/docs', require('./routes/documents'))
 app.use('/api/dashboard', require('./routes/dashboard'))
+// /api/status-board - read-only active rows for the Cortex Ambient FE
+// constellation view. fork_mowceb8n_e20af9 2026-05-08.
+app.use('/api/status-board', require('./routes/statusBoard'))
+app.use('/api/status_board', require('./routes/statusBoard'))
 app.use('/api/rescue', require('./routes/rescue'))
 app.use('/api/triage', require('./routes/triage'))
 app.use('/api/telemetry', require('./routes/telemetry'))
