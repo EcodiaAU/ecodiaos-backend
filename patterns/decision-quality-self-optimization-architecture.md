@@ -121,6 +121,8 @@ Doctrine: `~/ecodiaos/patterns/outcome-classification-must-distinguish-unverifie
 
 ### Layer 6 - Performance telemetry per primitive (TBD - Phase E)
 
+**STATUS: dark — schema staged, no producer wired.** `primitive_perf_event` table exists at the DB level (0 rows ever as of 2026-05-08). No source-code producer in `~/ecodiaos/src/` emits to it. Per `~/ecodiaos/patterns/shipped-infra-never-activated-decision-vs-disk-drift.md`, this layer's `/api/telemetry/decision-quality?layer=6` panel computes off zero data and any "shipped" label elsewhere in the corpus is decision-vs-disk drift. Phase G audit 2026-05-08 Critique #4 surfaced this; remediation requires wiring a producer (e.g. instrumenting `~/ecodiaos/scripts/hooks/lib/emit-perf.sh` to write rows on hook-exit). Until a producer ships, treat this layer as paper-architecture.
+
 **What:** macroSuite.run, forkService spawn, hook scripts, brief-consistency-check, neo4j semantic-search calls all emit timing telemetry to a `primitive_perf_event` table. Periodic auto-tune cron checks the p95 latency per primitive; if a primitive's p95 climbs above its baseline + 50%, raise a `perf_regression` flag (status_board P2).
 
 **Why this layer matters:** the brief-consistency hook walks all `~/ecodiaos/patterns/*.md` files on every dispatch. As the corpus grows, hook latency grows. Without per-primitive telemetry, the conductor has no signal that hooks are getting slow until a fork dispatch noticeably stalls. The same applies to forkService (handover overhead growing), macroSuite (Corazon RTT regression), and Neo4j semantic-search (embedding-cost growth). Catching regression early is cheaper than catching it late.
@@ -130,6 +132,8 @@ Doctrine: `~/ecodiaos/patterns/outcome-classification-must-distinguish-unverifie
 **Layer-6 drift detection:** automatic flag when p95 deviates >50% from the trailing-30d baseline; automatic retraining of the baseline after a week of stable post-flag performance (so a one-off spike doesn't poison the baseline forever).
 
 ### Layer 7 - Accumulated-learning resurfacing (TBD - Phase F)
+
+**STATUS: dark — schema + producer service staged, zero callers.** `episode_resurface_event` table exists (0 rows ever as of 2026-05-08). `src/services/episodeResurface.js` exists with INSERT logic but has NO callers anywhere in `src/`. The producer service is an orphan — Layer 7's "repeated-failure-after-resurface" KPI is uncomputable. Per `~/ecodiaos/patterns/shipped-infra-never-activated-decision-vs-disk-drift.md`, this is a live instance of the decision-vs-disk meta-pattern. Phase G audit 2026-05-08 Critique #4 surfaced this; remediation requires invoking `episodeResurface.recordResurfaces` from the dispatch hot-path (e.g. `osSessionService._sendMessageImpl` after `<relevant_memory>` block stitching). Until a caller ships, treat this layer as paper-architecture.
 
 **What:** when an action surface (fork brief, factory dispatch, tool call) carries semantic vocabulary that doesn't keyword-match the patterns/ corpus, run `mcp__neo4j__graph_semantic_search` against `Pattern`, `Decision`, `Strategic_Direction`, AND `Episode` nodes (Episode-search is the new bit). Top-k semantic hits where the Episode is from a similar-shaped past failure get prepended to the dispatch context. This is institutional memory beyond doctrine: "last time we did something shaped like this, here's what happened."
 

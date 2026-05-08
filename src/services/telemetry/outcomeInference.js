@@ -315,7 +315,7 @@ async function inferForkSpawnOutcome(client, dispatch) {
     const s = (r.rows[0].status || '').toLowerCase()
     const result = r.rows[0].result || ''
     // Failure first (negative trumps positive).
-    if (s === 'aborted' || s === 'errored' || s === 'failed' || s === 'cancelled' || s === 'error') {
+    if (s === 'aborted' || s === 'errored' || s === 'failed' || s === 'cancelled' || s === 'error' || s === 'crashed') {
       return { outcome: 'failure', evidence: `${table}.${pkColumn}=${forkId} status=${s}` }
     }
     // Success requires both terminal-done state AND a non-empty result.
