@@ -71,3 +71,5 @@ Before every `mcp__sms__send_sms` call:
 ## Origin
 
 2026-04-22 AEST. Tate recharged Twilio balance and told me: "lets just make sure we're being more concise with the segments so document that somewhere central relevant to sms. Take note that its 0.05/segment." Prior to this there was no explicit economics doctrine - I was sending multi-paragraph SMS out of habit, which is wasteful. This file codifies the rule so future-me under prompt-caching still enforces it.
+
+Cross-ref: `~/ecodiaos/patterns/cron-prompts-must-respect-autonomous-pilot-sms-gate.md` - the cheapest segment is the one not sent. Routine cron SMS during autonomous-pilot windows is paid noise; suppress to morning surface instead.

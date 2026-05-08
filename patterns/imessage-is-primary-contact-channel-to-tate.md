@@ -109,6 +109,7 @@ End-to-end verification 7 May 2026 ~11:19 UTC: live `curl POST /api/imessage/out
 - `~/ecodiaos/patterns/code-at-ecodia-au-is-only-google-workspace-and-claude-max.md` — Apple ID code@ecodia.au is the iMessage handle
 - `~/ecodiaos/patterns/sms-segment-economics.md` — SMS cost discipline for the Twilio fallback path
 - `~/ecodiaos/patterns/sms-one-update-per-fix-not-running-commentary.md` — one-update-per-fix discipline (applies to iMessage too)
+- `~/ecodiaos/patterns/cron-prompts-must-respect-autonomous-pilot-sms-gate.md` — every cron prompt with a routine SMS/iMessage path must check `kv_store.ceo.autonomous_pilot.active` first; both channels share the same suppression gate
 - `~/ecodiaos/docs/secrets/macincloud.md` — SY094 access metadata (RDP-only)
 - status_board row `f5589865-6199-49df-8fbb-3f034c5565f1` — primary tracker for this substrate ship
 - status_board row `b2b67296-387c-4f6c-b9d4-8a24a3b28ec7` — TCC grant prerequisite for any GUI macro on SY094 (NOT required for the AppleScript watcher path - that runs inside Messages.app's own context)
