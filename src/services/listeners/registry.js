@@ -49,6 +49,7 @@ const LISTENER_FILES = [
   'forkComplete.js',
   'invoicePaymentState.js',
   'statusBoardDrift.js',
+  'statusBoardHygieneHaikuListener.js',
 ]
 
 // Number of files expected to pass full validation and end up in _listeners.
