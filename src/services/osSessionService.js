@@ -1519,7 +1519,7 @@ async function _sendMessageImpl(content, opts = {}) {
     allowDangerouslySkipPermissions: true,
     // SDK auto-detect picks musl binary on Ubuntu (glibc) — override to the
     // globally installed CLI which always works.
-    pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || undefined,
+    pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     // settingSources intentionally omitted — we inline CLAUDE.md ourselves via
     // buildCustomSystemPrompt. Setting it would trigger the CLI's auto-memory
     // subsystem (bl8 in cli.js) on top of our own inlined copy.

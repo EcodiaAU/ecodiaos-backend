@@ -30,6 +30,9 @@ async function haikuRespond(systemPrompt, userMessage) {
     cwd: '/home/tate/ecodiaos',
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
+    // SDK auto-detect picks musl on Ubuntu glibc - force glibc binary.
+    // Origin: 8 May 2026 18:30 AEST musl-vs-glibc fork-dispatch outage.
+    pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     model: 'haiku',
     systemPrompt: {
       type: 'preset',

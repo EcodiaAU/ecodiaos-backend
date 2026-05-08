@@ -854,6 +854,11 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     cwd,
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
+    // SDK auto-detect picks the musl variant on Ubuntu (glibc) and 35ms-errors
+    // because /lib/ld-musl-x86_64.so.1 doesn't exist. Force the glibc binary.
+    // Origin: 8 May 2026 18:30 AEST - musl variant installed at 08:26 broke ALL
+    // fork dispatch for 2h until conductor diagnosed + fixed.
+    pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     includePartialMessages: true,
     systemPrompt,
     model: model || env.OS_SESSION_MODEL || undefined,
