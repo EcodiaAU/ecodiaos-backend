@@ -14,20 +14,31 @@
  * problem, not a doctrine failure.
  *
  * For each qualifying outcome_event with classification IS NULL, classify the
- * failure into one of three modes so the remediation routes to the right layer:
+ * failure into one of four modes so the remediation routes to the right layer:
  *
- *   usage_failure      - relevant pattern surfaced AND was tagged [APPLIED]
- *                        AND outcome was still a correction. Doctrine was
- *                        right; application was wrong (or doctrine incomplete).
- *                        Action: refine the pattern.
+ *   usage_failure       - relevant pattern surfaced AND was tagged [APPLIED]
+ *                         AND outcome was still a correction. Doctrine was
+ *                         right; application was wrong (or doctrine incomplete).
+ *                         Action: refine the pattern.
  *
- *   surfacing_failure  - relevant pattern existed but did NOT surface (no
- *                        surface_event row for it). Triggers missed.
- *                        Action: tighten/expand triggers OR add canonical.
+ *   surfacing_failure   - relevant pattern existed but did NOT surface (no
+ *                         surface_event row for it). Triggers missed.
+ *                         Action: tighten/expand triggers OR add canonical.
  *
- *   doctrine_failure   - no relevant pattern existed in the corpus (semantic
- *                        search returned nothing above similarity threshold).
- *                        Action: author a new pattern.
+ *   doctrine_failure    - no relevant pattern existed in the corpus (semantic
+ *                         search returned nothing above similarity threshold).
+ *                         Action: author a new pattern.
+ *
+ *   operational_failure - outcome='failure' from infrastructure substrate
+ *                         (fork crash, Factory session error, transport
+ *                         disconnect, SDK binary trap, credit exhaustion).
+ *                         NOT a doctrine surfacing problem.
+ *                         Action: operational fix (SDK patch, infra repair,
+ *                         retry policy), not pattern work. Added 8 May 2026
+ *                         (fork_mowxgocp_d29fa6) per Phase G audit critique
+ *                         #2 - prior single-class collapse where 26/26
+ *                         operational fork crashes mis-classified as
+ *                         surfacing_failure.
  *
  * Conservative defaults: when in doubt, classify as `usage_failure` (least
  * invasive remediation). Phase D is about routing, not 100% accuracy.
@@ -75,6 +86,26 @@ const SEMANTIC_TOP_K = 5
 // decision.
 const PATTERN_SEARCH_LABELS = ['Pattern']
 
+// Operational-failure short-circuit (8 May 2026, fork_mowxgocp_d29fa6):
+// outcome='failure' rows whose evidence matches the infrastructure-failure
+// shape (fork crashed/errored/aborted, Factory session error/rejected/aborted,
+// transport disconnect, SDK binary trap, credit exhaustion) are NOT doctrine
+// surfacing failures. They are operational failures - a fork that crashes due
+// to an SDK musl/glibc binary trap is not a "doctrine should have surfaced"
+// event. Classifying them as `surfacing_failure` produced 26/26 single-class
+// collapse over 7d (Phase G audit critique #2). These rows are short-circuited
+// to a new `operational_failure` class BEFORE the semantic search runs - the
+// remediation route is operational fix (SDK patch, infra repair, retry policy),
+// not pattern-doctrine work.
+//
+// Patterns matched (case-insensitive substring on outcome.evidence):
+//   - "os_forks.*status=(error|aborted|crashed|cancelled|failed)"
+//   - "cc_sessions.*status=(error|aborted|rejected|cancelled|failed)"
+//
+// The new class is documented at:
+//   ~/ecodiaos/patterns/failure-classifier-operational-vs-doctrine.md
+const OPERATIONAL_EVIDENCE_REGEX = /(os_forks|cc_sessions)\b.{0,200}?status=(error|aborted|crashed|rejected|cancelled|failed)/is
+
 async function withClient(fn) {
   const env = getEnv()
   const client = new Client({ connectionString: env.DATABASE_URL })
@@ -101,13 +132,22 @@ function buildQueryText(outcome, dispatch) {
   const parts = []
   const correction = (outcome.correction_text || '').trim()
   if (correction) parts.push(correction)
+  // Phase D fix (8 May 2026, fork_mowxgocp_d29fa6): when no correction_text
+  // (i.e. outcome='failure' rows), include evidence as the PRIMARY semantic
+  // signal. Without this, the query was dominated by generic "action:fork_spawn
+  // | tool: mcp__forks__spawn_fork" which semantically retrieves fork-meta-
+  // doctrine at high score regardless of the actual failure mode. Note the
+  // OPERATIONAL_EVIDENCE_REGEX short-circuit in classifyOutcome() catches the
+  // common case before this matters; this is belt-and-braces for failure rows
+  // that escape the short-circuit.
+  if (!correction && outcome.evidence) parts.push(String(outcome.evidence).slice(0, 1000))
   const actionType = dispatch?.action_type || ''
   const toolName = dispatch?.tool_name || ''
   if (actionType) parts.push(`action: ${actionType}`)
   if (toolName) parts.push(`tool: ${toolName}`)
   const kws = Array.isArray(dispatch?.context_keywords) ? dispatch.context_keywords : []
   if (kws.length > 0) parts.push(`context: ${kws.slice(0, 12).join(' ')}`)
-  // If we have nothing else, fall back to evidence text.
+  // Final fallback if we still have nothing.
   if (parts.length === 0 && outcome.evidence) parts.push(outcome.evidence)
   return parts.join(' | ').slice(0, 4000)
 }
@@ -189,6 +229,36 @@ async function getDispatchTagState(client, dispatchEventId) {
  *   5. Anything else falls through to usage_failure (conservative default).
  */
 async function classifyOutcome({ outcome, dispatch, pgClient }) {
+  // Operational-failure short-circuit (8 May 2026 fix). When outcome='failure'
+  // and the evidence shape matches an infrastructure/operational failure
+  // (fork crashed, Factory session error, transport disconnect, SDK trap,
+  // credit exhaustion), classify as `operational_failure` BEFORE running
+  // semantic search. These are NOT doctrine surfacing failures - the
+  // remediation route is operational fix, not pattern authoring/triggering.
+  // Single-class collapse fix per Phase G audit critique #2.
+  const evidenceStr = String(outcome.evidence || '')
+  const correctionStr = String(outcome.correction_text || '').trim()
+  if (
+    outcome.outcome === 'failure'
+    && !correctionStr
+    && OPERATIONAL_EVIDENCE_REGEX.test(evidenceStr)
+  ) {
+    const m = evidenceStr.match(OPERATIONAL_EVIDENCE_REGEX)
+    return {
+      classification: 'operational_failure',
+      evidence: {
+        query_text: null,
+        similarity_threshold: null,
+        top_k: [],
+        surfaced: [],
+        applied: [],
+        silent: [],
+        operational_signal: m ? m[0] : evidenceStr.slice(0, 200),
+        reason: `outcome=failure with operational-substrate evidence (${m ? m[1] : 'unknown'} status); not a doctrine surfacing problem - remediation routes to infra/SDK/retry-policy fix, not pattern work`,
+      },
+    }
+  }
+
   const queryText = buildQueryText(outcome, dispatch)
   const tagState = await getDispatchTagState(pgClient, outcome.dispatch_event_id)
 
@@ -292,7 +362,7 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
     let classified = 0
     let skipped = 0
     let errors = 0
-    const distribution = { usage_failure: 0, surfacing_failure: 0, doctrine_failure: 0 }
+    const distribution = { usage_failure: 0, surfacing_failure: 0, doctrine_failure: 0, operational_failure: 0 }
 
     // Pull oldest unclassified corrections AND failures first, capped at `max`.
     // Phase G Critique #1: failures are real negative ground-truth signals that
