@@ -159,6 +159,7 @@ const canvaRoutes = require('./routes/canva')
 app.use('/api/canva', canvaRoutes.publicRouter)
 app.use('/api/canva', canvaRoutes)
 app.use('/api/message-queue', require('./routes/messageQueue'))
+app.use('/api/cortex', require('./routes/cortexAttachments'))
 app.use('/api/os-session', require('./routes/osSession'))
 app.use('/api/sms', require('./routes/smsWebhook'))
 // iMessage inbound webhook moved above express.json() (line ~64-66) on 7 May
