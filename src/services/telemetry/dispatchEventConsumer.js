@@ -144,6 +144,18 @@ async function consumeFile(filePath, client) {
       const actionType = actionTypeForHook(hookName, toolName)
       const keywords = extractContextKeywords(ctx)
 
+      // Layer-D outcome inference (failureClassifier.js, outcomeInference.js)
+      // dispatches on metadata.kind. The hook layer now ships kind explicitly
+      // at the top level of the JSONL line; fall back to "unknown" sentinel
+      // when missing so producer-side regression is queryable rather than
+      // silent. Phase-G Critique #5 closure (9 May 2026): without kind plumbed
+      // through, the classifier compensated with a fork_id-presence heuristic
+      // that worked for fork rows but broke for cron-fire and hook-only
+      // dispatches. Plumbed at producer (emit-telemetry.sh + 7 hook callers).
+      const kind = (typeof line.kind === 'string' && line.kind.trim().length > 0)
+        ? line.kind.trim()
+        : 'unknown'
+
       // For fork_spawn rows, enrich metadata with fork_id by ts-proximity match
       // against os_forks. The PreToolUse hook fires BEFORE the fork is created,
       // so the JSONL line cannot carry fork_id at hot-path write-time. The
@@ -156,7 +168,7 @@ async function consumeFile(filePath, client) {
       // fork_spawn dispatch_events over 7d had no fork_id, breaking the
       // join key for outcome inference (~/ecodiaos/src/services/telemetry/
       // outcomeInference.js inferForkSpawnOutcome).
-      let metadata = ctx
+      let metadata = { ...ctx, kind }
       if (actionType === 'fork_spawn') {
         try {
           const forkLookup = await client.query(
@@ -168,7 +180,7 @@ async function consumeFile(filePath, client) {
             [ts]
           )
           if (forkLookup.rows.length > 0 && forkLookup.rows[0].fork_id) {
-            metadata = { ...ctx, fork_id: forkLookup.rows[0].fork_id }
+            metadata = { ...metadata, fork_id: forkLookup.rows[0].fork_id }
           }
         } catch (err) {
           // Lookup failure is non-fatal: fall through to NULL fork_id metadata.

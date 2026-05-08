@@ -8,7 +8,8 @@
     "migrate": "node src/db/migrate.js",
     "kg:backfill": "node src/scripts/kgBackfill.js",
     "test": "jest",
-    "test:sdk-binary": "npx jest tests/sdkBinaryOverride.test.js"
+    "test:sdk-binary": "npx jest tests/sdkBinaryOverride.test.js",
+    "test:dispatch-kind": "npx jest tests/dispatchEventKindContract.test.js"
   },
   "jest": {
     "testEnvironment": "node"

@@ -108,7 +108,7 @@ if [ -f "$TELEM_LIB" ]; then
     surfaces_array=$(jq -nc \
       '[{pattern_path:"/home/tate/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md", trigger_keyword:"macro_runbooks-write", source_layer:"hook:macro-runbook-write"}]' 2>/dev/null || echo '[]')
   fi
-  emit_telemetry_safe "macro-runbook-write-surface" "$tool_name" "$ctx_json" "$surfaces_array"
+  emit_telemetry_safe "macro-runbook-write-surface" "$tool_name" "$ctx_json" "$surfaces_array" "macro_runbook_write"
 fi
 
 if [ "${#warnings[@]}" -eq 0 ]; then

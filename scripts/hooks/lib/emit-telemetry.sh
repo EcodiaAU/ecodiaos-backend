@@ -25,7 +25,8 @@
 #     "<hook_name>" \
 #     "<tool_name>" \
 #     "<context_json>" \
-#     "<surfaces_json>"
+#     "<surfaces_json>" \
+#     "<kind>"
 #
 #   - hook_name: e.g. "brief-consistency-check"
 #   - tool_name: from .tool_name (e.g. "mcp__forks__spawn_fork")
@@ -34,6 +35,24 @@
 #   - surfaces_json: JSON ARRAY of {pattern_path, trigger_keyword,
 #                                    priority, canonical} objects (one per
 #                                    surface emitted; empty array if no surfaces)
+#   - kind: REQUIRED. Top-level dispatch class for downstream Layer-D outcome
+#       inference. Canonical values:
+#         fork_spawn         (mcp__forks__spawn_fork interception)
+#         factory_dispatch   (mcp__factory__start_cc_session interception)
+#         doctrine_edit      (Write/Edit/MultiEdit on patterns/clients/docs/CLAUDE.md)
+#         status_board_write (db_execute INSERT/UPDATE on status_board)
+#         macro_runbook_write (db_execute INSERT/UPDATE on macro_runbooks)
+#         hook_warn          (catch-all hook fire that doesn't match a kind above)
+#         cron_fire          (cron-fired fork dispatch via cronForkDispatcher; reserved)
+#       If omitted/empty/invalid, defaults to "unknown" so Layer-D can detect
+#       producer-side regression. Closing Phase-G Critique #5: Layer-D fork_id
+#       presence heuristic was a workaround for missing kind; that workaround
+#       is no longer load-bearing once kind is plumbed at the producer.
+#
+#   derive_kind_from_tool <tool_name> -> echoes a best-effort kind for callers
+#   that fire on multiple tool surfaces (e.g. brief-consistency-check fires on
+#   both mcp__forks__spawn_fork and mcp__factory__start_cc_session). Falls back
+#   to "hook_warn" for unknown tools.
 #
 # Output: appends one JSON object (single line, newline-terminated) to
 #   ~/ecodiaos/logs/telemetry/dispatch-events.jsonl
@@ -47,6 +66,20 @@ TELEMETRY_FILE="${ECODIAOS_TELEMETRY_FILE:-${TELEMETRY_DIR}/dispatch-events.json
 # Ensure directory exists (cheap; idempotent). Fails silently.
 mkdir -p "${TELEMETRY_DIR}" 2>/dev/null
 
+# derive_kind_from_tool - best-effort kind classifier from tool_name. Hooks that
+# fire on a single tool surface should pass an explicit kind instead; this is
+# the fallback for hooks that fire on multiple tools (e.g. brief-consistency-check
+# fires on both spawn_fork and start_cc_session).
+derive_kind_from_tool() {
+  case "${1:-}" in
+    mcp__forks__spawn_fork) echo "fork_spawn" ;;
+    mcp__factory__start_cc_session) echo "factory_dispatch" ;;
+    Write|Edit|MultiEdit) echo "doctrine_edit" ;;
+    mcp__supabase__db_execute) echo "db_execute" ;;
+    *) echo "hook_warn" ;;
+  esac
+}
+
 # emit_telemetry_event - emits one JSONL line.
 # All args are passed through as JSON-safe strings; jq does the encoding.
 emit_telemetry_event() {
@@ -54,6 +87,14 @@ emit_telemetry_event() {
   local tool_name="${2:-unknown}"
   local context_json="${3:-\{\}}"
   local surfaces_json="${4:-[]}"
+  local kind="${5:-}"
+
+  # Default to "unknown" sentinel so Layer-D outcome inference can detect
+  # producer-side regression (every NEW dispatch_event row MUST carry kind).
+  # Phase-G Critique #5 closure: missing kind is no longer silent.
+  if [ -z "${kind}" ]; then
+    kind="unknown"
+  fi
 
   # Validate context_json and surfaces_json are valid JSON; fall back to defaults if not.
   if ! echo "${context_json}" | jq -e . >/dev/null 2>&1; then
@@ -72,12 +113,14 @@ emit_telemetry_event() {
     --arg ts "${ts}" \
     --arg hook "${hook_name}" \
     --arg tool "${tool_name}" \
+    --arg kind "${kind}" \
     --argjson ctx "${context_json}" \
     --argjson surfaces "${surfaces_json}" \
     '{
       ts: $ts,
       hook_name: $hook,
       tool_name: $tool,
+      kind: $kind,
       context: $ctx,
       surfaces: $surfaces
     }' 2>/dev/null) || return 0

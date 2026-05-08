@@ -327,7 +327,8 @@ if [ -f "$TELEM_LIB" ]; then
     done
     surfaces_array="$surfaces_jq"
   fi
-  emit_telemetry_safe "brief-consistency-check" "$tool_name" "$ctx_json" "$surfaces_array"
+  kind="$(derive_kind_from_tool "$tool_name")"
+  emit_telemetry_safe "brief-consistency-check" "$tool_name" "$ctx_json" "$surfaces_array" "$kind"
 fi
 
 if [ "${#warnings[@]}" -eq 0 ]; then

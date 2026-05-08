@@ -194,7 +194,7 @@ if [ -f "$TELEM_LIB" ]; then
     done
     surfaces_array="$surfaces_jq"
   fi
-  emit_telemetry_safe "doctrine-edit-cross-ref-surface" "$tool_name" "$ctx_json" "$surfaces_array"
+  emit_telemetry_safe "doctrine-edit-cross-ref-surface" "$tool_name" "$ctx_json" "$surfaces_array" "doctrine_edit"
 fi
 
 if [ "${#cross_ref_warns[@]}" -eq 0 ]; then

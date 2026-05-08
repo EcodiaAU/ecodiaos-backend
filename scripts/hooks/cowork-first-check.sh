@@ -174,7 +174,8 @@ if [ -f "$TELEM_LIB" ]; then
     surfaces_array="$surfaces_jq"
   fi
   if declare -f emit_telemetry_safe >/dev/null 2>&1; then
-    emit_telemetry_safe "cowork-first-check" "$tool_name" "$ctx_json" "$surfaces_array"
+    kind="$(derive_kind_from_tool "$tool_name")"
+    emit_telemetry_safe "cowork-first-check" "$tool_name" "$ctx_json" "$surfaces_array" "$kind"
   fi
 fi
 

@@ -148,7 +148,7 @@ if [ -f "$TELEM_LIB" ]; then
     done
     surfaces_array="$surfaces_jq"
   fi
-  emit_telemetry_safe "status-board-write-surface" "$tool_name" "$ctx_json" "$surfaces_array"
+  emit_telemetry_safe "status-board-write-surface" "$tool_name" "$ctx_json" "$surfaces_array" "status_board_write"
 fi
 
 if [ "${#surface_warns[@]}" -eq 0 ]; then
