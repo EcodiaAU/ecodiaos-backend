@@ -145,6 +145,31 @@ router.get('/recover', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// Extended-recovery — return durable transcript since timestamp.
+// Pairs with /recover (event-level, in-memory ring) when the gap exceeds the
+// 500-event ring window or the session epoch changed (PM2 restart).
+//   ?since=<iso_ts>    Required-ish (defaults to 24h ago)
+//   ?limit=<int>       Optional, default 200, max 1000
+// Surfaces only role-tagged finalised messages from cc_session_logs.
+// Tool calls / thinking blocks / partial deltas are NOT in the persistent
+// log - those live only in the live event ring. This endpoint is the chat
+// transcript surface, not the event-stream surface.
+// Doctrine: ~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md
+// Origin: 7 May 2026 DeepSeek 400-storm phone-freeze (status_board 148cddc5).
+router.get('/messages', async (req, res, next) => {
+  try {
+    const sinceRaw = req.query.since
+    const since = typeof sinceRaw === 'string' ? sinceRaw : null
+    const limitRaw = parseInt(req.query.limit || '200', 10)
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 200
+    const result = await osSession.getMessagesSinceTimestamp(since, { limit })
+    res.json(result)
+  } catch (err) {
+    logger.error('OS Session /messages: error', { error: err.message })
+    next(err)
+  }
+})
+
 // Compact - seamlessly transition to a new session with summary context
 router.post('/compact', async (req, res, next) => {
   res.setTimeout(1_800_000) // 30 min

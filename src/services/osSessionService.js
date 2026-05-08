@@ -3753,6 +3753,51 @@ function getTokenUsage() {
 
 // ── Recover missed response — returns assistant text after a timestamp ──
 
+// Extended-recovery for chat-resilience (fork_mowlrdzt_79097c, 2026-05-08).
+// Reads the durable transcript from cc_session_logs filtered by created_at > since.
+// Returns role-tagged messages so the frontend can replay them into the chat
+// after a long disconnect / extended error window where the in-memory ring
+// buffer aged out. Does NOT include tool calls or thinking blocks - only the
+// finalised user input and assistant text per turn (which is all that
+// appendLog() writes).
+async function getMessagesSinceTimestamp(sinceTs, opts = {}) {
+  const session = await getOSSession()
+  if (!session) return { messages: [], session_id: null, count: 0, since: sinceTs || null }
+
+  const limit = Math.min(Math.max(parseInt(opts.limit || 200, 10) || 200, 1), 1000)
+  // Default lookback: 24h. The 7 May 2026 freeze sat for 6h; 24h covers
+  // weekend-scale gaps without flooding the response.
+  const since = sinceTs ? new Date(sinceTs) : new Date(Date.now() - 86_400_000)
+
+  const logs = await db`
+    SELECT content, created_at
+    FROM cc_session_logs
+    WHERE session_id = ${session.id} AND created_at > ${since}
+    ORDER BY created_at ASC
+    LIMIT ${limit}
+  `
+
+  const messages = []
+  for (const log of logs) {
+    const line = log.content || ''
+    if (line.startsWith('[USER] ')) {
+      messages.push({ role: 'user', content: line.slice(7), created_at: log.created_at })
+    } else if (line.startsWith('[USER]')) {
+      // Defensive: legacy rows without the trailing space.
+      messages.push({ role: 'user', content: line.slice(6), created_at: log.created_at })
+    } else if (line.trim()) {
+      messages.push({ role: 'assistant', content: line, created_at: log.created_at })
+    }
+  }
+
+  return {
+    messages,
+    session_id: session.id,
+    count: messages.length,
+    since: since.toISOString(),
+  }
+}
+
 async function recoverResponse(sinceTs) {
   const session = await getOSSession()
   if (!session) return { found: false, text: '', status: 'idle', streaming: false }
@@ -3844,4 +3889,4 @@ function _setActiveAbortForTest(ac) { activeAbort = ac }
 function _setActiveQueryForTest(q) { activeQuery = q }
 function _resetAbortStateForTest() { activeAbort = null; activeQuery = null; _abortInProgress = false; if (abortGraceTimer) { clearTimeout(abortGraceTimer); abortGraceTimer = null } }
 
-module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, autoHandover, abort, buildCustomSystemPrompt, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }
+module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, getMessagesSinceTimestamp, autoHandover, abort, buildCustomSystemPrompt, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }
