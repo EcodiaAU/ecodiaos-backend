@@ -77,6 +77,7 @@ Companion file: `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.
 - `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` - when 3+ surface failures show the same shape, treat as ONE failure with a shared upstream cause.
 - `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` - the git-ref-vs-working-tree instance.
 - `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` - phantom approval instance.
+- `~/ecodiaos/patterns/shipped-infra-never-activated-decision-vs-disk-drift.md` - the multi-phase-migration specialisation: a Decision claiming "shipped" for a multi-phase ship where only Phase 1 landed. Second-strike codification 8 May 2026 (Phase-D hooks 30 Apr + conductor-sibling 8 May).
 
 ## 7. Origin
 
