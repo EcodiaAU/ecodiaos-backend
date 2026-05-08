@@ -82,6 +82,18 @@ Tate diagnosed and shipped commit `2980601` at 08:39:52 UTC. ecodia-api PM2-rest
 
 The recovery-fork-itself-failed dynamic is the meta-lesson: when the diagnostic substrate depends on the broken substrate, escalation must route around it. Here, Tate's hands closed the loop manually because no fork could.
 
+## Mechanical enforcement (regression test)
+
+`tests/sdkBinaryOverride.test.js` (added 8 May 2026 by self-evolution rotation D, fork `fork_mox5zvke_112e71`) walks `src/`, identifies every top-level SDK options block by the unique `allowDangerouslySkipPermissions: true` fingerprint, and asserts each block carries `pathToClaudeCodeExecutable`. Five guards:
+
+1. Detection sanity (at least one site found - test isn't trivially passing).
+2. Every top-level options block has the override (the core invariant).
+3. Pinned set of known sites still present (`forkService.js`, `osSessionService.js`, `voiceRelay.js`, `rescueRunner.js`) - silent deletion forces the deleting diff to update the test.
+4. No override references the musl variant package (catches copy-paste typos).
+5. Every override line uses the canonical glibc path, env var, or identifier (no divergent paths).
+
+Run via `npm run test:sdk-binary`. Sub-300ms, no DB or network deps. Add to CI when CI exists.
+
 ## Cross-refs
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the abort_reason text said "binary not found" but the file existed; ground-truth probe (`file`, direct exec) revealed the interpreter mismatch.
