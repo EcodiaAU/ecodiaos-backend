@@ -61,6 +61,14 @@ if [ -z "$brief" ] || [ "$brief" = "null" ]; then
   exit 0
 fi
 
+# Strip hook-tag lines from the keyword-scan input so the hook never fires on
+# its own forcing-function output or on [APPLIED] / [NOT-APPLIED] tags. See
+# ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  brief=$(printf '%s' "$brief" | bash "$STRIP_TAGS_LIB")
+fi
+
 warnings=()
 
 # --- Check 1: "FULL ... [ProperNoun] ... implementation" without platform/multi-tenant context ---

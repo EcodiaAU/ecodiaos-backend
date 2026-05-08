@@ -54,11 +54,19 @@ esac
 
 warnings=()
 
+# Strip hook-tag lines from any command we scan so heredoc-embedded [APPLIED]
+# / [NOT-APPLIED] tag blocks don't false-positive the multi-line / heredoc
+# signals. See ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+
 # --- Bash tool: scan command for "doing work on main" signals. ---
 if [ "$tool_name" = "Bash" ]; then
   cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
   if [ -z "$cmd" ] || [ "$cmd" = "null" ]; then
     exit 0
+  fi
+  if [ -f "$STRIP_TAGS_LIB" ]; then
+    cmd=$(printf '%s' "$cmd" | bash "$STRIP_TAGS_LIB")
   fi
 
   signals=()
@@ -117,6 +125,9 @@ if [ "$tool_name" = "mcp__vps__shell_exec" ]; then
   cmd=$(echo "$input" | jq -r '.tool_input.command // empty')
   if [ -z "$cmd" ] || [ "$cmd" = "null" ]; then
     exit 0
+  fi
+  if [ -f "$STRIP_TAGS_LIB" ]; then
+    cmd=$(printf '%s' "$cmd" | bash "$STRIP_TAGS_LIB")
   fi
   signals=()
   line_count=$(printf '%s\n' "$cmd" | wc -l)

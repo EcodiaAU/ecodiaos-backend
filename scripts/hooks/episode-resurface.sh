@@ -56,6 +56,14 @@ if [ -z "$brief" ] || [ "$brief" = "null" ]; then
   exit 0
 fi
 
+# Strip hook-tag lines so the goal-extraction and downstream semantic search
+# don't latch onto [APPLIED] / [NOT-APPLIED] / etc. forcing-function tags. See
+# ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  brief=$(printf '%s' "$brief" | bash "$STRIP_TAGS_LIB")
+fi
+
 # Goal sentence extraction:
 #   1. First non-empty line containing **Goal:** (markdown bold).
 #   2. Otherwise first 200 chars of the brief.

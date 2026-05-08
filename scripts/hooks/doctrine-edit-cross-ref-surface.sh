@@ -88,6 +88,14 @@ if [ -z "$content" ] || [ "$content" = "null" ]; then
   exit 0
 fi
 
+# Strip hook-tag lines from the keyword-scan input so the hook never fires on
+# embedded [APPLIED] / [NOT-APPLIED] / etc. forcing-function tags. See
+# ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  content=$(printf '%s' "$content" | bash "$STRIP_TAGS_LIB")
+fi
+
 # Length cap - extremely long contents get truncated to keep the grep cost bounded.
 # 200KB is well above any realistic doctrine-file edit.
 content_truncated=$(printf '%s' "$content" | head -c 200000)

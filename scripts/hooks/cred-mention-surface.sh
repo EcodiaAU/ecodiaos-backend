@@ -40,6 +40,15 @@ if [ -z "$brief" ] || [ "$brief" = "null" ]; then
   exit 0
 fi
 
+# Strip hook-tag lines from the keyword-scan input so the hook never fires on
+# its own forcing-function output or on [APPLIED] / [NOT-APPLIED] tags. See
+# ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+# Origin: 6+ false positives 21:00-21:12 AEST 29 Apr 2026 across this hook.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  brief=$(printf '%s' "$brief" | bash "$STRIP_TAGS_LIB")
+fi
+
 # If the brief already references the secrets registry, the agent has surfaced
 # the right context. Skip warning.
 if echo "$brief" | grep -qiE '(docs/secrets/|secrets-registry|secrets/INDEX\.md|/secrets/[a-z0-9_-]+\.md)'; then

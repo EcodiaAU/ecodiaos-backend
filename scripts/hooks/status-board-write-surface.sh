@@ -59,6 +59,14 @@ if ! echo "$sql" | grep -qiE '(insert[[:space:]]+into[[:space:]]+status_board|up
   exit 0
 fi
 
+# Strip hook-tag lines so the hook never fires on tag content embedded in a
+# row's name/next_action/context (e.g. when a status_board row records prior
+# fork output). See ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  sql=$(printf '%s' "$sql" | bash "$STRIP_TAGS_LIB")
+fi
+
 # Length cap on the SQL we scan. status_board rows are small; keep grep cheap.
 sql_truncated=$(printf '%s' "$sql" | head -c 50000)
 

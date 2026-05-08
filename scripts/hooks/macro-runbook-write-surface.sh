@@ -57,6 +57,14 @@ if ! echo "$sql" | grep -qiE '(insert[[:space:]]+into[[:space:]]+macro_runbooks|
   exit 0
 fi
 
+# Strip hook-tag lines so SQL string literals carrying tag content from prior
+# fork narration don't trigger false positives. See
+# ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  sql=$(printf '%s' "$sql" | bash "$STRIP_TAGS_LIB")
+fi
+
 PATTERN_REF="~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md"
 
 warnings=()

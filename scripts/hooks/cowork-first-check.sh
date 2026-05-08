@@ -68,8 +68,20 @@ if echo "$brief_lc" | grep -qE '(cowork|claude cowork|side panel|ctrl\+e|ctrl-e|
 fi
 
 # Also skip if the brief carries an applied-pattern tag for the Cowork doctrine.
+# IMPORTANT: this check runs BEFORE strip-tag-lines so the [APPLIED]/[NOT-APPLIED]
+# tag is still visible. The strip happens after, before the keyword scan, so the
+# tag-as-allow-signal is preserved while tag-content does not pollute keywords.
 if echo "$brief" | grep -qE '\[(APPLIED|NOT-APPLIED)\][^\[]*claude-cowork-is-the-1stop-shop-for-ui-driving-tasks'; then
   exit 0
+fi
+
+# Strip hook-tag lines from the keyword-scan input so the hook never fires on
+# tag content (e.g. an [APPLIED] line that names a SaaS target as part of its
+# explanation). See ~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md.
+STRIP_TAGS_LIB="$(dirname "$0")/lib/strip-tag-lines.sh"
+if [ -f "$STRIP_TAGS_LIB" ]; then
+  brief=$(printf '%s' "$brief" | bash "$STRIP_TAGS_LIB")
+  brief_lc=$(echo "$brief" | tr '[:upper:]' '[:lower:]')
 fi
 
 # --- Web SaaS targets. Format: "label|regex"
