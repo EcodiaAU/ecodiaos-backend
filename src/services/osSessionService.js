@@ -646,7 +646,36 @@ function _isProviderSideError(errMsg) {
   // Recurrence here means the proxy-side fix needs extending, not a host kick.
   if (t.includes('deepseek') && t.includes('400')) return true
   if (t.includes('thinking') && t.includes('400')) return true
+  // Empty SDK stream — CC CLI subprocess exits without emitting a result
+  // message. Transient (network blip, CC CLI subprocess collapse, SDK retry
+  // exhaustion). Already recovered by the inner SDK retry loop; surfacing
+  // here as a "turn failure" should not count toward host-restart trigger.
+  // Origin: 8 May 2026, fork_mowkasur_95685e RCA — 2x empty_sdk_stream
+  // events at 03:34 UTC during pre-d7b8388 storm. Restart did not fix them.
+  if (t.includes('empty_sdk_stream')) return true
+  if (t.includes('cc cli exited with no result')) return true
   return false
+}
+
+// Probe how many forks are currently in-flight. PM2 restart kills every
+// long fork via SIGTERM, which is the exact damage the auto-restart was
+// supposed to prevent. Tate verbatim 8 May 2026: "every long fork dies
+// to SIGTERM when pm2 restarts." Defer the kick when fork work is live.
+async function _activeForkCount() {
+  try {
+    const rows = await db`
+      SELECT COUNT(*)::int AS n
+      FROM os_forks
+      WHERE status IN ('running', 'spawning', 'reporting')
+        AND last_heartbeat > NOW() - INTERVAL '10 minutes'
+    `
+    return rows[0]?.n || 0
+  } catch (err) {
+    logger.warn('auto-restart: active-fork probe failed (treating as 0)', {
+      error: err.message,
+    })
+    return 0
+  }
 }
 
 async function _shouldAutoRestart() {
@@ -726,6 +755,49 @@ function _recordTurnOutcome(ok, errorMsg) {
           try {
             const alerting = require('./osAlertingService')
             alerting.alertConsecutiveFailures(_consecutiveFailures, errorMsg).catch(() => {})
+          } catch {}
+          return
+        }
+        // Guard (d): fork-running gate. PM2 restart SIGTERMs every long
+        // fork mid-flight - exactly the damage the auto-restart was meant
+        // to prevent. If forks are running, defer + alert instead of
+        // kicking the host. Forks self-resolve or get reaped by os-forks-
+        // reaper; the host restart adds no signal here. Re-mark cooldown
+        // so the next eligible kick window is pushed out.
+        // Origin: 8 May 2026, fork_mowkasur_95685e RCA on top of d7b8388.
+        const forkCount = await _activeForkCount()
+        if (forkCount > 0) {
+          logger.warn('auto-restart: deferred - active forks would be killed by SIGTERM', {
+            consecutiveFailures: _consecutiveFailures,
+            activeForks: forkCount,
+            lastError: errorMsg,
+          })
+          try {
+            await require('./osIncidentService').log({
+              kind: 'auto_restart_deferred',
+              severity: 'warning',
+              component: 'os_session',
+              message: `Auto pm2 restart deferred — ${forkCount} active fork(s) would be killed by SIGTERM`,
+              context: {
+                consecutiveFailures: _consecutiveFailures,
+                activeForks: forkCount,
+                lastError: errorMsg,
+              },
+            })
+          } catch {}
+          // Re-stamp cooldown to push the next kick window out, so we
+          // don't re-evaluate every turn while forks are still busy.
+          await _markAutoRestart('deferred_active_forks')
+          // Reset the in-process counter so a subsequent fresh storm
+          // gets its own 3-strike accumulation rather than firing on
+          // the very next host-side error.
+          _consecutiveFailures = 0
+          _lastFailureAt = 0
+          // Alert Tate so he knows the host is wedged but forks are
+          // still working - same surface as the cooldown-suppressed branch.
+          try {
+            const alerting = require('./osAlertingService')
+            alerting.alertConsecutiveFailures(_consecutiveFailures + 3, errorMsg).catch(() => {})
           } catch {}
           return
         }
