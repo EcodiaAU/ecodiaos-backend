@@ -23,7 +23,16 @@ const COMMON = {
 }
 module.exports = {
   apps: [
-    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '2G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8' } },
+    // max_memory_restart raised 2G -> 3G on 8 May 2026 (fork_mowu3mib_992987) to
+    // reduce fork-killing PM2 reaps. SDK forks run in-process inside ecodia-api
+    // (CONDUCTOR_DETACHED never activated, see docs/architecture/conductor-process-detach-2026-04-30.md).
+    // 36 api_memory_restart events in the prior 7 days killed forks at avg age
+    // 410s. System has 3.5G+ available headroom; 3G ceiling is safe in practice.
+    // The durable architectural fix is Option B (activate ecodia-conductor) per
+    // ~/ecodiaos/drafts/fork-survival-options-2026-05-08.md. This is the cheap
+    // ~30% reduction that ships tonight without pm2 reload (takes effect on
+    // next natural api restart).
+    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8' } },
     // Factory runner - owns all CC session child processes.
     // Runs separately from ecodia-api so CC sessions survive API restarts (e.g. self-modification deploys).
     // Communicates with ecodia-api via Redis pub/sub (factoryBridge).
