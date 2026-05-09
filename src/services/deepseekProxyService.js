@@ -93,25 +93,46 @@ function _transformJSON(body) {
 // ─── Outgoing request body transformer ───────────────────────────────────────
 // Sanitise an Anthropic-shaped request before forwarding to DeepSeek.
 //
-// Three coupled strips are required for cross-provider compatibility:
+// This proxy targets api.deepseek.com exclusively (TARGET_HOST), so every
+// outbound request is DeepSeek-bound. The transform forces thinking mode
+// OFF and removes any Anthropic-shaped thinking residue.
 //
-//   (1) Top-level `thinking` parameter. Anthropic's extended-thinking mode is
-//       opt-in via `thinking: { type: "enabled", budget_tokens: N }` on the
-//       request root. DeepSeek's Anthropic-compat endpoint accepts this param
-//       but then VALIDATES that any assistant turn carries thinking blocks
-//       round-tripped from a prior response. If we leave the param set and
-//       strip the blocks (per (2) below), DeepSeek 400s with:
-//         "The `content[].thinking` in the thinking mode must be passed back
-//          to the API."
-//       That was the 7 May 2026 03:51-03:58 UTC storm root cause. Removing
-//       the param disables thinking-mode validation and the same payload
-//       lands cleanly. status_board row 8834dd85.
+// Three coupled mutations are required for cross-provider compatibility:
+//
+//   (1) Top-level `thinking` parameter — FORCE-WRITE to `{type:'disabled'}`.
+//       Original v1 (commit 68a5da9, 7 May 2026 05:14 UTC) blanket-DELETED
+//       this param to fix the 7 May 03:51 UTC storm where the SDK sent
+//       `thinking: {type:'enabled', budget_tokens: 1500}`. That worked at
+//       the time because the SDK used `enabled`, and stripping it left an
+//       absent param which (it was assumed) defaulted DeepSeek to off.
+//
+//       The 8 May 08:56 UTC commit (26c9d59) intentionally set the SDK to
+//       send `thinking: {type:'disabled'}` for DeepSeek — based on the
+//       observation that `delete options.thinking` left the CLI's
+//       `alwaysThinkingEnabled=true` default in play, and DeepSeek's
+//       Anthropic-compat endpoint AUTO-ENABLES thinking mode when the
+//       request carries no `thinking` param. Once auto-enabled, DeepSeek
+//       validates that thinking blocks from the prior turn are round-
+//       tripped — but the proxy strips them on the response side, so the
+//       second turn 400s with: "The `content[].thinking` in the thinking
+//       mode must be passed back to the API."
+//
+//       That was the 7 May 23:13/23:24/23:49 UTC failure mode (3 forks:
+//       fork_mow3qoaq_79296a, fork_mow44x4a_5b3f15, fork_mow51olw_ee9ec0).
+//       Root cause: the v1 proxy strip and the SDK's explicit-disable were
+//       working AGAINST each other. The proxy deleted the very param the
+//       SDK was sending to fix the bug.
+//
+//       v2 (this commit, 9 May 2026): always-write `thinking:{type:'disabled'}`
+//       at the wire boundary, regardless of what the SDK sent. This is the
+//       only shape that reliably keeps DeepSeek out of thinking mode for
+//       multi-turn tool loops. status_board row 8834dd85.
 //
 //   (2) `thinking` / `redacted_thinking` content blocks on assistant messages.
 //       The Claude Agent SDK echoes prior assistant messages verbatim,
 //       including thinking blocks that carry Anthropic signatures. DeepSeek
 //       cannot validate those signatures and rejects with 400 "Invalid
-//       signature in thinking block".
+//       signature in thinking block". Strip them.
 //
 //   (3) `cache_control` markers. Anthropic prompt caching uses
 //       `cache_control: { type: "ephemeral" }` on individual content blocks
@@ -125,15 +146,25 @@ function _transformJSON(body) {
 // only mutates the in-flight HTTP body. The SDK's internal message store is
 // untouched. So Anthropic still receives properly-rounded thinking blocks
 // when the chain switches back. Cross-ref:
-// ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+// ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md,
+// ~/ecodiaos/patterns/deepseek-fallback-strips-anthropic-thinking-blocks.md.
 function _stripThinkingFromRequest(body) {
   try {
     const parsed = JSON.parse(body)
     let mutated = false
 
-    // (1) Top-level thinking parameter.
-    if (parsed.thinking !== undefined) {
-      delete parsed.thinking
+    // (1) Top-level thinking parameter — force-write to {type:'disabled'}.
+    // Always mutate: the wire-side guarantee is that DeepSeek receives a
+    // request with thinking explicitly off. We do not trust upstream
+    // (SDK / CLI / call site) to preserve this invariant.
+    const desiredThinking = { type: 'disabled' }
+    const currentThinking = parsed.thinking
+    const isAlreadyDisabled = currentThinking
+      && typeof currentThinking === 'object'
+      && currentThinking.type === 'disabled'
+      && Object.keys(currentThinking).length === 1
+    if (!isAlreadyDisabled) {
+      parsed.thinking = desiredThinking
       mutated = true
     }
 

@@ -13,14 +13,22 @@ Anthropic-compatible endpoint (the third tier of the
 HTTP body MUST be sanitised of Anthropic-only fields before it is forwarded.
 Three coupled strips are required, and they are not optional or independent:
 
-1. **Top-level `thinking` parameter.** Anthropic's extended-thinking mode is
-   opt-in via `thinking: { type: "enabled", budget_tokens: N }` on the
-   request root. DeepSeek's compat endpoint accepts the param at the schema
-   layer but then enforces a thinking-mode invariant: every assistant turn
-   in the message history must round-trip thinking blocks. If the param is
-   set and the assistant content carries no thinking blocks (because we
-   stripped them per (2)), DeepSeek 400s with the thinking-mode validation
-   message. Removing the param disables the validator entirely.
+1. **Top-level `thinking` parameter — FORCE-WRITE to `{type:'disabled'}`.**
+   v1 (commit `68a5da9`, 7 May 2026 05:14 UTC) blanket-deleted the param
+   to escape the storm where the SDK was sending
+   `thinking:{type:'enabled', budget_tokens:1500}`. That worked at the time
+   because deletion left an absent param which (it was assumed) defaulted
+   DeepSeek to thinking-off. v2 (9 May 2026, status_board row 8834dd85)
+   discovered the assumption was wrong: DeepSeek's Anthropic-compat endpoint
+   AUTO-ENABLES thinking mode when no `thinking` param is present. The 8 May
+   commit `26c9d59` had set the SDK to send `thinking:{type:'disabled'}`
+   explicitly to defend against that auto-enable, but v1's blanket-delete
+   was undoing that defence. The wire-side invariant is now: every outbound
+   request carries `thinking:{type:'disabled'}` regardless of upstream
+   shape. If the SDK omits, force-write disabled. If the SDK sends adaptive
+   or enabled, rewrite to disabled. If the SDK already sends disabled,
+   normalise to the bare `{type:'disabled'}` shape. The validator never
+   fires because thinking mode is explicitly off.
 2. **`thinking` and `redacted_thinking` content blocks on assistant
    messages.** The Claude Agent SDK echoes prior assistant turns verbatim,
    thinking blocks included. Those blocks carry Anthropic-issued signatures
@@ -48,6 +56,11 @@ the SDK's store, Anthropic 400s on switch-back.
   `_stripThinkingFromRequest`.
 - Strip all three classes in one pass. Do not ship a partial fix that
   leaves any of (1)/(2)/(3) live; they fail in tandem.
+- The wire-side invariant for (1) is FORCE-WRITE-DISABLED, not strip.
+  Always set `parsed.thinking = {type:'disabled'}` regardless of upstream
+  shape (absent, enabled, adaptive, or disabled-with-extras). The proxy
+  is the trust boundary; do not trust the SDK / CLI / call site to
+  preserve the disabled shape.
 - Treat the sanitiser as immutable with respect to the SDK. Parse, mutate,
   re-serialise, write to the wire. Never reach back into the SDK store.
 - Apply (3) to BOTH the array-form system prompt AND every block in
@@ -58,10 +71,14 @@ the SDK's store, Anthropic 400s on switch-back.
 
 ## Do NOT
 
+- Do NOT blanket-DELETE the top-level `thinking` parameter. v1 did this
+  and the absence triggered DeepSeek's auto-enable on subsequent multi-turn
+  tool loops, leading to the second-pass 400 storm at 7 May 23:13/23:24/23:49
+  UTC. Always force-write to `{type:'disabled'}`.
 - Do NOT strip thinking blocks while leaving the top-level `thinking`
-  parameter set. That is the exact storm-shape the fix prevents (DeepSeek
-  refuses the request because thinking-mode validation expects round-trip
-  blocks).
+  parameter set to `enabled` or `adaptive`. That is the exact v1 storm
+  shape (DeepSeek refuses the request because thinking-mode validation
+  expects round-trip blocks).
 - Do NOT strip thinking blocks from user-role content. The SDK never sets
   them on user turns; if one appears, treat it as a malformed message and
   surface the bug, do not silently delete.
@@ -95,7 +112,7 @@ the new code at least once.
 
 ## Origin
 
-7 May 2026 03:51-03:58 UTC. An 18-event storm landed on `cc_session`
+**v1 storm (7 May 2026 03:51-03:58 UTC).** 18-event storm on `cc_session`
 `a427439a`, all identical 400s from DeepSeek matching:
 
 > "The `content[].thinking` in the thinking mode must be passed back to
@@ -105,13 +122,24 @@ Diagnosed by `fork_mov0r7tw_e8fe19` (provider chain had fallen to DeepSeek
 because both Max accounts were token-wedged; the SDK had extended-thinking
 enabled on tate@'s session, so the request body carried both the top-level
 `thinking` param and assistant content with thinking blocks; the proxy
-stripped the blocks but left the param). Fix shipped as commit `68a5da9`
+stripped the blocks but left the param). v1 fix shipped as commit `68a5da9`
 by `fork_mov10cqp_f1c933` (killed mid-flight; code landed clean):
-top-level `thinking` strip, plus `cache_control` strip on system array form
-and content blocks, plus 11 unit tests. Doctrine authored by
+top-level `thinking` blanket-DELETE, plus `cache_control` strip on system
+array form and content blocks, plus 11 unit tests. Doctrine authored by
 `fork_mov1aj70_df2597`. status_board row `8834dd85-03c0-4ac3-aecd-179e5eb38a86`
-tracks the validation gate (one clean fallback observed OR 7 days quiet on
-DeepSeek thinking 400s).
+tracks the validation gate.
+
+**v2 second-pass fix (9 May 2026, fork `fork_moxxt9ul_099f79`).** Three
+post-v1 errors at 7 May 23:13 / 23:24 / 23:49 UTC across forks
+`fork_mow3qoaq_79296a`, `fork_mow44x4a_5b3f15`, `fork_mow51olw_ee9ec0`.
+Same 400 shape. RCA by `fork_moxxt9ul_099f79`: v1's blanket-DELETE was in
+direct conflict with the SDK's 26c9d59 explicit-disable (8 May 08:56 UTC).
+The proxy was undoing the SDK's defence, leaving DeepSeek to auto-enable
+thinking mode and fail the second turn of multi-turn tool loops. v2 force-
+writes `thinking:{type:'disabled'}` at the wire boundary regardless of
+upstream shape. Test coverage 11 → 15 (one negative-test verification:
+reverting the force-write to v1's delete fails 8 of 15). RCA at
+`~/ecodiaos/drafts/deepseek-strip-incomplete-rca-2026-05-09.md`.
 
 ## Cross-refs
 
