@@ -109,6 +109,34 @@ function _isPhantomBail(result) {
   return typeof result === 'string' && result.startsWith(FALLBACK_MARKER)
 }
 
+// ── [FORK_REPORT] / [NEXT_STEP] transcript extractor ────────────────────────
+// Pure function. Single source of truth for the regex pair, so the live
+// stream-complete handler (line ~1068) and the retro-fix script under
+// scripts/retro-fix-fork-result-fallback-extraction.js stay in lockstep,
+// and tests can lock the contract independently of the SDK loop.
+//
+// Regex history:
+//   pre-2026-05-07 — `\[FORK_REPORT\][^\n]*([\s\S]*?)…`
+//     `[^\n]*` greedily consumed same-line body content. When the model
+//     emitted the brief-prescribed shape `[FORK_REPORT] <body on same line>`,
+//     the capture group started after the first \n and ran to [NEXT_STEP]
+//     or end-of-string — body trimmed to '' → falsy → caller fell into the
+//     FALLBACK_MARKER path even though a real report had been emitted.
+//     127/186 fallback rows in 7 days of pre-fix telemetry came in via this
+//     path (status_board "Phantom_bail extraction false-negatives").
+//   2026-05-07 (commit 58bb87a) — `\[FORK_REPORT\]\s*([\s\S]*?)…`
+//     `\s*` lets same-line body fall through to the lazy capture. Same fix
+//     applied to the [NEXT_STEP] regex (also had `[^\n]*`, also lost the
+//     one-sentence next-step content).
+function _extractForkReport(transcript) {
+  const fullText = (transcript || []).join('\n\n')
+  const reportMatch = fullText.match(/\[FORK_REPORT\]\s*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i)
+  const nextMatch = fullText.match(/\[NEXT_STEP\]\s*([\s\S]*?)$/i)
+  const report = reportMatch ? reportMatch[1].trim() : null
+  const nextStep = nextMatch ? nextMatch[1].trim() : null
+  return { fullText, reportMatch, report, nextMatch, nextStep }
+}
+
 // ── Fork-report enqueue helpers ─────────────────────────────────────────────
 // Two emission paths share the success-path enqueue (forkService.js, end of
 // spawnFork's stream loop):
@@ -1046,30 +1074,11 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       }
 
       // Stream complete — extract [FORK_REPORT] / [NEXT_STEP] from transcript.
-      //
-      // ROOT-CAUSE FIX 7 May 2026 (fork_moutrkyg_044204):
-      // Pre-fix the regex was `/\[FORK_REPORT\][^\n]*([\s\S]*?)…/i` which
-      // greedily consumed the rest of the SAME LINE after `[FORK_REPORT]`
-      // with `[^\n]*`. The brief literally instructs the model to emit:
-      //   `[FORK_REPORT] <one paragraph: what you did, results, …>`
-      // i.e. body content ON THE SAME LINE as the marker. The parser then
-      // captured only the gap between `\n` and `[NEXT_STEP]`, which trimmed
-      // to "" — triggering the "report body empty" placeholder writer at
-      // state.result. 37.2% of forks (246/661) over the last 7d phantom-
-      // bailed via this exact path, including 5/5 forks in a 90-min arc on
-      // 7 May 2026 that all shipped real work to disk + DB.
-      //
-      // Fix: replace `[^\n]*` with `\s*` so the same-line body content is
-      // CAPTURED by the lazy `([\s\S]*?)` group, not consumed before it.
-      // Same fix on the [NEXT_STEP] regex (also had `[^\n]*`, also lost
-      // the one-sentence next-step content). Origin: Tate verbatim 11:44
-      // AEST 7 May 2026 "we need to quash phantom bails for the last time".
-      // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
-      const fullText = state.transcript.join('\n\n')
-      const reportMatch = fullText.match(/\[FORK_REPORT\]\s*([\s\S]*?)(?:\[NEXT_STEP\]|$)/i)
-      const nextMatch = fullText.match(/\[NEXT_STEP\]\s*([\s\S]*?)$/i)
-      const report = reportMatch ? reportMatch[1].trim() : null
-      const nextStep = nextMatch ? nextMatch[1].trim() : null
+      // Pure-function helper: see _extractForkReport above for regex history
+      // (root-cause patch 7 May 2026 commit 58bb87a, retro-fixer in
+      // scripts/retro-fix-fork-result-fallback-extraction.js, contract test
+      // in tests/forkReportExtraction.test.js).
+      const { fullText, reportMatch, report, nextStep } = _extractForkReport(state.transcript)
 
       // If fork emitted [FORK_REPORT], use the captured report verbatim. Otherwise
       // fall back to the tail of the transcript. PRE-2026-05-02 the fallback was
@@ -1808,6 +1817,7 @@ module.exports = {
   ENERGY_FORK_CAPS,
   FALLBACK_MARKER,
   _isPhantomBail,
+  _extractForkReport,
   _buildForkReportBody,
   _enqueueForkReport,
   _resetForTest,
