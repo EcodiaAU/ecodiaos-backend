@@ -1,5 +1,5 @@
 ---
-triggers: pm2-logs, log-tail, log-capture, listener-audit, listener-loaded, empirical-verification, infrastructure-state, infra-audit, listeners-not-firing, listener-not-loaded, log-stopped, stdout-capture, trust-data-not-logs, system-state, audit-running-process
+triggers: pm2-logs, log-tail, log-capture, listener-audit, listener-loaded, empirical-verification, infrastructure-state, infra-audit, listeners-not-firing, listener-not-loaded, log-stopped, stdout-capture, trust-data-not-logs, system-state, audit-running-process, silent-by-design, no-op-skip, refresh-logs-not-observable, skipped-account-debug-level, log-absence-not-evidence, expected-no-op-behaviour
 ---
 
 # Verify infrastructure state empirically, not by log-tail
@@ -54,8 +54,15 @@ Re-running `registry.loadListeners()` in a fresh node REPL also confirmed all 7 
 
 2026-04-28 22:30-22:55 AEST. Tate asked: "Did the listeners from earlier today actually get implemented, and explain if/how they're working." Initial check via `pm2 logs ecodia-api --lines 200 --nostream` showed only `smoke` and `ccSessionsFailure` loaded after the 12:30:14 restart, with the file ending at line 1524 (the `dbBridge skipped` warning). Misleading conclusion: "only 2 of 7 listeners loaded." Reality: pm2 stdout capture had silently stopped writing 25 minutes earlier; all 7 listeners ARE loaded and 4 of 5 testable ones HAD fired today (only emailArrival is dark, separately because no producer writes to email_events). Wasted ~5 minutes chasing the wrong fault before pivoting to empirical artefact checks. Lesson codified to prevent the loop.
 
+## Second worked example: silent-by-design no-op (10 May 2026)
+
+status_board row 8c880f48 framed `claudeTokenRefreshService` as broken because "service loaded at boot but refresh logs not observable in tail". Fork investigation (fork_moyld705_2ed97f) found the service was healthy and refreshing-by-design as a no-op: both Claude Max accounts use long-lived OAuth tokens (`CLAUDE_CODE_OAUTH_TOKEN_TATE`, `CLAUDE_CODE_OAUTH_TOKEN_CODE`), and `refreshAccount()` correctly returns `{skipped: true, reason: 'long_lived_env_token'}` per design. The "absence of refresh log lines" was two-layered: (a) skipped-account logs at debug level filtered out by prod console transport, (b) ecodia-api had 6494 lifetime restarts losing transport-buffered messages. Empirical verification via direct `node -e` invocation of `getTokenHealth()` returned both accounts as `healthy_via_env_token`, `isLongLived: true`. **Generalisable rule the second example adds: when the expected behaviour is a no-op or skip-by-design, log absence is not evidence of failure - probe the side-effect (or lack of side-effect-needed) directly.** Fork closed clean, row archived without code changes.
+
 ## Cross-references
 
 - Pattern: `pre-stage-fork-briefs-before-session-killing-ops.md` (sibling pattern for handling restart-resilience).
+- Pattern: `re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` (reading kv_store rows without checking `updated_at` leaks yesterday's state).
+- Pattern: `pm2-restart-count-is-lifetime-not-rate.md` (similar shape: lifetime accumulator misread as rate).
+- Neo4j Pattern: "Telemetry pipeline silence is sometimes no-input-volume not shipped-but-dark" (1 May 2026, _id 4107) - the upstream-trigger-conditional cousin of this rule.
 - status_board row "PM2 stdout log capture stopped at 2026-04-28T12:30:14Z" (the diagnostic gap to fix separately).
 - status_board row "emailArrival listener is dark - trigger wired, table never populated" (the only genuinely-dark listener found).
