@@ -1,3 +1,8 @@
+---
+surface_class: read_on_demand
+_doctrine: "Phase C Gap 4 (9 May 2026): INDEX.md is a directory/catalogue file, not a cred-action target. Pre-fix the cred-mention-surface hook fired 75 times in 7d on this file (94.7% silent rate) because the generic-creds + DeepSeek surface groups defaulted to INDEX.md as primary. surface_class: read_on_demand tells cred-mention-surface.sh to skip emitting any surface that resolves here; humans still grep it on demand via the manual surfacing protocol below."
+---
+
 # Secrets Registry Index
 
 This directory holds one `.md` file per credential (or per coherent credential group) currently in `kv_store`, plus placeholder files for credentials that are referenced by code/docs but NOT yet provisioned.

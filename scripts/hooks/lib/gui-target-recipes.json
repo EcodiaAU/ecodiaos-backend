@@ -6,21 +6,23 @@
   "targets": [
     {
       "label": "macincloud-rdp",
-      "keywords": [
-        "macincloud",
-        "sy094",
+      "_keywords_doctrine": "Phase C Gap 4 (9 May 2026): split into HIGH / BROAD. HIGH = explicit RDP driving (filename / connect verb). BROAD = bare host noun (macincloud / sy094); requires >=3 hits. Bare 'mstsc' was dropped from HIGH on 9 May evening pass: brief saying 'no mstsc invocation' (negation, doctrine cross-ref) fired the bare-keyword match. The filename-based HIGH 'macincloud_full_screen.rdp' covers real RDP-driving without the mstsc false-positive surface.",
+      "keywords_high": [
         "macincloud_full_screen.rdp",
         "macincloud full screen.rdp",
         "open macincloud",
         "launch macincloud",
         "connect to macincloud",
+        "open mac gui"
+      ],
+      "keywords_broad": [
+        "macincloud",
+        "sy094",
         "macincloud gui",
         "macincloud instance",
         "rdp shortcut",
-        "mstsc",
         "open rdp",
-        "launch rdp",
-        "open mac gui"
+        "launch rdp"
       ],
       "recipe": "~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md",
       "summary": "RDP-shortcut entry to SY094 macOS GUI on Corazon (Microsoft RDP, NOT Citrix, NOT SSH)",
@@ -84,17 +86,20 @@
     },
     {
       "label": "corazon-peer",
-      "keywords": [
-        "corazon",
+      "_keywords_doctrine": "Phase C Gap 4 (9 May 2026): split into HIGH / BROAD. HIGH = explicit driving verbs / IP-address driving target. BROAD = bare host noun / synonym; requires >=2 hits. Origin false-positive: 16:22 AEST 9 May 2026 cortex-ambient brief listed Corazon as one of 3 visual-verify mechanisms - hook fired on bare 'corazon' mention.",
+      "keywords_high": [
         "100.114.219.69",
-        "laptop-agent",
-        "laptop agent",
         "tailscale corazon",
-        "tate's laptop",
-        "tate laptop",
         "drive corazon",
         "open corazon",
         "screenshot corazon"
+      ],
+      "keywords_broad": [
+        "corazon",
+        "laptop-agent",
+        "laptop agent",
+        "tate's laptop",
+        "tate laptop"
       ],
       "recipe": "~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md",
       "summary": "Corazon is a peer with 69 tools across 9 modules (shell, filesystem, input, screenshot, process, browser, macro). NOT a browser-via-HTTP wrapper.",

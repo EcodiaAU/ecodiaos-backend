@@ -1,7 +1,8 @@
 ---
-triggers: laptop, laptop-agent, corazon, tailscale, 100.114.219.69, agent_token, eos-laptop-agent, corazon-token, browser.*, screenshot.*, input.*, shell.shell, filesystem.*, macro.*
+triggers: laptop-agent-bearer-token-rotation, corazon-agent-token-cycle, kv_store.creds.laptop_agent, eos-laptop-agent-token, laptop_agent-rotation, rotate-corazon-token, CORAZON_AGENT_TOKEN, agent_token-rotation, tailscale-bearer-rotation
 class: programmatic-required
 owner: ecodiaos
+_doctrine: "Phase C Gap 4 (9 May 2026): triggers narrowed bare-noun -> narrow-compound. Pre-fix triggers (laptop, corazon, tailscale, screenshot.*, input.*, shell.shell, filesystem.*, macro.*) caught every brief mentioning GUI driving in any context. The cred file should only surface when the brief is about ROTATING / MUTATING the laptop_agent bearer token, not when the brief drives the laptop-agent for unrelated work. See ~/ecodiaos/patterns/triggers-must-be-narrow-not-broad.md."
 ---
 
 # creds.laptop_agent

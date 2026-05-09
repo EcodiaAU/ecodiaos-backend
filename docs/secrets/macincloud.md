@@ -1,7 +1,8 @@
 ---
-triggers: macincloud, sy094, mac, ssh, mac-ssh, mac-bootstrap, ios-build, xcode, sshpass, ios-release, ipa, mac-host, remote-mac, agent_token, macincloud.password
+triggers: macincloud-password-rotation, sy094-ssh-credential-cycle, sshpass-sy094-failure, macincloud-panel-auth, MACINCLOUD_PASSWORD-rotation, kv_store.creds.macincloud-mutation, macincloud-remote-build-port-add-on, sy094-credential-permission-denied
 class: programmatic-required
 owner: tate
+_doctrine: "Phase C Gap 4 (9 May 2026): triggers narrowed bare-noun -> narrow-compound. Pre-fix triggers (macincloud, sy094, mac, ssh, xcode, ipa) fired on every iOS build / cross-platform doctrine / substrate-selection cross-ref. Narrowed to credential-mutation compounds: password rotation / sshpass-failure / panel-auth / remote-build-port add-on activation."
 ---
 
 # creds.macincloud

@@ -139,9 +139,14 @@ count_matches() {
 # Phase C Gap 3 (8 May 2026): "rotate APPLE_DEVELOPER_PROGRAM_KEY",
 # "asc upload", "altool", "xcrun --apiKey" added as HIGH so the
 # brief-asks-for-explicit-credential-mutation form fires reliably.
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3. Bare
+# vendor nouns appearing twice across separate lines (cross-platform
+# release docs, doctrine cross-refs) hit broad=2 routinely without any
+# real cred-mutation context. Threshold>=3 requires substantive
+# co-occurrence of broad keywords to trigger the surface.
 ios_high=$(count_matches "$brief" '\b(testflight|app store connect|\basc\b|xcodebuild|transporter|altool|fastlane|provisioning profile|signing identity|developer\.apple\.com|appstoreconnect|team_id|p8 file|asc api key|asc upload|xcrun --apiKey|APPLE_[A-Z_]*KEY|APPLE_[A-Z_]*TOKEN|rotate apple|apple developer program)\b')
 ios_broad=$(count_matches "$brief" '\b(ios|ipa|code signing)\b')
-if [ "$ios_high" -gt 0 ] || [ "$ios_broad" -ge 2 ]; then
+if [ "$ios_high" -gt 0 ] || [ "$ios_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/apple.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions iOS / ASC / TestFlight work but does not reference ~/ecodiaos/docs/secrets/. Read: apple.md, apple-asc-keys.md, asc-api-fallback.md, macincloud.md before dispatching. The GUI-macro doctrine in ~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md says Apple uploads use the macro path, NOT the API-key path.")
@@ -152,7 +157,8 @@ fi
 # --- Android / Play Console / keystore ---
 android_high=$(count_matches "$brief" '\b(play console|google play|keystore|\.jks|aab|fastlane supply|upload key|gradle.*sign|signingConfigs|ANDROID_[A-Z_]*KEY|rotate android)\b')
 android_broad=$(count_matches "$brief" '\b(android|coexist[- ]?android|roam[- ]?android)\b')
-if [ "$android_high" -gt 0 ] || [ "$android_broad" -ge 2 ]; then
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
+if [ "$android_high" -gt 0 ] || [ "$android_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/android-keystores.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Android / Play Console work but does not reference ~/ecodiaos/docs/secrets/. Read: _pending-android-keystores.md, _pending-google-play-service-account.md before dispatching. Keystores are PENDING (NEEDS-TATE) and the Play SA is DEMOTED to fallback under the GUI-macro doctrine.")
@@ -167,7 +173,8 @@ fi
 # context-mentions don't trip the hook.
 bitbucket_high=$(count_matches "$brief" '\b(ATATT[A-Za-z0-9]+|atlassian.*token|api\.bitbucket\.org|[redacted]|bitbucket api token|x-bitbucket-api-token-auth|BITBUCKET_[A-Z_]*KEY|BITBUCKET_[A-Z_]*TOKEN|rotate bitbucket)\b')
 bitbucket_broad=$(count_matches "$brief" '\b(bitbucket|[redacted])\b')
-if [ "$bitbucket_high" -gt 0 ] || [ "$bitbucket_broad" -ge 2 ]; then
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
+if [ "$bitbucket_high" -gt 0 ] || [ "$bitbucket_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/bitbucket.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Bitbucket / [redacted] work but does not reference ~/ecodiaos/docs/secrets/. Read: bitbucket.md before dispatching. Note the two-context auth split (git remote uses x-bitbucket-api-token-auth username; REST API uses code@ecodia.au).")
@@ -207,7 +214,11 @@ fi
 # BROAD = bare host references requiring a second-keyword hit.
 mac_high=$(count_matches "$brief" '\b(sshpass.*mac|user276189|MACINCLOUD_[A-Z_]*|rotate macincloud|macincloud password|macincloud panel)\b')
 mac_broad=$(count_matches "$brief" '\b(macincloud|sy094|MacInCloud\.com)\b')
-if [ "$mac_high" -gt 0 ] || [ "$mac_broad" -ge 2 ]; then
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3. Bare "sy094"
+# and "macincloud" appear naturally in cross-platform doctrine cross-refs and
+# substrate-selection language without any cred-mutation in scope; threshold
+# >=3 forces substantive co-occurrence before firing.
+if [ "$mac_high" -gt 0 ] || [ "$mac_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/macincloud.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions MacInCloud / SY094 / Mac SSH work but does not reference ~/ecodiaos/docs/secrets/. Read: macincloud.md before dispatching. Note: MacInCloud auto-rotates passwords on certain panel events; if SSH fails with Permission denied, the password is stale.")
@@ -218,12 +229,33 @@ fi
 # --- Corazon laptop agent / Tailscale ---
 # Phase C Gap 3 (8 May 2026): bare "Corazon" alone no longer fires - it can
 # show up in pattern files / doctrine cross-refs without any laptop-agent
-# driving in scope. HIGH keywords are the explicit automation surface
-# (laptop-agent token / Tailscale IP / specific input/screenshot tool calls
-# / passkey rotation / kv_store laptop_agent reads). BROAD requires >=2 hits.
-corazon_high=$(count_matches "$brief" '\b(laptop[- ]?agent|tailscale|100\.114\.219\.69|eos-laptop-agent|/api/tool|browser\.enableCDP|screenshot\.screenshot|input\.click|input\.type|input\.shortcut|input\.key|laptop_passkey|CORAZON_[A-Z_]*|rotate corazon)\b')
+# driving in scope.
+#
+# Phase C Gap 4 (9 May 2026): HIGH narrowed further to CRED-MUTATION CONTEXT
+# only. Pre-fix HIGH included GUI-driving primitives (input.click /
+# screenshot.screenshot / input.type / input.shortcut / input.key /
+# browser.enableCDP / /api/tool / laptop[- ]?agent / tailscale /
+# 100.114.219.69 / eos-laptop-agent) which fire on EVERY brief that drives
+# the laptop-agent for any reason. Driving Corazon is NOT a cred action;
+# the cred is already provisioned and won't change just because the
+# conductor is screenshotting Stripe. The laptop-agent.md surface should
+# only fire when the brief actually mutates the bearer token, the windows
+# passkey, or rotates the cred - i.e. when the cred file is the actual
+# subject of the work.
+#
+# Pre-fix silent-rate evidence: 114 surfaces over 7d, 93.9% silent (only
+# 6.1% of fires were [APPLIED]-tagged by the conductor, ~93.9% were
+# noise-fires from the GUI-driving primitives in HIGH). This was the
+# single largest silent-rate driver in the cred-mention-surface telemetry.
+#
+# New HIGH: kv-key names ("laptop_passkey" / "laptop_agent" - underscored,
+# specific to the kv_store path), CORAZON_X envvar, explicit "rotate
+# corazon", explicit kv_store.creds.laptop_X mutation, "laptop-agent token
+# rotation" / "laptop-agent bearer" compound (the actual cred-action verbs).
+# BROAD threshold raised >=2 -> >=3.
+corazon_high=$(count_matches "$brief" '\b(laptop_passkey|laptop_agent|CORAZON_[A-Z_]+|rotate corazon|kv_store\.creds\.laptop_(agent|passkey)|laptop-agent token|laptop-agent bearer|set creds\.laptop|rotate creds\.laptop|corazon-token cycle|corazon-agent-token)\b')
 corazon_broad=$(count_matches "$brief" '\b(corazon|win11|windows 11|windows hello|sy094)\b')
-if [ "$corazon_high" -gt 0 ] || [ "$corazon_broad" -ge 2 ]; then
+if [ "$corazon_high" -gt 0 ] || [ "$corazon_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/laptop-agent.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Corazon / laptop-agent work but does not reference ~/ecodiaos/docs/secrets/. Read: laptop-agent.md, laptop-passkey.md before dispatching. The 5-point check (~/CLAUDE.md 'Tate-blocked is a last resort') uses laptop_passkey to clear Windows Hello prompts.")
@@ -241,13 +273,10 @@ if echo "$brief" | grep -qiE '\b(resend\.com|resend api|re_[a-z0-9]|transactiona
 fi
 
 # --- Canva / design automation ---
-if echo "$brief" | grep -qiE '\b(canva|canva connect|canva api|design automation|brand asset|CANVA_[A-Z_]*|rotate canva)\b'; then
-  primary="/home/tate/ecodiaos/docs/secrets/canva-connect-api.md"
-  if ! already_acked "$primary"; then
-    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Canva work but does not reference ~/ecodiaos/docs/secrets/. Read: canva-connect-api.md, canva-mfa-backup-codes.md before dispatching.")
-    surfaces+=("$primary|canva")
-  fi
-fi
+# Phase C Gap 4 (9 May 2026): legacy block REMOVED. Bare-noun "canva" alone
+# fired on every doctrine cross-ref / brand-asset mention in non-credential
+# context. Replaced by the narrowed HIGH/BROAD block further down (search
+# for "Canva / design automation" Gap 4 block).
 
 # --- Xero ---
 if echo "$brief" | grep -qiE '\b(xero\.com|xero api|xero login|xero org|xero dashboard|xero category|XERO_[A-Z_]*|rotate xero)\b'; then
@@ -258,8 +287,55 @@ if echo "$brief" | grep -qiE '\b(xero\.com|xero api|xero login|xero org|xero das
   fi
 fi
 
+# --- DeepSeek API (provider-chain fallback) ---
+# Phase C Gap 4 (9 May 2026): provider-chain fallback creds need explicit
+# credential-mutation context to fire. Bare "deepseek" or
+# "kv_store.creds.deepseek" as a precondition probe (RCA brief reading state,
+# not mutating) is the canonical false-positive case from 16:08 AEST today.
+# HIGH = mutation/rotation/key envvar/dashboard. BROAD = bare vendor or
+# kv_store ref; requires >=2 hits.
+deepseek_high=$(count_matches "$brief" '\b(rotate deepseek|api\.deepseek\.com|deepseek api key|deepseek dashboard|DEEPSEEK_[A-Z_]+|deepseek_api_key|kv_store\.creds\.deepseek[[:space:]]*=|set kv_store\.creds\.deepseek)\b')
+deepseek_broad=$(count_matches "$brief" '\b(deepseek|kv_store\.creds\.deepseek)\b')
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3. Pre-fix, an
+# RCA brief mentioning "DeepSeek" + "kv_store.creds.deepseek" as a precondition
+# probe (read-only, no mutation) hit broad=2 on line-counting and fired. With
+# threshold >=3 the brief must contain substantive DeepSeek-cred co-occurrence.
+if [ "$deepseek_high" -gt 0 ] || [ "$deepseek_broad" -ge 3 ]; then
+  primary="/home/tate/ecodiaos/docs/secrets/deepseek.md"
+  if ! already_acked "$primary"; then
+    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions DeepSeek API work but does not reference ~/ecodiaos/docs/secrets/. Read: deepseek.md before dispatching. DeepSeek is the only fallback in the provider chain (claude_max -> claude_max_2 -> deepseek) per ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.")
+    surfaces+=("$primary|deepseek")
+  fi
+fi
+
+# --- Canva / design automation ---
+# Phase C Gap 4 (9 May 2026): bare "canva" alone caught design-doctrine
+# cross-refs and brand-asset mentions in non-credential context. HIGH =
+# Connect API / token / OAuth / mutation / dashboard. BROAD = bare vendor;
+# requires >=2 hits.
+# Phase C Gap 4 (9 May 2026): "canva api" alone removed from HIGH because
+# briefs say "No Canva API calls" / "canva api docs" in non-mutation context.
+# Kept: "canva connect" (the actual product name), "canva api key" (specific
+# cred), "canva oauth" / "canva token" / "canva dashboard" / "rotate canva" /
+# CANVA_[A-Z_]+ envvar. Broad threshold raised >=2 -> >=3.
+canva_high=$(count_matches "$brief" '\b(canva connect|canva\.com/connect|CANVA_[A-Z_]+|rotate canva|canva oauth|canva token|canva api key|canva dashboard)\b')
+canva_broad=$(count_matches "$brief" '\b(canva|design automation|brand asset)\b')
+if [ "$canva_high" -gt 0 ] || [ "$canva_broad" -ge 3 ]; then
+  primary="/home/tate/ecodiaos/docs/secrets/canva-connect-api.md"
+  if ! already_acked "$primary"; then
+    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Canva work but does not reference ~/ecodiaos/docs/secrets/. Read: canva-connect-api.md, canva-mfa-backup-codes.md before dispatching.")
+    surfaces+=("$primary|canva")
+  fi
+fi
+
 # --- RevenueCat / IAP ---
-if echo "$brief" | grep -qiE '\b(revenuecat|in-app purchase|subscription paywall|roam[- ]?iap|REVENUECAT_[A-Z_]*|rotate revenuecat)\b'; then
+# Phase C Gap 4 (9 May 2026): bare "revenuecat" alone fired on doctrine
+# cross-refs and pattern mentions. HIGH = api key / sdk integration /
+# mutation / dashboard. BROAD = bare vendor / IAP-domain term; requires >=2.
+revenuecat_high=$(count_matches "$brief" '\b(REVENUECAT_[A-Z_]+|rotate revenuecat|revenuecat dashboard|revenuecat sdk|revenuecat api key|revenuecat token|revenuecat secret)\b')
+revenuecat_broad=$(count_matches "$brief" '\b(revenuecat|in-app purchase|subscription paywall|roam[- ]?iap)\b')
+# Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
+if [ "$revenuecat_high" -gt 0 ] || [ "$revenuecat_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/_pending-revenuecat.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions IAP / RevenueCat work but does not reference ~/ecodiaos/docs/secrets/. Read: _pending-revenuecat.md before dispatching.")
@@ -268,14 +344,52 @@ if echo "$brief" | grep -qiE '\b(revenuecat|in-app purchase|subscription paywall
 fi
 
 # --- Generic 'creds.*' or 'kv_store.creds.*' mention without registry ref ---
-# Phase C Gap 3: explicit kv_store.creds.* path is exactly the brief-spec
-# canonical credential-context signal. Always fires unless [NOT-APPLIED] /
-# [FALSE-POSITIVE] tagged.
-if echo "$brief" | grep -qiE '(kv_store\.creds\.|^|[^a-z_])creds\.[a-z_][a-z_0-9.]+'; then
+# Phase C Gap 4 (9 May 2026): bare creds.X reference (single mention, RCA /
+# precondition probe, doctrine cross-ref) does NOT fire on its own. The pre-
+# fix unconditional fire was the canonical false-positive case from 16:08
+# AEST today (DeepSeek RCA brief mentioned kv_store.creds.deepseek as
+# precondition probe, hook fired on bare mention).
+# HIGH = mutation context (rotate / set / SQL UPDATE / value assignment).
+# BROAD = bare creds.X mention; requires >=2 distinct creds.* paths
+# (multiple distinct paths in one brief signals active manipulation).
+generic_creds_high=$(count_matches "$brief" '(rotate kv_store\.creds|kv_store\.creds\.[a-z_][a-z_0-9.]*[[:space:]]*=|set kv_store\.creds|update[[:space:]]+.*kv_store.*creds|insert into.*kv_store.*creds|delete from.*kv_store.*creds|rotate creds\.[a-z])')
+# Count DISTINCT creds.X paths mentioned (sort -u to dedupe repeats).
+generic_creds_paths=$(printf '%s' "$brief" | grep -oiE '(kv_store\.creds\.|^|[^a-z_])creds\.[a-z_][a-z_0-9.]+' 2>/dev/null | sort -u | wc -l)
+if [ "$generic_creds_high" -gt 0 ] || [ "$generic_creds_paths" -ge 2 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/INDEX.md"
   if ! already_acked "$primary"; then
-    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief references kv_store creds.* keys directly but does not consult ~/ecodiaos/docs/secrets/INDEX.md. The registry catalogues all 24+ creds with their schemas, classes (gui-macro-replaces vs programmatic-required), rotation cadence, and drift status. Grep ~/ecodiaos/docs/secrets/ for trigger keywords matching the workflow before authoring the brief.")
+    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mutates / refers to multiple kv_store creds.* keys but does not consult ~/ecodiaos/docs/secrets/INDEX.md. The registry catalogues all 24+ creds with their schemas, classes (gui-macro-replaces vs programmatic-required), rotation cadence, and drift status. Grep ~/ecodiaos/docs/secrets/ for trigger keywords matching the workflow before authoring the brief.")
     surfaces+=("$primary|cred-class")
+  fi
+fi
+
+# --- Approach B (Phase C Gap 4, 9 May 2026): surface_class filter ---
+# Skip any surface whose primary path resolves to a file with
+# `surface_class: read_on_demand` frontmatter. Such files are directory /
+# overview docs (e.g. INDEX.md) that should be read on demand by humans
+# doing manual `Grep "triggers:" ~/ecodiaos/docs/secrets/`, NOT surfaced
+# automatically by the hook. Pre-fix, INDEX.md fired 75 surfaces / 7d at
+# 94.7% silent rate because it's catalogue-style, not action-targeted.
+if [ "${#surfaces[@]}" -gt 0 ]; then
+  filtered_surfaces=()
+  filtered_warnings=()
+  idx=0
+  for entry in "${surfaces[@]}"; do
+    primary_path="${entry%%|*}"
+    if [ -f "$primary_path" ] && grep -qE '^surface_class:[[:space:]]*read_on_demand' "$primary_path" 2>/dev/null; then
+      idx=$((idx + 1))
+      continue
+    fi
+    filtered_surfaces+=("$entry")
+    filtered_warnings+=("${warnings[$idx]}")
+    idx=$((idx + 1))
+  done
+  if [ "${#filtered_surfaces[@]}" -gt 0 ]; then
+    surfaces=("${filtered_surfaces[@]}")
+    warnings=("${filtered_warnings[@]}")
+  else
+    surfaces=()
+    warnings=()
   fi
 fi
 

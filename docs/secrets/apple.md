@@ -1,7 +1,8 @@
 ---
-triggers: apple, ios, app store connect, asc, team_id, xcodebuild, transporter, developer.apple.com, apple-membership, apple-account, ios-release, ipa, ios-signing, DEVELOPMENT_TEAM
+triggers: apple-developer-portal-login, app-store-connect-api-key-generation, asc-api-key-rotation, apple-id-2fa-flow, apple-team-id-lookup, asc-app-record-create, apple-developer-program-membership-renewal, xcrun-apiKey, asc-upload-altool, rotate-apple-developer-program-key
 class: gui-macro-replaces
 owner: ecodiaos
+_doctrine: "Phase C Gap 4 (9 May 2026): triggers narrowed bare-noun -> narrow-compound. Pre-fix triggers (apple, ios, asc, xcodebuild, ipa) fired on every cross-platform release / iOS test / signing-doctrine cross-ref. Narrowed to mutation-context compounds: rotation/login/api-key-generation/2FA/team-id-lookup/program-renewal. See ~/ecodiaos/patterns/triggers-must-be-narrow-not-broad.md."
 ---
 
 # creds.apple

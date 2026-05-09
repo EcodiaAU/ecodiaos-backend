@@ -169,6 +169,147 @@ Recon the application_event drift. Reference: cross-pattern grep notes mention i
     }
   })
 
+  test('Guard 6 (Gap 4 NEGATIVE): DeepSeek RCA brief mentioning kv_store.creds.deepseek as precondition probe does NOT fire', () => {
+    // Origin false-positive: 16:08 AEST 9 May 2026 DeepSeek RCA brief
+    // mentioned kv_store.creds.deepseek once as a precondition probe (not
+    // a credential mutation). Pre-fix the generic creds.* catch-all + the
+    // missing DeepSeek group both fired on bare reference.
+    const brief = `Run DeepSeek RCA on the 18-event 400-storm in cc_session a427439a.
+Precondition probe: confirm kv_store.creds.deepseek is set (read-only, no mutation).
+Walk the application_event JSONL for thinking-block strip events. No external API calls.`
+    const result = runCredHook(brief, tmpDir)
+    if (firedCredWarn(result)) {
+      throw new Error(
+        'Guard 6 failed: bare-noun DeepSeek + bare creds.deepseek precondition probe ' +
+        'fired [CRED-SURFACE WARN]. Phase C Gap 4 narrowing should suppress unless ' +
+        'mutation context or 2+ distinct creds.* paths present. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 7 (Gap 4 POSITIVE): rotate DEEPSEEK_API_KEY DOES fire', () => {
+    const brief = 'Rotate DEEPSEEK_API_KEY in kv_store and verify the proxy strips Anthropic thinking blocks at the wire boundary.'
+    const result = runCredHook(brief, tmpDir)
+    if (!firedCredWarn(result)) {
+      throw new Error(
+        'Guard 7 failed: rotate DEEPSEEK_API_KEY did not fire [CRED-SURFACE WARN]. ' +
+        'High-keyword DeepSeek credential mutation MUST fire. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 8 (Gap 4 POSITIVE): kv_store.creds.deepseek = {api_key: sk-...} (value mutation) DOES fire', () => {
+    const brief = 'After Tate provides the new key, set kv_store.creds.deepseek = {api_key: sk-abcd1234}, then restart ecodia-api.'
+    const result = runCredHook(brief, tmpDir)
+    if (!firedCredWarn(result)) {
+      throw new Error(
+        'Guard 8 failed: kv_store.creds.deepseek = {...} value mutation did not fire ' +
+        '[CRED-SURFACE WARN]. Either the deepseek_high (creds.deepseek = ) or the ' +
+        'generic_creds_high mutation regex MUST match. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 9 (Gap 4 NEGATIVE): bare Corazon mention as one of N visual-verify mechanics does NOT fire from cred-mention-surface', () => {
+    // Origin false-positive: 16:22 AEST 9 May 2026 cortex-ambient polish
+    // brief listed Corazon as one of 3 visual-verify mechanisms (alongside
+    // DevTools viewport emulation + curl). Pre-fix the cred-mention Corazon
+    // group fired despite being narrowed (HIGH includes "screenshot" call
+    // forms). Bare "Corazon screenshot" without an explicit driving call is
+    // BROAD only.
+    const brief = `Cortex-ambient polish: ship FE source edits to the cortex-ambient component.
+Visual verify options:
+  1. Curl the deployed page HTML for content checks.
+  2. DevTools viewport emulation for mobile breakpoint check.
+  3. Corazon screenshot is one of 3 visual-verify mechanics.
+This fork ships pure FE source edits, no Corazon driving in scope.`
+    const result = runCredHook(brief, tmpDir)
+    if (firedCredWarn(result)) {
+      throw new Error(
+        'Guard 9 failed: bare Corazon mention as listed option fired [CRED-SURFACE WARN]. ' +
+        'Phase C Gap 4 narrowing should suppress unless an actual driving call ' +
+        '(input.click / input.type / drive corazon / 100.114.219.69) is present. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 10 (Gap 4 POSITIVE): rotating kv_store.creds.laptop_agent DOES fire from cred-mention-surface', () => {
+    // Phase C Gap 4 (9 May 2026 evening pass): the original Guard 10 brief
+    // was "Drive Corazon via input.click ... screenshot.screenshot ...
+    // input.type the cred into the rotation form." That brief was the
+    // canonical false-positive class - GUI driving on Corazon for some
+    // OTHER cred (Stripe rotation in this case) was firing the
+    // laptop-agent.md surface despite laptop-agent itself not being the
+    // cred in scope. With the silent-rate evidence (114 surfaces / 7d at
+    // 93.9% silent on laptop-agent.md) the GUI-driving primitives were
+    // dropped from Corazon HIGH and the test brief is rewritten to a true
+    // laptop-agent CRED-MUTATION case.
+    const brief = 'Rotate the laptop_agent bearer token. Update kv_store.creds.laptop_agent.agent_token in the registry, restart eos-laptop-agent on Corazon, verify via /api/info.'
+    const result = runCredHook(brief, tmpDir)
+    if (!firedCredWarn(result)) {
+      throw new Error(
+        'Guard 10 failed: explicit kv_store.creds.laptop_agent.agent_token rotation did not fire ' +
+        '[CRED-SURFACE WARN]. The laptop_agent (underscored kv-key name) MUST be in HIGH. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 11 (Gap 4 NEGATIVE): bare Canva mention as design-doctrine cross-ref does NOT fire', () => {
+    const brief = `Self-evolution sweep: doctrine cross-ref to canva from the brand-asset doctrine.
+No Canva API calls, no Connect API, no token rotation. Pure doctrine grep over patterns/.`
+    const result = runCredHook(brief, tmpDir)
+    if (firedCredWarn(result)) {
+      throw new Error(
+        'Guard 11 failed: bare-noun "canva" mention without compound HIGH context fired ' +
+        '[CRED-SURFACE WARN]. Phase C Gap 4 narrowing should require canva_high>=1 OR ' +
+        'canva_broad>=2. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 12 (Gap 4 POSITIVE): "rotate CANVA_TOKEN" DOES fire', () => {
+    const brief = 'Rotate CANVA_TOKEN per the canva-connect-api credential rotation cadence and verify in canva dashboard.'
+    const result = runCredHook(brief, tmpDir)
+    if (!firedCredWarn(result)) {
+      throw new Error(
+        'Guard 12 failed: rotate CANVA_TOKEN did not fire [CRED-SURFACE WARN]. ' +
+        'High-keyword Canva credential mutation MUST fire. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 13 (Gap 4 NEGATIVE): bare RevenueCat mention as cross-ref does NOT fire', () => {
+    const brief = `Audit Roam IAP architecture references. Sees revenuecat as the SDK provider per pattern cross-refs.
+No SDK integration, no API key, no rotation - just a pattern grep across docs/.`
+    const result = runCredHook(brief, tmpDir)
+    if (firedCredWarn(result)) {
+      throw new Error(
+        'Guard 13 failed: bare-noun "revenuecat" mention without compound HIGH context fired ' +
+        '[CRED-SURFACE WARN]. Phase C Gap 4 narrowing should suppress. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
+  test('Guard 14 (Gap 4 POSITIVE): "rotate REVENUECAT_API_KEY" DOES fire', () => {
+    const brief = 'Rotate REVENUECAT_API_KEY in kv_store and re-verify the SDK integration on roam-iap.'
+    const result = runCredHook(brief, tmpDir)
+    if (!firedCredWarn(result)) {
+      throw new Error(
+        'Guard 14 failed: rotate REVENUECAT_API_KEY did not fire [CRED-SURFACE WARN]. ' +
+        'High-keyword RevenueCat credential mutation MUST fire. ' +
+        `stderr=${result.stderr.slice(0, 500)}`
+      )
+    }
+  })
+
   test('Guard 5 (Gap 2 plumbing): post-action hook recognises [FALSE-POSITIVE] AND consumer honours explicit was_false_positive=true', () => {
     // Sub-guard 5a: post-action-applied-tag-check.sh source must include
     // [FALSE-POSITIVE] tag-class detection AND set was_false_positive in JSONL.
