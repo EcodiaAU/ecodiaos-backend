@@ -54,6 +54,7 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [xero-code-login.md](xero-code-login.md) | xero, bookkeeping, xero-login, xero-gui, xero-dashboard, ecodia-xero | gui-macro-replaces | ecodiaos |
 | [coexist-app-test.md](coexist-app-test.md) | coexist, coexist-app, coexist-test, smoke-test, visual-verify, puppeteer-coexist | gui-macro-replaces | ecodiaos |
 | [android-keystores.md](android-keystores.md) | android, keystore, jks, play console, fastlane, android-signing, coexist-android, roam-android, android-release, aab, upload-key, .jks, keystore_b64, keystore_password | programmatic-required | ecodiaos |
+| [zernio.md](zernio.md) | zernio-api-key-rotation, zernio-cron-authentication, zernio-bearer-token, zernio-account-credential, zernio-vendor-key, zernio-mcp-launcher, zernio-social-posting-auth | programmatic-required | ecodiaos |
 | [conventions.md](conventions.md) | creds-conventions, kv_store-conventions, secrets-conventions, naming-conventions-creds, misclassified | programmatic-required | ecodiaos |
 
 ## Pending (referenced by code/docs, NOT in kv_store yet)
