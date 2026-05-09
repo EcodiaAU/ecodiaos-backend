@@ -808,11 +808,23 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   const startedAt = Date.now()
 
   // Manager-fork detection: if the brief contains the literal MANAGER: true
-  // sentinel (case-insensitive), this fork is a manager and the rollup should
-  // surface it as such even before sub-forks are spawned. Without this, a
-  // manager looks identical to a regular fork in <forks_rollup> until its
-  // first sub-fork lands — slow visibility for the conductor.
-  const is_manager = /\bMANAGER\s*:\s*true\b/i.test(brief)
+  // sentinel as its own line (case-insensitive), this fork is a manager and
+  // the rollup should surface it as such even before sub-forks are spawned.
+  // Without this, a manager looks identical to a regular fork in
+  // <forks_rollup> until its first sub-fork lands — slow visibility for the
+  // conductor.
+  //
+  // The regex is line-anchored (^\s* ... $) on purpose: a substring match
+  // anywhere in the brief produced false positives when worker briefs cited
+  // the contract in prose (e.g. "you are not a manager fork; brief does not
+  // contain `MANAGER: true`"). The canonical contract requires the marker on
+  // its own line — first non-blank line, or anywhere prominent — never
+  // embedded in narrative text or inside backticks within prose.
+  // See ~/ecodiaos/patterns/manager-forks-for-multi-worker-decomposition.md.
+  // Origin: fork_moyczp7o_1dcf2b 2026-05-09 mistakenly tagged
+  // [manager, awaiting subs] because its brief contained the contract
+  // citation as a negation. Fixed in fork_moyv082w_1c45ac.
+  const is_manager = /^\s*MANAGER\s*:\s*true\b/im.test(brief)
   if (is_manager) {
     logger.info('forkService: spawning manager fork', { fork_id, parent_fork_id })
   }
