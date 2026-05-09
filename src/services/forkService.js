@@ -663,16 +663,25 @@ happens AFTER the workers finish, not when you spawn them.
 
 ## Manager responsibilities:
 1. DECOMPOSE: Break the brief into independent worker tasks. Spawn sub-forks for each.
-2. COORDINATE: Poll your sub-forks every 60-120 seconds until all are terminal. Use
-   \`mcp__supabase__db_query\` with: \`SELECT fork_id, status, error_summary, last_heartbeat
-   FROM os_forks WHERE parent_fork_id = '${fork_id}' ORDER BY started_at\`. Sequence
-   dependent steps (don't spawn step 2 until step 1 reports success).
-   DO NOT consolidate until every sub-fork has \`status IN ('done', 'error', 'aborted')\`.
-3. RETRY: If a sub-fork fails or phantom-bails, probe its deliverables (db_query os_forks, git log --grep). If work partially landed, spawn a cleanup fork. If it fully failed, re-dispatch with a tighter brief.
-4. VERIFY: After sub-forks report, verify their claims match reality. Read each sub-fork's
-   durable artefact (the file path it names in its [SUB_FORK_REPORT], typically under
-   \`~/ecodiaos/drafts/<artefact>.md\`), then check the actual deployed state, committed
-   code, or DB rows before trusting a sub-fork's self-report.
+2. COORDINATE: After spawning, call \`mcp__forks__wait_for_sub_forks\` ONCE with the list
+   of sub_fork_ids you spawned and \`max_wait_sec: 1800\` (or longer for very slow
+   pipelines, cap 3600). This BLOCKS your turn while the workers run — the SDK keeps
+   your turn alive structurally because a tool call is in flight, so you cannot
+   phantom-bail. When the tool returns, every sub-fork is terminal and you have
+   aggregated reports + next_steps in one structured payload. If the wait times out the
+   payload includes \`still_pending: [...]\` and you decide whether to call again, abort
+   stragglers, or proceed with what shipped. Do NOT use \`list_forks\` or \`db_query
+   os_forks\` in a hand-rolled polling loop — that pattern fails because your turn ends
+   between polls (root cause of the 37% phantom_bail rate before this tool existed).
+3. RETRY: If \`wait_for_sub_forks\` reports a sub-fork as \`error\`/\`aborted\`/\`crashed\`, or
+   the result_head shows the FALLBACK_MARKER (no [FORK_REPORT] emitted), probe its
+   deliverables (db_query os_forks, git log --grep, ls -la <expected_artefact_path>).
+   If work partially landed, spawn a cleanup fork. If it fully failed, re-dispatch with
+   a tighter brief. Then call wait_for_sub_forks again with the new sub_fork_ids.
+4. VERIFY: After workers terminate, verify their claims match reality. Read each
+   sub-fork's durable artefact (the file path it names in its [SUB_FORK_REPORT],
+   typically under \`~/ecodiaos/drafts/<artefact>.md\`), then check the actual deployed
+   state, committed code, or DB rows before trusting a sub-fork's self-report.
 5. CONSOLIDATE: Aggregate the workers' findings, ship any code/commits the work demands,
    write ONE [FORK_REPORT] to the conductor that tells the full story: what shipped,
    what didn't, what the conductor should do next.
@@ -681,14 +690,13 @@ happens AFTER the workers finish, not when you spawn them.
 - ALWAYS pass parent_fork_id="${fork_id}" to mcp__forks__spawn_fork when spawning sub-forks.
 - Sub-fork [FORK_REPORT]s arrive as [SUB_FORK_REPORT from <id>] messages in YOUR stream (not the conductor's).
 - You have a per-tree cap of 5 sub-forks. The conductor's global cap doesn't affect you.
-- Use list_forks AND \`db_query os_forks WHERE parent_fork_id = '${fork_id}'\` to track sub-fork progress.
-  Both are valid; db_query gives you the full row including error_summary and last_heartbeat.
-- **Polling cadence: every 60-120 seconds.** Tighter is wasteful, looser risks losing
-  reactive context. A typical worker finishes in 2-30 minutes, so expect 1-30 polls per
-  manager. Each poll is one db_query tool call — cheap.
-- After spawning, your normal cycle is: poll → if all terminal, proceed to VERIFY. If
-  any in-flight, schedule a wakeup and continue polling.
-- If a sub-fork phantom-bails (no [SUB_FORK_REPORT] and gone from list_forks), check db_query os_forks or git log --grep=<fork_id>.
+- \`wait_for_sub_forks\` is the only correct way to wait. \`list_forks\` and
+  \`db_query os_forks WHERE parent_fork_id = '${fork_id}'\` remain useful for one-off
+  status spot-checks (e.g. mid-decomposition, before deciding whether to spawn the next
+  sub-fork) but never as a substitute for the blocking wait — a hand-rolled polling
+  loop ends your turn between polls and the fork closes silently.
+- If a sub-fork phantom-bails (status=done but \`result_head\` carries the FALLBACK_MARKER
+  prefix), check db_query os_forks or git log --grep=<fork_id> for the actual work.
 - Don't emit your own [FORK_REPORT] until ALL sub-forks have completed (or been given up on). The conductor doesn't want partial reports.
 
 ## Manager anti-patterns (avoid):

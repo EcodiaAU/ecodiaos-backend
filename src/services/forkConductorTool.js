@@ -41,12 +41,25 @@ let _toolsCache = null
 let _toolsBuilding = null
 let _createSdkMcpServer = null
 
+// Test seam — set via _setSdkOverrideForTest() to inject a fake SDK
+// (createSdkMcpServer + tool) so contract tests don't have to deal with the
+// dynamic ESM import path. Mirrors forkService._queryOverride. NEVER set this
+// in production code paths.
+let _sdkOverride = null
+function _setSdkOverrideForTest(sdkLike) { _sdkOverride = sdkLike }
+function _resetForTest() {
+  _toolsCache = null
+  _toolsBuilding = null
+  _createSdkMcpServer = null
+  _sdkOverride = null
+}
+
 async function _buildTools() {
   if (_toolsCache) return _toolsCache
   if (_toolsBuilding) return _toolsBuilding
 
   _toolsBuilding = (async () => {
-    const sdk = await import('@anthropic-ai/claude-agent-sdk')
+    const sdk = _sdkOverride || await import('@anthropic-ai/claude-agent-sdk')
     const { createSdkMcpServer, tool } = sdk
     const z = require('zod')
     const fork = require('./forkService')
@@ -166,9 +179,111 @@ async function _buildTools() {
       },
     )
 
-    const tools = [spawn_fork_tool, list_forks_tool, abort_fork_tool, send_message_tool]
+    // wait_for_sub_forks: the structural fix for manager-fork phantom_bail.
+    //
+    // Manager forks that emit no further tool calls after spawning their
+    // workers cause the SDK to terminate the turn (no idle-timeout — the
+    // SDK simply has nothing further to iterate, sees terminal_reason
+    // 'completed', emits result, closes the iterator). The transcript
+    // closes without [FORK_REPORT] and the fork is recorded as
+    // phantom_bail. Pre-fix incidence: 19/51 manager forks (37%) over the
+    // 7d ending 10 May 2026, ~374k tokens wasted in re-dispatch cycles.
+    //
+    // This tool fixes that structurally: while the tool call is in flight,
+    // the SDK's view is "tool is running" and the manager's turn cannot
+    // end. The server-side polling loop blocks until every listed
+    // sub_fork_id reaches a terminal status (or max_wait_sec elapses), then
+    // returns aggregated reports. The manager wakes up with the consolidation
+    // material in hand and proceeds straight to verify + emit FORK_REPORT.
+    //
+    // Doctrine: ~/ecodiaos/docs/decisions/manager-fork-bail-architecture-decision-2026-05-10.md
+    //           ~/ecodiaos/patterns/manager-forks-for-multi-worker-decomposition.md
+    //           ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+    //           ~/ecodiaos/patterns/prefer-hooks-over-written-discipline.md
+    //
+    // Per ~/ecodiaos/patterns/sdk-mcp-server-instances-must-be-per-query-not-singleton.md
+    // this tool wrapper is built once per process (cached in _toolsCache)
+    // but the createSdkMcpServer() call wrapping it runs fresh per SDK
+    // query in getForkConductorMcpServer(). The handler closure carries
+    // ZERO singleton state — every invocation reads db live and returns
+    // fresh aggregated content.
+    const TERMINAL_STATUSES = new Set(['done', 'error', 'aborted', 'crashed'])
+    const wait_for_sub_forks_tool = tool(
+      'wait_for_sub_forks',
+      'Manager-fork tool: block until every listed sub_fork_id reaches a terminal status (done, error, aborted, crashed) OR max_wait_sec elapses. Returns a structured aggregate of every sub-fork\'s final result_head + next_step + status. Use this ONCE after spawning your sub-forks instead of polling list_forks repeatedly — it keeps your SDK turn alive while the workers run, and consolidates the wait into one tool call. If the wait times out, the response includes still_pending: [...] so you can decide to call again, abort stragglers, or proceed with whatever finished. Regular (non-manager) forks should never call this tool.',
+      {
+        sub_fork_ids: z.array(z.string()).min(1).describe('The fork_ids you spawned. Get these from the spawn_fork tool responses.'),
+        max_wait_sec: z.number().int().positive().max(3600).optional().default(1800).describe('Max seconds to block. Defaults to 1800 (30 min). Cap is 3600 (60 min). On timeout the tool returns still_pending instead of throwing.'),
+        poll_interval_sec: z.number().int().positive().max(30).optional().default(5).describe('Server-side poll cadence. Defaults to 5s. Lower = faster wake on completion, higher DB query rate. 5s is fine for almost all cases.'),
+      },
+      async (args) => {
+        const db = require('../config/db')
+        const sub_fork_ids = args.sub_fork_ids
+        const max_wait_sec = args.max_wait_sec ?? 1800
+        const poll_interval_sec = args.poll_interval_sec ?? 5
+        const deadline = Date.now() + max_wait_sec * 1000
+        try {
+          while (Date.now() < deadline) {
+            const rows = await db`
+              SELECT fork_id, status, result, next_step, ended_at
+              FROM os_forks
+              WHERE fork_id = ANY(${sub_fork_ids})
+            `
+            const stillRunning = rows.filter(r => !TERMINAL_STATUSES.has(r.status)).map(r => r.fork_id)
+            if (stillRunning.length === 0 && rows.length === sub_fork_ids.length) {
+              const aggregate = rows.map(r => ({
+                fork_id: r.fork_id,
+                status: r.status,
+                result_head: (r.result || '').slice(0, 600),
+                next_step: r.next_step || null,
+              }))
+              return {
+                content: [{
+                  type: 'text',
+                  text: `All ${rows.length} sub-forks terminal.\n\n${JSON.stringify(aggregate, null, 2)}`,
+                }],
+              }
+            }
+            // Honour deadline: if next sleep would push us past, sleep only the
+            // remaining slice, then loop once more (which falls through to the
+            // timeout path on the next while-check).
+            const remainingMs = deadline - Date.now()
+            const sleepMs = Math.max(0, Math.min(poll_interval_sec * 1000, remainingMs))
+            if (sleepMs === 0) break
+            await new Promise(r => setTimeout(r, sleepMs))
+          }
+          // Timeout path — return whatever's terminal so far + which are still pending.
+          const final = await db`
+            SELECT fork_id, status, result, next_step, ended_at
+            FROM os_forks
+            WHERE fork_id = ANY(${sub_fork_ids})
+          `
+          const stillPending = final.filter(r => !TERMINAL_STATUSES.has(r.status)).map(r => r.fork_id)
+          const missing = sub_fork_ids.filter(id => !final.find(r => r.fork_id === id))
+          const aggregate = final.map(r => ({
+            fork_id: r.fork_id,
+            status: r.status,
+            result_head: (r.result || '').slice(0, 600),
+            next_step: r.next_step || null,
+          }))
+          return {
+            content: [{
+              type: 'text',
+              text: `Timed out after ${max_wait_sec}s. still_pending: ${JSON.stringify(stillPending)}${missing.length ? ` (missing rows: ${JSON.stringify(missing)})` : ''}.\n\n${JSON.stringify(aggregate, null, 2)}\n\nDecide: call wait_for_sub_forks again, abort stragglers, or proceed with what's done.`,
+            }],
+          }
+        } catch (err) {
+          return {
+            content: [{ type: 'text', text: `wait_for_sub_forks error: ${err && err.message ? err.message : String(err)}` }],
+            isError: true,
+          }
+        }
+      },
+    )
+
+    const tools = [spawn_fork_tool, list_forks_tool, abort_fork_tool, send_message_tool, wait_for_sub_forks_tool]
     logger.info('forkConductorTool: tool wrappers built (per-query server factory ready)', {
-      tools: ['spawn_fork', 'list_forks', 'abort_fork', 'send_message'],
+      tools: ['spawn_fork', 'list_forks', 'abort_fork', 'send_message', 'wait_for_sub_forks'],
     })
     _toolsCache = tools
     return tools
@@ -188,4 +303,4 @@ async function getForkConductorMcpServer() {
   })
 }
 
-module.exports = { getForkConductorMcpServer }
+module.exports = { getForkConductorMcpServer, _setSdkOverrideForTest, _resetForTest }
