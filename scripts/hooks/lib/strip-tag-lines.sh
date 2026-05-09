@@ -17,6 +17,8 @@
 # Tag prefixes covered (single sed pass, no per-line shell-out):
 #   [APPLIED]
 #   [NOT-APPLIED]
+#   [FALSE-POSITIVE]              # Phase C tag-feedback Gap 2 (8 May 2026)
+#   [OVERRIDE]                    # Judgement-over-rule receipt (8 May 2026)
 #   [BRIEF-CHECK WARN]   [BRIEF-CHECK INFO]
 #   [CONTEXT-SURFACE WARN]   [CONTEXT-SURFACE PRIMARY]   [CONTEXT-SURFACE ALSO]
 #   [CRED-SURFACE WARN]
@@ -42,4 +44,4 @@
 # sed inherits stdin and stdout from the caller; if sed is missing, the
 # `exec` itself errors but the wrapping `$(...)` substitution swallows it.
 
-exec sed -E '/^[[:space:]]*\[(APPLIED|NOT-APPLIED|BRIEF-CHECK[[:space:]]+(WARN|INFO)|CONTEXT-SURFACE[[:space:]]+(WARN|PRIMARY|ALSO)|CRED-SURFACE[[:space:]]+WARN|DOCTRINE-CROSS-REF[[:space:]]+SUGGEST|STATUS-BOARD-CONTEXT[[:space:]]+SUGGEST|MACRO-VALIDATION[[:space:]]+WARN|COWORK-FIRST[[:space:]]+WARN|ANTHROPIC-FIRST[[:space:]]+WARN|FORCING[[:space:]]+WARN|FORK-NUDGE|INFO|EPISODE-RESURFACE[[:space:]]+INFO|GUI-MACRO[[:space:]]+HINT|EMDASH[[:space:]]+WARN)\]/d'
+exec sed -E '/^[[:space:]]*\[(APPLIED|NOT-APPLIED|FALSE-POSITIVE|OVERRIDE|BRIEF-CHECK[[:space:]]+(WARN|INFO)|CONTEXT-SURFACE[[:space:]]+(WARN|PRIMARY|ALSO)|CRED-SURFACE[[:space:]]+WARN|DOCTRINE-CROSS-REF[[:space:]]+SUGGEST|STATUS-BOARD-CONTEXT[[:space:]]+SUGGEST|MACRO-VALIDATION[[:space:]]+WARN|COWORK-FIRST[[:space:]]+WARN|ANTHROPIC-FIRST[[:space:]]+WARN|FORCING[[:space:]]+WARN|FORK-NUDGE|INFO|EPISODE-RESURFACE[[:space:]]+INFO|GUI-MACRO[[:space:]]+HINT|EMDASH[[:space:]]+WARN)\]/d'

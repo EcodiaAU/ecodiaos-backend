@@ -24,6 +24,16 @@
 #       applied=true  -> conductor explicitly applied the pattern
 #       applied=false -> conductor explicitly chose not to apply
 #       tagged_silent=true (applied=null) -> no tag found
+#   - The [FALSE-POSITIVE] tag class is a third explicit form (added 8 May
+#     2026 by Phase C tag-feedback Gap 2). When present, the JSONL line
+#     carries was_false_positive=true at write-time, which the consumer
+#     honours BEFORE running the lexicon-based classifier. [FALSE-POSITIVE]
+#     is structurally applied=false (the conductor is rejecting the
+#     surface), but with the explicit FP signal so Phase D's
+#     failureClassifier excludes the row from pattern_silent_majority drift
+#     detection AND counts it toward narrow-this-trigger candidacy. See
+#     ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
+#     Layer 3.
 #   - For each silent pattern, emit a [FORCING WARN] line so the
 #     conductor sees what they ignored.
 #   - Always exits 0. No DB writes (hot path). The dispatchEventConsumer
@@ -191,18 +201,39 @@ for i in $(seq 0 $((surface_count - 1))); do
 
   applied_present=false
   not_applied_present=false
+  false_positive_present=false
   if echo "$combined_text" | grep -qE "\[APPLIED\][[:space:]]+(${alt})"; then
     applied_present=true
   fi
   if echo "$combined_text" | grep -qE "\[NOT-APPLIED\][[:space:]]+(${alt})"; then
     not_applied_present=true
   fi
+  # [FALSE-POSITIVE] is a third explicit tag class (Phase C Gap 2, 8 May 2026).
+  # When present, the JSONL line carries was_false_positive=true so the
+  # consumer can honour the explicit signal without running the lexicon
+  # classifier. Phase D's failureClassifier already excludes
+  # was_false_positive=true rows from the silent-rate set; tagging this way
+  # explicitly feeds trigger-narrowing telemetry rather than silence
+  # detection. See ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md
+  # Layer 3.
+  if echo "$combined_text" | grep -qE "\[FALSE-POSITIVE\][[:space:]]+(${alt})"; then
+    false_positive_present=true
+  fi
 
   applied_jsonval="null"
   tagged_silent_jsonval="false"
+  was_false_positive_jsonval="null"
   reason=""
 
-  if [ "$applied_present" = "true" ]; then
+  if [ "$false_positive_present" = "true" ]; then
+    # Explicit FP wins over [NOT-APPLIED] / silent. The conductor named the
+    # surface as a scanner-FP, which is structurally applied=false but
+    # with explicit FP signal.
+    applied_jsonval="false"
+    was_false_positive_jsonval="true"
+    reason=$(extract_reason "\\[FALSE-POSITIVE\\]" "$alt")
+    not_applied_count=$((not_applied_count + 1))
+  elif [ "$applied_present" = "true" ]; then
     applied_jsonval="true"
     reason=$(extract_reason "\\[APPLIED\\]" "$alt")
     applied_count=$((applied_count + 1))
@@ -213,11 +244,13 @@ for i in $(seq 0 $((surface_count - 1))); do
   else
     tagged_silent_jsonval="true"
     silent_count=$((silent_count + 1))
-    warnings+=("[FORCING WARN] dispatch surfaced ${pattern_path} but neither [APPLIED] nor [NOT-APPLIED] tag was present in brief or result. Tag explicitly next time. See ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md Layer 3.")
+    warnings+=("[FORCING WARN] dispatch surfaced ${pattern_path} but neither [APPLIED] nor [NOT-APPLIED] nor [FALSE-POSITIVE] tag was present in brief or result. Tag explicitly next time. See ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md Layer 3.")
   fi
 
   # Emit JSONL line. dispatch_event_id is unknown at hook time; the consumer
   # correlates by (matched_dispatch_ts, tool_name, pattern_path).
+  # was_false_positive is null UNLESS conductor used [FALSE-POSITIVE] tag,
+  # in which case it is true and the consumer skips lexicon classification.
   line=$(jq -nc \
     --arg ts "$now_ts" \
     --arg dispatch_ts "$dispatch_ts" \
@@ -227,6 +260,7 @@ for i in $(seq 0 $((surface_count - 1))); do
     --arg source_layer "$source_layer" \
     --argjson applied "$applied_jsonval" \
     --argjson tagged_silent "$tagged_silent_jsonval" \
+    --argjson was_false_positive "$was_false_positive_jsonval" \
     --arg reason "$reason" \
     '{
       ts: $ts,
@@ -237,6 +271,7 @@ for i in $(seq 0 $((surface_count - 1))); do
       source_layer: $source_layer,
       applied: $applied,
       tagged_silent: $tagged_silent,
+      was_false_positive: $was_false_positive,
       reason: $reason,
       hook_name: "post-action-applied-tag-check"
     }' 2>/dev/null) || continue

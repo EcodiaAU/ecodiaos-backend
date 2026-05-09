@@ -404,7 +404,22 @@ async function consumeApplicationEventFile(filePath, client) {
         continue
       }
 
-      const wasFalsePositive = classifyApplicationEventFalsePositive({ reason, applied })
+      // was_false_positive resolution priority (Phase C Gap 2, 8 May 2026):
+      //   1. Explicit JSONL field set to true by post-action-applied-tag-check.sh
+      //      when conductor used [FALSE-POSITIVE] tag. Honour without further
+      //      classification - the conductor named the surface as FP explicitly.
+      //   2. Lexicon classification over the [NOT-APPLIED] / [APPLIED] reason
+      //      text, conservatively returning TRUE only on FP-shaped phrasing.
+      //   3. NULL otherwise (we deliberately do NOT store FALSE because absence
+      //      of FP language does not mean the surface was relevant; the Phase D
+      //      classifier reads NULL as "unclassified, count toward silent set if
+      //      otherwise silent" while TRUE excludes the row from the silent set).
+      let wasFalsePositive = null
+      if (line.was_false_positive === true) {
+        wasFalsePositive = true
+      } else {
+        wasFalsePositive = classifyApplicationEventFalsePositive({ reason, applied })
+      }
 
       try {
         await client.query(

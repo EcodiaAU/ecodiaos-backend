@@ -60,15 +60,31 @@ The 8-layer architecture closes all three loops mechanically, plus adds an adver
 
 **Layer-2 drift detection:** any trigger keyword owned by zero `canonical: true` files is a drift signal. Either author the canonical, demote a duplicate, or archive a dead one.
 
-### Layer 3 - Forcing function (TBD - Phase C)
+### Layer 3 - Forcing function (Phase C, shipped)
 
 **What:** a hook fires AFTER an action emits its result and requires the conductor to tag the action with `[APPLIED] <pattern_path> because <reason>` for every pattern that surfaced. Missing tags are flagged. The forcing function is warn-only (consistent with the hook discipline) but the warn is loud and shows the pattern path the conductor failed to acknowledge.
 
 **Why this layer matters:** Layer 1 brings doctrine to the agent. Layer 2 ranks it. Layer 3 closes the loop: the agent must SAY which patterns it applied (and which it deliberately did not, and why). Today the agent reads the warn, can ignore it silently, and no record exists of the choice. The forcing function makes ignoring explicit ("[NOT-APPLIED] X.md because <reason>"), which feeds Phase D's failure classifier.
 
-**Layer-3 observability:** application_event rows. Per pattern, count `applied` vs `not_applied_with_reason` vs `silent` (no tag at all). Silent rate per pattern is the primary Phase-3 health metric. Silent > 50% means the forcing function is being ignored.
+**The three-tag protocol (shipped 8 May 2026, Phase C tag-feedback Gap 2 close):**
 
-**Layer-3 drift detection:** any pattern whose silent-rate climbs above the baseline is a candidate for either tightening (the trigger fires too often), retiring (no one applies it), or escalating (the conductor is ignoring relevant doctrine - the hook's volume needs to go up).
+For every surfaced pattern, the conductor must respond with EXACTLY ONE of three explicit tag classes in the brief or the result text:
+
+| Tag | When to use | application_event semantics |
+|-----|-------------|------------------------------|
+| `[APPLIED] <path> because <reason>` | The surfaced doctrine is relevant AND the conductor is following it. | `applied=true`, `was_false_positive=null`. Counts toward the pattern's application rate. |
+| `[NOT-APPLIED] <path> because <reason>` | The surfaced doctrine is in-theme but does not apply to this specific dispatch (legit-not-applicable). | `applied=false`, `was_false_positive=null` UNLESS the lexicon classifier (`classifyApplicationEventFalsePositive`) infers FP-shape phrasing from the reason. The conductor is not declaring an FP - the consumer derives it. |
+| `[FALSE-POSITIVE] <path> because <reason>` | The surfacing hook fired wrong - the doctrine has nothing to do with this dispatch and the keyword/regex match was the only reason it surfaced. | `applied=false`, `was_false_positive=true` set explicitly at JSONL write-time by `post-action-applied-tag-check.sh`. The Phase D failureClassifier excludes the row from the silent-rate set AND counts it toward the trigger-narrowing candidate signal. |
+
+The conductor's freedom-to-choose is constrained: when the doctrine is genuinely orthogonal to the dispatch (e.g. cred-mention-surface tripped on the bare word "Apple" inside a doctrine paragraph that has no Apple/iOS deliverable), `[FALSE-POSITIVE]` is the right tag, NOT `[NOT-APPLIED]`. The distinction matters because Phase D routes the two signals to different remediation:
+- High `[NOT-APPLIED]` rate (was_false_positive null) on a pattern -> the pattern is too-often-irrelevant, rank it lower for that brief shape (Layer 2 tuning).
+- High `[FALSE-POSITIVE]` rate on a pattern -> the **trigger** is too broad, narrow the keyword regex (Layer 1 tuning).
+
+The strip-tag-lines.sh helper masks all three tag classes from keyword-scanning hooks so the hook never fires on its own forcing-function output. Cred-mention-surface.sh additionally captures `[NOT-APPLIED]`/`[FALSE-POSITIVE]` paths from the original brief BEFORE stripping and uses them to suppress same-surface re-warnings on later casual mentions of the same vendor noun (Phase C Gap 3 close, 8 May 2026).
+
+**Layer-3 observability:** application_event rows. Per pattern, count `applied` vs `not_applied_with_reason` vs `silent` (no tag at all) vs `false_positive` (was_false_positive=true). Silent rate per pattern is the primary Phase-3 health metric. Silent > 50% means the forcing function is being ignored.
+
+**Layer-3 drift detection:** any pattern whose silent-rate climbs above the baseline is a candidate for either tightening (the trigger fires too often), retiring (no one applies it), or escalating (the conductor is ignoring relevant doctrine - the hook's volume needs to go up). The was_false_positive=true subset feeds the trigger-narrowing candidate signal independently of silent-rate.
 
 ### Layer 4 - Usage telemetry (THIS FORK - Phase B)
 
