@@ -45,7 +45,7 @@
 #   step-with-passkey-watch "<step>" [--max-watch-seconds=N]
 #                                  - step but with continuous Hello-poll
 #                                    during the wait phase
-#   foreground-check [--target "<sub>"] [--verbose]
+#   foreground-check [--target "<sub>"] [--allow-chrome] [--verbose]
 #                                  - Win32 GetForegroundWindow probe.
 #                                    Returns {foreground_app, foreground_title,
 #                                    foreground_pid}. With --target, also returns
@@ -53,6 +53,23 @@
 #                                    target against foreground_title. Read-only;
 #                                    does NOT steal focus. Operationalises Step 0
 #                                    of cowork-no-focus-collision.md.
+#
+#                                    DEFAULT-DENY ON CHROME (added 9 May 2026,
+#                                    status_board 8809bf96): if foreground process
+#                                    is chrome.exe, collision=true regardless of
+#                                    target-pattern match. Chrome on Corazon is
+#                                    Tate's interactive session; any input.* into
+#                                    Chrome lands in his window. Pass --allow-chrome
+#                                    to restore target-pattern-only behaviour for
+#                                    intentional Chrome-driving recipes (per
+#                                    drive-chrome-via-input-tools-not-browser-tools.md).
+#
+#                                    Origin: Worker 4 of fork_motk37ob_7085c2,
+#                                    6 May 14:42 AEST: Tate typing in EcodiaOS
+#                                    chat tab in Chrome, foreground-check returned
+#                                    collision:false (target-pattern matched),
+#                                    input.type for `git clone` landed in his chat
+#                                    instead of SY094 Terminal.
 #
 # Env overrides:
 #   COWORK_AGENT_URL    (default http://100.114.219.69:7456)
@@ -288,38 +305,62 @@ inject_passkey() {
 }
 
 # ---------------------------------------------------------------------------
-# Subcommand: precheck [--target "<sub>"]
+# Subcommand: precheck [--target "<sub>"] [--allow-chrome]
 #
-# Without --target: behaviour identical to pre-30-Apr-2026 (backward-compat).
-# With --target: Step 0 (focus-collision) fires FIRST. If collision detected,
-# precheck exits 1 with {ok:false, blocker:"focus_collision", ...} so calling
-# code can defer per cowork-no-focus-collision.md.
+# Step 0 (focus-collision) fires FIRST when either --target is supplied OR
+# --allow-chrome is NOT supplied. Two collision triggers:
+#
+#   1. chrome_default_deny - foreground process is chrome.exe and
+#      --allow-chrome was NOT passed. Chrome on Corazon is Tate's interactive
+#      session (status_board 8809bf96, 9 May 2026). Pass --allow-chrome for
+#      intentional Chrome-driving recipes per
+#      ~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md.
+#   2. target_match - --target substring matches foreground window title.
+#
+# On collision: exit 1 with {ok:false, blocker:"focus_collision", reason:...}
+# so calling code can defer per cowork-no-focus-collision.md.
 # ---------------------------------------------------------------------------
 cmd_precheck() {
     local target=""
+    local allow_chrome=false
     while [ $# -gt 0 ]; do
         case "$1" in
             --target=*) target="${1#*=}" ;;
             --target) shift; target="${1:-}" ;;
+            --allow-chrome) allow_chrome=true ;;
         esac
         shift || true
     done
     local out="$TMP_DIR/cowork-precheck-$(ts_compact).json"
     local result='{}'
 
-    # Step 0: focus-collision (only when --target supplied; backward-compat).
-    if [ -n "$target" ]; then
+    # Step 0: focus-collision.
+    # Always probe foreground when --target supplied (target-pattern check).
+    # Always probe foreground regardless of --target for Chrome default-deny
+    # (status_board 8809bf96, 9 May 2026): Chrome on Corazon = Tate's
+    # interactive session, treat as collision unless --allow-chrome passed.
+    if [ -n "$target" ] || [ "$allow_chrome" != "true" ]; then
         local probe_json fg_app fg_title
         if probe_json="$(probe_foreground_window)"; then
             fg_app="$(echo "$probe_json" | jq -r '.process // empty' 2>/dev/null)"
             fg_title="$(echo "$probe_json" | jq -r '.title // empty' 2>/dev/null)"
-            if echo "$fg_title" | grep -qF -- "$target"; then
+            # Chrome default-deny (precedes target-pattern match).
+            if [ "$allow_chrome" != "true" ] && echo "$fg_app" | grep -qiE '^chrome(\.exe)?$'; then
                 jq -n \
                     --arg ts "$(ts_iso)" \
                     --arg target "$target" \
                     --arg fg_app "$fg_app" \
                     --arg fg_title "$fg_title" \
-                    '{ok:false, ts:$ts, blocker:"focus_collision", target:$target, foreground_app:$fg_app, foreground_title:$fg_title, note:"Step 0 fired - target substring matches foreground window. Defer per cowork-no-focus-collision.md."}'
+                    '{ok:false, ts:$ts, blocker:"focus_collision", reason:"chrome_default_deny", target:$target, foreground_app:$fg_app, foreground_title:$fg_title, note:"Step 0 fired - foreground is Tates interactive Chrome. Pass --allow-chrome for intentional Chrome-driving recipes. See cowork-no-focus-collision.md."}'
+                exit 1
+            fi
+            if [ -n "$target" ] && echo "$fg_title" | grep -qF -- "$target"; then
+                jq -n \
+                    --arg ts "$(ts_iso)" \
+                    --arg target "$target" \
+                    --arg fg_app "$fg_app" \
+                    --arg fg_title "$fg_title" \
+                    '{ok:false, ts:$ts, blocker:"focus_collision", reason:"target_match", target:$target, foreground_app:$fg_app, foreground_title:$fg_title, note:"Step 0 fired - target substring matches foreground window. Defer per cowork-no-focus-collision.md."}'
                 exit 1
             fi
         fi
@@ -597,11 +638,13 @@ cmd_step_with_passkey_watch() {
 cmd_foreground_check() {
     local target=""
     local verbose=false
+    local allow_chrome=false
     while [ $# -gt 0 ]; do
         case "$1" in
             --target=*) target="${1#*=}" ;;
             --target) shift; target="${1:-}" ;;
             --verbose) verbose=true ;;
+            --allow-chrome) allow_chrome=true ;;
             -*) echo "ERROR: unknown flag: $1" >&2; exit 2 ;;
             *) ;;
         esac
@@ -626,10 +669,28 @@ cmd_foreground_check() {
         exit 1
     fi
 
+    # Chrome default-deny (status_board 8809bf96, 9 May 2026).
+    # Worker 4 of fork_motk37ob_7085c2 hit this 6 May 14:42 AEST: Tate was
+    # actively typing in his EcodiaOS chat tab in Chrome, foreground-check
+    # returned collision:false because the target substring happened to match
+    # somewhere in the Chrome window title, so input.type for `git clone`
+    # landed in his chat instead of SY094 Terminal.
+    #
+    # Rule: if foreground process is chrome.exe (Tate's interactive Chrome
+    # session on Corazon), collision=true regardless of target-pattern match.
+    # The escape hatch is --allow-chrome, intended for explicit Chrome-driving
+    # recipes per ~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md.
+    local chrome_default_deny="false"
+    if [ "$allow_chrome" != "true" ] && echo "$fg_app" | grep -qiE '^chrome(\.exe)?$'; then
+        chrome_default_deny="true"
+    fi
+
     local result
     if [ -n "$target" ]; then
         local collision_bool="false"
-        if echo "$fg_title" | grep -qF -- "$target"; then
+        if [ "$chrome_default_deny" = "true" ]; then
+            collision_bool="true"
+        elif echo "$fg_title" | grep -qF -- "$target"; then
             collision_bool="true"
         fi
         result="$(jq -n \
@@ -639,14 +700,22 @@ cmd_foreground_check() {
             --arg fg_title "$fg_title" \
             --arg fg_pid "$fg_pid" \
             --argjson collision "$collision_bool" \
-            '{ok:true, ts:$ts, target:$target, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null), collision:$collision}')"
+            --argjson chrome_default_deny "$chrome_default_deny" \
+            --argjson allow_chrome "$allow_chrome" \
+            '{ok:true, ts:$ts, target:$target, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null), collision:$collision, chrome_default_deny:$chrome_default_deny, allow_chrome:$allow_chrome}')"
     else
+        # No --target: still surface chrome_default_deny verdict so callers
+        # making routing decisions without a target string can see Chrome.
+        local collision_bool="$chrome_default_deny"
         result="$(jq -n \
             --arg ts "$(ts_iso)" \
             --arg fg_app "$fg_app" \
             --arg fg_title "$fg_title" \
             --arg fg_pid "$fg_pid" \
-            '{ok:true, ts:$ts, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null)}')"
+            --argjson collision "$collision_bool" \
+            --argjson chrome_default_deny "$chrome_default_deny" \
+            --argjson allow_chrome "$allow_chrome" \
+            '{ok:true, ts:$ts, foreground_app:$fg_app, foreground_title:$fg_title, foreground_pid:($fg_pid|tonumber? // null), collision:$collision, chrome_default_deny:$chrome_default_deny, allow_chrome:$allow_chrome}')"
     fi
 
     if [ "$verbose" = "true" ]; then
@@ -897,7 +966,7 @@ case "$sub" in
 cowork-dispatch - thin bash wrapper for the Conductor -> Cowork dispatch protocol
 
 usage:
-  cowork-dispatch precheck [--target "<sub>"]
+  cowork-dispatch precheck [--target "<sub>"] [--allow-chrome]
   cowork-dispatch focus
   cowork-dispatch instruct "<step>"
   cowork-dispatch wait <seconds>
@@ -905,7 +974,7 @@ usage:
   cowork-dispatch account-chip
   cowork-dispatch passkey-inject
   cowork-dispatch step-with-passkey-watch "<step>" [--max-watch-seconds=N]
-  cowork-dispatch foreground-check [--target "<sub>"] [--verbose]
+  cowork-dispatch foreground-check [--target "<sub>"] [--allow-chrome] [--verbose]
   cowork-dispatch v2-gmail-send --to=<addr> --subject=<s> --body-file=<path> [--dry-run]
   cowork-dispatch v2-sms-tate --message=<m> [--dry-run]
   cowork-dispatch v2-scheduler {cron|delayed|chain} [...] [--dry-run]

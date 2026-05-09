@@ -28,6 +28,18 @@ Single signal: identify Tate's active foreground window and compare it to the wi
 
 **Threshold framing: forget idle-time. The probe is foreground-window equality, not human-idle-time.** Tate at 03:00 AEST in his EcodiaOS chat tab is no different from Tate at 14:00 — what matters is whether Cowork's next `input.*` keystroke will land in his window or somewhere else.
 
+## Chrome default-deny (added 9 May 2026)
+
+**The conductor-side `foreground-check` and `precheck` subcommands of `~/ecodiaos/scripts/cowork-dispatch` apply a Chrome default-deny rule:** if the Corazon foreground process is `chrome.exe`, collision is `true` regardless of any target-substring match, unless the explicit `--allow-chrome` flag is passed.
+
+**Why.** Chrome on Corazon is Tate's interactive session — every saved login, every authenticated tab, every chat textarea Tate is typing into right now. Substring matches against Chrome window titles are unreliable: Chrome surfaces page title + " - Google Chrome", and the page title can contain almost any string at any time (e.g. an EcodiaOS chat textarea showing the message Tate is composing). A naive target-substring check returns `collision:false` against the wrong target window any time the active page title doesn't happen to contain the target keyword. The fix is to treat Chrome as Tate-owned by default, full stop, and require the caller to explicitly opt-in to Chrome-driving via `--allow-chrome`.
+
+**The escape hatch.** When the work is intentional Chrome driving (per `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`), pass `--allow-chrome` to restore target-pattern-only behaviour. The flag is the verification artefact — its presence on the call line is evidence the conductor (or recipe author) considered the collision and accepted it. No flag = default-deny.
+
+**Origin.** Worker 4 of `fork_motk37ob_7085c2`, 6 May 2026 14:42 AEST: Tate was actively typing in his EcodiaOS chat tab in Chrome on Corazon. The worker's `foreground-check --target Terminal` returned `collision:false` (the substring "Terminal" did not match the Chrome page title at probe time) so the worker proceeded with `input.type` for `git clone …`. The keystrokes landed in Tate's chat textarea instead of the SY094 Terminal RDP window. Status_board row `8809bf96-e553-4bc9-a005-dc0c0e51c7ee`. Fork `fork_moyv0ng4_848e8b` shipped the patch.
+
+**JSON shape (post-patch).** `foreground-check` and `precheck` outputs both surface `chrome_default_deny:true|false` and `allow_chrome:true|false` alongside the existing `collision` field, so downstream JSON consumers can distinguish "Chrome default-deny fired" from "target string matched".
+
 ## Per-tool gating
 
 - **`screenshot.screenshot`** — OS-level capture, never steals focus. **Never gated.** Probe screenshots can run regardless of Tate's foreground state. They're how the conductor verifies the post-condition without disturbing him.
