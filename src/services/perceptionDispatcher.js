@@ -41,6 +41,20 @@ const _recentDispatches = new Map() // key → timestamp
 // Largest configured dedupe window across MATCHERS - used for prune cutoff.
 let _maxDedupeWindowMs = DEFAULT_DEDUPE_WINDOW_MS
 
+// Credit-exhaustion abort_reason regex (8 May 2026, fork_moxvsqee_e29694).
+// Per ~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md, fork errors
+// caused by Claude Max weekly-cap exhaustion are operational events that
+// resolve when the cap resets. They are NOT generic fork_error escalations
+// and must not auto-create P1 status_board rows. The error_escalation matcher
+// dispatch path looks up fork.abort_reason on fork_error/fork_aborted events
+// and short-circuits to a P3 telemetry event when this regex matches.
+//
+// Coverage (sampled from production os_forks rows, 8 May 2026):
+//   - "Claude Code returned an error result: You're out of extra usage · resets May 12, 11am (UTC)"
+//   - "Claude Code returned an error result: You're out of extra usage · resets 8:10am (UTC)"
+//   - "credit exhaust" / "credit_exhaust" / "credit-exhaust" (defensive variants)
+const CREDIT_EXHAUSTION_REGEX = /out of extra usage|credit.exhaust|reset.*UTC/i
+
 // ── Per-matcher counters (B3: listener-stats endpoint) ─────────────────────
 // In-memory since process boot. Surfaced at /api/ops/listener-stats.
 // Conductor reads these in BP4 / drift detection: matcher silent for 1h+ =
@@ -209,6 +223,48 @@ const MATCHERS = [
              event.confidence >= 0.9 && kind.includes('alert')
     },
     async dispatch(event) {
+      // Credit-exhaustion short-circuit (8 May 2026, fork_moxvsqee_e29694).
+      // Per ~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md, fork
+      // errors carrying credit-exhaustion abort_reason text are NOT doctrine
+      // failures and must NOT auto-create P1 status_board rows. Look up the
+      // fork's abort_reason on fork_error/fork_aborted events and re-route
+      // to a P3 telemetry event when the regex matches. On lookup failure or
+      // missing abort_reason, fall through to the generic escalation path
+      // (preserves existing behaviour for genuine fork errors).
+      const kindLc = (event.kind || '').toLowerCase()
+      const isForkTerminalFailure = kindLc === 'fork_error' || kindLc === 'fork_aborted'
+      if (isForkTerminalFailure) {
+        const forkId = event.data?.fork_id
+        if (forkId) {
+          try {
+            const r = await db`
+              SELECT abort_reason FROM os_forks WHERE fork_id = ${forkId} LIMIT 1
+            `
+            const abortReason = r && r[0] && r[0].abort_reason
+            if (abortReason && CREDIT_EXHAUSTION_REGEX.test(abortReason)) {
+              try {
+                await perceptionBus.publish({
+                  source: 'perception_dispatcher',
+                  kind: 'fork_credit_exhaustion_observed',
+                  data: {
+                    fork_id: forkId,
+                    abort_reason: String(abortReason).slice(0, 200),
+                    original_kind: event.kind,
+                  },
+                  confidence: 0.6,
+                })
+              } catch (err) {
+                logger.debug('perceptionDispatcher: credit_exhaustion publish failed', { error: err.message })
+              }
+              return // skip P1 status_board insert
+            }
+          } catch (err) {
+            // Lookup failure is non-fatal: fall through to generic escalation.
+            logger.debug('perceptionDispatcher: credit_exhaustion lookup failed', { error: err.message })
+          }
+        }
+      }
+
       // Auto-create or update a status_board P1 row for persistent errors
       const name = `auto: ${event.source}/${event.kind}`
       try {
@@ -438,4 +494,5 @@ module.exports = {
   _stats,
   safeDispatch,
   DEFAULT_DEDUPE_WINDOW_MS,
+  CREDIT_EXHAUSTION_REGEX,
 }
