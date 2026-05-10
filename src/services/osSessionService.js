@@ -1586,14 +1586,11 @@ async function _sendMessageImpl(content, opts = {}) {
     // different API path). Passing it was a no-op. The CLI manages compaction
     // internally based on context-window pressure; we can't override that from JS.
     //
-    // Thinking disabled globally — CLI v2.1.132 / SDK v0.2.132 fails to
-    // round-trip thinking blocks after tool results on ALL providers.
-    // The os_incidents data was misleading (only logged in deepseek context).
-    // This is a Claude Code SDK bug, not provider-specific. Track:
-    // https://github.com/anthropics/claude-code/issues — re-enable when fixed.
-    thinking: {
-      type: 'disabled',
-    },
+    // Thinking: let the SDK manage its own defaults. The v0.2.132 round-trip
+    // bug that originally required `thinking: {type:'disabled'}` is resolved
+    // in newer CLI builds. Explicitly disabling thinking now conflicts with
+    // the SDK's `reasoning_effort` parameter (400: "thinking options type
+    // cannot be disabled when reasoning_effort is set").
     // Conductor-level MCP servers only (neo4j, scheduler, factory, supabase).
     // Subagent domains (comms, finance, ops, social) are defined below in agents.
     mcpServers,
@@ -1669,13 +1666,14 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
     options.env = sessionEnv
     options.model = 'deepseek-v4-pro'
-    // Explicitly disable thinking — `delete` leaves it undefined and the CLI
-    // defaults to thinking enabled (alwaysThinkingEnabled=true), which causes
-    // DeepSeek to auto-activate thinking mode. On the *second* request in a
-    // multi-turn tool loop, DeepSeek then validates that thinking blocks from
-    // the first response are round-tripped — but the proxy stripped them from
-    // the response, causing 400 "thinking must be passed back to the API".
+    // Explicitly disable thinking for DeepSeek — without this the CLI defaults
+    // to thinking enabled, causing DeepSeek to auto-activate thinking mode and
+    // then 400 on the second turn when stripped thinking blocks aren't echoed.
     options.thinking = { type: 'disabled' }
+    // reasoning_effort is incompatible with thinking:{type:'disabled'} — the
+    // SDK may inject it from its default model config. Strip it here; the proxy
+    // also strips it as belt-and-braces.
+    delete options.reasoning_effort
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
   } else if (best.provider === 'claude_max_2') {
