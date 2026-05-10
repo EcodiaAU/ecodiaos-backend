@@ -227,6 +227,30 @@ describe('deepseekProxyService - request sanitiser', () => {
     expect(out.thinking).toEqual({ type: 'disabled' })
     expect(out.model).toBe('x')
   })
+
+  test('strips reasoning_effort (incompatible with thinking:{type:disabled})', () => {
+    const input = JSON.stringify({
+      model: 'deepseek-v4-pro',
+      reasoning_effort: 'high',
+      thinking: { type: 'disabled' },
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    const out = JSON.parse(_stripThinkingFromRequest(input))
+    expect(out.reasoning_effort).toBeUndefined()
+    expect(out.thinking).toEqual({ type: 'disabled' })
+    expect(out.model).toBe('deepseek-v4-pro')
+  })
+
+  test('strips reasoning_effort even when thinking was originally enabled', () => {
+    const input = JSON.stringify({
+      reasoning_effort: 'medium',
+      thinking: { type: 'enabled', budget_tokens: 4096 },
+      messages: [{ role: 'user', content: 'hi' }],
+    })
+    const out = JSON.parse(_stripThinkingFromRequest(input))
+    expect(out.reasoning_effort).toBeUndefined()
+    expect(out.thinking).toEqual({ type: 'disabled' })
+  })
 })
 
 describe('deepseekProxyService - response sanitiser', () => {

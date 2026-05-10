@@ -168,6 +168,14 @@ function _stripThinkingFromRequest(body) {
       mutated = true
     }
 
+    // (1b) reasoning_effort — incompatible with thinking:{type:'disabled'}.
+    // The SDK/CLI may inject this (e.g. from model suffix or fast-mode config).
+    // API rejects "thinking type cannot be disabled when reasoning_effort is set".
+    if (parsed.reasoning_effort !== undefined) {
+      delete parsed.reasoning_effort
+      mutated = true
+    }
+
     // (3a) cache_control on the system prompt (string OR array form).
     if (Array.isArray(parsed.system)) {
       const cleanedSystem = parsed.system.map(part => {
