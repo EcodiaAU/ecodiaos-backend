@@ -50,10 +50,17 @@ async function getLoopbackSecret() {
   if (!rows.length) {
     throw new Error('CONDUCTOR_LOOPBACK_SECRET not found in kv_store - cannot proxy to conductor')
   }
-  const val = rows[0].value
-  _loopbackSecret = typeof val === 'string' ? val : val.value
+  // kv_store.value column is TEXT - always a raw JSON string. Parse before .value.
+  const raw = rows[0].value
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = raw
+  }
+  _loopbackSecret = typeof parsed === 'string' ? parsed : parsed.value
   if (!_loopbackSecret) {
-    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store entry missing .value field')
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store entry missing .value field - shape must be {"value":"<hex>",...}')
   }
   return _loopbackSecret
 }
