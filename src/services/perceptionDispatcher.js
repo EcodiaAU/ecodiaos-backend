@@ -55,6 +55,20 @@ let _maxDedupeWindowMs = DEFAULT_DEDUPE_WINDOW_MS
 //   - "credit exhaust" / "credit_exhaust" / "credit-exhaust" (defensive variants)
 const CREDIT_EXHAUSTION_REGEX = /out of extra usage|credit.exhaust|reset.*UTC/i
 
+// Credential-redaction-burst observation-only set (12 May 2026, fork_mp1ko80h_9537fa).
+// Per securityIncidentResponse.js §OBSERVATION_ONLY, credential_redaction_burst
+// events are the redaction system working correctly: credentials appearing in
+// output streams are intercepted and removed. They are NOT security breaches.
+// The security_incident matcher receives these because securityIncidentResponse
+// publishes to perceptionBus with source='security_incident', which the matcher
+// catches on its broad source-based predicate (source === 'security_incident').
+// Without this short-circuit, every fork output redaction auto-creates a P1 row.
+//
+// Unlike the credit_exhaustion short-circuit in error_escalation, no DB lookup is
+// needed: event.kind itself is the discriminant - securityIncidentResponse sets
+// kind = incident_class = 'credential_redaction_burst' on publish.
+const CREDENTIAL_REDACTION_OBSERVATION_KINDS = Object.freeze(['credential_redaction_burst'])
+
 // ── Per-matcher counters (B3: listener-stats endpoint) ─────────────────────
 // In-memory since process boot. Surfaced at /api/ops/listener-stats.
 // Conductor reads these in BP4 / drift detection: matcher silent for 1h+ =
@@ -347,6 +361,32 @@ const MATCHERS = [
       return /unauthorized|suspicious[_ ]login|leaked[_ ]secret|vault[_ ]secret/i.test(dataStr)
     },
     async dispatch(event) {
+      // credential_redaction_burst short-circuit (12 May 2026, fork_mp1ko80h_9537fa).
+      // Per securityIncidentResponse.js OBSERVATION_ONLY set, credential_redaction_burst
+      // is the redaction system working correctly (credentials in output streams get
+      // intercepted before reaching Tate). It must NOT auto-create P1 status_board rows.
+      // Unlike credit_exhaustion in error_escalation, no DB lookup is needed: event.kind
+      // is the discriminant (securityIncidentResponse publishes kind = incident_class).
+      // On publish failure, log debug and return - never fall through to P1 insert.
+      const kindLc = (event.kind || '').toLowerCase()
+      if (CREDENTIAL_REDACTION_OBSERVATION_KINDS.includes(kindLc)) {
+        try {
+          await perceptionBus.publish({
+            source: 'perception_dispatcher',
+            kind: 'credential_redaction_burst_observed',
+            data: {
+              trigger_source: event.data?.trigger_source,
+              incident_id: event.data?.incident_id,
+              original_kind: event.kind,
+            },
+            confidence: 0.4,
+          })
+        } catch (err) {
+          logger.debug('perceptionDispatcher: credential_redaction_burst publish failed', { error: err.message })
+        }
+        return // skip P1 status_board insert
+      }
+
       const name = `auto: security/${event.source}/${event.kind}`
       try {
         const existing = await db`
@@ -495,4 +535,5 @@ module.exports = {
   safeDispatch,
   DEFAULT_DEDUPE_WINDOW_MS,
   CREDIT_EXHAUSTION_REGEX,
+  CREDENTIAL_REDACTION_OBSERVATION_KINDS,
 }
