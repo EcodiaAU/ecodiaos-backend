@@ -796,9 +796,17 @@ async function tickInferOutcomes() {
           skipped += 1
           continue
         }
-        await client.query(
+        // ON CONFLICT DO NOTHING handles outcome_event_dedup_correction: that
+        // partial unique index deduplicates by md5(correction_text) WHERE
+        // outcome='correction'. When the same Tate message matches multiple
+        // dispatches in a 30-min window, only the first insert lands; subsequent
+        // ones are silently skipped rather than erroring. Use RETURNING to
+        // distinguish a real insert from a conflict-skip.
+        const ins = await client.query(
           `INSERT INTO outcome_event (dispatch_event_id, outcome, evidence, correction_text, classification)
-           VALUES ($1, $2, $3, $4, $5)`,
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
           [
             dispatch.id,
             inference.outcome,
@@ -807,9 +815,15 @@ async function tickInferOutcomes() {
             null, // Phase D fills classification (for correction AND failure rows)
           ]
         )
-        inferred += 1
-        if (distribution[inference.outcome] !== undefined) {
-          distribution[inference.outcome] += 1
+        if (ins.rowCount > 0) {
+          inferred += 1
+          if (distribution[inference.outcome] !== undefined) {
+            distribution[inference.outcome] += 1
+          }
+        } else {
+          // Conflict-skip: dedup constraint fired (same correction_text already
+          // stored for another dispatch in this window). Count as skipped.
+          skipped += 1
         }
       } catch (err) {
         errors += 1
