@@ -236,9 +236,43 @@ router.get('/energy/history', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Upload an attachment to Supabase Storage and return a public URL.
-// Accepts either base64-encoded file data OR raw text content - no multipart needed.
-router.post('/upload', async (req, res, next) => {
+// Upload an attachment to Supabase Storage, extract text from documents,
+// and return a public URL + extracted text. Accepts either base64-encoded
+// binary OR raw UTF-8 text in JSON body. Per-route 50mb limit overrides
+// the global 5mb express.json() limit set in app.js.
+const uploadJson = require('express').json({ limit: '50mb' })
+
+// Best-effort text extraction. Returns '' on any failure - the file is
+// still uploaded; only the inline text snippet is missing.
+async function extractText(buffer, contentType, name) {
+  const lower = String(name || '').toLowerCase()
+  try {
+    if (contentType === 'application/pdf' || lower.endsWith('.pdf')) {
+      const pdfParse = require('pdf-parse')
+      const out = await pdfParse(buffer)
+      return String(out?.text || '').trim()
+    }
+    if (
+      contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      lower.endsWith('.docx')
+    ) {
+      const mammoth = require('mammoth')
+      const out = await mammoth.extractRawText({ buffer })
+      return String(out?.value || '').trim()
+    }
+    if (
+      (contentType && (contentType.startsWith('text/') || contentType === 'application/json')) ||
+      /\.(txt|md|csv|json|log|yaml|yml|xml|html|css|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp|h|sh|sql|toml|ini)$/.test(lower)
+    ) {
+      return buffer.toString('utf-8').trim()
+    }
+  } catch (err) {
+    logger.warn('OS Upload: text extraction failed', { name, contentType, error: err.message })
+  }
+  return ''
+}
+
+router.post('/upload', uploadJson, async (req, res, next) => {
   try {
     const { name, type, base64, text } = req.body
     if (!name || (!base64 && typeof text !== 'string')) {
@@ -252,7 +286,6 @@ router.post('/upload', async (req, res, next) => {
     const { createClient } = require('@supabase/supabase-js')
     const sb = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY || env.SUPABASE_ANON_KEY)
 
-    // Decode payload - text files come through as raw UTF-8, binaries as base64
     let buffer
     if (typeof text === 'string') {
       buffer = Buffer.from(text, 'utf-8')
@@ -261,7 +294,6 @@ router.post('/upload', async (req, res, next) => {
       buffer = Buffer.from(raw, 'base64')
     }
 
-    const ext = name.split('.').pop() || 'bin'
     const slug = `attachments/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const contentType = type || (typeof text === 'string' ? 'text/plain' : 'application/octet-stream')
 
@@ -273,7 +305,15 @@ router.post('/upload', async (req, res, next) => {
     }
 
     const { data } = sb.storage.from('os-attachments').getPublicUrl(slug)
-    res.json({ url: data.publicUrl, name, type: contentType, size: buffer.length })
+    const extracted = await extractText(buffer, contentType, name)
+
+    res.json({
+      url: data.publicUrl,
+      name,
+      type: contentType,
+      size: buffer.length,
+      extracted_text: extracted,
+    })
   } catch (err) { next(err) }
 })
 
