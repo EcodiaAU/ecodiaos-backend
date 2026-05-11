@@ -395,6 +395,8 @@ Read triggers, pick matching files, read in full. Same protocol as patterns/. 30
 - Before classifying any blocker as Tate-required, exhaust laptop+browser+saved-creds: `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`. Passkey: `kv_store.creds.laptop_passkey`. Tool mechanics: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`
 - Before adding ANY new credential row OR asking Tate to generate one, run GUI-macro vs API-key check: `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`. If Tate already does workflow through logged-in GUI (Apple Developer/ASC/Vercel/GitHub/Stripe/Play/Resend/Supabase dashboard/etc), macro path through Corazon/SY094 input.* + screenshot.* tools supersedes credential-generation. Skip the API key. Only add programmatic creds for fundamentally headless workflows (server-to-server cron, no human GUI in loop). Strategic_Direction: "GUI macros replace API keys for autonomous releases - use logged-in user sessions over generated programmatic credentials when both work"
 
+**Supabase cross-project access (NEVER punt to fork for a single query).** The access token at `kv_store.creds.supabase_access_token` is an org-level PAT. Per-project URL + service_role_key at `kv_store.creds.<project>_supabase` (coexist = `tjutlbzekfouwsiaplbr`, chambers = `arkbjjkfjsjibnhivjis`). Direct REST API query against ANY owned project from main is a thin-on-main exception - one curl call with the service_role_key, 30 seconds. Classifying "different Supabase project" as a fork-required blocker is a routing-problem failure. See `~/ecodiaos/patterns/supabase-pat-reaches-every-owned-project-from-main.md`.
+
 ### Bitbucket has TWO auth contexts with same API key
 
 1. **Git HTTPS remote (push/pull/clone):**
@@ -485,6 +487,8 @@ Rules:
 - Done → SET archived_at = NOW()
 - kv_store 'ceo.active_threads' JSON DEPRECATED - use status_board
 - status_board ↔ CRM disagree → status_board authoritative, fix CRM
+
+**Sheet-as-projection sync discipline.** When an external sheet (Excel/Google Sheets) holds only a SUBSET of app state (only past events, only survey-submitted events, only migrated-collective rows), the sync reconciliation query MUST scope its cancel/delete candidates to the SAME subset. Never infer "absent from sheet = deleted from sheet" for rows the sheet was never going to have. Fix = explicit date/status/gate filter on the reconciliation candidate query that mirrors the sheet's actual coverage. See `~/ecodiaos/patterns/sheet-as-projection-sync-direction-discipline.md`. Related: `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md`, `~/ecodiaos/patterns/excel-sync-collectives-migration.md`.
 
 **Distributed-state seam discipline.** status_board is one of ~10 substrates state lives in (Postgres, Neo4j, kv_store, Vercel, PM2, GitHub/Bitbucket, Google Workspace, Stripe, session context, Tate's memory). Every cross-substrate write = seam where two substrates can disagree. Every drift-audit failure traces back to a seam without explicit consistency protocol. Cross-substrate write: write A, verify A, write B referencing A, verify B. Reading state: read source-of-truth substrate, not derived projection. Full: `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md`.
 
