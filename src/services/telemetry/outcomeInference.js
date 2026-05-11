@@ -776,21 +776,24 @@ async function tickInferOutcomes() {
     else if (await tableExists(client, 'sms_inbound')) smsTable = 'sms_inbound'
     else if (await tableExists(client, 'sms_log')) smsTable = 'sms_log'
 
-    // Pull dispatches that do NOT yet have a correction-type outcome_event row.
-    // Using a correction-specific LEFT JOIN means:
-    //   (a) Dispatches with NO outcome row at all    → o.id IS NULL → selected (as before)
-    //   (b) Dispatches with only unverified/success/failure rows → o.id IS NULL → selected
-    //       (re-evaluation: may now find a correction signal the initial pass missed)
-    //   (c) Dispatches with a correction row         → o.id NOT NULL → excluded ✓
+    // Pull dispatches with NO outcome_event row at all, older than 5 minutes
+    // (give the system time to settle), capped at 500 per tick.
     //
-    // The correction_text dedup (partial UNIQUE INDEX outcome_event_dedup_correction on
-    // md5(correction_text) WHERE outcome='correction') handles case (b): if correction_text
-    // is already attributed to another dispatch in the same window, the ON CONFLICT below
-    // fires and we insert 'unverified' as a fallback so the dispatch settles.
+    // WHERE clause: general LEFT JOIN (not correction-specific) so that
+    // dispatches with ANY existing outcome row (unverified/success/failure/
+    // correction) are all excluded. This keeps the 500-row batch focused on
+    // truly unclassified dispatches and prevents re-selected already-classified
+    // rows from filling the batch and starving new dispatches.
+    //
+    // Cross-dispatch correction dedup (outcome_event_dedup_correction partial
+    // UNIQUE INDEX on md5(correction_text) WHERE outcome='correction') is
+    // handled at INSERT time: ON CONFLICT DO NOTHING + unverified fallback
+    // below ensures a dispatch that conflicts on correction_text still gets
+    // settled with an 'unverified' row rather than cycling forever.
     const r = await client.query(`
       SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata
       FROM dispatch_event d
-      LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id AND o.outcome = 'correction'
+      LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
       WHERE o.id IS NULL
         AND d.ts < NOW() - INTERVAL '5 minutes'
         AND d.ts > NOW() - INTERVAL '14 days'
