@@ -248,7 +248,7 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 ### SY094 (MacInCloud Mac)
 - Token: `creds.macincloud` (under `agent_token`)
 - macOS 15.7.4, Apple Silicon, 16GB, Xcode 26.3
-- Has Claude.app, Cursor, Android Studio, Firefox, Messages.app (signed into Apple ID code@ecodia.au for iMessage primary contact channel)
+- Has Claude.app, Cursor, Android Studio, Firefox, Messages.app (Apple ID code@ecodia.au - used for Apple Developer team membership only; iMessage contact channel removed 11 May 2026)
 
 **Substrate selection rule (7 May 2026, supersedes 5 May absolute SSH ban):** select access substrate by what the work needs. SSH for headless work, RDP from Corazon for GUI-bound work. Tate paid the +AU$9/mo "Enable Remote Build Port (SSH)" MacInCloud add-on at ~11:28 AEST 7 May 2026, authorising SSH as a first-class substrate for headless work.
 
@@ -272,7 +272,7 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 - `screencapture` and any pixel-verification flow
 - `cliclick`-driven flows (Accessibility-permission-bound)
 - AppleScript GUI calls (`tell application "Messages"`, `tell application "System Events"`)
-- Messages.app interactive (incl. iMessage outbound watcher under FDA-bound launchd)
+- Messages.app interactive (Apple Developer notifications; iMessage contact channel removed 11 May 2026)
 - Android Studio IDE
 - Anything needing the active GUI session
 
@@ -830,7 +830,7 @@ Persistent DB-backed scheduler architecture (not session-scoped). Parallel react
 
 **Core operating loops:**
 - **meta-loop** (every 1h): main CEO loop. Orient via status_board, decide highest-leverage, execute, schedule follow-ups. NO TIME LIMIT
-- **email-triage** (every 1h): inbox hygiene. Fast-exit if nothing unread. Otherwise: archive junk, handle client emails, leave only Tate-required in inbox
+- **email-triage** (every 1h): inbox hygiene. Fast-exit if nothing unread. Otherwise: archive junk, handle client emails, leave only Tate-required in inbox. **Note: this cron is the FLOOR not the ceiling.** Also poll Gmail at session start and when any client context is active. See `~/ecodiaos/patterns/poll-gmail-frequently-not-only-on-triage-cron.md`.
 - **parallel-builder** (every 2h): orchestrate Factory sessions. Always have code work queued. Review completions. Dispatch new
 
 **Intelligence & growth:**

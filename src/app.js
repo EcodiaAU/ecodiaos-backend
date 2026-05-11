@@ -63,20 +63,6 @@ app.use(compression())
 // (Wave C C1, fork_mosn8o5x_7a0e54, 5 May 2026)
 app.use('/api/webhooks/vercel', require('./routes/webhooks/vercel'))
 app.use('/api/webhooks/stripe', require('./routes/webhooks/stripe'))
-// iMessage outbound queue (queue/next/ack) MUST mount BEFORE inbound so
-// `/api/imessage/outbound/queue` is matched by the outbound router before
-// the inbound router's `router.use(express.raw())` consumes the body.
-// /queue uses its own express.json() (internal-only, localhost-gated),
-// /next + /ack use express.raw() inside a nested hmacRouter and share
-// the same HMAC secret (kv_store.imessage.webhook.hmac_secret) as inbound.
-// Authored 7 May 2026 by fork_mousbxym_89ac2e during the SSH-path retirement.
-app.use('/api/imessage', require('./routes/imessageOutbound'))
-// iMessage inbound webhook also signs raw body via HMAC, must mount before
-// express.json() consumes the stream. See src/routes/imessageInbound.js +
-// src/middleware/validateImessageSignature.js. Authored 7 May 2026 after
-// initial mount at line 147 returned 400 malformed_body because the global
-// json parser ran first.
-app.use('/api/imessage', require('./routes/imessageInbound'))
 
 // GKG (GUI Knowledge Graph) ingest - capture daemon on Corazon POSTs
 // HMAC-signed NDJSON. MUST mount before express.json() so the raw body
@@ -162,9 +148,6 @@ app.use('/api/message-queue', require('./routes/messageQueue'))
 app.use('/api/cortex', require('./routes/cortexAttachments'))
 app.use('/api/os-session', require('./routes/osSession'))
 app.use('/api/sms', require('./routes/smsWebhook'))
-// iMessage inbound webhook moved above express.json() (line ~64-66) on 7 May
-// 2026 because the global JSON parser was consuming the raw body before the
-// router-scoped express.raw() could read it, yielding 400 malformed_body.
 app.use('/api/docs', require('./routes/documents'))
 app.use('/api/dashboard', require('./routes/dashboard'))
 // /api/status-board - read-only active rows for the Cortex Ambient FE

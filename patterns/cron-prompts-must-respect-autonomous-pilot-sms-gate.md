@@ -4,7 +4,7 @@ triggers: cron-prompt-sms, autonomous-pilot-sms-suppression, communication_mode-
 
 # Cron prompts that may SMS Tate must check autonomous_pilot.active first
 
-Every scheduled-task prompt that includes a routine SMS or iMessage path to Tate MUST prepend an autonomous-pilot suppression header at the top of the prompt. The header instructs the firing turn to read `kv_store.ceo.autonomous_pilot.active`, and when present and unexpired with `communication_mode='no_sms_unless_critical'`, divert routine status messages into a P3 status_board row tagged for morning surfacing instead of waking Tate.
+Every scheduled-task prompt that includes a routine SMS path to Tate MUST prepend an autonomous-pilot suppression header at the top of the prompt. The header instructs the firing turn to read `kv_store.ceo.autonomous_pilot.active`, and when present and unexpired with `communication_mode='no_sms_unless_critical'`, divert routine status messages into a P3 status_board row tagged for morning surfacing instead of waking Tate.
 
 Genuine critical-breakage SMS paths (P0/P1 system outage, restart loop detection, broken pipeline after N consecutive failures) are exempt and SHOULD continue to fire even during autonomous-pilot windows. The exemption MUST be explicit in the prompt body so the firing turn knows the path it sits on is a critical-breakage path, not a routine path.
 
@@ -12,10 +12,10 @@ The autonomous-pilot flag is the single source of truth on whether Tate is aslee
 
 ## Rule
 
-A cron prompt is in scope for the suppression header when it contains an instruction shaped like "send SMS to Tate when X" / "SMS Tate via mcp__sms__send_sms" / "send via Skill sms-tate" / "iMessage Tate" AND the trigger condition X is a routine state, status update, summary, nudge, or non-emergency alert.
+A cron prompt is in scope for the suppression header when it contains an instruction shaped like "send SMS to Tate when X" / "SMS Tate via mcp__sms__send_sms" / "send via Skill sms-tate" AND the trigger condition X is a routine state, status update, summary, nudge, or non-emergency alert.
 
 A cron prompt is OUT of scope (no header needed) when:
-- It contains no SMS / iMessage instruction.
+- It contains no SMS instruction.
 - The SMS path is gated to a P0 / P1 condition explicitly named in the prompt (restart-loop > 2/min, broken pipeline after 3 consecutive failures, API authentication failure that blocks all dispatches, security incident).
 - The prompt explicitly says "do NOT text Tate from here" or routes alerts to a different cron.
 
@@ -23,11 +23,11 @@ A cron prompt is OUT of scope (no header needed) when:
 
 ```
 ## CRITICAL FIRST STEP - Autonomous-pilot SMS suppression check
-Before any SMS / iMessage to Tate, check `kv_store.ceo.autonomous_pilot.active`. If present and unexpired, set `communication_mode='no_sms_unless_critical'`:
-- DO NOT send SMS or iMessage for routine status updates
+Before any SMS to Tate, check `kv_store.ceo.autonomous_pilot.active`. If present and unexpired, set `communication_mode='no_sms_unless_critical'`:
+- DO NOT send SMS for routine status updates
 - INSTEAD: write a P3 status_board row tagged for morning surfacing with the same content the SMS would carry
 - Tate will see it in his morning briefing
-- Reset the iMessage/SMS gate to fire normally only for genuine critical breakage
+- Reset the SMS gate to fire normally only for genuine critical breakage
 ```
 
 Prepend at the very top of the prompt, BEFORE any other content (including any "you are EcodiaOS in fork form, no prior context" preamble - the suppression check is the very first thing the firing turn reads).
@@ -84,7 +84,7 @@ To verify all SMS-path crons in the os_scheduled_tasks table respect the autonom
 ```sql
 SELECT id, name,
        (prompt LIKE '%autonomous_pilot%' OR prompt LIKE '%no_sms_unless_critical%') AS has_pilot_check,
-       (prompt LIKE '%mcp__sms__send_sms%' OR prompt LIKE '%sms-tate%' OR prompt ILIKE '%SMS Tate%' OR prompt ILIKE '%iMessage Tate%') AS has_sms_path
+       (prompt LIKE '%mcp__sms__send_sms%' OR prompt LIKE '%sms-tate%' OR prompt ILIKE '%SMS Tate%') AS has_sms_path
 FROM os_scheduled_tasks
 WHERE status = 'active'
 ORDER BY name;
@@ -96,4 +96,4 @@ Any row with `has_sms_path=true AND has_pilot_check=false` is either (a) a bucke
 
 - `~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md` - the inverse rule: when Tate IS live in the OS session, silent-loop-detector SMS defers. The autonomous-pilot gate is a stronger form of the same principle: don't burn a segment on Tate when the segment will not produce useful action.
 - `~/ecodiaos/patterns/sms-segment-economics.md` - the cost framing. Every routine SMS during sleep is a segment paid for content morning briefing surfaces for free.
-- `~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md` - the channel canon. iMessage primary, SMS fallback. Both share the suppression gate.
+- `~/ecodiaos/patterns/sms-one-update-per-fix-not-running-commentary.md` - one-update-per-fix discipline, applies to all SMS contact.

@@ -309,45 +309,24 @@ async function pushApns({ device_token, payload, _h2override } = {}) {
 }
 
 /**
- * Tate-multi-channel notify. Order per
- * ~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md:
- *   1. iMessage (primary)
- *   2. APNs to all active push_tokens for user_id='tate'
- *   3. Twilio SMS (last-resort)
+ * Tate-multi-channel notify. iMessage substrate removed Tate-directed
+ * 11 May 2026 16:44 AEST. Order is now:
+ *   1. APNs to all active push_tokens for user_id='tate'
+ *   2. Twilio SMS (last-resort)
  *
- * Returns { ok, channels: { imessage, apns: [{token_tail, ok, status_code}], sms } }.
+ * Returns { ok, channels: { apns: [{token_tail, ok, status_code}], sms } }.
  *
  * Each step is best-effort; the wrapper does NOT throw. We treat the
- * overall send as ok if ANY channel succeeded.
- *
- * The point of running APNs even when iMessage succeeds is debatable;
- * brief reads "tries iMessage first; then APNs to all push_tokens; then
- * Twilio SMS as final fallback". We interpret this as a fallback ladder
- * (stop on first success) for cost/spam reasons. Override with
+ * overall send as ok if ANY channel succeeded. Override with
  * { all_channels: true } to fan out everywhere.
  */
 async function notifyTateMultiChannel({ title, body, data, all_channels } = {}) {
   const titleStr = String(title || '')
   const bodyStr = String(body || '')
-  const channels = { imessage: null, apns: [], sms: null }
+  const channels = { apns: [], sms: null }
   let anyOk = false
 
-  // 1. iMessage (primary)
-  try {
-    const tateMsg = require('../../skills/tate-msg')
-    const composed = titleStr ? `${titleStr}\n${bodyStr}` : bodyStr
-    const r = await tateMsg.sendImessage(composed)
-    channels.imessage = !!(r && r.ok)
-    if (channels.imessage) anyOk = true
-  } catch (err) {
-    logger.warn('notifyTateMultiChannel: iMessage threw', { error: err.message })
-    channels.imessage = false
-  }
-  if (channels.imessage && !all_channels) {
-    return { ok: true, channels }
-  }
-
-  // 2. APNs to active tokens for tate
+  // 1. APNs to active tokens for tate
   let tokens = []
   try {
     tokens = await db`
@@ -370,9 +349,7 @@ async function notifyTateMultiChannel({ title, body, data, all_channels } = {}) 
     return { ok: true, channels }
   }
 
-  // 3. Twilio SMS as final fallback (uses the alerting service which
-  //    already handles iMessage/Twilio toggles, but bypassing iMessage
-  //    here since we already tried it).
+  // 2. Twilio SMS as final fallback.
   try {
     const sid = process.env.TWILIO_ACCOUNT_SID
     const token = process.env.TWILIO_AUTH_TOKEN

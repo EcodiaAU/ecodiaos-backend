@@ -1,5 +1,5 @@
 ---
-triggers: code-at-ecodia-au, code-account-scope, code-third-vendor, code-as-separate-identity, login-as-code-at-non-google-non-anthropic, code-at-vercel, code-at-stripe, code-at-apple, code-at-bitbucket, code-at-github-as-separate-account, code-as-tate-shadow, code-at-supabase, code-at-resend, code-at-canva, code-at-xero, code-at-zernio, code-at-revenuecat, code-at-cloudflare, code-at-aws, code-at-do, vendor-account-architecture, code-imessage, imessage-apple-id-code-at, apple-id-code-at, sy094-imessage-signed-in-as
+triggers: code-at-ecodia-au, code-account-scope, code-third-vendor, code-as-separate-identity, login-as-code-at-non-google-non-anthropic, code-at-vercel, code-at-stripe, code-at-apple, code-at-bitbucket, code-at-github-as-separate-account, code-as-tate-shadow, code-at-supabase, code-at-resend, code-at-canva, code-at-xero, code-at-zernio, code-at-revenuecat, code-at-cloudflare, code-at-aws, code-at-do, vendor-account-architecture, apple-id-code-at
 ---
 
 # code@ecodia.au exists at exactly three vendors - Google + Anthropic + Apple - never anywhere else as a separate identity
@@ -10,9 +10,7 @@ triggers: code-at-ecodia-au, code-account-scope, code-third-vendor, code-as-sepa
 
 1. **Google Workspace** - the Gmail account, the user the conductor sends mail from / receives mail at, the surface the gmail MCP tools attach to.
 2. **Anthropic Claude Max** - the dedicated subscription that runs the Factory CLI process, separate from the tate@-Max subscription that runs the conductor's main session.
-3. **Apple** - one Apple ID covering both:
-   - Membership in the Ecodia Pty Ltd Apple Developer team (`team_id 86PUY7393S`, kv_store `creds.apple`).
-   - The iMessage handle Messages.app on SY094 signs in as. iMessage IS the primary contact channel from EcodiaOS to Tate's phone (added 4 May 2026 to displace Twilio SMS for cost reasons - $0/iMessage vs $0.05/SMS segment, and SMS-bleed events have hit $1+/hour during incident loops).
+3. **Apple** - one Apple ID: membership in the Ecodia Pty Ltd Apple Developer team (`team_id 86PUY7393S`, kv_store `creds.apple`). Contact to Tate goes via Twilio SMS (iMessage removed Tate-directed 11 May 2026).
 
 EVERY OTHER VENDOR resolves to ONE account, logged in as Tate. Specifically: GitHub/Bitbucket/Vercel/Stripe/AWS/Cloudflare/DO/Supabase/Neo4j/Resend/Canva/Xero/RevenueCat/Zernio. The conductor reaches those via Tate's logged-in session through Corazon (the laptop-agent peer paradigm) or via vendor API tokens stored in `kv_store.creds.*`.
 
@@ -20,13 +18,11 @@ EVERY OTHER VENDOR resolves to ONE account, logged in as Tate. Specifically: Git
 
 - Use the gmail MCP tools at `code@ecodia.au` for outbound + inbound mail when EcodiaOS is the sender/recipient identity.
 - Spawn Factory CLI sessions on the dedicated `code@`-Anthropic-Max account (the `claude --account` flag or env equivalent already wires this).
-- Drive iMessage to Tate via SSH+osascript on SY094 against the Messages.app instance signed into `code@`-Apple-ID.
 - For ANY other vendor, drive Tate's logged-in browser session via Corazon's `input.*` + `screenshot.*` peer-paradigm tools, or call the vendor's API with the token from `kv_store.creds.*`. The conductor never authenticates as code@ at those vendors.
 
 ## Do not
 
 - Do NOT create a `code@`-account at GitHub, Bitbucket, Vercel, Stripe, AWS, Cloudflare, DigitalOcean, Supabase, Neo4j, Resend, Canva, Xero, RevenueCat, Zernio, or any other non-Google/non-Anthropic/non-Apple vendor. If a workflow seems to need it, the workflow is wrong.
-- Do NOT spread the `code@`-Apple-ID across multiple Macs without coordination - one signed-in instance (SY094) is the canonical iMessage origin. Adding more Macs splits the iMessage delivery surface unpredictably.
 - Do NOT confuse the Apple Developer team ownership (Ecodia Pty Ltd, team_id 86PUY7393S, the legal vehicle the apps publish under) with the Apple ID identity (code@ecodia.au, the human-style account that owns membership in that team). The team is the entity; the Apple ID is the user.
 
 ## Protocol when adding a new vendor surface

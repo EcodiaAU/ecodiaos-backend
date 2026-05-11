@@ -1,5 +1,8 @@
 ---
 triggers: imessage-primary, imessage-canonical, imessage-absolute-primary, imessage-poll-loop, imessage-watcher, imessage-inbound, imessage-tate-channel, contact-tate-imessage, primary-contact-channel, sms-fallback-not-primary, twilio-fallback, tate-msg-skill, sy094-imessage, applescript-watcher, imessage-event-handler, imessage-webhook, sy094-applescript, kv-store-imessage-webhook, code-at-ecodia-au-imessage, apple-id-code-at-ecodia-au, contact-channel-tate, channel-discipline-tate, primary-channel-imessage-fallback-sms
+archived_at: 2026-05-11
+archived_reason: Tate-directed purge 11 May 2026 16:44 AEST - iMessage substrate removed entirely
+superseded_by: twilio-sms-only contact channel (osAlertingService._sendTwilio direct)
 ---
 
 # iMessage is the absolute primary path to contact Tate; SMS is fallback

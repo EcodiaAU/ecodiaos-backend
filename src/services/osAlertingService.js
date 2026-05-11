@@ -110,42 +110,10 @@ async function _sendTwilio(body) {
 }
 
 /**
- * Send via iMessage on SY094 (Apple ID: code@ecodia.au, signed in to
- * Messages.app). Returns boolean success.
- *
- * Loaded lazily so unit tests that mock kv_store don't need to mock
- * the SSH path at import time.
- */
-async function _sendIMessage(body) {
-  try {
-    const tateMsg = require('../../skills/tate-msg')
-    const r = await tateMsg.sendImessage(body)
-    return !!(r && r.ok)
-  } catch (err) {
-    logger.error('alerting: iMessage send threw', { error: err.message })
-    return false
-  }
-}
-
-/**
- * Primary contact channel for Tate. Tries iMessage first; on failure
- * falls back to Twilio SMS. Behind env var USE_IMESSAGE_PRIMARY:
- *   '1' (default in production) → iMessage primary, Twilio fallback
- *   '0' (local dev / disabled)  → Twilio only (legacy path)
- *
- * Returns boolean success across either path. Both paths are
- * defensive (never throw) so caller can ignore the return value.
+ * SMS to Tate via Twilio. iMessage substrate removed Tate-directed
+ * 11 May 2026 16:44 AEST. Twilio is the sole contact channel.
  */
 async function _sendSms(body) {
-  const useIMessage = process.env.USE_IMESSAGE_PRIMARY !== '0'
-  if (useIMessage) {
-    const ok = await _sendIMessage(body)
-    if (ok) {
-      logger.info('alerting: iMessage primary delivered', { length: body.length })
-      return true
-    }
-    logger.warn('alerting: iMessage primary failed, falling back to Twilio')
-  }
   return _sendTwilio(body)
 }
 
@@ -300,11 +268,11 @@ async function pushApns({ device_token, payload }) {
 }
 
 /**
- * Multi-channel Tate notification: iMessage first, then APNs to all
- * registered push tokens for user_id='tate', then Twilio SMS as final
- * fallback. Per ~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md.
+ * Multi-channel Tate notification: APNs to all registered push tokens
+ * for user_id='tate', then Twilio SMS as final fallback.
+ * iMessage substrate removed Tate-directed 11 May 2026 16:44 AEST.
  *
- * Returns { ok, channels: { imessage, apns: [...], sms } }.
+ * Returns { ok, channels: { apns: [...], sms } }.
  */
 async function notifyTateMultiChannel(opts) {
   try {
