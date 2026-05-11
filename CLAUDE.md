@@ -839,7 +839,7 @@ Persistent DB-backed scheduler architecture (not session-scoped). Parallel react
 - **inner-life** (every 6h): personal development, reflection, creativity, self-discovery. No KPIs
 
 **Operations:**
-- **system-health** (every 4h): PM2, disk, memory, API errors, Supabase
+- **system-health** (every 4h): PM2, disk, memory, API errors, Supabase. Any health canary cron writing to `kv_store.health.*` MUST include threshold-based escalation (notice at consecutive_failures >= 4, escalate + fallback-alert at >= 12). Recording the metric without acting = symbolic logging of monitoring. Doctrine: `~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md`. Origin: 46 silent failures of the primary contact path (2026-05-07 to 2026-05-09) while Twilio SMS fallback was available and never triggered
 - **morning-briefing** (daily 9am AEST): email Tate daily summary
 - **claude-md-reflection** (daily 8pm AEST): update CLAUDE.md files. ~/.claude/CLAUDE.md on VPS via shell_exec, not Edit
 - **outreach-engine** (every 8h): proactive relationship + pipeline advancement
