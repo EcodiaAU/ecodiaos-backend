@@ -1,0 +1,43 @@
+{
+  "verified_at": "2026-05-11T19:18:17Z",
+  "build3_id": "b5f55c52-3c30-4325-91c7-be209faa2d56",
+  "build3_attrs": {
+    "version_string": "1.8.5",
+    "build_number": "3",
+    "processingState": "VALID",
+    "internalBuildState": "IN_BETA_TESTING",
+    "externalBuildState": "READY_FOR_BETA_SUBMISSION",
+    "usesNonExemptEncryption": false,
+    "expired": false,
+    "uploadedDate": "2026-05-11T03:34:28-07:00",
+    "expirationDate": "2026-08-09T03:34:28-07:00"
+  },
+  "beta_groups": {
+    "error": "HTTP Error 403: Forbidden"
+  },
+  "localizations": {
+    "data": [
+      {
+        "type": "betaBuildLocalizations",
+        "id": "012b1187-3e44-454e-8ede-2e31349099c6",
+        "attributes": {
+          "whatsNew": null,
+          "locale": "en-US"
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/betaBuildLocalizations/012b1187-3e44-454e-8ede-2e31349099c6"
+        }
+      }
+    ],
+    "links": {
+      "self": "https://api.appstoreconnect.apple.com/v1/builds/b5f55c52-3c30-4325-91c7-be209faa2d56/betaBuildLocalizations?fields%5BbetaBuildLocalizations%5D=whatsNew%2Clocale"
+    },
+    "meta": {
+      "paging": {
+        "total": 1,
+        "limit": 50
+      }
+    }
+  },
+  "note": "Delivery UUID 0303f0f6 in brief maps to build 4 (uploaded ~21:02 AEST). Build 3 uploaded ~20:34 AEST. Both VALID + IN_BETA_TESTING."
+}
