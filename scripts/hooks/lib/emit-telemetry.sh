@@ -74,6 +74,7 @@ derive_kind_from_tool() {
   case "${1:-}" in
     mcp__forks__spawn_fork) echo "fork_spawn" ;;
     mcp__factory__start_cc_session) echo "factory_dispatch" ;;
+    cron_fork_spawn) echo "cron_fire" ;;
     Write|Edit|MultiEdit) echo "doctrine_edit" ;;
     mcp__supabase__db_execute) echo "db_execute" ;;
     *) echo "hook_warn" ;;

@@ -47,6 +47,9 @@
  */
 'use strict'
 
+const fs = require('fs')
+const { execFile } = require('child_process')
+const { promisify } = require('util')
 const db = require('../config/db')
 const logger = require('../config/logger')
 const forkService = require('./forkService')
@@ -55,6 +58,97 @@ const {
   budgetGateDecision,
   DAILY_FORK_BUDGET_DEFAULT,
 } = require('../config/cronPriority')
+
+const execFileAsync = promisify(execFile)
+
+// ── Phase D surfacing hooks - cron substrate coverage ───────────────────────
+//
+// The SDK harness PreToolUse/PostToolUse hooks (brief-consistency-check.sh,
+// cred-mention-surface.sh, etc.) only fire when the conductor model makes an
+// mcp__forks__spawn_fork tool call. That covers conductor-typed dispatches but
+// leaves the entire cron substrate dark: cronForkDispatcher calls
+// forkService.spawnFork() directly in Node.js - no model turn, no tool call,
+// no hook fire.
+//
+// This function synthesises a PreToolUse-shaped stdin payload and pipes it to
+// the two highest-value hooks, giving cron-spawned forks the same telemetry
+// + warn coverage as conductor-dispatched forks. The emit-telemetry.sh lib
+// emits JSONL with kind='cron_fire' (case arm added in this same commit),
+// which the dispatchEventConsumer ingests into dispatch_event +
+// surface_event rows. The hook output (warn lines) goes to the server log
+// since there is no model turn to inject it into.
+//
+// Warn-only. Fire-and-forget. Hook failures are non-fatal and never block spawn.
+// Timeout: 8s per hook (generous vs the SDK's 5s harness timeout, since we
+// have no SIGKILL at this layer).
+
+const CRON_HOOKS = [
+  '/home/tate/ecodiaos/scripts/hooks/brief-consistency-check.sh',
+  '/home/tate/ecodiaos/scripts/hooks/cred-mention-surface.sh',
+]
+
+async function _runHooksForCronBrief(brief, cronName) {
+  // Synthesize the PreToolUse-shaped payload the hooks expect from stdin.
+  // tool_name='cron_fork_spawn' maps to kind='cron_fire' in emit-telemetry.sh
+  // derive_kind_from_tool(). actor='cron' lets dispatchEventConsumer derive
+  // the correct actor rather than defaulting to 'main'.
+  const payload = JSON.stringify({
+    tool_name: 'cron_fork_spawn',
+    tool_input: { brief },
+    actor: 'cron',
+    cron_name: cronName,
+  })
+
+  for (const hookPath of CRON_HOOKS) {
+    if (!fs.existsSync(hookPath)) {
+      logger.debug('cronForkDispatcher: cron hook not found, skipping', { hookPath, cron: cronName })
+      continue
+    }
+    try {
+      const { stderr } = await execFileAsync(
+        '/usr/bin/env',
+        ['bash', hookPath],
+        {
+          input: payload,
+          timeout: 8000,
+          encoding: 'utf8',
+          // Allow hook to resolve $(dirname "$0") correctly by running from
+          // the hooks directory.
+          cwd: '/home/tate/ecodiaos/scripts/hooks',
+        }
+      )
+      // Hooks write [BRIEF-CHECK WARN] / [CONTEXT-SURFACE WARN] /
+      // [CRED-SURFACE WARN] lines to stderr. Surface them to the server log
+      // so they remain visible even without a model turn to receive them.
+      if (stderr) {
+        const warnLines = stderr
+          .split('\n')
+          .filter(l =>
+            l.includes('[BRIEF-CHECK') ||
+            l.includes('[CONTEXT-SURFACE') ||
+            l.includes('[CRED-SURFACE')
+          )
+        if (warnLines.length > 0) {
+          logger.info('cronForkDispatcher: cron hook surfaced warnings', {
+            cron: cronName,
+            hook: hookPath.split('/').pop(),
+            warns: warnLines,
+          })
+        }
+      }
+    } catch (err) {
+      // Hook timeout or non-zero exit is non-fatal. SIGKILL on timeout still
+      // produces the start-of-hook perf row (see brief-consistency-check.sh
+      // Layer 6 reliability fix), so telemetry is not fully lost.
+      logger.debug('cronForkDispatcher: cron hook runner error (non-fatal)', {
+        hook: hookPath.split('/').pop(),
+        cron: cronName,
+        error: err.message,
+        code: err.code,
+      })
+    }
+  }
+}
 
 // Estimate token cost for a cron-spawned fork. Brief size is the largest
 // variable; handler overhead is roughly fixed.
@@ -271,6 +365,19 @@ async function dispatchCronAsFork(cronTask) {
   // Decrement first (optimistic). If spawn fails we refund.
   await _decrementBudget(cost).catch(err => {
     logger.warn('cronForkDispatcher: pre-spawn decrement failed (proceeding)', { error: err.message })
+  })
+
+  // Run Phase D surfacing hooks against the cron brief before spawning.
+  // This is the cron-substrate equivalent of the SDK harness PreToolUse hooks
+  // that fire when the conductor calls mcp__forks__spawn_fork. Emits telemetry
+  // with kind='cron_fire' + logs any [BRIEF-CHECK WARN] / [CONTEXT-SURFACE WARN]
+  // / [CRED-SURFACE WARN] lines the hooks produce. Fire-and-forget: hook errors
+  // never block spawn. Doctrine: ~/ecodiaos/patterns/surfacing-hooks-must-cover-every-fork-spawn-substrate.md
+  await _runHooksForCronBrief(cronTask.prompt, cronTask.name).catch(err => {
+    logger.debug('cronForkDispatcher: _runHooksForCronBrief top-level error (non-fatal)', {
+      cron: cronTask.name,
+      error: err.message,
+    })
   })
 
   let forkSnapshot

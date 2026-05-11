@@ -73,6 +73,7 @@ const TICK_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 function actionTypeForHook(hookName, toolName) {
   if (toolName === 'mcp__forks__spawn_fork') return 'fork_spawn'
   if (toolName === 'mcp__factory__start_cc_session') return 'factory_dispatch'
+  if (toolName === 'cron_fork_spawn') return 'cron_fork_spawn'
   if (toolName === 'mcp__supabase__db_execute') return 'tool_call:db_execute'
   if (toolName === 'Write' || toolName === 'Edit' || toolName === 'MultiEdit') {
     return `tool_call:${toolName.toLowerCase()}`
