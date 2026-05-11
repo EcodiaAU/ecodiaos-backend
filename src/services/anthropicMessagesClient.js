@@ -55,9 +55,8 @@ const DEEPSEEK_PROXY_HOST = 'https://api.deepseek.com/anthropic'
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-chat'
 
 // Provider order considered when an explicit best-provider is unavailable
-// or has been exhausted. claude_max first (acct1, tate), then claude_max_2
-// (acct2, code), then deepseek if enabled.
-const FALLBACK_ORDER = ['claude_max', 'claude_max_2', 'deepseek']
+// or has been exhausted. claude_max (tate), claude_max_2 (code), claude_max_3 (money), then deepseek.
+const FALLBACK_ORDER = ['claude_max', 'claude_max_2', 'claude_max_3', 'deepseek']
 
 function _readFileTokenForAccount(account) {
   const home = process.env.HOME || process.env.USERPROFILE || ''
@@ -90,6 +89,9 @@ function _resolveBearer(account) {
       || _readFileTokenForAccount('claude_max_2')
       || null
   }
+  if (account === 'claude_max_3') {
+    return process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY || null
+  }
   return null
 }
 
@@ -103,6 +105,9 @@ function _isAvailable(account) {
     return !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
       || process.env.CLAUDE_CONFIG_DIR_2
       || _readFileTokenForAccount('claude_max_2'))
+  }
+  if (account === 'claude_max_3') {
+    return !!process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
   }
   if (account === 'deepseek') {
     return process.env.DEEPSEEK_FALLBACK_ENABLED === 'true'

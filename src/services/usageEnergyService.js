@@ -64,6 +64,7 @@ function _makeAccountState() {
 const _accounts = {
   claude_max:   _makeAccountState(),
   claude_max_2: _makeAccountState(),
+  claude_max_3: _makeAccountState(),
 }
 
 // Which provider is currently active (set by osSessionService).
@@ -596,45 +597,50 @@ function _accountHealth(account) {
 // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
 function getBestProvider() {
   const hasAccount2   = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
+  const hasAccount3   = !!process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
   const hasDeepseek   = process.env.DEEPSEEK_FALLBACK_ENABLED === 'true' && !!process.env.DEEPSEEK_API_KEY
 
   const health1 = _accountHealth('claude_max')
   const health2 = hasAccount2 ? _accountHealth('claude_max_2') : { score: -100, reason: 'not_configured' }
+  const health3 = hasAccount3 ? _accountHealth('claude_max_3') : { score: -100, reason: 'not_configured' }
 
   logger.debug('Provider health scores', {
     acct1: { score: health1.score, reason: health1.reason },
     acct2: { score: health2.score, reason: health2.reason },
+    acct3: { score: health3.score, reason: health3.reason },
     hasDeepseek,
   })
 
-  // Both usable - pick the healthier one
-  if (health1.score > 0 && health2.score > 0) {
-    if (health1.score >= health2.score) {
-      return { provider: 'claude_max', reason: `acct1 healthier (${health1.score} vs ${health2.score})`, isDeepseekFallback: false }
-    }
-    return { provider: 'claude_max_2', reason: `acct2 healthier (${health2.score} vs ${health1.score})`, isDeepseekFallback: false }
+  // Pick the healthiest available account
+  const candidates = [
+    { provider: 'claude_max',   health: health1 },
+    { provider: 'claude_max_2', health: health2 },
+    { provider: 'claude_max_3', health: health3 },
+  ].filter(c => c.health.score > 0)
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => b.health.score - a.health.score)
+    const winner = candidates[0]
+    return { provider: winner.provider, reason: `${winner.provider} healthiest (score ${winner.health.score})`, isDeepseekFallback: false }
   }
 
-  // One usable - use it
-  if (health1.score > 0) {
-    return { provider: 'claude_max', reason: `acct1 ok (${health1.reason}), acct2 down (${health2.reason})`, isDeepseekFallback: false }
-  }
-  if (health2.score > 0) {
-    return { provider: 'claude_max_2', reason: `acct2 ok (${health2.reason}), acct1 down (${health1.reason})`, isDeepseekFallback: false }
-  }
+  const allDownReason = `all Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason}, acct3: ${health3.reason})`
 
-  const bothDownReason = `both Max accounts down (acct1: ${health1.reason}, acct2: ${health2.reason})`
-
-  // Both down - try DeepSeek (final tier)
+  // All down - try DeepSeek (final tier)
   if (hasDeepseek) {
-    return { provider: 'deepseek', reason: `${bothDownReason} - using DeepSeek V4 Pro`, isDeepseekFallback: true }
+    return { provider: 'deepseek', reason: `${allDownReason} - using DeepSeek V4 Pro`, isDeepseekFallback: true }
   }
 
-  // Nothing available - return whichever is least bad
-  const best = health1.score >= health2.score ? 'claude_max' : 'claude_max_2'
+  // Nothing available - return least bad
+  const scores = [
+    { provider: 'claude_max',   score: health1.score },
+    { provider: 'claude_max_2', score: health2.score },
+    { provider: 'claude_max_3', score: health3.score },
+  ]
+  scores.sort((a, b) => b.score - a.score)
   return {
-    provider: best,
-    reason: `all providers exhausted - using ${best} as best-effort (acct1: ${health1.reason}, acct2: ${health2.reason})`,
+    provider: scores[0].provider,
+    reason: `all providers exhausted - using ${scores[0].provider} as best-effort (${allDownReason})`,
     isDeepseekFallback: false,
   }
 }

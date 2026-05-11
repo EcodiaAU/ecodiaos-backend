@@ -216,6 +216,7 @@ const envSchema = z.object({
   // When set, the SDK uses these directly and ignores CLAUDE_CONFIG_DIR / .credentials.json files.
   CLAUDE_CODE_OAUTH_TOKEN_TATE: z.string().default(''),  // tate@ecodia.au
   CLAUDE_CODE_OAUTH_TOKEN_CODE: z.string().default(''),  // code@ecodia.au
+  CLAUDE_CODE_OAUTH_TOKEN_MONEY: z.string().default(''),  // money@ecodia.au
   // Explicit Factory override - takes priority over CLAUDE_CONFIG_DIR_2 for Factory sessions only
   FACTORY_CC_HOME: z.string().default(''),
   // AWS env defs retained as no-ops. Bedrock fallback tier was removed Tate
@@ -239,6 +240,12 @@ const envSchema = z.object({
   API_BASE_URL: z.string().default('https://api.admin.ecodia.au'),
   // OS Session tuning
   OS_SESSION_MODEL: z.string().default(''),
+  // Fork model overrides. Workers default to sonnet-4-6; managers default to
+  // sonnet-4-6 but can be bumped to opus via FORK_MANAGER_MODEL=claude-opus-4-7.
+  // DeepSeek forks always use deepseek-v4-pro regardless of these vars.
+  // The [1m] suffix is appended automatically (same as OS_SESSION_MODEL logic).
+  FORK_WORKER_MODEL: z.string().default('claude-sonnet-4-6'),
+  FORK_MANAGER_MODEL: z.string().default('claude-sonnet-4-6'),
   OS_SESSION_CWD: z.string().default('/home/tate/ecodiaos'),
   // PROMPT_ASSEMBLY_SPEC §3.5 target. Previous default 800K was a workaround
   // for compaction-firing-too-eager bugs that have since shipped fixes (the

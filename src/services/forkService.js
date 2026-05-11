@@ -730,9 +730,15 @@ function _resolveProviderForFork() {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_MONEY
     model = 'deepseek-v4-pro'
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+  } else if (best.provider === 'claude_max_3') {
+    provider = 'claude_max_3'
+    delete sessionEnv.ANTHROPIC_API_KEY
+    sessionEnv.CLAUDE_CODE_OAUTH_TOKEN = env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
+    delete sessionEnv.CLAUDE_CONFIG_DIR
   } else if (best.provider === 'claude_max_2') {
     provider = 'claude_max_2'
     delete sessionEnv.ANTHROPIC_API_KEY
@@ -909,7 +915,16 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude',
     includePartialMessages: true,
     systemPrompt,
-    model: model || env.OS_SESSION_MODEL || undefined,
+    // Conductor stays on OS_SESSION_MODEL (Opus). Forks use Sonnet by default
+    // to conserve weekly quota. Override per-tier via FORK_MANAGER_MODEL /
+    // FORK_WORKER_MODEL env vars. DeepSeek forks already have model='deepseek-v4-pro'
+    // from _resolveProviderForFork() and bypass this branch.
+    model: model || (() => {
+      const base = is_manager
+        ? (env.FORK_MANAGER_MODEL || 'claude-sonnet-4-6')
+        : (env.FORK_WORKER_MODEL  || 'claude-sonnet-4-6')
+      return /\[1m\]$/i.test(base) ? base : `${base}[1m]`
+    })(),
     maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
     // Adaptive on Claude (avoids thinking round-trip 400s), disabled on DeepSeek.
     thinking: isDeepseek ? { type: 'disabled' } : { type: 'adaptive' },
@@ -930,7 +945,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     try {
       const queryFn = await getQuery()
       const userPrompt = `BRIEF (fork ${fork_id}, context_mode=${context_mode}):\n\n${brief}`
-      logger.info('forkService: starting fork', { fork_id, provider, context_mode, brief_chars: brief.length })
+      logger.info('forkService: starting fork', { fork_id, provider, context_mode, brief_chars: brief.length, model: options.model, is_manager })
 
       // Build async-iterable prompt source so sendMessageToFork can inject
       // user messages mid-stream without aborting the session (spec §2).
