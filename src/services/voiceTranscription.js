@@ -54,8 +54,19 @@ async function transcribeChunk({ buffer, mimeType, filename }) {
     form.getLength((lenErr, length) => {
       if (lenErr) return reject(lenErr)
       const chunks = []
-      form.on('data', (c) => chunks.push(c))
-      form.on('end', () => resolve(Buffer.concat(chunks)))
+      // form-data emits a mix of Buffers (file content) and strings (boundary
+      // markers like '-----...', field names, CRLF). Buffer.concat requires all
+      // elements to be Buffer/Uint8Array - coerce strings here so concat never
+      // throws an ERR_INVALID_ARG_TYPE that propagates as an unhandled exception
+      // and crashes the process (root cause of the "CORS error" Tate sees).
+      form.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c, 'binary')))
+      form.on('end', () => {
+        try {
+          resolve(Buffer.concat(chunks))
+        } catch (err) {
+          reject(err)
+        }
+      })
       form.on('error', reject)
       form.resume()
       // Some form-data builds need an explicit length header.
