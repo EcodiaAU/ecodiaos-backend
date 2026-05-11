@@ -60,11 +60,20 @@ async function getLoopbackSecret() {
   if (!rows.length) {
     throw new Error('CONDUCTOR_LOOPBACK_SECRET not found in kv_store - cannot start loopback server')
   }
-  const val = rows[0].value
-  // Value shape: { value: '<hex>', created_at: '...', ... }
-  _loopbackSecret = typeof val === 'string' ? val : val.value
+  // kv_store.value column is TEXT, so rows[0].value is always a raw JSON string,
+  // not a parsed object. Parse it first to reach the .value field.
+  // Shape: '{"value":"<64-char hex>","created_at":"...","note":"..."}'
+  const raw = rows[0].value
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    // Not JSON - treat raw string as the secret itself (bare-string rotation compat).
+    parsed = raw
+  }
+  _loopbackSecret = typeof parsed === 'string' ? parsed : parsed.value
   if (!_loopbackSecret) {
-    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store value has no .value field')
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store value has no .value field - shape must be {"value":"<hex>",...}')
   }
   return _loopbackSecret
 }
@@ -361,6 +370,43 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} fork recovery at boot failed (non-fatal)`, { error: err.message })
   }
 
+  // -----------------------------------------------------------------------
+  // Worker ownership gate (Phase 2 / Phase 3 boundary)
+  //
+  // Phase 2 (pre-activation): CONDUCTOR_OWNS_WORKERS is unset.
+  //   conductor boots ONLY the HTTP bridge. ecodia-api keeps all its
+  //   in-process workers (schedulerPoller, messageQueue, heartbeat, etc).
+  //   No double-running. Safe to start conductor without touching api.
+  //
+  // Phase 3 (activation): worker ownership transfers atomically:
+  //   Step 1 - this commit is already on main; ecodia-conductor is stopped.
+  //   Step 2 - pm2 start ecosystem.config.js --only ecodia-conductor
+  //            (CONDUCTOR_OWNS_WORKERS absent -> bridge-only, no workers)
+  //   Step 3 - Smoke: SECRET=$(node -e "const r=require('./src/config/db');
+  //            r\`SELECT value FROM kv_store WHERE key='creds.conductor_loopback_secret'\`
+  //            .then(rows=>{console.log(JSON.parse(rows[0].value).value);r.end()})");
+  //            curl -s -H "Authorization: Bearer $SECRET" http://127.0.0.1:3002/status | jq .conductor
+  //            -> expect {"pid":N,"uptime_s":N,"active_fork_count":0}
+  //   Step 4 - pm2 restart ecodia-api --update-env
+  //            (CONDUCTOR_DETACHED=true already in ecosystem.config.js ->
+  //             api drops its workers, proxies /message /abort /status /save-state
+  //             to conductor bridge; api re-checks env on restart)
+  //   Step 5 - Confirm api healthy: pm2 list + curl http://localhost:3001/api/health
+  //   Step 6 - Add CONDUCTOR_OWNS_WORKERS:'true' to ecodia-conductor entry in
+  //            ecosystem.config.js, then: pm2 restart ecodia-conductor --update-env
+  //            (conductor now owns workers; api's workers are already down from Step 4)
+  //   Step 7 - Confirm workers running: pm2 logs ecodia-conductor --lines 30
+  //
+  // fork_mp1n7bm3_a5d11f - Phase 2 follow-up fix (12 May 2026)
+  // -----------------------------------------------------------------------
+  const ownsWorkers = process.env.CONDUCTOR_OWNS_WORKERS === 'true'
+  if (ownsWorkers) {
+    logger.info(`${BOOT_TAG} CONDUCTOR_OWNS_WORKERS=true - starting all background workers`)
+  } else {
+    logger.info(`${BOOT_TAG} CONDUCTOR_OWNS_WORKERS not set - HTTP bridge only (Phase 2 mode, no worker double-run)`)
+  }
+
+  if (ownsWorkers) {
   // -- Boot: Scheduler Poller -------------------------------------------
   // The cron engine. Polls os_scheduled_tasks every 30s, fires due
   // tasks at /api/os-session/message which lives in ecodia-api. The
@@ -422,9 +468,8 @@ process.on('unhandledRejection', (reason) => {
   // -- Boot: Claim Verifier Worker --------------------------------------
   // OBSERVABILITY_SPEC section 3. Every 30s sweeps conductor_claims rows
   // with verification_status='pending' and dispatches action-specific
-  // verifiers. Was guarded by !CONDUCTOR_DETACHED in server.js but NOT
-  // booted in the original conductor.js - that was a drift bug (Phase 2
-  // plan section B, item 3). Fixed here.
+  // verifiers. Gated on CONDUCTOR_OWNS_WORKERS so it only runs once
+  // across both processes (previously could double-run with server.js).
   try {
     const claimVerifier = require('./workers/claimVerifierWorker')
     claimVerifier.start()
@@ -434,9 +479,8 @@ process.on('unhandledRejection', (reason) => {
   }
 
   // -- Boot: Proactivity Engine -----------------------------------------
-  // Layer-2 proactivity. Was guarded by !CONDUCTOR_DETACHED in server.js
-  // but NOT booted in the original conductor.js - same drift bug as
-  // claim verifier above. Fixed here.
+  // Layer-2 proactivity. Gated on CONDUCTOR_OWNS_WORKERS alongside the
+  // claim verifier above.
   try {
     const proactivityEngine = require('./services/proactivityEngine')
     proactivityEngine.start()
@@ -444,6 +488,8 @@ process.on('unhandledRejection', (reason) => {
   } catch (err) {
     logger.warn(`${BOOT_TAG} proactivity engine failed to start (non-fatal)`, { error: err.message })
   }
+
+  } // end if (ownsWorkers)
 
   // -- Boot: HTTP Loopback Server ---------------------------------------
   // Phase 2 bridge. ecodia-api proxies /message, /abort, /status, and
