@@ -362,7 +362,32 @@ function extractTateMessageFromContent(content) {
     // Reject tails that are themselves just more system context (heuristic:
     // starts with a XML tag or "[SYSTEM:" or "[SCHEDULED:").
     if (/^<[a-z]|^\[SYSTEM:|^\[SCHEDULED:|^\[PROACTIVE:/i.test(tail)) return null
-    return tail
+
+    // Reject tails that look like fork briefs or system-queue deliveries.
+    // Fork briefs are long, structured, start with an uppercase title, and
+    // contain distinctive markers. Tate's messages are casual and first-person.
+    // Strip "(queued Xm ago)" delivery annotation first for cleaner matching.
+    const tailStripped = tail.replace(/\s*\(queued \d+m ago\)\s*$/, '').trim()
+    const tailLower = tailStripped.toLowerCase()
+    const SYSTEM_TAIL_MARKERS = [
+      'you are ecodiaos in fork form',
+      'manager: true',
+      '[fork_report]',
+      '[sub_fork_report',
+      'no_report_emitted=true',
+      '[system: fork_',
+      '[system: fork_done',
+      '[proactive:',
+      'ecodiaos_telemetry_dir',
+      // Fork brief headers are ALL-CAPS titles followed by " — " (em-dash or dash)
+      // Tate never writes in this register. Match "WORD WORD — " pattern.
+    ]
+    if (SYSTEM_TAIL_MARKERS.some(m => tailLower.includes(m))) return null
+    // Reject all-caps brief headers like "OS_FORKS REAPER —" or "P0 — Fix..."
+    // that are fork-dispatched system briefs, not Tate's conversational text.
+    if (/^[A-Z][A-Z0-9_\s]+[—\-]{1,3}/.test(tailStripped)) return null
+
+    return tailStripped.length > 0 ? tailStripped : null
   }
 
   // Fallback: no context close found. If the content is short (<500 chars) and
