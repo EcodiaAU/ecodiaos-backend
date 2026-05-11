@@ -230,6 +230,7 @@ async function _validateAccessToken(accessToken) {
 async function refreshAccount(account, { force = false } = {}) {
   const envTokenVar = account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' :
                       account === 'claude_max_2' ? 'CLAUDE_CODE_OAUTH_TOKEN_CODE' :
+                      account === 'claude_max_3' ? 'CLAUDE_CODE_OAUTH_TOKEN_MONEY' :
                       null
   if (envTokenVar && process.env[envTokenVar]) {
     logger.debug('Token refresh: account uses long-lived env-token, skipping refresh', { account, envTokenVar })
@@ -448,11 +449,13 @@ function getTokenHealth() {
   const now = Date.now()
   const health = {}
 
-  for (const account of ['claude_max', 'claude_max_2']) {
-    if (account === 'claude_max_2' && !process.env.CLAUDE_CONFIG_DIR_2) continue
+  for (const account of ['claude_max', 'claude_max_2', 'claude_max_3']) {
+    if (account === 'claude_max_2' && !process.env.CLAUDE_CONFIG_DIR_2 && !process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE) continue
+    if (account === 'claude_max_3' && !process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY) continue
 
     const envTokenVar = account === 'claude_max' ? 'CLAUDE_CODE_OAUTH_TOKEN_TATE' :
                         account === 'claude_max_2' ? 'CLAUDE_CODE_OAUTH_TOKEN_CODE' :
+                        account === 'claude_max_3' ? 'CLAUDE_CODE_OAUTH_TOKEN_MONEY' :
                         null
     if (envTokenVar && process.env[envTokenVar]) {
       health[account] = { status: 'healthy_via_env_token', envTokenVar, hoursUntilExpiry: null, hasRefreshToken: false, isLongLived: true }

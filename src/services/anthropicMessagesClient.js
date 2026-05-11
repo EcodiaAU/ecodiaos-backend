@@ -226,7 +226,7 @@ async function _postOnce({ provider, payload, signal, requestTimeoutMs }) {
   }
 
   // Update OS energy state from real response headers (for claude accounts).
-  if (provider === 'claude_max' || provider === 'claude_max_2') {
+  if (provider === 'claude_max' || provider === 'claude_max_2' || provider === 'claude_max_3') {
     try { usageEnergy.updateFromHeaders(resp.headers, provider) } catch { /* non-fatal */ }
   }
 

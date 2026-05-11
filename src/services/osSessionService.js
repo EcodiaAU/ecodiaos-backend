@@ -1664,6 +1664,7 @@ async function _sendMessageImpl(content, opts = {}) {
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_TATE
     delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_CODE
+    delete sessionEnv.CLAUDE_CODE_OAUTH_TOKEN_MONEY
     options.env = sessionEnv
     options.model = 'deepseek-v4-pro'
     // Explicitly disable thinking for DeepSeek — without this the CLI defaults
@@ -1676,6 +1677,20 @@ async function _sendMessageImpl(content, opts = {}) {
     delete options.reasoning_effort
   // Bedrock branch removed Tate 5 May 2026 12:40 AEST per
   // ~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md.
+  } else if (best.provider === 'claude_max_3') {
+    _currentProvider = 'claude_max_3'
+    if (prevProvider !== 'claude_max_3') {
+      ccSessionId = null
+    }
+    const sessionEnv = { ...process.env }
+    delete sessionEnv.ANTHROPIC_API_KEY
+    sessionEnv.CLAUDE_CODE_OAUTH_TOKEN = env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
+    delete sessionEnv.CLAUDE_CONFIG_DIR
+    options.env = sessionEnv
+    if (prevProvider !== 'claude_max_3') {
+      delete options.resume
+      emitOutput({ type: 'system', content: `⚡ Switching to account 3 (money@) — ${best.reason}` })
+    }
   } else if (best.provider === 'claude_max_2') {
     _currentProvider = 'claude_max_2'
     if (prevProvider !== 'claude_max_2') {
@@ -1735,8 +1750,10 @@ async function _sendMessageImpl(content, opts = {}) {
     energyPctUsed: energy?.pctUsed,
     acct1PctUsed: energy?.accounts?.claude_max?.pctUsed,
     acct2PctUsed: energy?.accounts?.claude_max_2?.pctUsed,
+    acct3PctUsed: energy?.accounts?.claude_max_3?.pctUsed,
     acct1SessionPct: energy?.accounts?.claude_max?.sessionPctUsed,
     acct2SessionPct: energy?.accounts?.claude_max_2?.sessionPctUsed,
+    acct3SessionPct: energy?.accounts?.claude_max_3?.sessionPctUsed,
   })
 
   const collectedText = []
