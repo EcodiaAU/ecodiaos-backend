@@ -318,11 +318,9 @@ Live truth: `curl -H "Authorization: Bearer $TOK" http://100.114.219.69:7456/api
 - `macro.*` (Win AutoHotkey only): run/inline/list/save. Macros at `D:\.code\eos-laptop-agent\macros\*.ahk`. Existing: click-coords, focus-chrome, new-tab, type-and-submit
 - `chrome.*` **(FROZEN, DO NOT EXTEND)** - Phase 1 stubs only, all throw stub errors. Superseded by direct Tailscale laptop-agent `input.*` + `screenshot.*` primitives. Do not author new chrome.* tools or extend stubs. Use the Tailscale laptop-agent (`~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`) for web SaaS UIs via `input.*` + `screenshot.*` (`~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`). Cowork patterns at `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` are [DEPRECATED]. After ANY edit to `tools/*.js`: `pm2 restart eos-laptop-agent` mandatory (require-cache, see `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md`)
 
-**PIVOT clarification (29 Apr 2026 20:25 AEST, superseded 5 May 2026):** The Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) is the PRIMARY substrate for all GUI driving. `cu.*` / computer-use API is FALLBACK for OS-level / desktop-app where the laptop-agent path can't reach. Claude Cowork (Claude Desktop Dispatch) was the interim substrate from 29 Apr - 5 May 2026; it is [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
-
 ### Macro doctrine (post-pivot)
 
-- Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) PRIMARY for GUI driving. `cu.*` / computer-use FALLBACK for OS-level / desktop-app. Cowork [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`
+- Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) PRIMARY for GUI driving. `cu.*` / computer-use FALLBACK for OS-level / desktop-app. Cowork [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` (canonical replacement doctrine, 5 May 2026)
 - Pre-pivot bespoke runtime (`vision.locate` proxy, `runbook.run` iterator, step-array schema, `macroHandlers/*.js`) ARCHIVED 29 Apr per Anthropic-first check. See `~/ecodiaos/patterns/macros-pre-pivot-doctrine-archived-2026-04-29.md`
 - Do not extend bespoke runtime. Do not codify new step-arrays. Treat all `macro_runbooks` rows as `status='untested_spec'` until re-validated under new substrate
 
@@ -523,6 +521,8 @@ Defence (mandatory on every SDK call site):
 - Re-run `file node_modules/@anthropic-ai/claude-agent-sdk-linux-x64*/claude` after every `npm install` / `npm update` / SDK version bump.
 
 Origin: 8 May 2026 P0 incident, fix commit 2980601. Full: `~/ecodiaos/patterns/sdk-musl-vs-glibc-binary-auto-detect-trap.md`. Meta-lesson: when the diagnostic substrate depends on the broken substrate, escalation must route around it (Tate's hands closed the loop manually because no fork could).
+
+**Related VPS/npm ops:** `~/ecodiaos/patterns/ensure-deps-must-recompute-hash-post-install-not-pre.md` - hash markers for npm-install gating must be written AFTER install returns (not before), because npm can rewrite `package-lock.json` mid-install; pre-install hashes cause permanent lockfile-mismatch restart loops (same restart-storm failure class as the musl/glibc mis-resolution above).
 
 ### The rule
 
