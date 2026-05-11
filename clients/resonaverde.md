@@ -72,6 +72,16 @@ within reason; EcodiaOS classifies yes/no/scope and deploys directly.
 
 ## Delivery History
 
+### 12 May 2026 - Wave 2 FE polish (mobile responsiveness + laptop cards + admin modernisation)
+
+Tate directive 08:59 AEST 12 May 2026. Three categories shipped in 3 commits, deployed to production.
+
+1. **Mobile responsiveness wave 2** (42ae75a) - Letter-spacing on heroTitle reduced from 0.18em to 0.07em at 560px and 0.05em at 380px. Section h2 and body text font-size scaled with clamp() at tight viewports. Builds on Wave 1 fixes (3924957 + b83902d) which handled P1 items (hero clip, blog grid collapse, admin/resources layout, logout visibility, subscribers overflow).
+2. **Laptop card width** (a3bccb3) - glassCard widened from 720px to min(860px, calc(100vw - 48px)) at 1024px+. blogGrid CSS class added with 2-column layout at 768px+ (homepage blog recent posts section). Single column on mobile.
+3. **Admin suite modernisation** (560f3f9) - Deep branded chrome overhaul: deep charcoal gradient sidebar (#111827) with white type + green dot accent, active post indicator with green left-border, tab nav with underline-active style (#059669), save button with glow + "Saving..." loading state, newsletter panel with green-tinted bg + subscriber count badge, Inter/Segoe UI font stack, hover micro-animations, 8px-radius green-focus-ring inputs throughout.
+
+Vercel: dpl_J1UgD9SHLSopMt1Jfi9kPvT32cd4 READY production at commit 560f3f9.
+
 ### 11 May 2026 - 4 features shipped same-session (standing arrangement first use)
 
 Angelica emailed 13:03 AEST with 6 website asks + 1 referral modification. Four features
