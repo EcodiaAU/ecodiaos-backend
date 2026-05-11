@@ -243,11 +243,11 @@ const envSchema = z.object({
   // Fork model overrides. Workers default to sonnet-4-6; managers default to
   // sonnet-4-6 but can be bumped to opus via FORK_MANAGER_MODEL=claude-opus-4-7.
   // DeepSeek forks always use deepseek-v4-pro regardless of these vars.
-  // 1M-context mode is OPT-IN via FORK_ENABLE_1M_CONTEXT=1 — default OFF
-  // because Anthropic rejects dispatch with "Extra usage is required for 1M
-  // context" on accounts that have not enabled the per-overage billing toggle
-  // at claude.ai/settings/usage. Forks today are <50K input and don't need 1M.
-  // Origin: 11 May 2026 11:00-11:10 AEST fork-dispatch outage.
+  // 1M-context mode is GONE — any `[1m]` suffix is stripped on dispatch in
+  // forkService + osSessionService (Tate, 2026-05-11). Do not set FORK_*_MODEL
+  // or OS_SESSION_MODEL with a `[1m]` suffix; it has no effect.
+  // FORK_ENABLE_1M_CONTEXT is retained as a no-op so existing .env files that
+  // still set it don't fail Zod validation. Safe to delete from .env.
   FORK_WORKER_MODEL: z.string().default('claude-sonnet-4-6'),
   FORK_MANAGER_MODEL: z.string().default('claude-sonnet-4-6'),
   FORK_ENABLE_1M_CONTEXT: z.string().default(''),

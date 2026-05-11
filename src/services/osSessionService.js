@@ -1566,19 +1566,13 @@ async function _sendMessageImpl(content, opts = {}) {
     // systemPrompt as a plain STRING replaces the CLI's full default prompt array.
     // SDK v0.2.92 cli.js function Lx: `customSystemPrompt ? [customSystemPrompt] : defaultSystemPrompt`.
     systemPrompt: customSystemPrompt,
-    // Append [1m] suffix to enable 1M context window. The claude-code CLI (cli.js fn xW)
-    // matches /\[1m\]/i and pushes the context-1m-2025-08-07 beta header on the API call,
-    // independent of its UT1 whitelist (which only covers sonnet-4 + opus-4-6). The CLI
-    // strips the suffix before hitting the API. Without this, claude-opus-4-7 falls back
-    // to the 200k window and compacts at ~167k input tokens instead of ~767k.
-    // Idempotent: re-applying does not double-suffix. Only appended when OS_SESSION_MODEL
-    // is set (preserves the SDK's own default-model path when unset).
-    // Forked from osSessionService consumers only - usageEnergyService reads OS_SESSION_MODEL
-    // directly from env for the usage-probe API call, which must NOT carry the [1m] suffix
-    // (the API would reject it as an unknown model id). Keep the suffix scoped to the SDK
-    // options object that's handed to the CLI subprocess.
+    // 1M context window is GONE. Anthropic bills it as Extra Usage and burned
+    // the money@ Max account's weekly quota in seconds, blocking every fork.
+    // Strip any `[1m]` suffix from OS_SESSION_MODEL so the OS session always
+    // runs on the standard 200k window. Tate, 2026-05-11:
+    // "just fucking get rid of the 1m context". Do not reintroduce the suffix.
     model: env.OS_SESSION_MODEL
-      ? (/\[1m\]$/i.test(env.OS_SESSION_MODEL) ? env.OS_SESSION_MODEL : `${env.OS_SESSION_MODEL}[1m]`)
+      ? env.OS_SESSION_MODEL.replace(/\[1m\]$/i, '')
       : undefined,
     // NOTE: `compactionControl` option was removed 2026-04-11. Verified against SDK
     // v0.2.92 sdk.mjs — the option is destructured in HL() but never forwarded to
