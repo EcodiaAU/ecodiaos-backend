@@ -141,25 +141,102 @@ async function probeExpectedArtefact(client, metadata) {
   return { found: null, reason: `unverifiable_path_type: ${typeof artefactPath}` }
 }
 
+// CORRECTION_KEYWORDS — calibrated to Tate's actual correction lexicon.
+//
+// Root cause of the dark-class bug (Phase G audit 11 May 2026):
+//   1. The original keywords were calibrated to generic English correction
+//      vocabulary ("that's wrong", "incorrect", "mistake"), NOT Tate's real
+//      correction patterns (profanity-prefixed directives, "never mind", "still
+//      broken", "wrong numbers", "bro", etc.).
+//   2. Even worse: the SMS table detection was looking for tables that never
+//      existed (sms_messages / sms_inbound / sms_log), so findTateSignal
+//      always returned null — the correction path was STRUCTURALLY dark
+//      regardless of keywords.
+//
+// Fix: Tate's message text now comes from os_conversation (see
+// findTateChatSignal below). Keyword set expanded to match his actual
+// correction lexicon observed over 30+ days of interactions.
+//
+// Ordering: multi-token phrases first (highest specificity, lowest FP risk),
+// then single-token terms ordered by confidence.
 const CORRECTION_KEYWORDS = [
-  // Multi-token "I want you to undo / redo / not that" phrases
+  // --- Tate-specific negation phrases (high confidence, observed in practice) ---
+  'never mind',
+  'nevermind',
+  'not ready',                  // "never mind not ready to release"
+  'still not',                  // "still not working", "still not aligned"
+  'still broken',
+  'still wrong',
+  'still aren\'t',
+  'still isn\'t',
+  'wrong numbers',
+  'wrong number',
+  'wrong approach',
+  'wrong direction',
+  'wrong fork',
   'not that',
   "that's wrong",
   'thats wrong',
-  'wrong fork',
-  'wrong direction',
+  // --- Profanity-prefixed corrections (Tate-specific register) ---
+  // Presence of expletive + directive in same message = correction signal.
+  // These fire on ANY message containing the word (it appears only in
+  // correction/strong-feedback contexts in Tate's register).
+  'fuck me',
+  'fuck that',
+  'fucking hell',
+  'what the fuck',
+  'what the hell',
+  // --- Generic negation (requires word-boundary to avoid FP) ---
+  'wrong',                      // word-boundary checked below
+  // --- Miss-flags ---
+  'you missed',
+  'missed the point',
+  'missed the',
+  'you got it wrong',
+  'you\'ve got it wrong',
+  'not quite',
+  'not right',
+  'not correct',
+  // --- Reframes / redirects ---
+  'instead of',
+  'the other way',
+  'other way around',
+  'other way round',
+  'do it the other',
+  'not like that',
+  // --- Explicit stop/undo/cancel signals ---
   'undo that',
   'redo that',
-  'fix that',
-  'stop',
-  'abort',
+  'revert that',
   'cancel that',
-  // Single-token strong corrections
+  'roll that back',
+  'rollback',
+  'dont do that',
+  "don't do that",
+  'stop doing',
+  'stop that',
+  'abort',
+  // --- Correction-flavoured annotations (Tate uses in diagnostic messages) ---
   'incorrect',
   'mistake',
-  'broke',
-  'broken',
+  'that broke',
+  'that\'s broken',
+  'you broke',
+  'it broke',
+  // --- Conservative generic terms that Tate uses in feedback ---
+  'fix that',
+  'redo',
 ]
+
+// CORRECTION_KEYWORDS_WORD_BOUNDARY: subset of CORRECTION_KEYWORDS that need
+// word-boundary matching to avoid false positives (e.g. "wrong" in "wrongheaded"
+// or "stop" in "stopping by"). Applied with \b...\b regex.
+const CORRECTION_KEYWORDS_WORD_BOUNDARY = new Set([
+  'wrong',
+  'abort',
+  'redo',
+  'stop',
+])
 
 // Affirmation keywords. Conservative: require explicit positive signals, NOT
 // merely absence of correction. "Thanks" alone is sufficient because Tate's
@@ -210,19 +287,173 @@ async function tableExists(client, tableName) {
 }
 
 /**
- * Scan inbound SMS messages within the post-dispatch window for either
- * correction OR affirmation keywords. Returns:
+ * Check a keyword against body text. Applies word-boundary matching for
+ * terms in CORRECTION_KEYWORDS_WORD_BOUNDARY to avoid substring false positives
+ * (e.g. "wrong" should not fire on "wrongheaded", "abort" on "aborting project",
+ * "stop" on "stopping by").
+ */
+function keywordMatches(kw, body) {
+  if (CORRECTION_KEYWORDS_WORD_BOUNDARY.has(kw)) {
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(body)
+  }
+  return body.includes(kw)
+}
+
+/**
+ * Extract Tate's raw typed text from an os_conversation content string.
+ *
+ * os_conversation stores the FULL stitched user turn: XML context blocks
+ * (<now>, <forks_rollup>, <perception_summary>, <relevant_memory>, etc.)
+ * followed by Tate's actual typed message at the end. Two formats exist:
+ *
+ *   SMS format:  "[SMS from Tate (+<phone>)]: <text>\n\n\n\nRespond concisely..."
+ *   Chat format: "<last XML block/>\n\n<Tate's text>"
+ *
+ * Returns the extracted text, or null if the content appears to be a
+ * purely system-generated turn (cron/meta-loop) with no Tate input.
+ */
+function extractTateMessageFromContent(content) {
+  if (!content || typeof content !== 'string') return null
+
+  // SMS path: extract the body between "[SMS from Tate (+...)]: " and the
+  // trailing prompt boilerplate ("Respond concisely...").
+  const smsMatch = content.match(/\[SMS from Tate[^\]]*\]:\s*([\s\S]+?)(?:\n{2,}Respond concisely|$)/i)
+  if (smsMatch) {
+    const text = smsMatch[1].trim()
+    return text.length > 0 ? text : null
+  }
+
+  // Chat path: Tate's message appears after the last context-block close.
+  // Context blocks end with patterns like "</perception_summary>",
+  // "</forks_rollup>", "</relevant_memory>", "(queued Nm ago)" or similar.
+  // Strategy: find the rightmost occurrence of a closing pattern and take
+  // everything after it.
+  //
+  // Closing patterns observed in production:
+  //   </...>  — XML closing tags
+  //   "…"    — truncated context block (ellipsis)
+  //   "(queued Nm ago)" — message-queue delivery annotation
+  const contextEndPatterns = [
+    // XML close tags
+    /<\/[a-z_]+>/gi,
+    // Trailing ellipsis from truncated context blocks
+    /…\s*$/gm,
+    // Message queue delivery annotation
+    /\(queued \d+m ago\)/gi,
+  ]
+
+  let lastContextEnd = -1
+  for (const pattern of contextEndPatterns) {
+    let m
+    pattern.lastIndex = 0
+    while ((m = pattern.exec(content)) !== null) {
+      if (m.index + m[0].length > lastContextEnd) {
+        lastContextEnd = m.index + m[0].length
+      }
+    }
+  }
+
+  if (lastContextEnd > 0) {
+    const tail = content.slice(lastContextEnd).trim()
+    // Filter out known cron-prompt-only tails (meta-loop, scheduled tasks, etc.)
+    // that don't contain Tate's actual text. These are purely system-generated.
+    if (tail.length < 10) return null
+    // Reject tails that are themselves just more system context (heuristic:
+    // starts with a XML tag or "[SYSTEM:" or "[SCHEDULED:").
+    if (/^<[a-z]|^\[SYSTEM:|^\[SCHEDULED:|^\[PROACTIVE:/i.test(tail)) return null
+    return tail
+  }
+
+  // Fallback: no context close found. If the content is short (<500 chars) and
+  // doesn't start with a context tag, treat the whole thing as Tate's message.
+  if (content.length < 500 && !content.startsWith('<now>') && !content.startsWith('[SYSTEM:')) {
+    return content.trim()
+  }
+
+  return null
+}
+
+/**
+ * Scan os_conversation rows within the post-dispatch window for Tate's typed
+ * messages, then classify each as correction, affirmation, or no signal.
+ *
+ * This is the PRIMARY Tate-signal source. It replaces the old SMS-table scan
+ * which was permanently dark because no SMS tables exist in the schema.
+ *
+ * Returns:
  *   {kind:'correction', matched_keyword, body, ts}  on a correction match
  *   {kind:'affirmation', matched_keyword, body, ts} on an affirmation match
- *   null                                            on no match
+ *   null                                            on no match / table absent
  *
  * If both correction and affirmation keywords appear in the same window, the
- * EARLIER message wins (Tate said one thing first). If the earliest message
- * contains BOTH a correction keyword AND an affirmation keyword (e.g. "no but
- * great work overall"), correction wins (conservative - the rebuke is the
- * actionable signal).
+ * EARLIER message wins. If the earliest message contains BOTH, correction wins
+ * (the rebuke is the actionable signal).
+ */
+async function findTateChatSignal(client, dispatch) {
+  const startTs = new Date(dispatch.ts).toISOString()
+  const endTs = new Date(new Date(dispatch.ts).getTime() + SMS_CORRECTION_WINDOW_MS).toISOString()
+
+  let rows
+  try {
+    const r = await client.query(
+      `SELECT content, created_at AS ts
+       FROM os_conversation
+       WHERE role = 'user'
+         AND created_at BETWEEN $1 AND $2
+       ORDER BY created_at ASC
+       LIMIT 30`,
+      [startTs, endTs]
+    )
+    rows = r.rows
+  } catch {
+    return null
+  }
+
+  for (const row of rows) {
+    const tateText = extractTateMessageFromContent(row.content)
+    if (!tateText) continue // system-generated turn, no Tate input
+    const body = tateText.toLowerCase()
+
+    // Check correction first (rebuke trumps affirmation in same body).
+    for (const kw of CORRECTION_KEYWORDS) {
+      if (keywordMatches(kw, body)) {
+        return { kind: 'correction', matched_keyword: kw, body: tateText, ts: row.ts }
+      }
+    }
+    for (const kw of AFFIRMATION_KEYWORDS) {
+      const needsWordBoundary = kw.length <= 4
+      if (needsWordBoundary) {
+        const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (re.test(body)) {
+          return { kind: 'affirmation', matched_keyword: kw, body: tateText, ts: row.ts }
+        }
+      } else if (body.includes(kw)) {
+        return { kind: 'affirmation', matched_keyword: kw, body: tateText, ts: row.ts }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Scan inbound SMS messages within the post-dispatch window for either
+ * correction OR affirmation keywords.
+ *
+ * NOTE (11 May 2026): No SMS tables (sms_messages / sms_inbound / sms_log)
+ * exist in the schema. Tate's SMS messages arrive via smsWebhook.js, are
+ * wrapped as "[SMS from Tate (+...)]: <body>" strings, and stored in
+ * os_conversation as user-role rows — the same path as chat messages. This
+ * function therefore returns null when smsTable is null (the common case)
+ * and serves only as a fallback for future schema additions. The primary
+ * signal source is findTateChatSignal (os_conversation scan).
  */
 async function findTateSignal(client, dispatch, smsTable) {
+  // Primary path: os_conversation (covers both chat AND SMS-wrapped messages).
+  const chatSig = await findTateChatSignal(client, dispatch)
+  if (chatSig) return chatSig
+
+  // Legacy fallback: dedicated SMS table (currently never populated).
   if (!smsTable) return null
   const startTs = new Date(dispatch.ts).toISOString()
   const endTs = new Date(new Date(dispatch.ts).getTime() + SMS_CORRECTION_WINDOW_MS).toISOString()
@@ -246,14 +477,12 @@ async function findTateSignal(client, dispatch, smsTable) {
   for (const row of q.rows) {
     const body = (row.body || '').toLowerCase()
     if (!body) continue
-    // Check correction first (rebuke trumps affirmation in same body).
     for (const kw of CORRECTION_KEYWORDS) {
-      if (body.includes(kw)) {
+      if (keywordMatches(kw, body)) {
         return { kind: 'correction', matched_keyword: kw, body: row.body, ts: row.ts }
       }
     }
     for (const kw of AFFIRMATION_KEYWORDS) {
-      // Word-boundary check for short tokens to avoid 'go' matching 'going'.
       const needsWordBoundary = kw.length <= 4
       if (needsWordBoundary) {
         const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
@@ -587,9 +816,96 @@ async function runLoop() {
   setInterval(() => {}, 60_000).unref()
 }
 
+/**
+ * Backfill correction outcomes for the last N days.
+ *
+ * Scans outcome_event rows with outcome='unverified' (or missing outcome_event
+ * entirely) where the dispatch_event falls within `lookbackDays`. For each
+ * dispatch, re-runs findTateChatSignal using the expanded keyword set. If a
+ * correction is detected, upgrades the outcome_event row to 'correction'.
+ *
+ * Conservative: only upgrades 'unverified' → 'correction'. Never touches
+ * existing 'success' or 'failure' rows (those have stronger evidence already).
+ * For dispatches with no outcome_event row, inserts a new 'correction' row.
+ *
+ * Returns { upgraded, inserted, scanned, errors }.
+ */
+async function backfillCorrections(lookbackDays = 30) {
+  const env = getEnv()
+  const client = new Client({ connectionString: env.DATABASE_URL })
+  await client.connect()
+
+  let scanned = 0
+  let upgraded = 0
+  let inserted = 0
+  let errors = 0
+
+  try {
+    // Pull unverified + no-outcome dispatches from the lookback window.
+    const r = await client.query(`
+      SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata,
+             o.id AS outcome_id, o.outcome AS current_outcome
+      FROM dispatch_event d
+      LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
+      WHERE d.ts > NOW() - INTERVAL '${parseInt(lookbackDays, 10)} days'
+        AND (o.outcome = 'unverified' OR o.id IS NULL)
+      ORDER BY d.ts ASC
+      LIMIT 2000
+    `)
+
+    for (const dispatch of r.rows) {
+      scanned += 1
+      try {
+        const sig = await findTateChatSignal(client, dispatch)
+        if (!sig || sig.kind !== 'correction') continue
+
+        const evidence = `confidence=1.0|backfill_11_may_2026|os_conversation within 30min matched correction '${sig.matched_keyword}'`
+
+        if (dispatch.outcome_id) {
+          // Upgrade existing unverified row.
+          await client.query(
+            `UPDATE outcome_event
+             SET outcome = 'correction',
+                 evidence = $1,
+                 correction_text = $2,
+                 ts = NOW()
+             WHERE id = $3`,
+            [evidence, sig.body, dispatch.outcome_id]
+          )
+          upgraded += 1
+        } else {
+          // Insert new correction row.
+          await client.query(
+            `INSERT INTO outcome_event (dispatch_event_id, outcome, evidence, correction_text, classification)
+             VALUES ($1, 'correction', $2, $3, NULL)`,
+            [dispatch.id, evidence, sig.body]
+          )
+          inserted += 1
+        }
+      } catch (err) {
+        errors += 1
+        console.error('[backfill] error on dispatch', dispatch.id, err.message)
+      }
+    }
+  } finally {
+    try { await client.end() } catch { /* ignore */ }
+  }
+
+  return { scanned, upgraded, inserted, errors }
+}
+
 if (require.main === module) {
   const onceMode = process.argv.includes('--once')
-  if (onceMode) {
+  const backfillMode = process.argv.includes('--backfill')
+  if (backfillMode) {
+    const days = parseInt(process.argv[process.argv.indexOf('--backfill') + 1] || '30', 10)
+    backfillCorrections(isNaN(days) ? 30 : days)
+      .then(result => {
+        console.log('[outcomeInference] backfill complete:', JSON.stringify(result))
+        process.exit(0)
+      })
+      .catch(err => { console.error(err); process.exit(1) })
+  } else if (onceMode) {
     runOnce()
       .then(result => process.exit(result && result.ok ? 0 : 1))
       .catch(err => { console.error(err); process.exit(1) })
@@ -601,14 +917,18 @@ if (require.main === module) {
 module.exports = {
   tickInferOutcomes,
   runOnce,
+  backfillCorrections,
   inferDispatchOutcome,
   findTateSignal,
+  findTateChatSignal,
+  extractTateMessageFromContent,
   findTateCorrection,
   inferForkSpawnOutcome,
   inferFactoryDispatchOutcome,
   computeConfidence,
   probeExpectedArtefact,
   CORRECTION_KEYWORDS,
+  CORRECTION_KEYWORDS_WORD_BOUNDARY,
   AFFIRMATION_KEYWORDS,
   UNVERIFIED_AGE_MS,
 }
