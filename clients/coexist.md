@@ -176,6 +176,55 @@ Co-Exist is on a **substrate-tracked recurring billing schedule** (live 7 May 20
 
 ---
 
+## Stats Architecture (canonical as of 11 May 2026)
+
+### Canonical aggregation chain
+All four stats pages derive from one path:
+- Page -> Hook -> `src/lib/impact-query.ts` (fetchImpactRows + fetchBaselineSettings)
+- Hooks: use-impact.ts (national/collective), use-admin-impact-observations.ts (admin), use-public-stats.ts (public)
+- DO NOT add bespoke SQL in page or hook files. All filter semantics belong in impact-query.ts.
+
+### Timeframe semantics
+- Event date column = `events.date_start` - canonical "when did the impact happen"
+- `created_at` is operational only - never use it to bucket impact by year or season
+- Baseline date floor: 2026-01-01 (IMPACT_BASELINE_DATE constant)
+- Pre-2026 data: covered by app_settings baseline keys (see table below)
+
+### app_settings baseline keys
+| Key | Value | Meaning |
+|-----|-------|---------|
+| `impact_baseline_trees` | 36637 | Total pre-2026 trees planted (all years) |
+| `impact_baseline_trees_2022` | 17300 | 2022 trees from master sheet |
+| `impact_baseline_trees_2024` | 3702 | 2024 trees from master sheet |
+| `impact_baseline_trees_2025` | 15635 | 2025 trees from master sheet |
+| `impact_baseline_events` | 340 | Pre-2026 events held |
+| `impact_baseline_attendees` | 5500 | Pre-2026 volunteer attendees |
+| `impact_baseline_hours` | 11000 | Pre-2026 volunteer hours |
+| `impact_baseline_rubbish_kg` | 4900 | Pre-2026 rubbish collected (kg) |
+
+Per-year keys (2022, 2024, 2025) added via migration `20260511030000_per_year_baseline_settings.sql`. Call `fetchBaselineByYear(year)` for per-year comparison queries.
+
+### Drift detection cron
+- Cron: nightly 02:00 AEST
+- Reads master impact sheet Overall tab via Microsoft Graph API
+- Compares against Supabase canonical aggregation (fetchImpactRows + fetchBaselineSettings)
+- Writes status_board P2 row + Neo4j Episode if drift detected
+- Last run status: app_settings key `stats_drift_last_run`
+- Badge visible on /admin/impact page when `stats_drift_detected` is truthy
+
+### Excel sync dedup architecture (as of 11 May 2026)
+- `findMatchingAppEvent`: fuzzy title + date match to find existing app events (now includes synthetic event UUIDs as valid candidates - isSyntheticFormsUuid exclusion removed)
+- Existence guard: secondary check by (collective_id, date, title) before creating any new synthetic event
+- DB-level: partial unique index `events_synthetic_dedup` on `(collective_id, date_start::date, lower(trim(title)))` WHERE v5 UUID
+- Migration: `20260511040000_events_synthetic_dedup_index.sql`
+- 179/180 duplicate clusters resolved. 1 remaining fuzzy duplicate (Seville Tree Planting) is P3 in status_board for Tate review. Ready-to-run SQL: `~/ecodiaos/drafts/coexist-fuzzy-dupes-2026-05-11.md`
+
+### Pattern docs
+- Full architecture: `~/ecodiaos/patterns/co-exist-stats-canonical-aggregation-architecture.md`
+- Generalisable doctrine: `~/ecodiaos/patterns/single-canonical-aggregation-feeds-all-dashboard-surfaces.md`
+
+---
+
 ## Credentials & Access
 - Test credentials: stored in kv_store `creds.coexist` (full schema in `~/ecodiaos/docs/secrets/coexist-app-test.md`)
 - App Store Connect: code@ecodia.au
@@ -230,7 +279,16 @@ Note: a related Google-signed Paul account already exists (`paulpplakkal@gmail.c
 7. Insert status_board row entity_type='task', next_action_by='tate'.
 8. Tate forwards credentials to user. Paul / user changes on first login.
 
+## 2026-05-11 - SKIP_COEXIST_PREFLIGHT=1 bypass on feat/impact-baseline-fork_mp0odofn_8f8109 push
+Reason: pre-push hook hardcodes `COEXIST_DIR=/home/tate/workspaces/coexist` (main worktree) for its dirty-check gate, but push originated from the `coexist-w4-baseline` git worktree. The hook's `git status --porcelain` reported M/D files that did not exist in either worktree (both confirmed clean at time of push). False-positive caused by worktree context mismatch in the hook's path assumption. Bypass is safe: migration already applied to Supabase linked project (`supabase db push` succeeded), commit sha `f77f612` is clean, main worktree independently verified clean. Worker 1 of impact-baseline wave (fork_mp0odofn_8f8109).
+
 ## 2026-04-27 20:25 AEST - SKIP_COEXIST_PREFLIGHT=1 bypass on fix/collective-alias-byron-northern-rivers push
 Reason: same lint-debt blocker. Pre-push preflight stops on 180 pre-existing eslint errors (all in files this branch did not touch). Branch is 2 commits ahead of origin/main, single-file diff to `supabase/functions/excel-sync/index.ts` (24 inserts, 3 deletes - alias map const + lookup + em-dash to hyphen in error string). Vitest 17 files / 158 tests green pre-push. Awaiting Tate go-ahead to deploy Edge Function (Supabase project ref `tjutlbzekfouwsiaplbr`).
 
 Substrate finding: both Factory dispatches against this codebase appeared to fail review because the worktree was parked on `fix/updates-rules-of-hooks-2026-04-27` (HEAD `3f452ad`, em-dash comment fix). Factory created its own branch correctly and shipped the deliverable; the review tool's diff comparison against the worktree's currently-checked-out branch (rather than the dispatched branch's base) made the work look like a no-op em-dash flip. Real bug is the dispatcher leaving the worktree on a feature branch between dispatches. Recovery: verified deliverable on disk (`git show fix/collective-alias-byron-northern-rivers:supabase/functions/excel-sync/index.ts`), pushed branch, did NOT redispatch.
+
+## 2026-05-11 - SKIP_COEXIST_PREFLIGHT=1 bypass on fix/event-dupe-prevention-2026-05-11 push
+Reason: pre-push hook ran `git status --porcelain` in a context that reported the committed migration file as ` D` (deleted in working tree) — a false positive specific to git linked worktrees. The worktree at ~/workspaces/coexist-dupe-prevention was clean (`git status --porcelain` returned empty when called directly). The committed file existed on disk. The constraint was already applied and verified on prod via Management API before the push. Fork: fork_mp0oo9cz_626123.
+
+## 2026-05-11 - SKIP_COEXIST_PREFLIGHT=1 bypass on feat/impact-fe-wiring-fork_mp0ph4u8_084a18 push
+Reason: same worktree-context false-positive as the two 2026-05-11 entries above. Pre-push hook hardcodes `COEXIST_DIR=/home/tate/workspaces/coexist` and runs `git status --porcelain` while `GIT_DIR` env still points to the linked worktree's git dir — causing git to compare main-clone files against the worktree branch's HEAD and report them as dirty. Both the worktree (`coexist-w2-impactstats`) and main clone (`/workspaces/coexist`) were independently confirmed clean. Single-file commit (`src/hooks/use-impact.ts`) fixes a ReferenceError bug (`leadersCountRes` used in `useCollectiveImpact` where only `rpcRes` is in scope). Build verified clean (vite 3001 modules). Fork: fork_mp0ph4u8_084a18. Note: preflight.sh needs a fix to unset GIT_DIR/GIT_WORK_TREE before `git status` when called from a linked worktree context.
