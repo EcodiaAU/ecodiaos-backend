@@ -776,12 +776,21 @@ async function tickInferOutcomes() {
     else if (await tableExists(client, 'sms_inbound')) smsTable = 'sms_inbound'
     else if (await tableExists(client, 'sms_log')) smsTable = 'sms_log'
 
-    // Pull dispatches without an outcome_event, older than 5 minutes (give
-    // the system time to settle), capped at 500 per tick.
+    // Pull dispatches that do NOT yet have a correction-type outcome_event row.
+    // Using a correction-specific LEFT JOIN means:
+    //   (a) Dispatches with NO outcome row at all    → o.id IS NULL → selected (as before)
+    //   (b) Dispatches with only unverified/success/failure rows → o.id IS NULL → selected
+    //       (re-evaluation: may now find a correction signal the initial pass missed)
+    //   (c) Dispatches with a correction row         → o.id NOT NULL → excluded ✓
+    //
+    // The correction_text dedup (partial UNIQUE INDEX outcome_event_dedup_correction on
+    // md5(correction_text) WHERE outcome='correction') handles case (b): if correction_text
+    // is already attributed to another dispatch in the same window, the ON CONFLICT below
+    // fires and we insert 'unverified' as a fallback so the dispatch settles.
     const r = await client.query(`
       SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata
       FROM dispatch_event d
-      LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
+      LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id AND o.outcome = 'correction'
       WHERE o.id IS NULL
         AND d.ts < NOW() - INTERVAL '5 minutes'
         AND d.ts > NOW() - INTERVAL '14 days'
@@ -796,12 +805,34 @@ async function tickInferOutcomes() {
           skipped += 1
           continue
         }
-        // ON CONFLICT DO NOTHING handles outcome_event_dedup_correction: that
-        // partial unique index deduplicates by md5(correction_text) WHERE
-        // outcome='correction'. When the same Tate message matches multiple
-        // dispatches in a 30-min window, only the first insert lands; subsequent
-        // ones are silently skipped rather than erroring. Use RETURNING to
-        // distinguish a real insert from a conflict-skip.
+        // Guard: the WHERE clause now also selects dispatches with non-correction
+        // outcome rows (unverified/success/failure). We only re-evaluate those to
+        // find NEW correction signals. If inference returned something other than
+        // correction and the dispatch already has an outcome row, skip — don't
+        // insert a duplicate non-correction row.
+        if (inference.outcome !== 'correction') {
+          const existing = await client.query(
+            `SELECT 1 FROM outcome_event WHERE dispatch_event_id = $1 LIMIT 1`,
+            [dispatch.id]
+          )
+          if (existing.rowCount > 0) {
+            skipped += 1
+            continue
+          }
+        }
+
+        // INSERT with ON CONFLICT DO NOTHING to handle outcome_event_dedup_correction:
+        // that partial unique index deduplicates by md5(correction_text) WHERE
+        // outcome='correction'. When the same Tate message matches multiple dispatches
+        // in a 30-min window, the first insert wins; subsequent ones conflict-fire.
+        //
+        // On conflict for a correction outcome we insert an 'unverified' fallback row
+        // so the dispatch is settled and stops cycling through the re-selection loop
+        // on every tick (the correction is already attributed to another dispatch).
+        //
+        // For non-correction outcomes ON CONFLICT DO NOTHING is belt-and-braces only
+        // (no partial index covers those paths today, but keeps behaviour safe if
+        // future constraints are added).
         const ins = await client.query(
           `INSERT INTO outcome_event (dispatch_event_id, outcome, evidence, correction_text, classification)
            VALUES ($1, $2, $3, $4, $5)
@@ -820,9 +851,23 @@ async function tickInferOutcomes() {
           if (distribution[inference.outcome] !== undefined) {
             distribution[inference.outcome] += 1
           }
+        } else if (inference.outcome === 'correction') {
+          // Conflict-skip on correction: correction_text already attributed to
+          // another dispatch in this window. Settle this dispatch as 'unverified'
+          // so it is excluded from future ticks (the WHERE clause now filters on
+          // correction rows, so an unverified row here keeps it out of the loop).
+          await client.query(
+            `INSERT INTO outcome_event (dispatch_event_id, outcome, evidence, correction_text, classification)
+             VALUES ($1, 'unverified', $2, NULL, NULL)`,
+            [
+              dispatch.id,
+              `correction_text_already_attributed|settled_as_unverified|${inference.evidence || ''}`,
+            ]
+          )
+          inferred += 1
+          distribution.unverified = (distribution.unverified || 0) + 1
         } else {
-          // Conflict-skip: dedup constraint fired (same correction_text already
-          // stored for another dispatch in this window). Count as skipped.
+          // Conflict-skip on non-correction outcome (future-proofing). Count as skipped.
           skipped += 1
         }
       } catch (err) {
@@ -901,7 +946,24 @@ async function backfillCorrections(lookbackDays = 30) {
         const evidence = `confidence=1.0|backfill_11_may_2026|os_conversation within 30min matched correction '${sig.matched_keyword}'`
 
         if (dispatch.outcome_id) {
-          // Upgrade existing unverified row.
+          // Upgrade existing unverified row — but first check that the
+          // correction_text isn't already attributed to a DIFFERENT dispatch.
+          // The partial unique index outcome_event_dedup_correction enforces
+          // md5(correction_text) uniqueness across all correction rows; an UPDATE
+          // that sets correction_text to an already-present value will also
+          // violate the constraint (UPDATE triggers the index on changed rows).
+          const dupUp = await client.query(
+            `SELECT 1 FROM outcome_event
+             WHERE outcome = 'correction'
+               AND md5(correction_text) = md5($1::text)
+               AND id != $2
+             LIMIT 1`,
+            [sig.body, dispatch.outcome_id]
+          )
+          if (dupUp.rowCount > 0) {
+            // Already attributed elsewhere — leave this row as 'unverified'.
+            continue
+          }
           await client.query(
             `UPDATE outcome_event
              SET outcome = 'correction',
@@ -913,7 +975,19 @@ async function backfillCorrections(lookbackDays = 30) {
           )
           upgraded += 1
         } else {
-          // Insert new correction row.
+          // Insert new correction row — guard against duplicate correction_text
+          // (same Tate message covers multiple dispatches in the window).
+          const dupIns = await client.query(
+            `SELECT 1 FROM outcome_event
+             WHERE outcome = 'correction'
+               AND md5(correction_text) = md5($1::text)
+             LIMIT 1`,
+            [sig.body]
+          )
+          if (dupIns.rowCount > 0) {
+            // Already attributed to another dispatch — skip.
+            continue
+          }
           await client.query(
             `INSERT INTO outcome_event (dispatch_event_id, outcome, evidence, correction_text, classification)
              VALUES ($1, 'correction', $2, $3, NULL)`,
