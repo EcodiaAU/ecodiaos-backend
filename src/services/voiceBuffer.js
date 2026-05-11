@@ -42,7 +42,7 @@ async function postFlush(sessionId, message) {
     const res = await fetch(OS_SESSION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, priority: false }),
+      body: JSON.stringify({ message, source: 'voice', priority: false }),
     })
     if (!res.ok) {
       const txt = await res.text().catch(() => '')

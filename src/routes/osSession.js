@@ -150,6 +150,15 @@ router.post('/message', async (req, res, next) => {
     // Return immediately - the real response streams via WebSocket
     res.json({ accepted: true, status: 'streaming' })
 
+    // Fire-and-forget: log the message with its source for voice/typed analytics.
+    // Never awaited - never blocks the response or message delivery path.
+    // source values: 'voice' (voiceBuffer flush), 'scheduler' (cron/delayed),
+    //                'typed' (keyboard, default), 'tate' (legacy unlabelled).
+    require('../config/db')`INSERT INTO os_session_messages (body, source)
+      VALUES (${finalMessage}, ${source || 'typed'})`.catch(err => {
+      logger.warn('os_session_messages insert failed', { error: err.message })
+    })
+
     if (CONDUCTOR_DETACHED) {
       // Proxy to ecodia-conductor loopback. Conductor calls osSession.sendMessage
       // in its own process where the SDK stream lives.
