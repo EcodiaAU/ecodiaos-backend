@@ -32,7 +32,13 @@ module.exports = {
     // ~/ecodiaos/drafts/fork-survival-options-2026-05-08.md. This is the cheap
     // ~30% reduction that ships tonight without pm2 reload (takes effect on
     // next natural api restart).
-    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8' } },
+    // CONDUCTOR_DETACHED=true tells ecodia-api to proxy /message, /abort, /status,
+    // and /save-state to the ecodia-conductor loopback server on 127.0.0.1:3002
+    // instead of calling osSessionService in-process.  Takes effect on the NEXT
+    // pm2 restart ecodia-api (Phase 3 activation step).  Belt-and-braces alongside
+    // the route-level flag read from process.env.CONDUCTOR_DETACHED.
+    // Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
+    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_DETACHED: 'true' } },
     // Factory runner - owns all CC session child processes.
     // Runs separately from ecodia-api so CC sessions survive API restarts (e.g. self-modification deploys).
     // Communicates with ecodia-api via Redis pub/sub (factoryBridge).
@@ -52,7 +58,12 @@ module.exports = {
     // for the multi-phase activation plan. The CONDUCTOR_DETACHED env
     // var on ecodia-api flips conductor service boot OFF in api once
     // ecodia-conductor is taking over.
-    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8' } },
+    // CONDUCTOR_LOOPBACK_PORT: loopback HTTP server port (default 3002).
+    // CONDUCTOR_LOOPBACK_SECRET is NOT set here - it is read from
+    // kv_store.creds.conductor_loopback_secret at boot time so the value
+    // never appears in a committed file.  See docs/secrets/conductor-loopback-secret.md.
+    // Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
+    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 - OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.

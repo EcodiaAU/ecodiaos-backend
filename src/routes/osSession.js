@@ -1,6 +1,16 @@
 /**
  * OS Session Routes - /api/os-session/*
  * Interface between frontend and the persistent CC OS session.
+ *
+ * When CONDUCTOR_DETACHED=true, selected route handlers proxy their
+ * osSessionService calls to the ecodia-conductor HTTP loopback bridge
+ * (127.0.0.1:CONDUCTOR_LOOPBACK_PORT) instead of invoking the service
+ * in-process. Proxied routes: POST /message, POST /abort, GET /status,
+ * POST /save-state.  All other routes (history, tokens, recover, forks,
+ * energy, upload, restart, compact, handover) continue in-process because
+ * they either do not touch the live SDK session or are api-side concerns.
+ *
+ * Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
  */
 const express = require('express')
 const router = express.Router()
@@ -12,6 +22,66 @@ const { getEventsSince, getSessionEpoch } = require('../websocket/wsManager')
 const usageEnergy = require('../services/usageEnergyService')
 const { saveHandoffState } = require('../services/sessionHandoff')
 const { stampTateActive } = require('../services/tateActiveGate')
+
+// -----------------------------------------------------------------------
+// Conductor loopback proxy helpers
+// -----------------------------------------------------------------------
+
+// Read once at module load - flag does not change during process lifetime.
+const CONDUCTOR_DETACHED = process.env.CONDUCTOR_DETACHED === 'true'
+const CONDUCTOR_LOOPBACK_PORT = process.env.CONDUCTOR_LOOPBACK_PORT || '3002'
+const CONDUCTOR_LOOPBACK_TIMEOUT_MS = parseInt(
+  process.env.CONDUCTOR_LOOPBACK_TIMEOUT_MS || '1800000', // 30 min default
+  10
+)
+
+// Lazy-loaded secret - read from kv_store on first proxy call, then cached.
+// NEVER logged. Loaded via direct db query so we do not depend on env.js.
+let _loopbackSecret = null
+
+async function getLoopbackSecret() {
+  if (_loopbackSecret) return _loopbackSecret
+  if (process.env.CONDUCTOR_LOOPBACK_SECRET) {
+    _loopbackSecret = process.env.CONDUCTOR_LOOPBACK_SECRET
+    return _loopbackSecret
+  }
+  const db = require('../config/db')
+  const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.conductor_loopback_secret'`
+  if (!rows.length) {
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET not found in kv_store - cannot proxy to conductor')
+  }
+  const val = rows[0].value
+  _loopbackSecret = typeof val === 'string' ? val : val.value
+  if (!_loopbackSecret) {
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store entry missing .value field')
+  }
+  return _loopbackSecret
+}
+
+// Forward a request to the conductor loopback server. Returns the fetch
+// Response so callers can inspect status and read the body.
+// Streaming note: /message returns immediately with {accepted:true} (no
+// SSE body), so a JSON read is always sufficient here.
+async function proxyToLoopback(path, method, body) {
+  const secret = await getLoopbackSecret()
+  const url = `http://127.0.0.1:${CONDUCTOR_LOOPBACK_PORT}${path}`
+  const init = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${secret}`,
+      'Content-Type': 'application/json',
+    },
+    signal: AbortSignal.timeout(CONDUCTOR_LOOPBACK_TIMEOUT_MS),
+  }
+  if (body !== undefined) {
+    init.body = JSON.stringify(body)
+  }
+  return fetch(url, init)
+}
+
+// -----------------------------------------------------------------------
+// Routes
+// -----------------------------------------------------------------------
 
 // Send a message to the OS session.
 // Response streams in real-time via WebSocket (text_delta, tool_use, os-session:complete).
@@ -32,7 +102,8 @@ router.post('/message', async (req, res, next) => {
       return res.status(400).json({ error: 'message is required' })
     }
 
-    // queue mode: hold the message, don't wake the OS
+    // queue mode: stays entirely in ecodia-api (does not touch osSessionService).
+    // No proxy needed regardless of CONDUCTOR_DETACHED.
     if (mode === 'queue') {
       const mq = require('../services/messageQueue')
       const row = await mq.enqueueMessage({
@@ -59,6 +130,8 @@ router.post('/message', async (req, res, next) => {
 
     // Drain any pending queued messages into this direct send (opportunistic delivery).
     // Runs before returning so DB marks are atomic with the outgoing send.
+    // This stays in ecodia-api even when proxying because it writes to the shared DB
+    // messageQueue table - conductor reads the same DB, no cross-process concern.
     let finalMessage = message
     try {
       const mq = require('../services/messageQueue')
@@ -70,11 +143,21 @@ router.post('/message', async (req, res, next) => {
     // Return immediately - the real response streams via WebSocket
     res.json({ accepted: true, status: 'streaming' })
 
-    // Process in background - errors are broadcast via WS, not HTTP.
+    if (CONDUCTOR_DETACHED) {
+      // Proxy to ecodia-conductor loopback. Conductor calls osSession.sendMessage
+      // in its own process where the SDK stream lives.
+      proxyToLoopback('/message', 'POST', { message: finalMessage, source })
+        .catch(err => {
+          logger.error('OS Session /message: conductor proxy failed', { error: err.message, stack: err.stack })
+        })
+      return
+    }
+
+    // In-process path (CONDUCTOR_DETACHED not set or false).
     // priority: false (default) means user messages QUEUE behind any active
     // tool-call loop and fire after it completes (via _sendQueue chain in
     // osSessionService.js). This preserves mid-turn flow - Tate's check-in
-    // messages won't kill an in-progress audit, deploy, or Factory dispatch.
+    // messages will not kill an in-progress audit, deploy, or Factory dispatch.
     // Explicit kill switch is the frontend Stop button -> POST /api/os-session/abort.
     // Never flip priority:true here without explicit Tate sign-off - it was
     // the cause of mid-turn session breaks where check-in messages aborted
@@ -88,9 +171,16 @@ router.post('/message', async (req, res, next) => {
   }
 })
 
-// Get current session status
+// Get current session status.
+// When CONDUCTOR_DETACHED=true the live session lives in ecodia-conductor,
+// so proxy to the conductor's /status to get accurate in-flight state.
 router.get('/status', async (_req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      const resp = await proxyToLoopback('/status', 'GET')
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const status = await osSession.getStatus()
     res.json(status)
   } catch (err) { next(err) }
@@ -145,7 +235,7 @@ router.get('/recover', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Extended-recovery — return durable transcript since timestamp.
+// Extended-recovery - return durable transcript since timestamp.
 // Pairs with /recover (event-level, in-memory ring) when the gap exceeds the
 // 500-event ring window or the session epoch changed (PM2 restart).
 //   ?since=<iso_ts>    Required-ish (defaults to 24h ago)
@@ -317,9 +407,16 @@ router.post('/upload', uploadJson, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Abort - kill the active query immediately so the user can send a new message
+// Abort - kill the active query immediately so the user can send a new message.
+// Proxied to conductor when CONDUCTOR_DETACHED=true so the abort reaches
+// the actual running session.
 router.post('/abort', async (_req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      const resp = await proxyToLoopback('/abort', 'POST')
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const result = await osSession.abort()
     res.json(result)
   } catch (err) {
@@ -328,7 +425,7 @@ router.post('/abort', async (_req, res, next) => {
   }
 })
 
-// ── Fork-mode (Build 1, EcodiaOS_Spec_NextBuild §1) ─────────────────────────
+// -- Fork-mode (Build 1, EcodiaOS_Spec_NextBuild section 1) -----------------
 //
 // POST /api/os-session/fork - spawn a parallel sub-session with a brief.
 // GET  /api/os-session/forks - list all live + recently-finished forks.
@@ -383,10 +480,22 @@ router.post('/fork/:id/abort', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Save session handoff state for restart recovery
+// Save session handoff state for restart recovery.
+// Proxied to conductor when CONDUCTOR_DETACHED=true so the state captures
+// the conductor's session context rather than the api's stale in-process view.
 router.post('/save-state', async (req, res, next) => {
   try {
     const { current_work, active_plan, tate_last_direction, deliverables_status } = req.body
+    if (CONDUCTOR_DETACHED) {
+      const resp = await proxyToLoopback('/save-state', 'POST', {
+        current_work,
+        active_plan,
+        tate_last_direction,
+        deliverables_status,
+      })
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const state = await saveHandoffState({ current_work, active_plan, tate_last_direction, deliverables_status })
     res.json({ ok: true, saved_at: state.saved_at })
   } catch (err) {

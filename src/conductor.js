@@ -1,4 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------
 // ecodia-conductor - separate pm2 process that owns the conductor
 // SDK stream + cron poller + os-session message queue.
 //
@@ -7,26 +7,30 @@
 // no longer kills the conductor session.
 //
 // Process boundary:
-//   ecodia-api       → HTTP routes, MCP endpoints, Edge handlers,
-//                      WebSocket server, voice relay, factoryBridge,
-//                      capability registry, listenerSubsystem.
-//   ecodia-conductor → SDK stream owner (osSessionService), scheduler
-//                      poller, os-session message queue sweeper, OS
-//                      heartbeat, Claude token refresh, nightly restart.
+//   ecodia-api       -> HTTP routes, MCP endpoints, Edge handlers,
+//                       WebSocket server, voice relay, factoryBridge,
+//                       capability registry, listenerSubsystem.
+//   ecodia-conductor -> SDK stream owner (osSessionService), scheduler
+//                       poller, os-session message queue sweeper, OS
+//                       heartbeat, Claude token refresh, nightly restart,
+//                       claim verifier, proactivity engine.
 //
 // The two processes share Postgres + Neo4j via separate connection
 // pools (no shared in-memory state besides DB). Cross-process signal
-// from ecodia-api → ecodia-conductor uses the existing /api/os-session
-// HTTP route surface (a follow-up commit will replace direct in-process
-// osSession.sendMessage() calls in ecodia-api with HTTP delegation).
+// from ecodia-api -> ecodia-conductor uses the HTTP loopback bridge
+// on 127.0.0.1:3002 (CONDUCTOR_LOOPBACK_PORT). Auth via shared
+// CONDUCTOR_LOOPBACK_SECRET read from kv_store at boot.
 //
 // Activation is multi-phase - see
 //   docs/architecture/conductor-process-detach-2026-04-30.md
 // for the migration ordering.
 //
 // fork_mol0vfnr_78c3e4 - Decision 3993 commit 2/3.
-// ─────────────────────────────────────────────────────────────────────
+// fork_mp1mrgs4_f2ba17 - Phase 2 HTTP loopback bridge (12 May 2026).
+// ---------------------------------------------------------------------
 
+const http = require('http')
+const crypto = require('crypto')
 const env = require('./config/env')
 const db = require('./config/db')
 const logger = require('./config/logger')
@@ -36,13 +40,206 @@ const BOOT_TAG = '[conductor]'
 
 let shuttingDown = false
 
+// -----------------------------------------------------------------------
+// Loopback HTTP server (Phase 2 bridge)
+// Binds to 127.0.0.1 only - never reachable from outside the host.
+// Auth on every request via CONDUCTOR_LOOPBACK_SECRET (constant-time).
+// -----------------------------------------------------------------------
+
+// Cached secret so we read kv_store once per process lifetime.
+let _loopbackSecret = null
+
+async function getLoopbackSecret() {
+  if (_loopbackSecret) return _loopbackSecret
+  // Prefer explicit env var (useful for testing / CI where kv_store unavailable).
+  if (process.env.CONDUCTOR_LOOPBACK_SECRET) {
+    _loopbackSecret = process.env.CONDUCTOR_LOOPBACK_SECRET
+    return _loopbackSecret
+  }
+  const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.conductor_loopback_secret'`
+  if (!rows.length) {
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET not found in kv_store - cannot start loopback server')
+  }
+  const val = rows[0].value
+  // Value shape: { value: '<hex>', created_at: '...', ... }
+  _loopbackSecret = typeof val === 'string' ? val : val.value
+  if (!_loopbackSecret) {
+    throw new Error('CONDUCTOR_LOOPBACK_SECRET kv_store value has no .value field')
+  }
+  return _loopbackSecret
+}
+
+// Constant-time bearer check. Returns true only when the presented
+// token matches the expected secret byte-for-byte with no timing leak.
+function checkBearer(authHeader, secret) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false
+  const token = authHeader.slice(7)
+  if (token.length !== secret.length) return false
+  try {
+    return crypto.timingSafeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'))
+  } catch {
+    return false
+  }
+}
+
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    req.on('data', chunk => { data += chunk })
+    req.on('end', () => {
+      if (!data) return resolve({})
+      try { resolve(JSON.parse(data)) }
+      catch (err) { reject(new Error('Invalid JSON in request body')) }
+    })
+    req.on('error', reject)
+  })
+}
+
+function sendJson(res, statusCode, obj) {
+  const body = JSON.stringify(obj)
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(body),
+  })
+  res.end(body)
+}
+
+// Handle a single loopback request. osSession + saveHandoffState are
+// required lazily so they load AFTER the boot sequence finishes.
+async function handleLoopbackRequest(req, res, secret) {
+  if (!checkBearer(req.headers['authorization'], secret)) {
+    return sendJson(res, 401, { error: 'unauthorized' })
+  }
+
+  const url = (req.url || '/').split('?')[0]
+  const method = req.method
+
+  try {
+    // POST /message - proxies osSessionService.sendMessage
+    if (method === 'POST' && url === '/message') {
+      const body = await parseBody(req)
+      if (!body.message || typeof body.message !== 'string') {
+        return sendJson(res, 400, { error: 'message is required' })
+      }
+      // Return accepted immediately - actual session work is fire-and-forget.
+      sendJson(res, 200, { accepted: true, status: 'streaming' })
+      const osSession = require('./services/osSessionService')
+      osSession.sendMessage(body.message, { priority: false }).catch(err => {
+        logger.error(`${BOOT_TAG} /message: sendMessage failed`, { error: err.message })
+      })
+      return
+    }
+
+    // POST /abort
+    if (method === 'POST' && url === '/abort') {
+      const osSession = require('./services/osSessionService')
+      const result = await osSession.abort()
+      return sendJson(res, 200, result)
+    }
+
+    // GET /status - conductor health + live osSession status
+    if (method === 'GET' && url === '/status') {
+      const osSession = require('./services/osSessionService')
+      const forkService = require('./services/forkService')
+      const sessionStatus = await osSession.getStatus()
+      const liveForks = forkService.listForks().filter(
+        f => !['done', 'aborted', 'error'].includes(f.status)
+      )
+      return sendJson(res, 200, {
+        ...sessionStatus,
+        conductor: {
+          pid: process.pid,
+          uptime_s: Math.floor(process.uptime()),
+          active_fork_count: liveForks.length,
+        },
+      })
+    }
+
+    // POST /save-state
+    if (method === 'POST' && url === '/save-state') {
+      const body = await parseBody(req)
+      const { current_work, active_plan, tate_last_direction, deliverables_status } = body
+      const { saveHandoffState } = require('./services/sessionHandoff')
+      const state = await saveHandoffState({ current_work, active_plan, tate_last_direction, deliverables_status })
+      return sendJson(res, 200, { ok: true, saved_at: state.saved_at })
+    }
+
+    sendJson(res, 404, { error: 'not_found' })
+  } catch (err) {
+    logger.error(`${BOOT_TAG} loopback request error`, { url, method, error: err.message })
+    sendJson(res, 500, { error: 'internal_server_error', message: err.message })
+  }
+}
+
+let _loopbackServer = null
+
+async function startLoopbackServer() {
+  const secret = await getLoopbackSecret()
+  const port = parseInt(process.env.CONDUCTOR_LOOPBACK_PORT || '3002', 10)
+
+  _loopbackServer = http.createServer((req, res) => {
+    handleLoopbackRequest(req, res, secret).catch(err => {
+      logger.error(`${BOOT_TAG} loopback unhandled error`, { error: err.message })
+      try { sendJson(res, 500, { error: 'internal_server_error' }) } catch {}
+    })
+  })
+
+  await new Promise((resolve, reject) => {
+    _loopbackServer.listen(port, '127.0.0.1', err => {
+      if (err) return reject(err)
+      resolve()
+    })
+  })
+
+  logger.info(`${BOOT_TAG} HTTP loopback server listening on 127.0.0.1:${port}`)
+}
+
+// -----------------------------------------------------------------------
+// Graceful shutdown
+// -----------------------------------------------------------------------
+
 async function gracefulShutdown(signal) {
   if (shuttingDown) return
   shuttingDown = true
   logger.info(`${BOOT_TAG} ${signal} received - shutting down`)
 
-  // Stop services in reverse boot order. Each is best-effort - 
+  // Close the loopback HTTP server first so ecodia-api stops receiving
+  // new requests while we drain in-flight work.
+  if (_loopbackServer) {
+    await new Promise(resolve => {
+      _loopbackServer.close(() => resolve())
+      // Force-close after 3s in case keep-alive connections hold it open.
+      setTimeout(() => resolve(), 3000).unref()
+    })
+    logger.info(`${BOOT_TAG} loopback server closed`)
+  }
+
+  // Drain active osSession queries so in-flight tool calls can land.
+  try {
+    const osSession = require('./services/osSessionService')
+    if (typeof osSession.abort === 'function') {
+      await osSession.abort().catch(() => {})
+    }
+  } catch (err) {
+    logger.debug(`${BOOT_TAG} osSession drain failed`, { error: err.message })
+  }
+
+  // Stop services in reverse boot order. Each is best-effort -
   // a failure in one stop should not prevent the others from running.
+  try {
+    const proactivityEngine = require('./services/proactivityEngine')
+    proactivityEngine.stop()
+  } catch (err) {
+    logger.debug(`${BOOT_TAG} proactivityEngine.stop failed`, { error: err.message })
+  }
+
+  try {
+    const claimVerifier = require('./workers/claimVerifierWorker')
+    claimVerifier.stop()
+  } catch (err) {
+    logger.debug(`${BOOT_TAG} claimVerifier.stop failed`, { error: err.message })
+  }
+
   try {
     const nightlyRestart = require('./services/nightlyRestartService')
     nightlyRestart.stop()
@@ -86,7 +283,7 @@ async function gracefulShutdown(signal) {
   }
 
   // Allow the event loop to flush pending stop callbacks; hard exit
-  // after 5s so PM2's kill_timeout (45s in COMMON) doesn't SIGKILL us
+  // after 5s so PM2's kill_timeout (45s in COMMON) does not SIGKILL us
   // before we cleanly close.
   setTimeout(() => {
     logger.info(`${BOOT_TAG} clean exit`)
@@ -111,7 +308,7 @@ process.on('uncaughtException', async (err) => {
   process.exit(1)
 })
 
-// Track unhandled rejection rate so a temporary spike doesn't crash
+// Track unhandled rejection rate so a temporary spike does not crash
 // the conductor (PM2 will restart but the SDK stream cold-start cost
 // is significant). Mirrors the policy in src/server.js.
 let _unhandledRejectionCount = 0
@@ -141,17 +338,17 @@ process.on('unhandledRejection', (reason) => {
   }
 })
 
-// ─────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------
 // Boot sequence
-// ─────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------
 ;(async () => {
-  logger.info(`${BOOT_TAG} starting (Decision 3993 commit 2/3 - pm2 detach)`)
+  logger.info(`${BOOT_TAG} starting (Phase 2 HTTP loopback bridge - fork_mp1mrgs4_f2ba17)`)
   logger.info(`${BOOT_TAG} pid=${process.pid} node=${process.version}`)
 
-  // ── Boot: Stale fork recovery ─────────────────────────────────────
+  // -- Boot: Stale fork recovery ----------------------------------------
   // Mirrors the recovery in src/server.js. When ecodia-conductor
   // restarts (max_memory_restart, crash, deploy), in-flight forks
-  // would otherwise vanish silently. Idempotent across both processes - 
+  // would otherwise vanish silently. Idempotent across both processes -
   // whoever boots first runs it. (Schema ensures only non-terminal
   // rows are flipped to 'crashed'.)
   try {
@@ -164,10 +361,10 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} fork recovery at boot failed (non-fatal)`, { error: err.message })
   }
 
-  // ── Boot: Scheduler Poller ────────────────────────────────────────
+  // -- Boot: Scheduler Poller -------------------------------------------
   // The cron engine. Polls os_scheduled_tasks every 30s, fires due
   // tasks at /api/os-session/message which lives in ecodia-api. The
-  // poller itself doesn't need to live in api - it's a tick loop with
+  // poller itself does not need to live in api - it is a tick loop with
   // session-busy gating + energy-adjusted cadence. Moving it here
   // means api hot-reloads no longer interrupt the cron engine.
   try {
@@ -177,7 +374,7 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} scheduler poller failed to start`, { error: err.message })
   }
 
-  // ── Boot: Message Queue Sweep ─────────────────────────────────────
+  // -- Boot: Message Queue Sweep ----------------------------------------
   // Promotes delayed messages past their max_age_hours threshold.
   // Backend-internal, no http dependency, naturally belongs on the
   // conductor side.
@@ -188,10 +385,10 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} message queue sweep failed to start`, { error: err.message })
   }
 
-  // ── Boot: OS Heartbeat ────────────────────────────────────────────
+  // -- Boot: OS Heartbeat -----------------------------------------------
   // Wakes the OS Session periodically with an open-ended check-in
-  // prompt when Tate isn't messaging. Belongs on conductor side
-  // because it's the conductor's autonomous-mode primitive.
+  // prompt when Tate is not messaging. Belongs on conductor side
+  // because it is the conductor's autonomous-mode primitive.
   try {
     require('./services/osHeartbeatService').start()
     logger.info(`${BOOT_TAG} OS heartbeat started`)
@@ -199,7 +396,7 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} OS heartbeat failed to start`, { error: err.message })
   }
 
-  // ── Boot: Claude Token Refresh ────────────────────────────────────
+  // -- Boot: Claude Token Refresh ---------------------------------------
   // Refreshes OAuth tokens every 30 min so the SDK stream never stalls
   // on an expired token. The SDK stream lives here; the refresher
   // belongs alongside it.
@@ -210,7 +407,7 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} Claude token refresh failed to start`, { error: err.message })
   }
 
-  // ── Boot: Nightly Restart ─────────────────────────────────────────
+  // -- Boot: Nightly Restart --------------------------------------------
   // Schedules pm2 restart ecodia-api at 03:00 AEST. The fact that the
   // scheduler issues the restart is precisely WHY the SDK stream must
   // not live in ecodia-api. Keeping this in conductor means a planned
@@ -222,16 +419,53 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} nightly restart failed to start`, { error: err.message })
   }
 
-  // ── Boot: SDK Stream Lazy-Load ────────────────────────────────────
+  // -- Boot: Claim Verifier Worker --------------------------------------
+  // OBSERVABILITY_SPEC section 3. Every 30s sweeps conductor_claims rows
+  // with verification_status='pending' and dispatches action-specific
+  // verifiers. Was guarded by !CONDUCTOR_DETACHED in server.js but NOT
+  // booted in the original conductor.js - that was a drift bug (Phase 2
+  // plan section B, item 3). Fixed here.
+  try {
+    const claimVerifier = require('./workers/claimVerifierWorker')
+    claimVerifier.start()
+    logger.info(`${BOOT_TAG} claim verifier worker started`)
+  } catch (err) {
+    logger.warn(`${BOOT_TAG} claim verifier worker failed to start`, { error: err.message })
+  }
+
+  // -- Boot: Proactivity Engine -----------------------------------------
+  // Layer-2 proactivity. Was guarded by !CONDUCTOR_DETACHED in server.js
+  // but NOT booted in the original conductor.js - same drift bug as
+  // claim verifier above. Fixed here.
+  try {
+    const proactivityEngine = require('./services/proactivityEngine')
+    proactivityEngine.start()
+    logger.info(`${BOOT_TAG} proactivity engine started`)
+  } catch (err) {
+    logger.warn(`${BOOT_TAG} proactivity engine failed to start (non-fatal)`, { error: err.message })
+  }
+
+  // -- Boot: HTTP Loopback Server ---------------------------------------
+  // Phase 2 bridge. ecodia-api proxies /message, /abort, /status, and
+  // /save-state to this server when CONDUCTOR_DETACHED=true. Binds
+  // exclusively to 127.0.0.1; never reachable from outside the host.
+  // Auth via CONDUCTOR_LOOPBACK_SECRET (kv_store.creds.conductor_loopback_secret).
+  try {
+    await startLoopbackServer()
+  } catch (err) {
+    // Loopback failure is FATAL in conductor mode - without it, ecodia-api
+    // cannot reach the session and every /message call from the frontend
+    // would silently drop. Hard exit so PM2 restarts us quickly.
+    logger.error(`${BOOT_TAG} HTTP loopback server FAILED TO START - fatal`, { error: err.message })
+    process.exit(1)
+  }
+
+  // -- Boot: SDK Stream Lazy-Load ---------------------------------------
   // osSessionService loads the @anthropic-ai/claude-agent-sdk module
-  // lazily on first use (see getQuery() in osSessionService.js:729).
+  // lazily on first use (see getQuery() in osSessionService.js).
   // We do not eager-init it here because the cold-start cost is paid
   // by the first /message that lands. The conductor process is alive
   // and ready; the SDK stream attaches when invoked.
-  //
-  // Cross-process signaling from ecodia-api → conductor uses the
-  // existing HTTP /api/os-session/message route surface, which is
-  // routed to the conductor process by a follow-up commit.
 
   logger.info(`${BOOT_TAG} boot complete - conductor ready`)
 })().catch((err) => {
