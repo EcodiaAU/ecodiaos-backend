@@ -2,6 +2,10 @@
  * voiceTranscription.js - OpenAI Whisper one-shot transcription.
  *
  * Authored by fork_mownezy2_77bebd (W2: /api/voice/chunk pipeline).
+ * Fixed by fork_mp1sx7i0_9ba00e (12 May 2026): switched to form.getBuffer()
+ * (synchronous, no streaming race conditions) + strip codec suffix from
+ * MIME type so 'audio/webm;codecs=opus' becomes 'audio/webm' before
+ * sending to OpenAI (codec suffix caused intermittent 400 rejections).
  *
  * Exports `transcribeChunk({ buffer, mimeType, filename })` which
  * POSTs to https://api.openai.com/v1/audio/transcriptions and returns
@@ -30,10 +34,16 @@ async function transcribeChunk({ buffer, mimeType, filename }) {
     throw new Error('empty buffer')
   }
 
+  // Strip codec parameters before sending to OpenAI.
+  // 'audio/webm;codecs=opus' → 'audio/webm'. OpenAI uses the filename
+  // extension to determine format; the codec suffix in content-type can
+  // trigger intermittent 400 "Invalid file format" rejections.
+  const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim()
+
   const form = new FormData()
   form.append('file', buffer, {
     filename: filename || 'chunk.webm',
-    contentType: mimeType || 'audio/webm',
+    contentType: cleanMime,
   })
   form.append('model', 'whisper-1')
   form.append('language', 'en')
@@ -41,38 +51,16 @@ async function transcribeChunk({ buffer, mimeType, filename }) {
   form.append('temperature', '0')
   form.append('prompt', PROMPT_HINT)
 
+  // form.getBuffer() builds the full multipart body synchronously.
+  // All parts are Buffers or strings (multer memoryStorage, no streams),
+  // so this is safe and eliminates the streaming/event-listener race
+  // conditions in the previous getLength+resume approach.
+  const body = form.getBuffer()
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     ...form.getHeaders(),
+    'Content-Length': String(body.length),
   }
-
-  // form-data exposes a Buffer concat path via getBuffer() so we can
-  // hand a normal Body to the built-in fetch without piping a stream
-  // through undici. This avoids the "Body is unusable" / streaming
-  // edge cases on Node 22's fetch.
-  const body = await new Promise((resolve, reject) => {
-    form.getLength((lenErr, length) => {
-      if (lenErr) return reject(lenErr)
-      const chunks = []
-      // form-data emits a mix of Buffers (file content) and strings (boundary
-      // markers like '-----...', field names, CRLF). Buffer.concat requires all
-      // elements to be Buffer/Uint8Array - coerce strings here so concat never
-      // throws an ERR_INVALID_ARG_TYPE that propagates as an unhandled exception
-      // and crashes the process (root cause of the "CORS error" Tate sees).
-      form.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c, 'binary')))
-      form.on('end', () => {
-        try {
-          resolve(Buffer.concat(chunks))
-        } catch (err) {
-          reject(err)
-        }
-      })
-      form.on('error', reject)
-      form.resume()
-      // Some form-data builds need an explicit length header.
-      headers['Content-Length'] = String(length)
-    })
-  })
 
   let res
   try {
