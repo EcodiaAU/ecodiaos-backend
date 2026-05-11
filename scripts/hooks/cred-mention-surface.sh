@@ -6,6 +6,17 @@
 # warns (never blocks) when a brief mentions credential-related work but does
 # not reference the secrets registry at ~/ecodiaos/docs/secrets/.
 #
+# Narrowed 12 May 2026: action-verb proximity check added. A cred-substrate
+# noun must co-occur on the SAME LINE as an action verb (whole-line window)
+# for a warning to fire. Bare noun mentions - orientation quotes, negations
+# ("DO NOT use Corazon"), substrate cross-refs, context paragraphs - are now
+# suppressed. Pre-narrowing FP rate: effectively 100% (15+ FPs, 0 TPs across
+# three consecutive fork dispatches, 11-12 May 2026 session). Narrowing
+# rationale: status_board row fbb0666f-f675-4781-94f9-03a51a37c687.
+# Lifecycle: per ~/ecodiaos/patterns/pattern-lifecycle-active-narrowed-archived.md,
+# narrowed_at=2026-05-12,
+# narrowed_reason=cred-substrate-noun-without-action-verb-100pct-FP-rate-12-may-session.
+#
 # Surfaces:
 #   ~/ecodiaos/docs/secrets/INDEX.md
 #   ~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md
@@ -101,6 +112,28 @@ if echo "$brief" | grep -qiE '(docs/secrets/|secrets-registry|secrets/INDEX\.md|
   exit 0
 fi
 
+# ── Action-verb proximity narrowing (narrowed 12 May 2026) ────────────────────
+# Require at least one action verb on the SAME LINE as the cred-substrate noun.
+# A cred-substrate noun on a line WITHOUT a verb (orientation quotes, negations
+# like "DO NOT use Corazon", routing-option cross-refs, "probe substrates")
+# will NOT produce a warning.
+#
+# Pre-narrowing FP rate: effectively 100%. Three consecutive fork dispatches on
+# 12 May 2026 each produced the same 3 false-positive [CRED-SURFACE WARN] lines
+# on bitbucket.md + supabase-access-token.md + laptop-agent.md, costing
+# ~600 tokens/session in [FALSE-POSITIVE] tag-acknowledgement overhead.
+#
+# Edit ACTION_VERB_RE to add/remove verbs - no other code change needed.
+# Avoid bare common verbs (use, check, test, see, read) that appear everywhere
+# and would re-introduce broad-trigger false positives.
+ACTION_VERB_RE='\b(deploy|sign|upload|build|ship|rotate|fetch|configure|drive|login|log-in|auth(enticate)?|connect|transfer|push|pull|generate|revoke|install|run)\b'
+
+# Pre-filter the (already tag-stripped) brief to lines that contain at least
+# one action verb. All per-group keyword checks below run against this filtered
+# view instead of the full $brief. If a line has the cred-substrate noun but no
+# action verb, it is excluded and cannot trigger a warning.
+brief_verb_lines=$(printf '%s' "$brief" | grep -iE "$ACTION_VERB_RE" || true)
+
 warnings=()
 
 # Parallel surfaces array. Each entry is "PRIMARY_PATH|TRIGGER_KEYWORD"
@@ -131,9 +164,14 @@ count_matches() {
 # TRIGGER TIGHTENING (5 May 2026):
 # Broad keywords like \bios\b and \bandroid\b alone cause false-positive
 # [CRED-SURFACE WARN] when briefs mention cross-platform testing. Each group
-# now splits keywords into HIGH (clearly credential work — fires singly) and
-# BROAD (ambiguous — requires a second keyword in the same category).
+# now splits keywords into HIGH (clearly credential work -- fires singly) and
+# BROAD (ambiguous -- requires a second keyword in the same category).
 # Origin: ~/ecodiaos/patterns/triggers-must-be-narrow-not-broad.md
+#
+# NOTE (12 May 2026 narrowing): all count_matches calls and grep checks below
+# operate on $brief_verb_lines (verb-filtered lines) rather than $brief (full
+# brief). Only lines where the cred-substrate noun co-occurs with an action
+# verb are considered. Bare-noun lines are excluded before these checks run.
 
 # --- iOS / TestFlight / App Store Connect ---
 # Phase C Gap 3 (8 May 2026): "rotate APPLE_DEVELOPER_PROGRAM_KEY",
@@ -144,8 +182,8 @@ count_matches() {
 # release docs, doctrine cross-refs) hit broad=2 routinely without any
 # real cred-mutation context. Threshold>=3 requires substantive
 # co-occurrence of broad keywords to trigger the surface.
-ios_high=$(count_matches "$brief" '\b(testflight|app store connect|\basc\b|xcodebuild|transporter|altool|fastlane|provisioning profile|signing identity|developer\.apple\.com|appstoreconnect|team_id|p8 file|asc api key|asc upload|xcrun --apiKey|APPLE_[A-Z_]*KEY|APPLE_[A-Z_]*TOKEN|rotate apple|apple developer program)\b')
-ios_broad=$(count_matches "$brief" '\b(ios|ipa|code signing)\b')
+ios_high=$(count_matches "$brief_verb_lines" '\b(testflight|app store connect|\basc\b|xcodebuild|transporter|altool|fastlane|provisioning profile|signing identity|developer\.apple\.com|appstoreconnect|team_id|p8 file|asc api key|asc upload|xcrun --apiKey|APPLE_[A-Z_]*KEY|APPLE_[A-Z_]*TOKEN|rotate apple|apple developer program)\b')
+ios_broad=$(count_matches "$brief_verb_lines" '\b(ios|ipa|code signing)\b')
 if [ "$ios_high" -gt 0 ] || [ "$ios_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/apple.md"
   if ! already_acked "$primary"; then
@@ -155,8 +193,8 @@ if [ "$ios_high" -gt 0 ] || [ "$ios_broad" -ge 3 ]; then
 fi
 
 # --- Android / Play Console / keystore ---
-android_high=$(count_matches "$brief" '\b(play console|google play|keystore|\.jks|aab|fastlane supply|upload key|gradle.*sign|signingConfigs|ANDROID_[A-Z_]*KEY|rotate android)\b')
-android_broad=$(count_matches "$brief" '\b(android|coexist[- ]?android|roam[- ]?android)\b')
+android_high=$(count_matches "$brief_verb_lines" '\b(play console|google play|keystore|\.jks|aab|fastlane supply|upload key|gradle.*sign|signingConfigs|ANDROID_[A-Z_]*KEY|rotate android)\b')
+android_broad=$(count_matches "$brief_verb_lines" '\b(android|coexist[- ]?android|roam[- ]?android)\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
 if [ "$android_high" -gt 0 ] || [ "$android_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/android-keystores.md"
@@ -171,8 +209,8 @@ fi
 # Atlassian token mention, [redacted] push). BROAD = bare "bitbucket" or
 # "[redacted]" mention which only fires when paired (>=2 hits) so casual
 # context-mentions don't trip the hook.
-bitbucket_high=$(count_matches "$brief" '\b(ATATT[A-Za-z0-9]+|atlassian.*token|api\.bitbucket\.org|[redacted]|bitbucket api token|x-bitbucket-api-token-auth|BITBUCKET_[A-Z_]*KEY|BITBUCKET_[A-Z_]*TOKEN|rotate bitbucket)\b')
-bitbucket_broad=$(count_matches "$brief" '\b(bitbucket|[redacted])\b')
+bitbucket_high=$(count_matches "$brief_verb_lines" '\b(ATATT[A-Za-z0-9]+|atlassian.*token|api\.bitbucket\.org|[redacted]|bitbucket api token|x-bitbucket-api-token-auth|BITBUCKET_[A-Z_]*KEY|BITBUCKET_[A-Z_]*TOKEN|rotate bitbucket)\b')
+bitbucket_broad=$(count_matches "$brief_verb_lines" '\b(bitbucket|[redacted])\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
 if [ "$bitbucket_high" -gt 0 ] || [ "$bitbucket_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/bitbucket.md"
@@ -186,7 +224,7 @@ fi
 # Already narrowed (specific deploy / token / API patterns; bare "supabase"
 # alone never fires). Phase C Gap 3 leaves this group as-is - it is the
 # exemplar of the compound-keyword discipline the gap mandates everywhere.
-if echo "$brief" | grep -qiE '\b(supabase.*deploy|edge function deploy|npx supabase functions|sbp_|supabase access token|supabase management api|supabase auth|SUPABASE_[A-Z_]*KEY|SUPABASE_[A-Z_]*TOKEN|rotate supabase)\b'; then
+if printf '%s' "$brief_verb_lines" | grep -qiE '\b(supabase.*deploy|edge function deploy|npx supabase functions|sbp_|supabase access token|supabase management api|supabase auth|SUPABASE_[A-Z_]*KEY|SUPABASE_[A-Z_]*TOKEN|rotate supabase)\b'; then
   primary="/home/tate/ecodiaos/docs/secrets/supabase-access-token.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Supabase Management / Edge Function deploy but does not reference ~/ecodiaos/docs/secrets/. Read: supabase-access-token.md before dispatching.")
@@ -198,7 +236,7 @@ fi
 # "Microsoft" alone is too broad (e.g. "Microsoft RDP", "Microsoft Teams"
 # desktop app). Phase C Gap 3: drop bare "microsoft" - require Graph API
 # context, Entra/Azure AD identity work, or excel-sync flow.
-if echo "$brief" | grep -qiE '\b(coexist[- ]?graph|microsoft graph|graph api|entra|azure ad|excel-sync|excel sync|coexistaus\.org|client_secret.*tenant|MS_GRAPH_[A-Z_]*|rotate microsoft graph)\b'; then
+if printf '%s' "$brief_verb_lines" | grep -qiE '\b(coexist[- ]?graph|microsoft graph|graph api|entra|azure ad|excel-sync|excel sync|coexistaus\.org|client_secret.*tenant|MS_GRAPH_[A-Z_]*|rotate microsoft graph)\b'; then
   primary="/home/tate/ecodiaos/docs/secrets/coexist-graph-api.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Microsoft Graph / Co-Exist excel-sync work but does not reference ~/ecodiaos/docs/secrets/. Read: coexist-graph-api.md, coexist-excel-file.md, coexist-supabase.md before dispatching.")
@@ -212,8 +250,8 @@ fi
 # credential mutation in scope. HIGH = explicit credential context
 # (sshpass.*mac, MACINCLOUD_<...>, rotate macincloud, MacInCloud panel auth).
 # BROAD = bare host references requiring a second-keyword hit.
-mac_high=$(count_matches "$brief" '\b(sshpass.*mac|user276189|MACINCLOUD_[A-Z_]*|rotate macincloud|macincloud password|macincloud panel)\b')
-mac_broad=$(count_matches "$brief" '\b(macincloud|sy094|MacInCloud\.com)\b')
+mac_high=$(count_matches "$brief_verb_lines" '\b(sshpass.*mac|user276189|MACINCLOUD_[A-Z_]*|rotate macincloud|macincloud password|macincloud panel)\b')
+mac_broad=$(count_matches "$brief_verb_lines" '\b(macincloud|sy094|MacInCloud\.com)\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3. Bare "sy094"
 # and "macincloud" appear naturally in cross-platform doctrine cross-refs and
 # substrate-selection language without any cred-mutation in scope; threshold
@@ -253,8 +291,8 @@ fi
 # corazon", explicit kv_store.creds.laptop_X mutation, "laptop-agent token
 # rotation" / "laptop-agent bearer" compound (the actual cred-action verbs).
 # BROAD threshold raised >=2 -> >=3.
-corazon_high=$(count_matches "$brief" '\b(laptop_passkey|laptop_agent|CORAZON_[A-Z_]+|rotate corazon|kv_store\.creds\.laptop_(agent|passkey)|laptop-agent token|laptop-agent bearer|set creds\.laptop|rotate creds\.laptop|corazon-token cycle|corazon-agent-token)\b')
-corazon_broad=$(count_matches "$brief" '\b(corazon|win11|windows 11|windows hello|sy094)\b')
+corazon_high=$(count_matches "$brief_verb_lines" '\b(laptop_passkey|laptop_agent|CORAZON_[A-Z_]+|rotate corazon|kv_store\.creds\.laptop_(agent|passkey)|laptop-agent token|laptop-agent bearer|set creds\.laptop|rotate creds\.laptop|corazon-token cycle|corazon-agent-token)\b')
+corazon_broad=$(count_matches "$brief_verb_lines" '\b(corazon|win11|windows 11|windows hello|sy094)\b')
 if [ "$corazon_high" -gt 0 ] || [ "$corazon_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/laptop-agent.md"
   if ! already_acked "$primary"; then
@@ -264,7 +302,7 @@ if [ "$corazon_high" -gt 0 ] || [ "$corazon_broad" -ge 3 ]; then
 fi
 
 # --- Resend / transactional email ---
-if echo "$brief" | grep -qiE '\b(resend\.com|resend api|re_[a-z0-9]|transactional email|smtp.*setup|coexist.*email|RESEND_[A-Z_]*KEY|rotate resend)\b'; then
+if printf '%s' "$brief_verb_lines" | grep -qiE '\b(resend\.com|resend api|re_[a-z0-9]|transactional email|smtp.*setup|coexist.*email|RESEND_[A-Z_]*KEY|rotate resend)\b'; then
   primary="/home/tate/ecodiaos/docs/secrets/resend.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Resend / transactional email work but does not reference ~/ecodiaos/docs/secrets/. Read: resend.md before dispatching.")
@@ -279,7 +317,7 @@ fi
 # for "Canva / design automation" Gap 4 block).
 
 # --- Xero ---
-if echo "$brief" | grep -qiE '\b(xero\.com|xero api|xero login|xero org|xero dashboard|xero category|XERO_[A-Z_]*|rotate xero)\b'; then
+if printf '%s' "$brief_verb_lines" | grep -qiE '\b(xero\.com|xero api|xero login|xero org|xero dashboard|xero category|XERO_[A-Z_]*|rotate xero)\b'; then
   primary="/home/tate/ecodiaos/docs/secrets/xero-code-login.md"
   if ! already_acked "$primary"; then
     warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Xero work but does not reference ~/ecodiaos/docs/secrets/. Read: xero-code-login.md before dispatching. Note: bookkeeping MCP uses a separate OAuth integration not held in kv_store today.")
@@ -294,8 +332,8 @@ fi
 # not mutating) is the canonical false-positive case from 16:08 AEST today.
 # HIGH = mutation/rotation/key envvar/dashboard. BROAD = bare vendor or
 # kv_store ref; requires >=2 hits.
-deepseek_high=$(count_matches "$brief" '\b(rotate deepseek|api\.deepseek\.com|deepseek api key|deepseek dashboard|DEEPSEEK_[A-Z_]+|deepseek_api_key|kv_store\.creds\.deepseek[[:space:]]*=|set kv_store\.creds\.deepseek)\b')
-deepseek_broad=$(count_matches "$brief" '\b(deepseek|kv_store\.creds\.deepseek)\b')
+deepseek_high=$(count_matches "$brief_verb_lines" '\b(rotate deepseek|api\.deepseek\.com|deepseek api key|deepseek dashboard|DEEPSEEK_[A-Z_]+|deepseek_api_key|kv_store\.creds\.deepseek[[:space:]]*=|set kv_store\.creds\.deepseek)\b')
+deepseek_broad=$(count_matches "$brief_verb_lines" '\b(deepseek|kv_store\.creds\.deepseek)\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3. Pre-fix, an
 # RCA brief mentioning "DeepSeek" + "kv_store.creds.deepseek" as a precondition
 # probe (read-only, no mutation) hit broad=2 on line-counting and fired. With
@@ -318,8 +356,8 @@ fi
 # Kept: "canva connect" (the actual product name), "canva api key" (specific
 # cred), "canva oauth" / "canva token" / "canva dashboard" / "rotate canva" /
 # CANVA_[A-Z_]+ envvar. Broad threshold raised >=2 -> >=3.
-canva_high=$(count_matches "$brief" '\b(canva connect|canva\.com/connect|CANVA_[A-Z_]+|rotate canva|canva oauth|canva token|canva api key|canva dashboard)\b')
-canva_broad=$(count_matches "$brief" '\b(canva|design automation|brand asset)\b')
+canva_high=$(count_matches "$brief_verb_lines" '\b(canva connect|canva\.com/connect|CANVA_[A-Z_]+|rotate canva|canva oauth|canva token|canva api key|canva dashboard)\b')
+canva_broad=$(count_matches "$brief_verb_lines" '\b(canva|design automation|brand asset)\b')
 if [ "$canva_high" -gt 0 ] || [ "$canva_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/canva-connect-api.md"
   if ! already_acked "$primary"; then
@@ -332,8 +370,8 @@ fi
 # Phase C Gap 4 (9 May 2026): bare "revenuecat" alone fired on doctrine
 # cross-refs and pattern mentions. HIGH = api key / sdk integration /
 # mutation / dashboard. BROAD = bare vendor / IAP-domain term; requires >=2.
-revenuecat_high=$(count_matches "$brief" '\b(REVENUECAT_[A-Z_]+|rotate revenuecat|revenuecat dashboard|revenuecat sdk|revenuecat api key|revenuecat token|revenuecat secret)\b')
-revenuecat_broad=$(count_matches "$brief" '\b(revenuecat|in-app purchase|subscription paywall|roam[- ]?iap)\b')
+revenuecat_high=$(count_matches "$brief_verb_lines" '\b(REVENUECAT_[A-Z_]+|rotate revenuecat|revenuecat dashboard|revenuecat sdk|revenuecat api key|revenuecat token|revenuecat secret)\b')
+revenuecat_broad=$(count_matches "$brief_verb_lines" '\b(revenuecat|in-app purchase|subscription paywall|roam[- ]?iap)\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
 if [ "$revenuecat_high" -gt 0 ] || [ "$revenuecat_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/_pending-revenuecat.md"
@@ -352,9 +390,9 @@ fi
 # HIGH = mutation context (rotate / set / SQL UPDATE / value assignment).
 # BROAD = bare creds.X mention; requires >=2 distinct creds.* paths
 # (multiple distinct paths in one brief signals active manipulation).
-generic_creds_high=$(count_matches "$brief" '(rotate kv_store\.creds|kv_store\.creds\.[a-z_][a-z_0-9.]*[[:space:]]*=|set kv_store\.creds|update[[:space:]]+.*kv_store.*creds|insert into.*kv_store.*creds|delete from.*kv_store.*creds|rotate creds\.[a-z])')
-# Count DISTINCT creds.X paths mentioned (sort -u to dedupe repeats).
-generic_creds_paths=$(printf '%s' "$brief" | grep -oiE '(kv_store\.creds\.|^|[^a-z_])creds\.[a-z_][a-z_0-9.]+' 2>/dev/null | sort -u | wc -l)
+generic_creds_high=$(count_matches "$brief_verb_lines" '(rotate kv_store\.creds|kv_store\.creds\.[a-z_][a-z_0-9.]*[[:space:]]*=|set kv_store\.creds|update[[:space:]]+.*kv_store.*creds|insert into.*kv_store.*creds|delete from.*kv_store.*creds|rotate creds\.[a-z])')
+# Count DISTINCT creds.X paths on verb-containing lines only.
+generic_creds_paths=$(printf '%s' "$brief_verb_lines" | grep -oiE '(kv_store\.creds\.|^|[^a-z_])creds\.[a-z_][a-z_0-9.]+' 2>/dev/null | sort -u | wc -l)
 if [ "$generic_creds_high" -gt 0 ] || [ "$generic_creds_paths" -ge 2 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/INDEX.md"
   if ! already_acked "$primary"; then
