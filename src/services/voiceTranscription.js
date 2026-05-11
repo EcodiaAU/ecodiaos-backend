@@ -2,10 +2,13 @@
  * voiceTranscription.js - OpenAI Whisper one-shot transcription.
  *
  * Authored by fork_mownezy2_77bebd (W2: /api/voice/chunk pipeline).
- * Fixed by fork_mp1sx7i0_9ba00e (12 May 2026): switched to form.getBuffer()
- * (synchronous, no streaming race conditions) + strip codec suffix from
- * MIME type so 'audio/webm;codecs=opus' becomes 'audio/webm' before
- * sending to OpenAI (codec suffix caused intermittent 400 rejections).
+ * Fixed v1 by fork_mp1sx7i0_9ba00e (12 May 2026): strip codec suffix from
+ * MIME type so 'audio/webm;codecs=opus' becomes 'audio/webm'.
+ * Fixed v2 by fork_mp1uqcvm_e0c2b4 (12 May 2026): replaced npm form-data
+ * package with Node 20 native FormData + Blob. The npm form-data getBuffer()
+ * passes boundary separators as strings to Buffer.concat() which Node >=18
+ * rejects with ERR_INVALID_ARG_TYPE. Native FormData + fetch handles
+ * multipart encoding internally with no manual buffer assembly.
  *
  * Exports `transcribeChunk({ buffer, mimeType, filename })` which
  * POSTs to https://api.openai.com/v1/audio/transcriptions and returns
@@ -19,7 +22,7 @@
  * combats Whisper's well-known habit of hallucinating "Thanks for
  * watching." / "..." / "you" / etc on near-silent inputs.
  */
-const FormData = require('form-data')
+// No npm form-data import - use Node 20 native FormData + Blob (available globally)
 const logger = require('../config/logger')
 
 const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions'
@@ -40,34 +43,27 @@ async function transcribeChunk({ buffer, mimeType, filename }) {
   // trigger intermittent 400 "Invalid file format" rejections.
   const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim()
 
-  const form = new FormData()
-  form.append('file', buffer, {
-    filename: filename || 'chunk.webm',
-    contentType: cleanMime,
-  })
+  // Use Node 20 native FormData + Blob. The npm form-data package's
+  // getBuffer() passes boundary separators as strings to Buffer.concat()
+  // which Node >=18 rejects (ERR_INVALID_ARG_TYPE). Native fetch +
+  // FormData handles multipart encoding without manual buffer assembly.
+  const form = new globalThis.FormData()
+  form.append('file', new Blob([buffer], { type: cleanMime }), filename || 'chunk.webm')
   form.append('model', 'whisper-1')
   form.append('language', 'en')
   form.append('response_format', 'json')
   form.append('temperature', '0')
   form.append('prompt', PROMPT_HINT)
 
-  // form.getBuffer() builds the full multipart body synchronously.
-  // All parts are Buffers or strings (multer memoryStorage, no streams),
-  // so this is safe and eliminates the streaming/event-listener race
-  // conditions in the previous getLength+resume approach.
-  const body = form.getBuffer()
-  const headers = {
-    Authorization: `Bearer ${apiKey}`,
-    ...form.getHeaders(),
-    'Content-Length': String(body.length),
-  }
-
   let res
   try {
     res = await fetch(OPENAI_URL, {
       method: 'POST',
-      headers,
-      body,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        // Do NOT set Content-Type - let fetch set it with the correct boundary
+      },
+      body: form,
     })
   } catch (err) {
     logger.error('[VoiceTranscription] fetch failed', { error: err.message })
