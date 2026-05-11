@@ -1158,7 +1158,7 @@ const MAX_RETRY_DEPTH = 2
 // Hard 2s timeout - if Neo4j is slow or unavailable the user turn proceeds
 // unblocked. Fail-open on all errors.
 
-async function _injectRelevantMemory(userMessage, lastAssistantTail) {
+async function _injectRelevantMemory(userMessage, lastAssistantTail, dispatchEventId = null) {
   if (env.OS_MEMORY_INJECTION_ENABLED === 'false') return null
 
   try {
@@ -1205,10 +1205,16 @@ async function _injectRelevantMemory(userMessage, lastAssistantTail) {
 
     if (!results || results.length === 0) return null
 
-    // ─── Layer 7 (Phase F) — episode_resurface_event telemetry ──────────
+    // ─── Layer 7 (Phase G) — episode_resurface_event telemetry ──────────
     // Filter Episode hits and record each as a row in episode_resurface_event.
     // Fire-and-forget: never await. Failures are swallowed by the service.
     // Drives the repeated_failure_rate health metric (Layer 7 primary).
+    //
+    // dispatch_event_id: the most-recent dispatch_event at turn start, resolved
+    // by _sendMessageImpl and threaded down here as a parameter. This provides
+    // the FK traceability chain required by Phase G audit critique-01. When
+    // null (e.g. first-ever turn before any dispatch events exist) the column
+    // stays NULL with an explanatory comment — NOT a missing-wire bug.
     try {
       const episodeHits = results.filter(r => r && r.label === 'Episode')
       if (episodeHits.length > 0) {
@@ -1217,12 +1223,13 @@ async function _injectRelevantMemory(userMessage, lastAssistantTail) {
         // as the fallback that the recorder accepts.
         const ctx = {
           queryText,
+          dispatchEventId, // Phase G: wired via param threading from _sendMessageImpl
           hookName: 'os_session_relevant_memory',
           toolName: 'os_session_message',
           metadataExtra: {
-            phase: 'F',
+            phase: 'G',
             layer: 7,
-            wired_by: 'fork_moxci516_f30b5d',
+            wired_by: 'fork_mp1fy0e6_76f2f9',
           },
         }
         // Don't await: keep the user turn unblocked. The Promise resolves to
@@ -1959,8 +1966,26 @@ async function _sendMessageImpl(content, opts = {}) {
       resolve(null)
     }, ms)),
   ])
+  // ─── Phase G: resolve most-recent dispatch_event_id for Layer 7 FK wiring ──
+  // The episode_resurface_event table has a dispatch_event_id FK that was
+  // always NULL (Phase G audit critique-01). We resolve the most-recent
+  // dispatch_event at turn-start and thread it into _injectRelevantMemory so
+  // recordResurfaces can populate the FK. Fail-open: NULL is acceptable when
+  // the table is empty or the query fails.
+  let _latestDispatchEventId = null
+  try {
+    const _deRows = await db`
+      SELECT id FROM dispatch_event ORDER BY ts DESC LIMIT 1
+    `
+    if (_deRows && _deRows.length > 0) {
+      _latestDispatchEventId = _deRows[0].id
+    }
+  } catch (_deErr) {
+    logger.debug('OS Session: dispatch_event_id lookup failed (non-fatal)', { error: _deErr.message })
+  }
+
   const _memoryBlockPromise = _withTimeout(
-    _injectRelevantMemory(content, _lastAssistantTail).catch(() => null),
+    _injectRelevantMemory(content, _lastAssistantTail, _latestDispatchEventId).catch(() => null),
     5000,
     'memory injection',
   )
