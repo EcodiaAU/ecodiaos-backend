@@ -114,6 +114,7 @@ const HIGH_PRIORITY_FORK_CRONS = new Set([
   //    cronForkDispatcher; HIGH classification means budget bypass so the
   //    self-healing signals never silently skip. ──────────────────────────────
   'telemetry-dispatch-consumer',   // every 15m - JSONL→Postgres consumer (Layer 4 of decision-quality).
+  'telemetry-perf-consumer',       // every 15m - JSONL→Postgres consumer for per-primitive perf events (Layer 6 of decision-quality, Phase E H1-A).
   'decision-quality-classifier',   // every 1h - Phase D failure classifier.
   'telemetry-outcome-inference',   // every 30m - outcome inferrer.
   'os-forks-reaper',               // every 30m - auto-reconcile stuck forks (in-mem GC vs DB drift).
