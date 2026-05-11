@@ -14,7 +14,7 @@ This applies to:
 - Source code (comments, string literals, JSDoc, JSX content, log messages)
 - Markdown (doctrine files, READMEs, drafts authored fresh today, status_board context I author today)
 - Database content (any user-visible string column we author)
-- Outbound emails / SMS / iMessage / chat / Slack
+- Outbound emails / SMS / chat / Slack
 - Commit messages
 - Neo4j node descriptions and Decisions
 - Status_board next_action / context strings

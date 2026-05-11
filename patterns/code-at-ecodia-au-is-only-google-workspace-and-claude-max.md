@@ -10,7 +10,7 @@ triggers: code-at-ecodia-au, code-account-scope, code-third-vendor, code-as-sepa
 
 1. **Google Workspace** - the Gmail account, the user the conductor sends mail from / receives mail at, the surface the gmail MCP tools attach to.
 2. **Anthropic Claude Max** - the dedicated subscription that runs the Factory CLI process, separate from the tate@-Max subscription that runs the conductor's main session.
-3. **Apple** - one Apple ID: membership in the Ecodia Pty Ltd Apple Developer team (`team_id 86PUY7393S`, kv_store `creds.apple`). Contact to Tate goes via Twilio SMS (iMessage removed Tate-directed 11 May 2026).
+3. **Apple** - one Apple ID: membership in the Ecodia Pty Ltd Apple Developer team (`team_id 86PUY7393S`, kv_store `creds.apple`). Used for Apple Developer team membership only; contact to Tate is via Twilio SMS.
 
 EVERY OTHER VENDOR resolves to ONE account, logged in as Tate. Specifically: GitHub/Bitbucket/Vercel/Stripe/AWS/Cloudflare/DO/Supabase/Neo4j/Resend/Canva/Xero/RevenueCat/Zernio. The conductor reaches those via Tate's logged-in session through Corazon (the laptop-agent peer paradigm) or via vendor API tokens stored in `kv_store.creds.*`.
 
@@ -35,13 +35,13 @@ EVERY OTHER VENDOR resolves to ONE account, logged in as Tate. Specifically: Git
 ## Origin
 
 - Pre-2026-05-04: doctrine was "exactly two places" (Google Workspace + Anthropic). Set during the Factory wiring period when the dedicated Anthropic Max account became the second `code@` surface.
-- 4 May 2026 18:46 AEST: Tate verbatim "YOu've alread ygot a code@ apple id..." while the conductor was scoping a dedicated EcodiaOS iMessage Apple ID. Surfaced that the existing Apple Developer team membership is held by an Apple ID at code@ - so iMessage activation just needs Tate to sign Messages.app on SY094 into that existing Apple ID, not create a new one. Doctrine updated to three-place count. Cross-ref Episode tracking the iMessage primary-channel ship (commit + Episode TBD via fork_moqyjzox_763fdb).
+- 4 May 2026 18:46 AEST: Tate directive confirmed that the existing Apple Developer team membership is held by an Apple ID at code@ - doctrine updated to three-place count (Google + Anthropic + Apple).
 
 ## Cross-references
 
 - `~/CLAUDE.md` line 204 - the canonical three-vendor sentence.
-- `~/ecodiaos/patterns/sms-segment-economics.md` - WHY iMessage primary matters (Twilio SMS cost compounding during incident loops).
+- `~/ecodiaos/patterns/sms-segment-economics.md` - SMS cost discipline (Twilio segment cost compounding during incident loops).
 - `~/ecodiaos/patterns/sms-one-update-per-fix-not-running-commentary.md` - sibling cost-discipline rule on the SMS surface itself.
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - the peer-paradigm path that handles all OTHER vendors when code@ doesn't exist there.
 - `kv_store.creds.apple` - Apple Developer team metadata.
-- `kv_store.creds.macincloud` - SY094 SSH config for driving Messages.app.
+- `kv_store.creds.macincloud` - SY094 SSH config and credentials.

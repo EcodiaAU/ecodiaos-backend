@@ -1,5 +1,5 @@
 ---
-triggers: health-canary-silent-accumulate, canary-no-alert, threshold-without-alert, consecutive-failures-no-escalation, imessage-canary-silent, dead-mans-switch-without-trigger, kv-store-health-without-action, recorded-not-actioned, monitoring-without-alerting, primary-contact-channel-dark, fallback-channel-available-but-unused
+triggers: health-canary-silent-accumulate, canary-no-alert, threshold-without-alert, consecutive-failures-no-escalation, dead-mans-switch-without-trigger, kv-store-health-without-action, recorded-not-actioned, monitoring-without-alerting, primary-contact-channel-dark, fallback-channel-available-but-unused
 ---
 
 # Health canaries must alert at fixed thresholds, not silently accumulate
@@ -10,7 +10,7 @@ A health canary cron that monitors a Tate-contact-path, a paying-customer surfac
 
 Two thresholds, both per-canary configurable:
 - **Notice threshold** (default `consecutive_failures >= 4`, i.e. ~24h of degradation on a 6h cron, or 4 cycles on whatever cadence the canary runs): upsert a P2 status_board row tagged with the canary name and the kv_store key, set `next_action_by` correctly (ecodiaos vs tate vs external).
-- **Escalate threshold** (default `consecutive_failures >= 12`, i.e. ~72h): bump existing row to P1 AND fire the substrate's documented fallback alert path. For a Tate-contact-path, this means Twilio SMS — Twilio routes around the broken iMessage substrate by definition. For a paying-customer surface, this means email + status_board P1 with `next_action_by=ecodiaos`.
+- **Escalate threshold** (default `consecutive_failures >= 12`, i.e. ~72h): bump existing row to P1 AND fire the substrate's documented fallback alert path. For a Tate-contact-path, this means Twilio SMS - the canonical direct channel. For a paying-customer surface, this means email + status_board P1 with `next_action_by=ecodiaos`.
 
 Both writes are idempotent (atomic UPSERT keyed on canary name); the canary firing repeatedly does not multiply rows or messages.
 
@@ -25,7 +25,7 @@ Canaries are easy to ship. Adding the right alerting threshold + fallback-path-k
 5. The substrate stays down for days
 6. A meta-loop or drift audit eventually surfaces it. By then the substrate has been dark for >>24h
 
-The primary-contact-channel case is the worst case because the conductor can't easily tell Tate the contact channel is down — the contact channel itself is the broken thing. The Twilio fallback is doctrine-clean precisely for this case (`~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md` names it explicitly).
+The contact-path case is worth calling out: when the channel itself is degraded, the escalate-threshold fallback (Twilio SMS) must fire regardless - that is exactly the case it was designed for.
 
 ## Implementation contract
 
@@ -60,7 +60,7 @@ The `entity_ref` keying makes the upsert idempotent — same canary firing every
 
 ## Anti-pattern: a status_board row at FIRST failure with vague next_action
 
-The 2026-05-07 P2 row `iMessage primary contact path degraded` had `next_action: "Probe SY094 watchers - inbound + outbound LaunchAgents alive? Messages.app signed in?"` Vague, doesn't say WHAT to fix or HOW long it's been broken. The row was technically present from cycle 1, so a meta-loop scanning the board could in principle have caught it, but:
+A 2026-05-07 P2 row for a degraded contact path had `next_action` phrased as a vague probe list with no concrete fix recipe. The row was technically present from cycle 1, so a meta-loop scanning the board could in principle have caught it, but:
 
 - Vague rows blend into the long tail of "tate review when back from Kili" rows
 - The row's `last_touched` doesn't bump as `consecutive_failures` climbs, so age signal stays at the original creation time
@@ -70,16 +70,14 @@ The fix is a structured `next_action` produced by the canary itself, including t
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/imessage-is-primary-contact-channel-to-tate.md` — the substrate this came from
-- `~/ecodiaos/patterns/imessage-tate-fallback-twilio-when-primary-degraded.md` — the documented fallback path that the canary should trigger at the escalate threshold (if not already authored, this should be next)
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — recording the metric without acting IS symbolic logging
 - `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` — the freshness rule for kv_store health rows; this pattern is the upstream half (canary writes correctly), that pattern is the downstream half (consumers read correctly)
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — five-layer applies here: producer (LaunchAgents on SY094) → trigger (network POST or AppleScript event) → bridge (api.admin.ecodia.au routes) → listener (canary cron + heartbeat aggregator) → side-effect (status_board upsert + Twilio fallback). The 46-failure-streak proved the side-effect layer was missing.
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — five-layer applies here: producer → trigger → bridge → listener (canary cron + heartbeat aggregator) → side-effect (status_board upsert + Twilio SMS). The 46-failure-streak proved the side-effect layer was missing.
 - `~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md` — the autonomous-pilot SMS gate this canary's escalate-threshold needs to respect (don't bypass when Tate is live in chat)
 
 ## Origin
 
-Meta-loop fire 2026-05-09 22:05 + 23:05 AEST. The 23:05 fire surfaced `kv_store.health.imessage_path` showing 46 consecutive failures since 2026-05-07T01:18 UTC — 2.5 days of silent degradation of the absolute-primary contact channel between EcodiaOS and Tate, while a Twilio fallback was available and doctrine-blessed for exactly this case.
+Meta-loop fire 2026-05-09 22:05 + 23:05 AEST. The 23:05 fire surfaced a kv_store health row showing 46 consecutive failures since 2026-05-07T01:18 UTC — 2.5 days of silent degradation of a contact path between EcodiaOS and Tate, while a Twilio SMS fallback was available and doctrine-blessed for exactly this case.
 
 The probe fork (fork_moyczp7o_1dcf2b) found compound failure: macOS TCC AppleEvents denied + LaunchAgents unloaded (RDP-required) + a NEW finding of inbound HMAC `awk '$2'`→`$NF` drift sister-script-pair from a 7 May patch (sibling drift sister to fork_moutg6ld_898d58 outbound patch).
 

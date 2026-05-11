@@ -4,7 +4,7 @@ triggers: never-ssh-macincloud, ssh-mic-forbidden, macincloud-rdp-only, sy094-rd
 
 # MacInCloud SY094 substrate selection - SSH for headless, RDP for GUI
 
-Select access substrate by what the work needs, not by blanket rule. SSH is the appropriate substrate for headless work (git, scp, package installs, `xcodebuild` headless, log tail, DB migrations, `launchctl` ops, `defaults write`, scripted tests, file CRUD, killing rogue processes). RDP from Corazon is the appropriate substrate for any GUI-bound work (Xcode IDE, App Store Connect upload UI, screencapture-verified macros, cliclick-driven flows, Messages.app interactive, Android Studio IDE, anything needing the active GUI session).
+Select access substrate by what the work needs, not by blanket rule. SSH is the appropriate substrate for headless work (git, scp, package installs, `xcodebuild` headless, log tail, DB migrations, `launchctl` ops, `defaults write`, scripted tests, file CRUD, killing rogue processes). RDP from Corazon is the appropriate substrate for any GUI-bound work (Xcode IDE, App Store Connect upload UI, screencapture-verified macros, cliclick-driven flows, Android Studio IDE, anything needing the active GUI session).
 
 The original 5 May 2026 absolute SSH ban is superseded as of 7 May 2026: Tate paid the +AU$9/mo "Enable Remote Build Port (SSH)" MacInCloud add-on, authorising SSH as a first-class substrate for headless work. The diagnosis that motivated the original ban was correct - SSH-spawned shells on macOS launchd inherit no Aqua/GUI context - but that diagnosis only forbids SSH for GUI-bound work, not for headless work. The new doctrine reflects that distinction.
 
@@ -29,8 +29,7 @@ The original 5 May 2026 absolute SSH ban is superseded as of 7 May 2026: Tate pa
 - App Store Connect upload via Xcode Organizer or Transporter UI
 - `screencapture` and any verification flow that needs pixels
 - `cliclick`-driven flows (Accessibility-permission-bound)
-- AppleScript interacting with Messages.app, Safari, or any GUI app via `tell application`
-- Messages.app interactive sessions (incl. iMessage outbound watcher under FDA-bound launchd)
+- AppleScript interacting with Safari, or any GUI app via `tell application`
 - Android Studio IDE
 - Any tool that needs the GUI Aqua context, Window Server, or TCC permission grants
 

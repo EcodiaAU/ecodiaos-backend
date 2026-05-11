@@ -248,7 +248,7 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 ### SY094 (MacInCloud Mac)
 - Token: `creds.macincloud` (under `agent_token`)
 - macOS 15.7.4, Apple Silicon, 16GB, Xcode 26.3
-- Has Claude.app, Cursor, Android Studio, Firefox, Messages.app (Apple ID code@ecodia.au - used for Apple Developer team membership only; iMessage contact channel removed 11 May 2026)
+- Has Claude.app, Cursor, Android Studio, Firefox (Apple ID code@ecodia.au - used for Apple Developer team membership only)
 
 **Substrate selection rule (7 May 2026, supersedes 5 May absolute SSH ban):** select access substrate by what the work needs. SSH for headless work, RDP from Corazon for GUI-bound work. Tate paid the +AU$9/mo "Enable Remote Build Port (SSH)" MacInCloud add-on at ~11:28 AEST 7 May 2026, authorising SSH as a first-class substrate for headless work.
 
@@ -272,7 +272,6 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 - `screencapture` and any pixel-verification flow
 - `cliclick`-driven flows (Accessibility-permission-bound)
 - AppleScript GUI calls (`tell application "Messages"`, `tell application "System Events"`)
-- Messages.app interactive (Apple Developer notifications; iMessage contact channel removed 11 May 2026)
 - Android Studio IDE
 - Anything needing the active GUI session
 

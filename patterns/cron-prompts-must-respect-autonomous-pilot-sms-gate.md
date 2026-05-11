@@ -36,7 +36,7 @@ Prepend at the very top of the prompt, BEFORE any other content (including any "
 
 - Prepend the canonical header verbatim - do not paraphrase, do not abbreviate, do not summarise. The firing turn matches against the literal text.
 - Treat ambiguous cases as in-scope and patch them. The cost of an extra header on a critical-breakage cron is zero. The cost of a sleep-disturbing SMS is real.
-- For genuine critical-breakage paths (system-health restart-loop, kg-consolidation 3-strike pipeline failure), explicitly state the exemption in the prompt body so the firing turn does not also read the header and suppress the breakage SMS. The header text is permissive of breakage SMS by design ("Reset the iMessage/SMS gate to fire normally only for genuine critical breakage").
+- For genuine critical-breakage paths (system-health restart-loop, kg-consolidation 3-strike pipeline failure), explicitly state the exemption in the prompt body so the firing turn does not also read the header and suppress the breakage SMS. The header text is permissive of breakage SMS by design ("Reset the SMS gate to fire normally only for genuine critical breakage").
 - Verify after patching with: `SELECT id, name, (prompt LIKE '%autonomous_pilot%' OR prompt LIKE '%no_sms_unless_critical%') AS has_pilot_check FROM os_scheduled_tasks WHERE id IN (...)`. Confirm has_pilot_check=true on every patched cron.
 - When AUTHORING any new cron with an SMS path, include the header at the top from the start. Do not author it bare and patch later.
 

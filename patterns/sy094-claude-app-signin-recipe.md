@@ -262,7 +262,7 @@ This section will accumulate optimisation TODOs across recipe iterations.
 
 **AP-5 - Pre-populating the verified-coordinates table from imagination.** Violates `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md`. The first authoring run MUST be Computer Use Path B with live UI Automation enumeration; post-validation, coordinates are codified into the recipe with a dated verification stamp.
 
-**AP-6 - Sending an SMS / iMessage to Tate during this work.** Brief constraint. The 2FA blocker case (FM-5) escalates via status_board P3 row, not real-time ping. Tate will see the row in his next orientation.
+**AP-6 - Sending an SMS to Tate during this work.** Brief constraint. The 2FA blocker case (FM-5) escalates via status_board P3 row, not real-time ping. Tate will see the row in his next orientation.
 
 **AP-7 - Spawning a nested fork to handle the GUI-session prerequisite.** A fork running this recipe cannot spawn a Step-0-handler nested fork. The fork must either (a) drive Corazon RDP itself within its own MCP surface (acceptable), (b) defer to a status_board row asking the next conductor turn / next fork to handle Step 0 first.
 
