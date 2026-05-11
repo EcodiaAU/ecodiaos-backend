@@ -61,6 +61,70 @@ const {
 
 const execFileAsync = promisify(execFile)
 
+// ── Phase E Layer 6 H1-A: perf emission for cron-dispatched forks ───────────
+//
+// Cron-dispatched forks bypass the Claude Code SDK harness entirely - no model
+// turn, no PreToolUse hook, no emit-perf.sh EXIT trap. This means ~90% of
+// fork spawns (is_cron=true rows) produce ZERO rows in primitive_perf_event,
+// leaving Layer 6 telemetry dark for the vast majority of the fork estate.
+//
+// Fix: emit a perf JSONL line directly from Node.js using the same format as
+// shell-side emit-perf.sh so the 15-minute perfEventConsumer drains it
+// uniformly alongside conductor-dispatched events. We append to the same
+// perf-events.jsonl file rather than inserting directly to DB to stay
+// consistent with the single-writer pipeline and avoid connection overhead on
+// the hot dispatch path.
+//
+// primitive_name : 'cron:fork_spawn'
+// duration_ms    : measured across forkService.spawnFork() (the actual spawn)
+// status         : 'ok' | 'error'
+// payload_size   : cronTask.prompt.length (bytes)
+// metadata       : { fork_id, cron_name, route, estimated_cost }
+//
+// Fire-and-forget. Emission failure is swallowed silently - perf telemetry
+// must never block or crash the dispatch critical path.
+//
+// RCA: ~/ecodiaos/drafts/phase-e-layer6-dark-in-prod-rca-2026-05-09.md (H1-A)
+// Status row: d4337e11-6585-4cad-b5eb-09d5dd6874f7
+
+const PERF_TELEMETRY_DIR = process.env.ECODIAOS_PERF_TELEMETRY_DIR || '/home/tate/ecodiaos/logs/telemetry'
+const PERF_TELEMETRY_FILE = process.env.ECODIAOS_PERF_TELEMETRY_FILE || `${PERF_TELEMETRY_DIR}/perf-events.jsonl`
+
+/**
+ * Append one perf JSONL line for a cron fork spawn event.
+ * Mirrors the emit_perf_safe function in scripts/hooks/lib/emit-perf.sh.
+ * All errors are swallowed. Must never throw.
+ */
+function _emitCronForkPerfEvent({ primitiveName, durationMs, status, payloadSizeBytes, metadata }) {
+  try {
+    const ts = new Date().toISOString()
+    // Strip backslash and double-quote from string fields (same sanitisation
+    // as the shell-side hand-rolled JSON in emit-perf.sh).
+    const pn = String(primitiveName || 'cron:fork_spawn').replace(/[\\"]/g, '')
+    const st = String(status || 'ok').replace(/[\\"]/g, '')
+    const dm = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0
+    const psb = Number.isFinite(payloadSizeBytes) ? payloadSizeBytes : null
+    const meta = (metadata && typeof metadata === 'object') ? metadata : {}
+
+    const line = JSON.stringify({
+      ts,
+      primitive_name: pn,
+      duration_ms: dm,
+      status: st,
+      payload_size_bytes: psb,
+      metadata: meta,
+    })
+
+    try {
+      fs.mkdirSync(PERF_TELEMETRY_DIR, { recursive: true })
+    } catch (_) { /* ignore - dir may already exist */ }
+
+    fs.appendFileSync(PERF_TELEMETRY_FILE, line + '\n', { encoding: 'utf8', flag: 'a' })
+  } catch (_) {
+    // Silent. Perf emission must never block or crash the dispatch path.
+  }
+}
+
 // ── Phase D surfacing hooks - cron substrate coverage ───────────────────────
 //
 // The SDK harness PreToolUse/PostToolUse hooks (brief-consistency-check.sh,
@@ -380,6 +444,10 @@ async function dispatchCronAsFork(cronTask) {
     })
   })
 
+  // H1-A (Phase E Layer 6): bracket spawn with wall-clock timing so we can
+  // emit a perf event covering the cron dispatch path (which bypasses the
+  // Claude Code PreToolUse hooks that instrument conductor-dispatched forks).
+  const spawnStart = Date.now()
   let forkSnapshot
   try {
     // is_cron: true marks the os_forks row so its [FORK_REPORT] routes to
@@ -397,6 +465,20 @@ async function dispatchCronAsFork(cronTask) {
       is_cron: true,
     })
   } catch (err) {
+    // Emit perf row for the failed spawn (H1-A: cron path coverage).
+    _emitCronForkPerfEvent({
+      primitiveName: 'cron:fork_spawn',
+      durationMs: Date.now() - spawnStart,
+      status: 'error',
+      payloadSizeBytes: (cronTask.prompt || '').length,
+      metadata: {
+        fork_id: null,
+        cron_name: cronTask.name,
+        route,
+        estimated_cost: cost,
+        error: err.message ? err.message.slice(0, 200) : 'unknown',
+      },
+    })
     // Refund - spawn never happened.
     await _refundBudget(cost)
     logger.warn('cronForkDispatcher: spawnFork failed', {
@@ -416,6 +498,24 @@ async function dispatchCronAsFork(cronTask) {
   }
 
   const forkId = forkSnapshot?.fork_id
+
+  // H1-A (Phase E Layer 6): emit perf row for successful cron fork spawn.
+  // This is the counterpart to the hook:brief-consistency-check perf rows
+  // emitted for conductor-dispatched forks. primitive_name='cron:fork_spawn'
+  // so the consumer can filter cron vs conductor dispatches independently.
+  _emitCronForkPerfEvent({
+    primitiveName: 'cron:fork_spawn',
+    durationMs: Date.now() - spawnStart,
+    status: 'ok',
+    payloadSizeBytes: (cronTask.prompt || '').length,
+    metadata: {
+      fork_id: forkId,
+      cron_name: cronTask.name,
+      route,
+      estimated_cost: cost,
+    },
+  })
+
   if (forkId) {
     await _stampForkIdOnCron(cronTask.id, forkId)
   }
