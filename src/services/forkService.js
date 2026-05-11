@@ -919,11 +919,22 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     // to conserve weekly quota. Override per-tier via FORK_MANAGER_MODEL /
     // FORK_WORKER_MODEL env vars. DeepSeek forks already have model='deepseek-v4-pro'
     // from _resolveProviderForFork() and bypass this branch.
+    //
+    // 1M-context mode (model suffix `[1m]`) is OPT-IN via FORK_ENABLE_1M_CONTEXT=1.
+    // Anthropic bills 1M-context overage separately and rejects dispatch with
+    // `API Error: Extra usage is required for 1M context` on accounts that have
+    // not enabled Extra Usage. Default OFF — forks run in standard 200K context.
+    // No fork we run today approaches 200K input; managers + workers are <50K.
+    // Origin: 11 May 2026 11:00-11:10 AEST — 7 consecutive fork dispatches
+    // rejected in ~5s each with 0 tokens billed because [1m] was being appended
+    // unconditionally. Tate verbatim "Yep fix it".
     model: model || (() => {
       const base = is_manager
         ? (env.FORK_MANAGER_MODEL || 'claude-sonnet-4-6')
         : (env.FORK_WORKER_MODEL  || 'claude-sonnet-4-6')
-      return /\[1m\]$/i.test(base) ? base : `${base}[1m]`
+      const want1m = env.FORK_ENABLE_1M_CONTEXT === '1' || env.FORK_ENABLE_1M_CONTEXT === 'true'
+      const stripped = base.replace(/\[1m\]$/i, '')
+      return want1m ? `${stripped}[1m]` : stripped
     })(),
     maxTurns: 1000,  // raised from SDK default (~30) so forks can complete substantial multi-step work
     // Adaptive on Claude (avoids thinking round-trip 400s), disabled on DeepSeek.

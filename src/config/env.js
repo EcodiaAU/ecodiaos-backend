@@ -243,9 +243,14 @@ const envSchema = z.object({
   // Fork model overrides. Workers default to sonnet-4-6; managers default to
   // sonnet-4-6 but can be bumped to opus via FORK_MANAGER_MODEL=claude-opus-4-7.
   // DeepSeek forks always use deepseek-v4-pro regardless of these vars.
-  // The [1m] suffix is appended automatically (same as OS_SESSION_MODEL logic).
+  // 1M-context mode is OPT-IN via FORK_ENABLE_1M_CONTEXT=1 — default OFF
+  // because Anthropic rejects dispatch with "Extra usage is required for 1M
+  // context" on accounts that have not enabled the per-overage billing toggle
+  // at claude.ai/settings/usage. Forks today are <50K input and don't need 1M.
+  // Origin: 11 May 2026 11:00-11:10 AEST fork-dispatch outage.
   FORK_WORKER_MODEL: z.string().default('claude-sonnet-4-6'),
   FORK_MANAGER_MODEL: z.string().default('claude-sonnet-4-6'),
+  FORK_ENABLE_1M_CONTEXT: z.string().default(''),
   OS_SESSION_CWD: z.string().default('/home/tate/ecodiaos'),
   // PROMPT_ASSEMBLY_SPEC §3.5 target. Previous default 800K was a workaround
   // for compaction-firing-too-eager bugs that have since shipped fixes (the
