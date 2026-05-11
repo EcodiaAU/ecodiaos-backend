@@ -349,6 +349,151 @@ async function classifyOutcome({ outcome, dispatch, pgClient }) {
 }
 
 /**
+ * Classifier for outcome='success' rows.
+ *
+ * Success rows don't need semantic search against Neo4j - we only need to
+ * examine the surface_event / application_event chain to see whether the
+ * conductor silently ignored surfaced doctrine while still producing a
+ * successful outcome.
+ *
+ * Returns:
+ *   classification: 'usage_success_with_silent_doctrine' | 'verified_clean'
+ *
+ * Rules:
+ *   - If any surfaced pattern has tagged_silent=true (no explicit [APPLIED] or
+ *     [NOT-APPLIED] tag): usage_success_with_silent_doctrine. The conductor
+ *     got lucky (outcome was success) but bypassed the doctrine-application
+ *     loop — the architecture's core feedback signal.
+ *   - Otherwise: verified_clean. Surfacing pipeline + application were sound,
+ *     or no patterns surfaced at all (no interaction to evaluate).
+ *
+ * Phase D expansion — Phase G critique #5 (2026-05-11): success rows are 70.5%
+ * of outcome_event; classifying them is the primary value proposition of
+ * Phase D. The "detect whether conductor applies surfaced doctrine" signal only
+ * exists if we look at the dominant class.
+ */
+async function classifySuccessOutcome({ outcome, pgClient }) {
+  const tagState = await getDispatchTagState(pgClient, outcome.dispatch_event_id)
+
+  if (tagState.silent.size > 0) {
+    const silentList = Array.from(tagState.silent)
+    return {
+      classification: 'usage_success_with_silent_doctrine',
+      evidence: {
+        surfaced: Array.from(tagState.surfaced),
+        applied: Array.from(tagState.applied),
+        silent: silentList,
+        reason: `success outcome with ${silentList.length} silently-ignored pattern(s) [${silentList.slice(0, 3).join(', ')}]; doctrine reached the conductor but was not acknowledged — feeds pattern_silent_majority drift signal`,
+      },
+    }
+  }
+
+  return {
+    classification: 'verified_clean',
+    evidence: {
+      surfaced: Array.from(tagState.surfaced),
+      applied: Array.from(tagState.applied),
+      silent: [],
+      reason: tagState.surfaced.size > 0
+        ? `success with ${tagState.applied.size}/${tagState.surfaced.size} pattern(s) applied; no silent-doctrine signals`
+        : 'success with no surfaced patterns; no doctrine interaction to evaluate',
+    },
+  }
+}
+
+/**
+ * Classifier for outcome='unverified' rows older than 24h.
+ *
+ * Unverified means no ground-truth signal arrived after the dispatch — Tate
+ * neither confirmed success nor issued a correction. After 24h with no signal,
+ * classify as classification_deficit: the verification mechanism did not
+ * complete. This is distinct from failure (bad outcome) and success (confirmed
+ * good outcome) — it is dark matter the metric pipeline surfaces as a
+ * verification-rate problem, not a doctrine failure to remediate.
+ *
+ * Note: the 24h age gate is enforced at the SQL level in tickClassifier so
+ * this function always receives qualifying rows; the age is re-computed here
+ * purely for the human-readable reason field.
+ */
+function classifyUnverifiedOutcome(outcome) {
+  const ageHours = outcome.ts
+    ? Math.round((Date.now() - new Date(outcome.ts).getTime()) / 3600000)
+    : null
+  const ageLabel = ageHours != null ? `${ageHours}h` : '>24h'
+  return {
+    classification: 'classification_deficit',
+    evidence: {
+      surfaced: [],
+      applied: [],
+      silent: [],
+      reason: `outcome=unverified with no subsequent ground-truth signal after ${ageLabel}; verification mechanism did not complete — surfaces as classification_deficit in the metric pipeline`,
+    },
+  }
+}
+
+/**
+ * Shannon entropy check on the rolling 50-row classification window.
+ *
+ * If entropy < 0.5 bits (single-class collapse), surface a P2 status_board row
+ * as a single-class-collapse alert. A healthy classifier running across all 7
+ * outcome classes has max entropy = log2(7) ≈ 2.81 bits; collapsing to a
+ * single class produces 0 bits. The 0.5 threshold is intentionally tight -
+ * anything below it means >85% of rows share one class.
+ *
+ * Per Phase D spec (~/ecodiaos/patterns/phase-d-must-classify-all-outcome-classes-not-just-failure.md):
+ * "Emit a single-class-collapse alert to status_board (P2) when classifier
+ * output entropy over the rolling 50-row window drops below 0.5."
+ */
+async function checkClassificationEntropy(client) {
+  const r = await client.query(`
+    SELECT classification, COUNT(*)::int AS n
+    FROM (
+      SELECT classification FROM outcome_event
+      WHERE classification IS NOT NULL
+      ORDER BY ts DESC
+      LIMIT 50
+    ) sub
+    GROUP BY classification
+  `)
+
+  if (!r.rows.length) return null
+
+  const total = r.rows.reduce((s, row) => s + row.n, 0)
+  if (total === 0) return null
+
+  const entropy = r.rows.reduce((h, row) => {
+    const p = row.n / total
+    return h - (p > 0 ? p * Math.log2(p) : 0)
+  }, 0)
+
+  const distribution = Object.fromEntries(r.rows.map(row => [row.classification, row.n]))
+
+  if (entropy < 0.5) {
+    const dominantClass = r.rows.reduce((a, b) => (a.n > b.n ? a : b))
+    const NAME = 'Phase D classifier single-class collapse - entropy below 0.5 bits'
+    const ctx = `Rolling-50 entropy: ${entropy.toFixed(3)} bits (threshold 0.5). Dominant class: '${dominantClass.classification}' (${dominantClass.n}/${total} rows). Distribution: ${JSON.stringify(distribution)}. Action: audit classifier routing - a healthy 7-class distribution should reach ~2.8 bits.`
+    const exists = await client.query(
+      `SELECT id FROM status_board WHERE name = $1 AND archived_at IS NULL LIMIT 1`,
+      [NAME]
+    )
+    if (exists.rowCount > 0) {
+      await client.query(
+        `UPDATE status_board SET status = 'in-progress', context = $2, last_touched = NOW() WHERE id = $1`,
+        [exists.rows[0].id, ctx]
+      )
+    } else {
+      await client.query(
+        `INSERT INTO status_board (entity_type, name, status, next_action, next_action_by, priority, context, last_touched)
+         VALUES ('infrastructure', $1, 'in-progress', 'Audit Phase D classifier routing; check SQL WHERE clause includes all outcome classes', 'ecodiaos', 2, $2, NOW())`,
+        [NAME, ctx]
+      )
+    }
+  }
+
+  return { entropy, total, distribution }
+}
+
+/**
  * Run one classification tick. Pulls up to `max` unclassified correction rows,
  * classifies each, persists classification + evidence + classification_at.
  *
@@ -362,28 +507,43 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
     let classified = 0
     let skipped = 0
     let errors = 0
-    const distribution = { usage_failure: 0, surfacing_failure: 0, doctrine_failure: 0, operational_failure: 0 }
+    // Phase D expansion (2026-05-12, fork_mp1fxb9p_9c3390): add success and
+    // unverified classification classes so the full outcome_event surface is
+    // covered. Previously only failure/correction were processed, leaving 93%
+    // of rows permanently NULL. Per Phase G critique #5.
+    const distribution = {
+      usage_failure: 0,
+      surfacing_failure: 0,
+      doctrine_failure: 0,
+      operational_failure: 0,
+      usage_success_with_silent_doctrine: 0,
+      verified_clean: 0,
+      classification_deficit: 0,
+    }
 
-    // Pull oldest unclassified corrections AND failures first, capped at `max`.
-    // Phase G Critique #1: failures are real negative ground-truth signals that
-    // need the same usage_failure / surfacing_failure / doctrine_failure routing.
-    // 'unverified' rows are intentionally excluded - they are dark matter, not
-    // a doctrine failure to classify.
-    // Joined with dispatch_event so we have action context for the query.
+    // Pull oldest unclassified rows across ALL outcome classes, capped at `max`.
+    // Phase G Critique #1: failures are real negative ground-truth signals.
+    // Phase G Critique #5 (2026-05-11): success rows (70.5% of population) and
+    // unverified rows (22.6%) were never processed, leaving 93% classification
+    // NULL. Both are now included. Unverified rows gate on a 24h age floor —
+    // newer rows may still receive a signal, so we wait.
+    // Joined with dispatch_event so we have action context for failure/correction.
     const r = await client.query(
       `SELECT o.id              AS outcome_id,
               o.dispatch_event_id,
               o.outcome,
               o.evidence,
               o.correction_text,
+              o.ts,
               d.action_type,
               d.tool_name,
               d.context_keywords,
               d.metadata
        FROM outcome_event o
        LEFT JOIN dispatch_event d ON d.id = o.dispatch_event_id
-       WHERE o.outcome IN ('correction', 'failure')
+       WHERE o.outcome IN ('correction', 'failure', 'success', 'unverified')
          AND o.classification IS NULL
+         AND (o.outcome != 'unverified' OR o.ts < NOW() - INTERVAL '24 hours')
        ORDER BY o.ts ASC
        LIMIT $1`,
       [max]
@@ -397,6 +557,7 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
           outcome: row.outcome,
           evidence: row.evidence,
           correction_text: row.correction_text,
+          ts: row.ts,
         }
         const dispatch = {
           action_type: row.action_type,
@@ -404,7 +565,22 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
           context_keywords: row.context_keywords,
           metadata: row.metadata,
         }
-        const result = await classifyOutcome({ outcome, dispatch, pgClient: client })
+
+        // Route to the appropriate classifier based on outcome class.
+        let result
+        if (row.outcome === 'success') {
+          // Success rows: examine surface/application chain for silent doctrine.
+          // No semantic search needed — the question is whether the conductor
+          // acknowledged patterns that surfaced alongside a successful outcome.
+          result = await classifySuccessOutcome({ outcome, pgClient: client })
+        } else if (row.outcome === 'unverified') {
+          // Unverified rows >24h: dark matter — no ground-truth signal arrived.
+          // Classify as classification_deficit without semantic search.
+          result = classifyUnverifiedOutcome(outcome)
+        } else {
+          // failure / correction: full semantic search + tag-state routing.
+          result = await classifyOutcome({ outcome, dispatch, pgClient: client })
+        }
 
         await client.query(
           `UPDATE outcome_event
@@ -453,7 +629,18 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
       console.warn('[failureClassifier] doctrine-gap surface failed:', err.message)
     }
 
-    return { ok: true, classified, skipped, errors, distribution, max }
+    // Entropy check (Phase D expansion, 2026-05-12): alert if the rolling-50
+    // classification window collapses to a single class (entropy < 0.5 bits).
+    // This is the instrumented form of the single-class-collapse detector per
+    // ~/ecodiaos/patterns/phase-d-must-classify-all-outcome-classes-not-just-failure.md
+    let entropyResult = null
+    try {
+      entropyResult = await checkClassificationEntropy(client)
+    } catch (err) {
+      console.warn('[failureClassifier] entropy check failed:', err.message)
+    }
+
+    return { ok: true, classified, skipped, errors, distribution, max, entropy: entropyResult?.entropy ?? null }
   })
 }
 
@@ -605,12 +792,15 @@ if (require.main === module) {
 
 module.exports = {
   classifyOutcome,
+  classifySuccessOutcome,
+  classifyUnverifiedOutcome,
   tickClassifier,
   runOnce,
   computeAutoVsTateAccuracy,
   // Exposed for testing / panel reuse.
   buildQueryText,
   bucketCorrection,
+  getDispatchTagState,
   SEMANTIC_SIM_THRESHOLD,
   SEMANTIC_TOP_K,
   DEFAULT_MAX_PER_TICK,
