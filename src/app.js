@@ -171,6 +171,9 @@ app.use('/api/push', require('./routes/push'))
 // [VOICE] messages into the conductor chat. Sister to /api/voice/incoming
 // (Twilio call relay). fork_mownezy2_77bebd 2026-05-08 (W2).
 app.use(require('./routes/voiceChunk'))
+// /api/meetings - durable meeting recorder + Whisper transcription.
+// Phase 1: capture + storage + async transcription. fork_mp1utwce_96fdc9 2026-05-12.
+app.use('/api/meetings', require('./routes/meetings'))
 
 // Error handler (must be last)
 app.use(errorHandler)
