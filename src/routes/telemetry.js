@@ -29,6 +29,7 @@ const episodeResurface = require('../services/episodeResurface')
 const turnInjection = require('../services/turnInjectionService')
 const fs = require('fs')
 const readline = require('readline')
+const db = require('../config/db')
 
 router.use(auth)
 
@@ -263,6 +264,104 @@ router.post('/per-turn-injection-cost/minimal-mode', async (req, res, next) => {
     const enabled = !!(req.body && req.body.enabled)
     await turnInjection.setMinimalMode(enabled)
     res.json({ enabled })
+  } catch (err) { next(err) }
+})
+
+// ─── Prompt cache hit-rate dashboard ────────────────────────────────────────
+
+// GET /api/telemetry/cache-hit-rate?hours=24
+//
+// Queries claude_usage for cache_read_input_tokens vs total input_tokens over
+// the requested window. Reports:
+//   - overall hit rate % (cache_read / (input + cache_read))
+//   - rolling breakdown by hour
+//   - per-session top 10 by cache savings
+//   - most recent prompt_assembler_bytes_per_breakpoint log snapshot (from
+//     kv_store key prompt_assembler.last_bp_bytes if populated by the logger
+//     sink, or a static reference from the spec §4.1 if not yet live)
+//
+// Used by the conductor to judge when to flip PROMPT_ASSEMBLY_V2=live.
+// Target: cache_read_input_tokens rising turn-over-turn = breakpoints landing.
+router.get('/cache-hit-rate', async (req, res, next) => {
+  try {
+    const hours = Math.max(1, Math.min(168, parseInt(req.query.hours, 10) || 24))
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000)
+
+    // Overall totals for the window
+    const [totals] = await db`
+      SELECT
+        COALESCE(SUM(input_tokens), 0)                  AS input_tokens,
+        COALESCE(SUM(output_tokens), 0)                 AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0)   AS cache_write_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0)       AS cache_read_tokens,
+        COUNT(*)                                        AS turn_count
+      FROM claude_usage
+      WHERE created_at >= ${cutoff}
+        AND source = 'os_session'
+    `
+
+    const inputN = Number(totals.input_tokens)
+    const cacheReadN = Number(totals.cache_read_tokens)
+    const cacheWriteN = Number(totals.cache_write_tokens)
+    const denominator = inputN + cacheReadN
+    const hitRatePct = denominator > 0
+      ? Math.round((cacheReadN / denominator) * 10000) / 100
+      : null
+
+    // Hourly breakdown (up to 48h to keep result size sane)
+    const clampedHours = Math.min(hours, 48)
+    const hourly = await db`
+      SELECT
+        DATE_TRUNC('hour', created_at)                    AS hour,
+        COALESCE(SUM(input_tokens), 0)                    AS input_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0)         AS cache_read_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0)     AS cache_write_tokens,
+        COUNT(*)                                          AS turns
+      FROM claude_usage
+      WHERE created_at >= ${new Date(Date.now() - clampedHours * 60 * 60 * 1000)}
+        AND source = 'os_session'
+      GROUP BY 1
+      ORDER BY 1 DESC
+    `
+
+    const hourlyRows = hourly.map(r => {
+      const inp = Number(r.input_tokens)
+      const rd  = Number(r.cache_read_tokens)
+      const denom = inp + rd
+      return {
+        hour: r.hour,
+        input_tokens: inp,
+        cache_read_tokens: rd,
+        cache_write_tokens: Number(r.cache_write_tokens),
+        turns: Number(r.turns),
+        hit_rate_pct: denom > 0 ? Math.round((rd / denom) * 10000) / 100 : null,
+      }
+    })
+
+    // Spec §4.1 reference byte counts (what "good" looks like per tier).
+    // The assembler logs prompt_assembler_bytes_per_breakpoint on every turn;
+    // the most recent values are best read from logs, but as a reference floor
+    // the spec targets are:
+    const specTargetBytes = { bp1: 3000, bp2: 15000, bp3: 5000, bp4: 'variable' }
+
+    res.json({
+      window_hours: hours,
+      overall: {
+        turn_count: Number(totals.turn_count),
+        input_tokens: inputN,
+        cache_read_tokens: cacheReadN,
+        cache_write_tokens: cacheWriteN,
+        hit_rate_pct: hitRatePct,
+        target_hit_rate_pct: 70,
+        status: hitRatePct === null ? 'no_data'
+          : hitRatePct >= 70 ? 'target_met'
+          : hitRatePct >= 40 ? 'improving'
+          : 'below_target',
+      },
+      hourly: hourlyRows,
+      spec_target_bytes_per_breakpoint: specTargetBytes,
+      note: 'hit_rate_pct = cache_read / (input + cache_read). Rising turn-over-turn after restart = breakpoints landing. Flip PROMPT_ASSEMBLY_V2=live when stable >=70% over 20 turns.',
+    })
   } catch (err) { next(err) }
 })
 

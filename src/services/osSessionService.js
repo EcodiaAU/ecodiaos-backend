@@ -45,6 +45,13 @@ const episodeResurface = require('./episodeResurface')
 // clean shadow rows.
 const promptAssembler = require('./promptAssembler')
 const promptAssemblyAudit = require('./promptAssemblyAudit')
+// Anthropic Agent SDK cache-boundary marker. When systemPrompt is passed as an
+// array, inserting this sentinel between elements creates a cache breakpoint at
+// that position. The SDK's cli.js Lx() function detects the token and emits a
+// second cache_control block, giving us 2 breakpoints from a single systemPrompt
+// array (BP1 at end of first element, BP2 at end of second element).
+// Value sourced from sdk.d.ts: SYSTEM_PROMPT_DYNAMIC_BOUNDARY = "__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__"
+const SYSTEM_PROMPT_DYNAMIC_BOUNDARY = '__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__'
 // §2.1 untrusted-input system clause - the conductor reads listener
 // wake messages (which the listeners themselves now wrap with
 // wrapUntrusted), gmail bodies (via subagent tool returns), CRM activity,
@@ -2262,6 +2269,13 @@ async function _sendMessageImpl(content, opts = {}) {
   // canary: 20% bucket gets v2, rest v1, all audited.
   // live: 100% v2, audit continues.
   // off: no assembler work at all.
+  //
+  // _v2FinalPrompt / _v2SystemPromptArray are set when _mode.path === 'v2'
+  // and wired into the queryFn call below so canary/live turns actually use
+  // the 4-tier cache layout instead of only logging it. Shadow leaves these
+  // null so v1 continues to drive the model.
+  let _v2FinalPrompt = null
+  let _v2SystemPromptArray = null
   try {
     const _mode = promptAssembler.resolveMode(env.PROMPT_ASSEMBLY_V2, dbSessionId)
     if (_mode.audit) {
@@ -2308,19 +2322,62 @@ async function _sendMessageImpl(content, opts = {}) {
         v1Text: _v1Text,
         v2Out: _v2Out,
       })
+
+      // ── Wire v2 into the actual SDK request for canary/live paths ──────
+      // For shadow the assembler runs for audit only — v1 still drives the
+      // model. For canary/live, replace the system prompt + user message with
+      // the v2 structured form so the 4-tier cache breakpoints actually land
+      // on the Anthropic API.
+      //
+      // System prompt: BP1 (CLAUDE.md + SELF.md, most stable) and BP2 (env +
+      // behavior + fork + untrusted, hourly stable) are separated by
+      // SYSTEM_PROMPT_DYNAMIC_BOUNDARY so the SDK emits two independent
+      // cache_control blocks — one cache hit covers ~3K tokens (BP1), the
+      // other covers ~15K tokens (BP2). BP3 + BP4 become the user message
+      // (per-session and per-turn blocks — not cacheable by design).
+      if (_mode.path === 'v2') {
+        const _bp1Block = _v2Out.contentBlocks.find(b => b.tier === 1)
+        const _bp2Block = _v2Out.contentBlocks.find(b => b.tier === 2)
+        if (_bp1Block && _bp2Block) {
+          _v2SystemPromptArray = [_bp1Block.text, SYSTEM_PROMPT_DYNAMIC_BOUNDARY, _bp2Block.text]
+        } else if (_bp1Block) {
+          // BP2 was empty (unusual) — single-block array still benefits from
+          // the SDK's default system-prompt caching.
+          _v2SystemPromptArray = [_bp1Block.text]
+        }
+        if (_v2Out.userMessage) {
+          _v2FinalPrompt = _v2Out.userMessage
+        }
+        logger.info('promptAssembler v2 live path active', {
+          session_id: dbSessionId,
+          mode: _mode.mode,
+          system_prompt_tiers: _v2SystemPromptArray ? _v2SystemPromptArray.filter(s => s !== SYSTEM_PROMPT_DYNAMIC_BOUNDARY).length : 0,
+          user_message_chars: _v2FinalPrompt ? _v2FinalPrompt.length : 0,
+        })
+      }
     }
   } catch (err) {
     // Belt-and-braces: the assembler path must never crash a turn.
+    // If v2 wiring fails, fall back to v1 (null vars mean v1 is used below).
+    _v2FinalPrompt = null
+    _v2SystemPromptArray = null
     logger.warn('promptAssembler shadow dispatch failed, turn proceeds on v1', {
       error: err.message,
     })
   }
 
   try {
-    logger.info('OS Session: calling queryFn...', { promptLength: finalPrompt.length, suppressOutput, recovery: !!recoveryBlock })
+    // Use v2 prompt/system if the assembler wired it (canary/live paths),
+    // otherwise fall back to v1 finalPrompt + options.systemPrompt as-is.
+    const _effectivePrompt = _v2FinalPrompt !== null ? _v2FinalPrompt : finalPrompt
+    const _effectiveOptions = _v2SystemPromptArray !== null
+      ? { ...options, systemPrompt: _v2SystemPromptArray }
+      : options
+    logger.info('OS Session: calling queryFn...', { promptLength: _effectivePrompt.length, suppressOutput, recovery: !!recoveryBlock, v2_active: _v2FinalPrompt !== null })
     const turnAbort = new AbortController()
     options.abortController = turnAbort
-    const q = queryFn({ prompt: finalPrompt, options })
+    _effectiveOptions.abortController = turnAbort
+    const q = queryFn({ prompt: _effectivePrompt, options: _effectiveOptions })
     activeQuery = q
     activeAbort = turnAbort
     const _turnStartedAt = Date.now()  // for turn_complete duration_ms
