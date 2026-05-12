@@ -62,17 +62,66 @@ const FALLBACK_MARKER_PREFIX = '(no [FORK_REPORT] emitted'
 // re-alert until the fork reaches a terminal state (which clears the entry).
 const _staledForks = new Set()
 
-async function _wakeOsSession(message, forkId) {
-  try {
-    await axios.post(`http://localhost:${PORT}/api/os-session/message`, { message }, {
-      timeout: 5000,
-    })
-  } catch (err) {
-    logger.warn('forkComplete: wake POST failed', {
-      error: err.message,
-      forkId,
-    })
+// ─── Wake batching (13 May 2026) ──────────────────────────────────────────
+// Without batching, every fork completion sends an independent
+// `[SYSTEM: fork_report ...]` POST to /api/os-session/message. When several
+// forks complete back-to-back (common — manager + workers, batched cron
+// dispatch, parallel arcs), the conductor sees a string of consecutive
+// user-role turns and chains a fork-progress narration for each — burying
+// any Tate-typed message that lands among them. Tate flagged 13 May 2026
+// verbatim: "its jsut straight up not replying to my messages at all".
+//
+// Batch window: 20s. If a wake fires while another is in-flight or queued
+// within the window, append its message and the API receives ONE
+// consolidated wake at the end of the window. The conductor then sees a
+// single user turn with all fork reports stitched together — same
+// information density, far less narration overhead, and Tate's typed
+// messages are no longer drowned.
+const WAKE_BATCH_WINDOW_MS = 20_000
+let _wakeBatch = null  // { parts: [{forkId, message, ts}], timer, started_at }
+
+function _flushWakeBatch() {
+  if (!_wakeBatch || _wakeBatch.parts.length === 0) {
+    _wakeBatch = null
+    return
   }
+  const parts = _wakeBatch.parts
+  _wakeBatch = null
+
+  // Single-fork case: no batching overhead, send the raw message.
+  if (parts.length === 1) {
+    axios.post(`http://localhost:${PORT}/api/os-session/message`, { message: parts[0].message }, { timeout: 5000 })
+      .catch(err => logger.warn('forkComplete: wake POST failed', { error: err.message, forkId: parts[0].forkId }))
+    return
+  }
+
+  // Multi-fork: send one consolidated wake. The conductor still sees the
+  // individual fork_ids and bodies, but as a single turn instead of N.
+  const header = `[SYSTEM: fork_reports_batched count=${parts.length} window=${WAKE_BATCH_WINDOW_MS / 1000}s]`
+  const body = parts.map((p, i) => `--- Fork ${i + 1}/${parts.length}: ${p.forkId} ---\n${p.message}`).join('\n\n')
+  const consolidated = `${header}\n${body}`
+  logger.info('forkComplete: batched wake POST sending', {
+    count: parts.length,
+    forkIds: parts.map(p => p.forkId),
+    bytes: consolidated.length,
+  })
+  axios.post(`http://localhost:${PORT}/api/os-session/message`, { message: consolidated }, { timeout: 5000 })
+    .catch(err => logger.warn('forkComplete: batched wake POST failed', { error: err.message, count: parts.length }))
+}
+
+async function _wakeOsSession(message, forkId) {
+  if (!_wakeBatch) {
+    _wakeBatch = { parts: [{ forkId, message, ts: Date.now() }], started_at: Date.now() }
+    _wakeBatch.timer = setTimeout(_flushWakeBatch, WAKE_BATCH_WINDOW_MS)
+    if (_wakeBatch.timer && _wakeBatch.timer.unref) _wakeBatch.timer.unref()
+    logger.debug('forkComplete: wake batched (window open)', { forkId })
+    return
+  }
+  _wakeBatch.parts.push({ forkId, message, ts: Date.now() })
+  logger.debug('forkComplete: wake added to in-flight batch', {
+    forkId,
+    batchSize: _wakeBatch.parts.length,
+  })
 }
 
 module.exports = {
