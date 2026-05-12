@@ -51,6 +51,11 @@ const LISTENER_FILES = [
   'invoicePaymentState.js',
   'statusBoardDrift.js',
   'statusBoardHygieneHaikuListener.js',
+  // Haiku Observer Trio (fork_mp27tdp1_eaa05e, 12 May 2026)
+  // Paths relative to this dir (src/services/listeners/) resolving into
+  // src/services/observers/ via path.join(__dirname, file).
+  '../observers/coherenceObserver.js',
+  '../observers/actionAuditObserver.js',
 ]
 
 // Number of files expected to pass full validation and end up in _listeners.

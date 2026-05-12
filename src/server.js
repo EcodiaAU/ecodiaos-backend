@@ -660,6 +660,21 @@ server.listen(env.PORT, async () => {
     logger.warn('Pattern evolution failed to start (non-fatal)', { error: err.message })
   }
   process.stderr.write('[boot] post-patternEvolution\n')
+
+  // ── Boot: Attention Economy Observer (Observer C) ─────────────────
+  // 5-min poller that checks whether the conductor is working on the
+  // highest-leverage task. Not a listener (no stream subscription) —
+  // wired here as a setInterval worker. Failure is non-fatal.
+  // Companions (Observer A coherence, Observer B actionAudit) are stream
+  // listeners registered via the listener subsystem above.
+  // Origin: fork_mp27tdp1_eaa05e, 12 May 2026.
+  try {
+    const attentionEconomy = require('./services/observers/attentionEconomyObserver')
+    attentionEconomy.start()
+  } catch (err) {
+    logger.warn('Attention economy observer failed to start (non-fatal)', { error: err.message })
+  }
+  process.stderr.write('[boot] post-attentionEconomyObserver\n')
 })
 
 // ── Boot: Conditional Auto-wake OS Session ───────────────────────────
