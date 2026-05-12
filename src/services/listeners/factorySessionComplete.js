@@ -96,6 +96,27 @@ module.exports = {
     )
     logger.info('factorySessionComplete: handle invoked', { sessionId: row.id, status: row.status })
     try { require('../perceptionBus').publish({ source: 'factory', kind: `factory_${row.status}`, data: { session_id: row.id, status: row.status, pipeline_stage: row.pipeline_stage }, confidence: 1.0 }) } catch {}
+    // working_set: open a review thread so conductor has typed state for this session
+    ;(async () => {
+      try {
+        const ws = require('../workingSetService')
+        // Check if thread already exists for this cc_session_id (idempotent)
+        const existing = await ws.findBySessionId(String(row.id))
+        if (existing) {
+          await ws.updateThread(existing.id, {
+            status: 'active',
+            blocking_on: null,
+            artifacts: { pipeline_stage: row.pipeline_stage, factory_status: row.status },
+          })
+        } else {
+          await ws.openThread({
+            topic: `factory review: session ${String(row.id).slice(0, 8)}`,
+            intent: `Factory session ${row.id} is ${row.status} at stage=${row.pipeline_stage}, needs approve/reject`,
+            artifacts: { cc_session_id: String(row.id), factory_status: row.status, pipeline_stage: row.pipeline_stage },
+          })
+        }
+      } catch { /* non-fatal */ }
+    })()
     await _wakeOsSession(message, row.id)
   },
 

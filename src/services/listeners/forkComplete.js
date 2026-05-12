@@ -137,6 +137,18 @@ module.exports = {
         const isEmpty = !result.trim()
         const isPhantomBail = result.startsWith(FALLBACK_MARKER_PREFIX)
 
+        // working_set: close the thread regardless of result quality
+        ;(async () => {
+          try {
+            const ws = require('../workingSetService')
+            const thread = await ws.findByForkId(forkId)
+            if (thread) {
+              const resolution = isEmpty ? 'phantom/empty result' : isPhantomBail ? 'phantom bail (no FORK_REPORT)' : 'done with FORK_REPORT'
+              await ws.closeThread(thread.id, { resolution })
+            }
+          } catch { /* non-fatal */ }
+        })()
+
         if (isEmpty || isPhantomBail) {
           logger.info('forkComplete: terminal done with no FORK_REPORT body (silent, no wake)', {
             forkId, isEmpty, isPhantomBail,
@@ -208,6 +220,20 @@ module.exports = {
       // a signal the conductor already has into chat-stream pollution.
       logger.info('forkComplete: terminal failure (silent, no wake)', { forkId, status })
       try { require('../perceptionBus').publish({ source: 'fork', kind: `fork_${status}`, data: { fork_id: forkId, status }, confidence: 1.0 }) } catch {}
+      // working_set: mark thread as blocked so conductor sees it needs investigation
+      ;(async () => {
+        try {
+          const ws = require('../workingSetService')
+          const thread = await ws.findByForkId(forkId)
+          if (thread) {
+            await ws.updateThread(thread.id, {
+              status: 'blocked',
+              blocking_on: 'investigate',
+              artifacts: { terminal_status: status },
+            })
+          }
+        } catch { /* non-fatal */ }
+      })()
     } else {
       // Stale heartbeat - dedupe so we don't spam the OS per-tick
       if (_staledForks.has(forkId)) return

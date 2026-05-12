@@ -846,6 +846,44 @@ Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<f
 
 ---
 
+## Conductor Architecture
+
+### Working Set — the conductor's typed thread-state substrate
+
+**Shipped:** fork_mp27az1r_1878c0, 12 May 2026. Origin: `~/ecodiaos/docs/conductor-self-sufficiency-plan-2026-05-12.md §Piece 1`.
+
+The `working_set` table is the single canonical "what is the OS attending to right now" substrate. It replaces `<conductor_commitments>`, `<thread_carry_forward>`, and narrated fork/thread status in chat.
+
+**Rules (enforced in code, not doctrine):**
+- Max 5 `active` rows. Sixth push auto-parks the oldest.
+- Auto-park after 30min with no `last_touched_at` update (5min loop in `workingSetService`).
+- Conductor reads at turn-start via `<working_set>` continuity block (immediately after `<forks_rollup>`).
+- Listeners write rows directly — never the conductor via narration.
+- Chat is for Tate-facing output only. Thread status lives in the table.
+
+**Service:** `~/ecodiaos/src/services/workingSetService.js`
+- `openThread({ topic, intent, parent_id?, artifacts? })` — cap-enforced insert
+- `updateThread(id, { status?, blocking_on?, artifacts?, touch? })` — partial update
+- `listActive()` / `listBlocked()` — read by `_injectWorkingSet()` each turn
+- `closeThread(id, { resolution })` — sets resolved + closed_at
+- `findByForkId(forkId)` / `findBySessionId(id)` — listener lookups by artifact key
+
+**Listener wiring:**
+- `forkService.spawnFork` → `openThread({ topic: briefHead, intent, artifacts: { fork_id } })`
+- `forkComplete` → `closeThread` on done; `updateThread(blocked)` on error/aborted
+- `emailArrival` → `openThread({ topic: 'email triage (kind)', artifacts: { email_id } })`
+- `factorySessionComplete` → `openThread` or `updateThread` keyed by `cc_session_id`
+
+**Block format (hard cap 1500 bytes):**
+```xml
+<working_set count="N">
+  <thread id="abc12345" topic="brief head" status="active" age="4m">
+  <thread id="def67890" topic="email triage" status="blocked" blocking="tate" age="12m">
+</working_set>
+```
+
+---
+
 ## Scheduling & Autonomy
 
 ### Conductor owns ecodia-api lifecycle (structural + cultural rule)

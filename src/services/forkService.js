@@ -882,6 +882,21 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
   _forks.set(fork_id, state)
   _emitForkEvent('spawned', state)
 
+  // Open a working_set thread for this fork. Fire-and-forget: never blocks spawn.
+  // Thread ID is stored in artifacts so forkComplete listener can close it on done/error.
+  // Brief head = first non-empty line, up to 120 chars.
+  ;(async () => {
+    try {
+      const ws = require('./workingSetService')
+      const briefHead = brief.split('\n').map(l => l.trim()).find(l => l.length > 0) || `fork ${fork_id}`
+      await ws.openThread({
+        topic: briefHead.slice(0, 120),
+        intent: `Fork dispatched: ${fork_id}${parent_fork_id !== 'main' ? ` (sub of ${parent_fork_id})` : ''}`,
+        artifacts: { fork_id },
+      })
+    } catch { /* non-fatal */ }
+  })()
+
   // Build SDK options. We deliberately reuse main's pattern (custom systemPrompt
   // string, conductor MCP, agents) so behaviour is symmetrical, then layer on
   // the fork-specific brief.

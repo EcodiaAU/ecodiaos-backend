@@ -1315,107 +1315,90 @@ async function _injectRecentDoctrine() {
   }
 }
 
-// Injects <conductor_commitments> block. Surfaces active status_board rows
-// where next_action_by='ecodiaos' (my work queue) plus a separate
-// <conductor_blocked_on> block where next_action_by='tate'/'client'/'external'.
-// Hidden from chat UI per ~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md.
-//
-// Origin: fork_mos3hwpk_9fbdc5, 5 May 2026. Tate verbatim 13:52 AEST: "you're
-// still doing too many things at once, being pulled away from context, not
-// able to juggle/multi-task". Replaces "I'll remember" with disk-backed view.
+// _injectConductorCommitments — REPLACED by _injectWorkingSet (fork_mp27az1r_1878c0, 12 May 2026).
+// Subsumed by working_set table per conductor-self-sufficiency-plan-2026-05-12.md §Piece 1.
+// Stub preserved for backward-compat with any callers; returns null unconditionally.
 async function _injectConductorCommitments() {
-  if (env.OS_CONDUCTOR_COMMITMENTS_ENABLED === 'false') return null
-  try {
-    const t0 = Date.now()
-    const db = require('../config/db')
-    const ownRows = await db`
-      SELECT name, status, next_action, priority, last_touched
-      FROM status_board
-      WHERE archived_at IS NULL AND next_action_by = 'ecodiaos'
-      ORDER BY priority NULLS LAST, last_touched DESC NULLS LAST
-      LIMIT 8
-    `
-    const blockedRows = await db`
-      SELECT name, next_action_by, next_action, priority, last_touched
-      FROM status_board
-      WHERE archived_at IS NULL AND next_action_by IN ('tate', 'client', 'external')
-      ORDER BY priority NULLS LAST, last_touched DESC NULLS LAST
-      LIMIT 6
-    `
-    logger.info('OS Session: conductor commitments', {
-      own: ownRows.length,
-      blocked: blockedRows.length,
-      elapsed_ms: Date.now() - t0,
-    })
-    const parts = []
-    if (ownRows.length > 0) {
-      const lines = ownRows.map(r => {
-        const p = r.priority ? `[P${r.priority}] ` : ''
-        const action = r.next_action ? ` — ${String(r.next_action).slice(0, 120)}` : ''
-        const status = r.status ? ` [${String(r.status).slice(0, 40)}]` : ''
-        return `- ${p}${r.name}${action}${status}`
-      })
-      parts.push(`<conductor_commitments>\n${ownRows.length} active commitment${ownRows.length === 1 ? '' : 's'}:\n${lines.join('\n')}\n</conductor_commitments>`)
-    }
-    if (blockedRows.length > 0) {
-      const lines = blockedRows.map(r => {
-        const p = r.priority ? `[P${r.priority}] ` : ''
-        const by = r.next_action_by ? `[by ${r.next_action_by}] ` : ''
-        const action = r.next_action ? ` — ${String(r.next_action).slice(0, 100)}` : ''
-        return `- ${p}${by}${r.name}${action}`
-      })
-      parts.push(`<conductor_blocked_on>\n${blockedRows.length} blocker${blockedRows.length === 1 ? '' : 's'}:\n${lines.join('\n')}\n</conductor_blocked_on>`)
-    }
-    if (parts.length === 0) return null
-    return parts.join('\n\n')
-  } catch (err) {
-    logger.warn('OS Session: conductor commitments injection failed (skipping)', { error: err.message })
-    return null
-  }
+  return null
 }
 
-// Injects <thread_carry_forward> block. When a Tate-message arrives mid-fork-
-// orchestration, the conductor's next turn often forgets the prior thread
-// because the new message dominates context. This block names the unfinished
-// orchestration so the carry-forward is explicit. Source-of-truth: kv_store
-// key `ceo.active_orchestration_thread`. Conductor sets/clears via the OS's
-// own kv_store accessor at start/end of multi-step orchestrations.
-//
-// Origin: fork_mos3hwpk_9fbdc5, 5 May 2026.
+// _injectThreadCarryForward — REPLACED by _injectWorkingSet (fork_mp27az1r_1878c0, 12 May 2026).
+// Subsumed by working_set table per conductor-self-sufficiency-plan-2026-05-12.md §Piece 1.
+// Stub preserved for backward-compat with any callers; returns null unconditionally.
 async function _injectThreadCarryForward() {
-  if (env.OS_THREAD_CARRY_FORWARD_ENABLED === 'false') return null
-  try {
-    const db = require('../config/db')
-    const [row] = await db`
-      SELECT value, updated_at
-      FROM kv_store
-      WHERE key = 'ceo.active_orchestration_thread'
-        AND (value::text != 'null' AND value IS NOT NULL)
-      LIMIT 1
-    `
-    if (!row) return null
-    const v = row.value
-    if (!v || (typeof v === 'object' && Object.keys(v).length === 0)) return null
+  return null
+}
 
-    // Stale-guard: if updated_at older than 12h, skip — a stale orchestration
-    // pointer is worse than no pointer (it pulls the conductor toward dead work).
-    if (row.updated_at) {
-      const ageMs = Date.now() - new Date(row.updated_at).getTime()
-      if (ageMs > 12 * 3600 * 1000) {
-        logger.info('OS Session: thread carry-forward stale (>12h), skipping', { age_h: (ageMs / 3600 / 1000).toFixed(1) })
-        return null
-      }
+// Injects <working_set> block. Single canonical "what is the OS attending to
+// right now" substrate — replaces both <conductor_commitments> and
+// <thread_carry_forward>. Reads from working_set table (max 5 active threads,
+// auto-parked after 30min idle). Hard cap: 1500 bytes; tail is summarised.
+//
+// Format emitted:
+//   <working_set count="N">
+//     <thread id="..." topic="..." status="active"  blocking="" age="12m">
+//     <thread id="..." topic="..." status="blocked" blocking="fork:abc" age="3m">
+//   </working_set>
+//
+// Origin: conductor-self-sufficiency-plan-2026-05-12.md §Piece 1.
+// Fork: fork_mp27az1r_1878c0.
+async function _injectWorkingSet() {
+  try {
+    const ws = require('./workingSetService')
+    const [active, blocked] = await Promise.all([
+      ws.listActive().catch(() => []),
+      ws.listBlocked().catch(() => []),
+    ])
+
+    const allThreads = [...active, ...blocked]
+    if (allThreads.length === 0) return null
+
+    const now = Date.now()
+    const fmtAge = (ts) => {
+      if (!ts) return '?'
+      const ms = now - new Date(ts).getTime()
+      if (ms < 60000) return `${Math.floor(ms / 1000)}s`
+      if (ms < 3600000) return `${Math.floor(ms / 60000)}m`
+      return `${Math.floor(ms / 3600000)}h`
     }
 
-    const title = v.title || v.thread || v.name || 'orchestration in flight'
-    const status = v.status ? ` [${v.status}]` : ''
-    const next = v.next_step ? `\nNext step: ${String(v.next_step).slice(0, 200)}` : ''
-    const dispatched = Array.isArray(v.forks_dispatched) && v.forks_dispatched.length > 0
-      ? `\nForks dispatched: ${v.forks_dispatched.slice(0, 5).join(', ')}`
-      : ''
-    return `<thread_carry_forward>\nUnfinished orchestration: ${title}${status}${next}${dispatched}\n</thread_carry_forward>`
+    const lines = allThreads.map(t => {
+      const blocking = t.blocking_on ? ` blocking="${t.blocking_on}"` : ''
+      const age = fmtAge(t.last_touched_at)
+      const shortId = String(t.id).slice(0, 8)
+      const topic = String(t.topic).slice(0, 80)
+      return `  <thread id="${shortId}" topic="${topic}" status="${t.status}"${blocking} age="${age}">`
+    })
+
+    const header = `<working_set count="${allThreads.length}">`
+    const body = lines.join('\n')
+    const footer = '</working_set>'
+    let block = `${header}\n${body}\n${footer}`
+
+    // Hard cap: 1500 bytes. Summarise tail if over.
+    if (Buffer.byteLength(block, 'utf8') > 1500) {
+      const kept = []
+      let bytes = Buffer.byteLength(header + '\n' + footer, 'utf8') + 40
+      for (const line of lines) {
+        const lb = Buffer.byteLength(line + '\n', 'utf8')
+        if (bytes + lb > 1450) {
+          kept.push(`  <!-- ${lines.length - kept.length} more threads omitted — query working_set for full list -->`)
+          break
+        }
+        kept.push(line)
+        bytes += lb
+      }
+      block = `${header}\n${kept.join('\n')}\n${footer}`
+    }
+
+    logger.info('OS Session: working_set injected', {
+      active: active.length,
+      blocked: blocked.length,
+      bytes: Buffer.byteLength(block, 'utf8'),
+    })
+    return block
   } catch (err) {
-    logger.warn('OS Session: thread carry-forward injection failed (skipping)', { error: err.message })
+    logger.warn('OS Session: working_set injection failed (skipping)', { error: err.message })
     return null
   }
 }
@@ -2063,18 +2046,16 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'proactivity signal',
   )
-  // Conductor commitments + thread carry-forward — fork_mos3hwpk_9fbdc5 5 May 2026.
-  // Cheap (status_board + kv_store reads, <100ms each), capped at 2s.
-  const _commitmentsPromise = _withTimeout(
-    _injectConductorCommitments().catch(() => null),
+  // working_set — replaces conductor_commitments + thread_carry_forward.
+  // Cheap DB read (max 5 active rows + max N blocked), capped at 2s.
+  const _workingSetPromise = _withTimeout(
+    _injectWorkingSet().catch(() => null),
     2000,
-    'conductor commitments',
+    'working set',
   )
-  const _carryForwardPromise = _withTimeout(
-    _injectThreadCarryForward().catch(() => null),
-    2000,
-    'thread carry-forward',
-  )
+  // Stubs retained for legacy compat — both return null immediately.
+  const _commitmentsPromise = Promise.resolve(null)
+  const _carryForwardPromise = Promise.resolve(null)
 
   if (recoveryBlock) {
     continuityParts.push(`<restart_recovery>\n${recoveryBlock}\n</restart_recovery>`)
@@ -2111,12 +2092,12 @@ async function _sendMessageImpl(content, opts = {}) {
   try { _proactivityBlock = await _proactivityPromise } catch (err) {
     logger.debug('OS Session: proactivity signal failed', { error: err.message })
   }
-  try { _commitmentsBlock = await _commitmentsPromise } catch (err) {
-    logger.debug('OS Session: conductor commitments failed', { error: err.message })
+  let _workingSetBlock = null
+  try { _workingSetBlock = await _workingSetPromise } catch (err) {
+    logger.debug('OS Session: working set injection failed', { error: err.message })
   }
-  try { _carryForwardBlock = await _carryForwardPromise } catch (err) {
-    logger.debug('OS Session: thread carry-forward failed', { error: err.message })
-  }
+  try { _commitmentsBlock = await _commitmentsPromise } catch { /* stub, always null */ }
+  try { _carryForwardBlock = await _carryForwardPromise } catch { /* stub, always null */ }
   // Dedup: a recent high-priority Decision can surface in BOTH _doctrineBlock
   // and _memoryBlock when the current turn is semantically similar to it. The
   // doctrine block is unconditional and ordered by recency; the memory block
@@ -2189,8 +2170,9 @@ async function _sendMessageImpl(content, opts = {}) {
     const candidates = {
       '<now>':                  continuityParts[0] || null, // already pushed at top
       '<forks_rollup>':         _forksBlock,
-      '<conductor_commitments>': _commitmentsBlock,
-      '<thread_carry_forward>': _carryForwardBlock,
+      '<working_set>':          _workingSetBlock,
+      // conductor_commitments + thread_carry_forward replaced by working_set
+      // (fork_mp27az1r_1878c0, 12 May 2026). Stubs return null; keys omitted.
       '<recent_doctrine>':      _doctrineBlock,
       '<relevant_memory>':      _memoryBlock,
       '<perception_summary>':   _perceptionBlock ? `<perception_summary>\n${_perceptionBlock}\n</perception_summary>` : null,
@@ -2203,16 +2185,12 @@ async function _sendMessageImpl(content, opts = {}) {
       candidates,
     })
     _injectionStats = { stats, skipped }
-    // Rebuild continuityParts from emitted blocks in canonical order. The
-    // order mirrors the previous splice sequence (highest-signal first
-    // after <now>): forks_rollup > recent_doctrine >
-    // relevant_memory > perception_summary > restart_recovery >
-    // last_turn_breadcrumb.
+    // Canonical order: highest-signal first after <now>.
+    // working_set immediately after forks_rollup — it IS the thread state.
     const ORDER = [
       '<now>',
       '<forks_rollup>',
-      '<conductor_commitments>',
-      '<thread_carry_forward>',
+      '<working_set>',
       '<recent_doctrine>',
       '<relevant_memory>',
       '<perception_summary>',
@@ -2227,8 +2205,7 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.info('OS Session: stitching continuity blocks into user message', {
       now: !!emitted['<now>'],
       forks_rollup: !!emitted['<forks_rollup>'],
-      conductor_commitments: !!emitted['<conductor_commitments>'],
-      thread_carry_forward: !!emitted['<thread_carry_forward>'],
+      working_set: !!emitted['<working_set>'],
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
@@ -2251,8 +2228,7 @@ async function _sendMessageImpl(content, opts = {}) {
     // only failure mode here is service-level (db wedge, etc).
     logger.warn('OS Session: turnInjection.processBlocks failed - emitting raw blocks', { error: err.message })
     if (_forksBlock) continuityParts.splice(1, 0, _forksBlock)
-    if (_commitmentsBlock) continuityParts.splice(1, 0, _commitmentsBlock)
-    if (_carryForwardBlock) continuityParts.splice(1, 0, _carryForwardBlock)
+    if (_workingSetBlock) continuityParts.splice(1, 0, _workingSetBlock)
     if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
     if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
     if (_perceptionBlock) continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)

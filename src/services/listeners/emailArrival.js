@@ -95,6 +95,18 @@ module.exports = {
     )
     logger.info('emailArrival: handle invoked', { eventId: row.id })
     try { require('../perceptionBus').publish({ source: 'email', kind: row.kind || 'email_arrival', data: { id: row.id, kind: row.kind }, confidence: 1.0 }) } catch {}
+    // working_set: open a thread for this email arrival so conductor has typed state
+    ;(async () => {
+      try {
+        const ws = require('../workingSetService')
+        const kind = row.kind || 'unknown'
+        await ws.openThread({
+          topic: `email triage (${kind})`,
+          intent: `New email event id=${row.id} kind=${kind} arrived, needs inbox triage`,
+          artifacts: { email_id: String(row.id), email_kind: kind },
+        })
+      } catch { /* non-fatal */ }
+    })()
     await _wakeOsSession(message, row.id)
   },
 
