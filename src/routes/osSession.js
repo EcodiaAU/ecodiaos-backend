@@ -520,4 +520,29 @@ router.post('/save-state', async (req, res, next) => {
   }
 })
 
+// Coordination chokepoint: fork signals it needs a restart WITHOUT issuing one.
+// Writes to pending_restart_requests; conductor meta-loop reads and decides timing.
+// Forks must use this (or direct db INSERT) instead of mcp__vps__pm2_restart.
+// Allowlisted bypass callers: nightlyRestartService, api-watchdog.sh, osSessionService
+// auto-restart (all documented in conductedRestart.js header).
+router.post('/request-restart', async (req, res, next) => {
+  try {
+    const { reason, requesting_fork_id } = req.body || {}
+    if (!reason || !requesting_fork_id) {
+      return res.status(400).json({ error: 'reason and requesting_fork_id are required' })
+    }
+    const conductedRestart = require('../services/conductedRestart')
+    const row = await conductedRestart.request({ reason, requesting_fork_id })
+    res.json({
+      ok: true,
+      id: row.id,
+      status: 'pending',
+      message: 'Restart request queued - conductor will decide timing and safety',
+    })
+  } catch (err) {
+    logger.error('OS Session /request-restart: error', { error: err.message })
+    next(err)
+  }
+})
+
 module.exports = router

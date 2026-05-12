@@ -821,6 +821,15 @@ function _recordTurnOutcome(ok, errorMsg) {
           })
         } catch {}
         await _markAutoRestart(errorMsg)
+        // Write to coordination table for audit trail (allowlisted emergency bypass -
+        // restart fires immediately, does not wait for conductor meta-loop).
+        try {
+          const conductedRestart = require('./conductedRestart')
+          await conductedRestart.request({
+            reason: `emergency auto-restart after ${_consecutiveFailures} consecutive turn failures: ${errorMsg}`,
+            requesting_fork_id: 'conductor/auto-restart-emergency',
+          })
+        } catch {}
         // Exec pm2 restart. Detached so the restart signal survives our own death.
         const { exec } = require('child_process')
         exec('pm2 restart ecodia-api', { timeout: 10000 }, (err, stdout, stderr) => {

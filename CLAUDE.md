@@ -823,6 +823,32 @@ Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<f
 
 ## Scheduling & Autonomy
 
+### Conductor owns ecodia-api lifecycle (structural + cultural rule)
+
+**Tate, 11:00 AEST 12 May 2026 verbatim:** "this needs to be a structural and cultural change."
+
+The conductor (main session) is the sole authority over when ecodia-api restarts. Process restart is a coordination decision, not an action a fork can take unilaterally. Forks have no visibility into sibling fork state; the conductor sees the full `<forks_rollup>` and is the only party that can make a safe restart decision.
+
+**Forks that believe a restart is needed MUST:**
+1. Write to the `pending_restart_requests` coordination table via HTTP: `curl -X POST http://localhost:3001/api/os-session/request-restart -H "Content-Type: application/json" -d '{"reason":"...","requesting_fork_id":"fork_xxx"}'` OR via `mcp__supabase__db_execute` INSERT directly.
+2. Exit cleanly. Do not call `mcp__vps__pm2_restart`. Do not call `mcp__vps__shell_exec` with `pm2 restart ecodia-api`.
+3. Note the request in `[FORK_REPORT]` so the conductor has context.
+
+**Conductor meta-loop reads pending requests:**
+```sql
+SELECT id, requesting_fork_id, reason, requested_at
+FROM pending_restart_requests WHERE status = 'pending' ORDER BY requested_at;
+```
+Then checks sibling fork state, approves or dismisses, and issues the actual restart.
+
+**Service:** `~/ecodiaos/src/services/conductedRestart.js` (chokepoint module).
+**Pattern:** `~/ecodiaos/patterns/forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates.md`.
+**Allowlisted bypass callers** (documented in the pattern file): `nightlyRestartService.js`, `api-watchdog.sh`, `osSessionService.js` emergency auto-restart.
+
+**Origin:** 4-fork SIGTERM cascade 10:50 AEST 12 May 2026. `fork_mp1wwwl0_6d2263` issued `pm2 restart ecodia-api --update-env` during Phase 3 activation without checking siblings. Four concurrent forks killed: KG embedding, transcript feature, Neo4j keep-alive, KG consolidation.
+
+Cross-refs: `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md`, `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`, `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md`.
+
 **Routing rule (4 May 2026, canonical):** all crons route to forks via `cronForkDispatcher` by default. `CONDUCTOR_CRONS` set contains exactly `meta-loop` and nothing else; that one cron IS the conductor's CEO judgment cycle and runs on main chat by design. `DIRECT_EXEC_CRONS` set is empty. Re-adding ANY cron to either set requires explicit Tate authorisation. New crons go to `HIGH_PRIORITY_FORK_CRONS` (always run, budget bypass) or `LOW_PRIORITY_FORK_CRONS` (skipped under budget pressure). Doctrine: ~/ecodiaos/patterns/crons-route-to-forks-by-default.md. Origin: Tate verbatim 4 May 2026 19:30 AEST. Sibling: ~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md (cron firing != work happened; verify substrate).
 
 Persistent DB-backed scheduler architecture (not session-scoped). Parallel reactive system (pg_notify-driven listeners that fire on table-write events): see `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` (every listener subsystem has 5 layers: producer, trigger, bridge, listener, side-effect; "wired but dark" listener = recurring failure).
