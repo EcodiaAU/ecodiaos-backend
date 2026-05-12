@@ -82,6 +82,25 @@ Tate directive 08:59 AEST 12 May 2026. Three categories shipped in 3 commits, de
 
 Vercel: dpl_J1UgD9SHLSopMt1Jfi9kPvT32cd4 READY production at commit 560f3f9.
 
+### 12 May 2026 - Glassmorphism + animations rebuild (branches pending Tate review + merge)
+
+Tate directive 11:24 AEST 12 May 2026: "make it insanely modern, sleek, animated and mobile responsive". Two feature branches ready on origin, both READY on Vercel preview. PRs can't be created until Angelica completes GitHub repo transfer to EcodiaTate org.
+
+**Branch 1 — public site (Worker 2, fork_mp25n5c7_dd1280):**
+- `feat/resonaverde-rebuild-public-2026-05-12` → commit `da50f19`
+- Vercel preview: https://resonaverde-cyqeybv23-ecodia.vercel.app (READY)
+- Changes (8 files, +373/-109): `HomePage.tsx` gets layered glassmorphism + ambient gradient + grain texture overlay. `page.module.css` extended with glass system. New `PageBackground.tsx` component + `motionVariants.ts` library wire scroll-triggered Framer Motion fade/slide entrances on hero, about, services, quiz sections. `blog/ClientPage.tsx` + `blog/[slug]/ClientPage.tsx` get glass card treatment to match homepage. `framer-motion` added to `package.json`.
+
+**Branch 2 — admin + secondary pages (Worker 3, fork_mp25o75g_4e8247):**
+- `feat/resonaverde-rebuild-admin-2026-05-12` → commit `3e7c747`
+- Vercel preview: https://resonaverde-kna3a292d-ecodia.vercel.app (READY)
+- Changes (4 files, +207/-50): admin sidebar deep emerald gradient (#064e3b->#022c22) + emerald border-right, app shell rgba(240,253,244,0.7) tint, mobile tab bar Library/Write/Newsletter with emerald active indicator, post list emerald hover states. Login page rebuilt with ambient gradient + glass card form. Resources page with ambient gradient + glass cards + CSS vars. Unsubscribe with CSS vars. LegalPage was already theme-aware - no changes needed.
+
+Recon doc (Worker 1, fork_mp25d609_1f007b): `~/ecodiaos/drafts/resonaverde-rebuild-design-direction-2026-05-12.md` — full stack audit: page inventory, component map, color tokens, CSS architecture, current-state baseline.
+
+**Merge order:** doesn't matter; branches touch non-overlapping files. Both can merge to main independently.
+**Next:** Tate reviews Vercel previews, merges both branches. PRs blocked until GitHub transfer from Angelica (status_board row 69312460).
+
 ### 11 May 2026 - 4 features shipped same-session (standing arrangement first use)
 
 Angelica emailed 13:03 AEST with 6 website asks + 1 referral modification. Four features
