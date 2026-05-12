@@ -24,9 +24,12 @@ try {
 const server = createServer(app)
 initWS(app, server)
 
-// Voice relay - Twilio ConversationRelay WebSocket + TwiML
+// Voice relay - Twilio Media Streams ↔ Deepgram STT/TTS ↔ Agent SDK Haiku
 const { initVoiceRelay } = require('./routes/voiceRelay')
 initVoiceRelay(app)
+
+// Meetings live transcription - browser mic WS ↔ Deepgram Nova-3 streaming
+require('./services/meetingsLiveTranscription').register(app)
 
 // Track open connections so we can force-destroy them on shutdown.
 // Without this, server.close() hangs on long-lived WebSocket connections

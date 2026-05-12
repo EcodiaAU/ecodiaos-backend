@@ -174,6 +174,11 @@ app.use(require('./routes/voiceChunk'))
 // /api/meetings - durable meeting recorder + Whisper transcription.
 // Phase 1: capture + storage + async transcription. fork_mp1utwce_96fdc9 2026-05-12.
 app.use('/api/meetings', require('./routes/meetings'))
+// /api/voice/* REST tools - Deepgram transcribe/synthesize/live-session.
+// /api/voice/incoming and /api/voice/relay are registered directly in
+// voiceRelay.js (TwiML POST + Twilio Media Streams WS). Express matches the
+// direct app.post/app.ws routes first, then falls through to this router.
+app.use('/api/voice', require('./routes/voiceTools'))
 
 // Error handler (must be last)
 app.use(errorHandler)
