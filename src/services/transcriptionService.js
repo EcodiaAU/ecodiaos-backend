@@ -426,7 +426,8 @@ async function transcribeWithChunking({ buffer, mimeType, filename }) {
 
   logger.info('[Transcription] large file — ffmpeg voice-MP3 pre-processing', { bytes: buffer.length })
 
-  const tmpIn = path.join(os.tmpdir(), `mtg-in-${Date.now()}.webm`)
+  const inExt = path.extname(filename || 'meeting.webm').replace(/^\./, '') || 'webm'
+  const tmpIn = path.join(os.tmpdir(), `mtg-in-${Date.now()}.${inExt}`)
   let voiceMp3 = null
   let segDir = null
 

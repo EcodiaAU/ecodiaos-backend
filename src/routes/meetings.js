@@ -192,13 +192,21 @@ async function runTranscription(meetingId) {
 
     logger.info('[Meetings] transcribing', { meetingId, bytes: buffer.length })
 
+    // Derive mime type from the stored audio extension so uploaded m4a/mp3/wav
+    // files are handled correctly by Whisper/Deepgram.
     // transcribeWithChunking handles large files (>20MB) by converting to
     // voice-quality MP3 via ffmpeg before calling the transcription API.
-    // A 64-min 59MB WebM → ~15MB MP3 — fits Whisper's 25MB limit in one call.
+    const audioExt = path.extname(audioStoragePath).slice(1).toLowerCase() || 'webm'
+    const AUDIO_MIME_MAP = {
+      webm: 'audio/webm', mp3: 'audio/mpeg', m4a: 'audio/mp4', m4b: 'audio/mp4',
+      wav: 'audio/wav', ogg: 'audio/ogg', mp4: 'audio/mp4',
+    }
+    const detectedMime = AUDIO_MIME_MAP[audioExt] || 'audio/webm'
+
     const transcript = await transcribeWithChunking({
       buffer,
-      mimeType: 'audio/webm',
-      filename: 'meeting.webm',
+      mimeType: detectedMime,
+      filename: `meeting.${audioExt}`,
     })
 
     const text = transcript.full_text || ''
@@ -264,6 +272,130 @@ router.post('/', async (req, res) => {
   } catch (err) {
     logger.error('[Meetings] create failed', { error: err.message })
     return res.status(500).json({ error: 'create_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/meetings/upload - create meeting + upload audio file in one shot
+//
+// Ingest path for dropping in a pre-recorded audio file (m4a, mp3, wav, webm,
+// ogg, mp4). Creates a new meeting_recordings row, streams the file to Supabase
+// Storage at meetings/<id>/source.<ext>, then fires the same transcription
+// pipeline used by live recordings.
+//
+// Multipart fields:
+//   file  (required) — audio file, max 500 MB
+//   title (optional) — meeting title string
+//
+// Returns 201: { id, audio_url, status: 'processing' }
+// ---------------------------------------------------------------------------
+router.post('/upload', uploadAudioToDisk.single('file'), async (req, res) => {
+  const tmpPath = req.file?.path
+  let compressedPath = null
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'file_required', message: 'Multipart field "file" is required.' })
+    }
+
+    const sb = getSupabase()
+    if (!sb) {
+      return res.status(503).json({ error: 'storage_unavailable', message: 'Supabase client not initialised.' })
+    }
+
+    // Create meeting row first so we have an ID for the storage path
+    const title = req.body.title || null
+    const [row] = await db`
+      INSERT INTO meeting_recordings (title, transcription_status, analysis_status)
+      VALUES (${title}, 'pending', 'pending')
+      RETURNING id, started_at
+    `
+    const id = row.id
+
+    // Derive extension + mime type from original filename or Content-Type
+    const origExt = path.extname(req.file.originalname || '').toLowerCase().replace(/^\./, '')
+    const mimeExt = (req.file.mimetype || 'audio/mpeg').split('/')[1]?.split(';')[0] || 'mp3'
+    const ext = origExt || mimeExt || 'mp3'
+    const mimeType = (req.file.mimetype || 'audio/mpeg').split(';')[0].trim()
+
+    const fileBuffer = await fs.promises.readFile(tmpPath)
+    const originalBytes = fileBuffer.length
+
+    // Pre-compress large files (>50 MB) to voice-quality MP3 before storage upload.
+    // A 165 MB 128kbps m4a → ~41 MB at 16kHz/32kbps; well within Supabase limits.
+    // transcribeWithChunking will compress again if needed, but compressed storage
+    // means faster download at transcription time.
+    let uploadBuffer = fileBuffer
+    let uploadMime = mimeType
+    let uploadExt = ext
+    const COMPRESS_THRESHOLD = 50 * 1024 * 1024 // 50 MB
+
+    if (fileBuffer.length > COMPRESS_THRESHOLD) {
+      logger.info('[Meetings] upload: large file, compressing to voice MP3', { id, originalBytes })
+      try {
+        const { compressToVoiceMp3 } = require('../services/transcriptionService')
+        const ffmpegIn = path.join(os.tmpdir(), `mtg-raw-${Date.now()}.${ext}`)
+        await fs.promises.writeFile(ffmpegIn, fileBuffer)
+        compressedPath = await compressToVoiceMp3(ffmpegIn)
+        await fs.promises.unlink(ffmpegIn).catch(() => {})
+        uploadBuffer = await fs.promises.readFile(compressedPath)
+        uploadMime = 'audio/mpeg'
+        uploadExt = 'mp3'
+        logger.info('[Meetings] upload: compressed', {
+          id,
+          compressedBytes: uploadBuffer.length,
+          ratio: `${Math.round(uploadBuffer.length / originalBytes * 100)}%`,
+        })
+      } catch (compressErr) {
+        logger.warn('[Meetings] upload: compression failed, uploading raw', { id, error: compressErr.message })
+        // Fall through with original buffer
+      }
+    }
+
+    const storagePath = `meetings/${id}/source.${uploadExt}`
+
+    logger.info('[Meetings] upload: uploading to storage', { id, storagePath, bytes: uploadBuffer.length })
+
+    const { error: uploadErr } = await sb.storage
+      .from('documents')
+      .upload(storagePath, uploadBuffer, { contentType: uploadMime, upsert: true })
+
+    if (uploadErr) {
+      logger.error('[Meetings] upload: storage upload failed', { id, error: uploadErr.message })
+      // Soft-delete the orphaned row so it doesn't pollute the list
+      await db`UPDATE meeting_recordings SET archived_at = NOW() WHERE id = ${id}::uuid`.catch(() => {})
+      return res.status(500).json({ error: 'storage_upload_failed', detail: uploadErr.message })
+    }
+
+    // Update meeting row with audio metadata
+    await db`
+      UPDATE meeting_recordings SET
+        audio_url            = ${storagePath},
+        audio_format         = ${uploadExt},
+        audio_source         = 'upload',
+        audio_uploaded_at    = NOW(),
+        audio_size_bytes     = ${originalBytes},
+        transcription_status = 'processing',
+        transcription_error  = NULL
+      WHERE id = ${id}::uuid
+    `
+
+    // Fire async transcription — same pipeline as live recordings.
+    // runTranscription() reads audio_url from DB so it picks up storagePath.
+    runTranscription(id).catch(err => {
+      logger.error('[Meetings] upload: async transcription error', { id, error: err.message })
+    })
+
+    logger.info('[Meetings] upload: complete, transcription queued', { id, storagePath, bytes: originalBytes })
+
+    return res.status(201).json({ id, audio_url: storagePath, status: 'processing' })
+
+  } catch (err) {
+    logger.error('[Meetings] upload: failed', { error: err.message })
+    return res.status(500).json({ error: 'upload_failed', detail: err.message })
+  } finally {
+    if (tmpPath) fs.promises.unlink(tmpPath).catch(() => {})
+    if (compressedPath) fs.promises.unlink(compressedPath).catch(() => {})
   }
 })
 
@@ -399,6 +531,7 @@ router.get('/', async (req, res) => {
       SELECT
         m.id, m.title, m.started_at, m.ended_at, m.duration_seconds,
         m.transcription_status, m.transcript_text,
+        m.analysis_status, m.audio_source,
         m.client_id, m.project_id, m.created_at,
         c.name AS client_name
       FROM meeting_recordings m
