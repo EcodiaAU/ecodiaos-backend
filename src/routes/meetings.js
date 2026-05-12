@@ -222,7 +222,7 @@ async function runTranscription(meetingId) {
     await db`
       UPDATE meeting_recordings SET
         transcript_text = ${text},
-        transcript_json = ${JSON.stringify(transcript)},
+        transcript_json = ${transcript},
         transcript_url = ${transcriptPath},
         transcript_engine = ${transcript.engine},
         transcript_diarised = ${transcript.diarised},
