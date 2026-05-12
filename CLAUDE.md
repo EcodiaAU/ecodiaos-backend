@@ -601,6 +601,29 @@ When session completes:
 
 ---
 
+## Routing decisions are silent
+
+Before any non-trivial action, call `mcp__router__route_work` with the task shape. Trust its answer unless you have a specific reason to override (note the reason in scratchpad). **NEVER narrate routing** ("I'll fork this", "let me do it on main") — just call the tool and proceed.
+
+Tool: `mcp__router__route_work({ task_description, intent, estimated_steps?, parallelisable?, tate_visible?, session_id? })`
+
+Returns `{ route, rationale, alternates }` where route is one of:
+- `main` — do it yourself
+- `subagent:comms` — gmail/calendar/crm/sms work
+- `subagent:finance` — bookkeeping/stripe/xero work
+- `subagent:ops` — pm2/deploy/vps work
+- `subagent:social` — zernio/linkedin/instagram work
+- `fork` — isolated sequential parallel work
+- `fork_manager` — parallel orchestration needing sub-fork coordination
+
+Every call is logged to `routing_decisions` table. After 7d review the override patterns and tune keyword rules. Override is valid but must be noted.
+
+Implementation: `~/ecodiaos/src/services/capabilityRouter.js` (scoring logic) + `~/ecodiaos/src/services/capabilityRouterTool.js` (MCP wrapper, per-query rebuild). Migration `104_routing_decisions.sql`.
+
+Hook: `~/ecodiaos/scripts/hooks/router-skip-check.sh` warns `[ROUTER-SKIP WARN]` when `mcp__forks__spawn_fork` or Agent is called in a turn without a prior `route_work` call.
+
+---
+
 ## Fork dispatch is demand-driven, NOT slot-quota
 
 See `~/CLAUDE.md` "Fork dispatch is demand-driven" for canonical doctrine, Tate-verbatim Origin (30 Apr 2026 10:02 AEST), and 5/5 ceiling rule.

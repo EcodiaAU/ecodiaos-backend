@@ -1496,6 +1496,17 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.warn('OS Session: fork conductor MCP server unavailable for this turn', { error: err.message })
   }
 
+  // Capability Router (Build 1): deterministic routing tool exposed as
+  // mcp__router__route_work. Per-query rebuild per sdk-mcp-server-instances-
+  // must-be-per-query-not-singleton pattern. Non-fatal if unavailable.
+  try {
+    const { getCapabilityRouterMcpServer } = require('./capabilityRouterTool')
+    const routerServer = await getCapabilityRouterMcpServer()
+    if (routerServer) mcpServers.router = routerServer
+  } catch (err) {
+    logger.warn('OS Session: capability router MCP server unavailable for this turn', { error: err.message })
+  }
+
   // Energy level is still tracked for logging + provider routing, but no longer
   // gates thinking — the conductor thinks on every turn now (see thinking block
   // below). Provider routing still honours energy (DeepSeek fallback when both
