@@ -22,14 +22,13 @@
  *     before cleanup (retention as a safety net for downstream debugging).
  *
  * Idempotency:
- *   - Each JSONL line gets a synthetic deterministic-ish id via
- *     ts+hook+tool+sha1(content). Subsequent re-processing of the same line
- *     would create a duplicate dispatch_event but downstream queries are
- *     additive so duplication corrupts metrics rather than the system. Since
- *     the rename-before-insert pattern prevents re-reading, duplication
- *     requires manual intervention (replaying a processed file). Acceptable
- *     trade-off for now; future-Phase-D could add a (ts, hook, tool,
- *     content_hash) UNIQUE constraint if duplication becomes a real problem.
+ *   - For fork_spawn events: the dispatch_event_fork_id_unique partial index
+ *     (migration 109_dispatch_event_dedup.sql) enforces one row per fork_id.
+ *     INSERT ON CONFLICT DO NOTHING discards re-processed rows silently.
+ *     Non-fork_spawn events without a unique discriminator are still additive
+ *     on replay, but the rename-before-insert pattern prevents re-reading
+ *     under normal operation. Critique 01 (phase-G-audit-2026-05-12) fixed
+ *     the fork_spawn duplication that inflated Layer 4 metrics 2.76x.
  *
  * Invocation:
  *   - PM2-managed standalone: `node src/services/telemetry/dispatchEventConsumer.js --once`
@@ -192,12 +191,24 @@ async function consumeFile(filePath, client) {
       }
 
       // Insert dispatch_event row.
+      // ON CONFLICT DO NOTHING: the dispatch_event_fork_id_unique partial index
+      // (action_type='fork_spawn', metadata->>'fork_id' IS NOT NULL) blocks
+      // duplicate rows when the consumer replays a processed JSONL file or when
+      // the backfill pipeline re-ingests the same batch. If the INSERT conflicts,
+      // the row already exists - skip this event and its surfaces entirely.
+      // Migration: 109_dispatch_event_dedup.sql.
+      // Origin: Critique 01 (phase-G-audit-2026-05-12), fork_mp354iyq_3aef74.
       const dispatchResult = await client.query(
         `INSERT INTO dispatch_event (ts, actor, action_type, tool_name, context_keywords, metadata)
          VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT DO NOTHING
          RETURNING id`,
         [ts, actor, actionType, toolName, keywords, metadata]
       )
+      if (dispatchResult.rows.length === 0) {
+        // Duplicate blocked by unique constraint - skip this event and surfaces.
+        continue
+      }
       const dispatchId = dispatchResult.rows[0].id
       dispatchInserts += 1
 
