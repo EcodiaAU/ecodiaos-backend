@@ -73,24 +73,51 @@ function _makeDeduper(windowMs) {
 }
 
 /**
- * POST an intervention message to the conductor's OS message queue.
- * Uses mode='queue' so it never interrupts an in-flight conductor turn.
- * Wraps the message in <observer source="..."> for conductor UI parsing.
+ * Write an observer intervention to the observer_signals substrate.
+ *
+ * SUPERSEDES _postIntervention (13 May 2026). The old path POSTed to
+ * /api/os-session/message, which routed observer text into the conductor's
+ * USER-message stream — frontend rendered it as Tate-typed, conductor
+ * treated it as new user input and looped. Tate flagged the bug verbatim:
+ * "all the coherence stuff is coming through main chat and polluting the
+ * os context".
+ *
+ * The new substrate (observer_signals table + <observer_signals> turn-start
+ * continuity block) shows interventions as AMBIENT context — the conductor
+ * reads them at turn-start, never sees them as new user turns, and chat
+ * stays clean.
+ *
+ * observerSignalsService also adds:
+ *   - Self-mute: same fingerprint 3x in 10min = observer mutes itself 1h
+ *   - Conflict resolution: 2 observers disagreeing = single synthesized
+ *     'conflict_resolved' signal instead of both posting
+ *   - 30-min signal expiry: stale interventions auto-disappear
  */
-async function _postIntervention(name, message) {
+async function _postIntervention(name, message, opts = {}) {
   try {
-    const axios = require('axios')
-    const body = `<observer source="${name}">${message}</observer>`
-    await axios.post(
-      `http://localhost:${PORT}/api/os-session/message`,
-      { message: body, mode: 'queue', source: 'observer' },
-      { timeout: 5000 },
-    )
-    logger.info(`observer ${name}: intervention queued to conductor`, {
-      messageLen: message.length,
+    const observerSignals = require('../observerSignalsService')
+    const result = await observerSignals.writeSignal({
+      observer_name: name,
+      signal_kind: opts.signal_kind || 'drift_warning',
+      message,
+      reason: opts.reason,
+      confidence: opts.confidence,
     })
+    if (result.written === true) {
+      logger.info(`observer ${name}: signal written id=${result.id}`)
+    } else if (result.written === 'conflict_resolved') {
+      logger.info(`observer ${name}: signal conflict-suppressed (overlaps ${result.conflictWith})`)
+    } else if (result.reason === 'muted') {
+      logger.debug(`observer ${name}: muted until ${result.until?.toISOString?.()}`)
+    } else if (result.reason === 'self_muted_now') {
+      logger.warn(`observer ${name}: SELF-MUTED (recentCount=${result.recentCount})`)
+    } else {
+      logger.debug(`observer ${name}: signal not written`, { reason: result.reason })
+    }
+    return result
   } catch (err) {
     logger.warn(`observer ${name}: _postIntervention failed`, { error: err.message })
+    return { written: false, reason: 'exception' }
   }
 }
 
@@ -197,7 +224,18 @@ function createObserver({
       return
     }
 
-    await _postIntervention(name, msg)
+    // Confidence bumped to 0.85 minimum (was 0.75) to reduce false-positive
+    // chat-stream impact (per 13 May 2026 Tate flag on observer pollution).
+    // Each observer can override via decision.confidence, but if absent we
+    // assume the model agreed it was high-signal enough to intervene at all.
+    const inferredConfidence = typeof decision.confidence === 'number'
+      ? decision.confidence
+      : 0.85
+    await _postIntervention(name, msg, {
+      signal_kind: decision.signal_kind || 'drift_warning',
+      reason: decision.reason,
+      confidence: inferredConfidence,
+    })
     deduper.record(msg)
 
     await _writeHeartbeat(name, {

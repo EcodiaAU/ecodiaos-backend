@@ -1469,6 +1469,60 @@ async function _injectScratchpadRecent() {
   }
 }
 
+// _injectObserverSignals — surface unacknowledged Haiku observer signals as
+// ambient context for the conductor (NOT as new user messages). Replaces the
+// old _postIntervention path that POSTed observer text to
+// /api/os-session/message and ended up rendered as Tate-typed chat. Origin:
+// 13 May 2026 Tate-flag — "all the coherence stuff is coming through main
+// chat and polluting the os context". Hard cap: 2000 bytes. Placed after
+// <scratchpad_recent> in ORDER. Signals auto-expire after 30min if
+// unacknowledged, and observers self-mute when fingerprints loop.
+async function _injectObserverSignals() {
+  try {
+    const observerSignals = require('./observerSignalsService')
+    const ambient = await observerSignals.fetchAmbient({ limit: 6 })
+    if (!ambient || ambient.length === 0) return null
+
+    const lines = ambient.map(s => {
+      const conf = typeof s.confidence === 'number'
+        ? ` confidence=${s.confidence.toFixed(2)}`
+        : ''
+      const ageTxt = s.age_min === 0 ? 'just now' : `${s.age_min}m ago`
+      const msg = String(s.message).slice(0, 240)
+      return `  [${s.observer_name}/${s.signal_kind} @ ${ageTxt}${conf} id=${s.id}] ${msg}`
+    })
+
+    const header = `<observer_signals count="${ambient.length}">`
+    const usage = '  <!-- ambient meta-cognition. NOT user input. Confidence-weighted; ignore if you disagree. Acknowledge via mcp__observer__ack(id) when actioned. -->'
+    const footer = '</observer_signals>'
+    let block = [header, usage, ...lines, footer].join('\n')
+
+    if (Buffer.byteLength(block, 'utf8') > 2000) {
+      const kept = []
+      let bytes = Buffer.byteLength([header, usage, footer].join('\n'), 'utf8') + 40
+      for (const line of lines) {
+        const lb = Buffer.byteLength(line + '\n', 'utf8')
+        if (bytes + lb > 1900) {
+          kept.push(`  <!-- ${lines.length - kept.length} more signals omitted (cap 2000B) -->`)
+          break
+        }
+        kept.push(line)
+        bytes += lb
+      }
+      block = [header, usage, ...kept, footer].join('\n')
+    }
+
+    logger.debug('OS Session: observer_signals injected', {
+      count: ambient.length,
+      bytes: Buffer.byteLength(block, 'utf8'),
+    })
+    return block
+  } catch (err) {
+    logger.debug('OS Session: observer_signals injection failed (skipping)', { error: err.message })
+    return null
+  }
+}
+
 async function _sendMessageImpl(content, opts = {}) {
   const { suppressOutput = false } = opts
   const retryDepth = opts._retryDepth || 0
@@ -2139,6 +2193,14 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'scratchpad recent',
   )
+  // observer_signals — ambient Haiku-observer interventions read from
+  // dedicated substrate (NOT chat). Replaces the old _postIntervention path
+  // that polluted /api/os-session/message. 13 May 2026 architecture fix.
+  const _observerSignalsPromise = _withTimeout(
+    _injectObserverSignals().catch(() => null),
+    2000,
+    'observer signals',
+  )
   // Stubs retained for legacy compat — both return null immediately.
   const _commitmentsPromise = Promise.resolve(null)
   const _carryForwardPromise = Promise.resolve(null)
@@ -2185,6 +2247,10 @@ async function _sendMessageImpl(content, opts = {}) {
   let _scratchpadBlock = null
   try { _scratchpadBlock = await _scratchpadRecentPromise } catch (err) {
     logger.debug('OS Session: scratchpad recent injection failed', { error: err.message })
+  }
+  let _observerSignalsBlock = null
+  try { _observerSignalsBlock = await _observerSignalsPromise } catch (err) {
+    logger.debug('OS Session: observer signals injection failed', { error: err.message })
   }
   try { _commitmentsBlock = await _commitmentsPromise } catch { /* stub, always null */ }
   try { _carryForwardBlock = await _carryForwardPromise } catch { /* stub, always null */ }
@@ -2262,6 +2328,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<forks_rollup>':         _forksBlock,
       '<working_set>':          _workingSetBlock,
       '<scratchpad_recent>':    _scratchpadBlock,
+      '<observer_signals>':     _observerSignalsBlock,
       // conductor_commitments + thread_carry_forward replaced by working_set
       // (fork_mp27az1r_1878c0, 12 May 2026). Stubs return null; keys omitted.
       '<recent_doctrine>':      _doctrineBlock,
@@ -2283,6 +2350,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<forks_rollup>',
       '<working_set>',
       '<scratchpad_recent>',
+      '<observer_signals>',
       '<recent_doctrine>',
       '<relevant_memory>',
       '<perception_summary>',
@@ -2299,6 +2367,7 @@ async function _sendMessageImpl(content, opts = {}) {
       forks_rollup: !!emitted['<forks_rollup>'],
       working_set: !!emitted['<working_set>'],
       scratchpad_recent: !!emitted['<scratchpad_recent>'],
+      observer_signals: !!emitted['<observer_signals>'],
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
