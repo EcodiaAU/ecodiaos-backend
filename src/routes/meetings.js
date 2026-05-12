@@ -18,7 +18,7 @@ const express = require('express')
 const multer = require('multer')
 const logger = require('../config/logger')
 const db = require('../config/db')
-const { transcribeAudio } = require('../services/transcriptionService')
+const { transcribeWithChunking } = require('../services/transcriptionService')
 
 const router = express.Router()
 
@@ -117,24 +117,51 @@ async function deleteChunks(meetingId) {
 // ---------------------------------------------------------------------------
 async function runTranscription(meetingId) {
   try {
-    // Download merged audio
     const sb = getSupabase()
     if (!sb) throw new Error('no supabase client')
 
+    let buffer = null
+
+    // Primary: download merged audio.webm
     const { data, error } = await sb.storage
       .from('documents')
       .download(`meetings/${meetingId}/audio.webm`)
 
-    if (error || !data) throw new Error(`audio download failed: ${error?.message}`)
+    if (data && !error) {
+      const ab = await data.arrayBuffer()
+      buffer = Buffer.from(ab)
+    } else {
+      // Fallback: audio.webm missing (e.g. upload exceeded storage limit).
+      // Re-merge from individual chunks which may still be in storage.
+      logger.warn('[Meetings] merged audio not found, falling back to chunks', {
+        meetingId,
+        error: error?.message,
+      })
+      const chunkBuffers = await downloadChunks(meetingId)
+      if (!chunkBuffers.length) {
+        throw new Error('audio unavailable: merged audio missing and no chunks found in storage')
+      }
+      buffer = Buffer.concat(chunkBuffers)
+      // Attempt to upload merged audio now (best-effort; don't block transcription if it fails)
+      const merged = await storageUpload({
+        buffer,
+        path: `meetings/${meetingId}/audio.webm`,
+        mimeType: 'audio/webm',
+      })
+      if (merged) {
+        deleteChunks(meetingId).catch(() => {})
+        logger.info('[Meetings] merged audio uploaded on retry', { meetingId, bytes: buffer.length })
+      }
+    }
 
-    const ab = await data.arrayBuffer()
-    const buffer = Buffer.from(ab)
-
-    if (!buffer.length) throw new Error('empty audio buffer')
+    if (!buffer || !buffer.length) throw new Error('empty audio buffer')
 
     logger.info('[Meetings] transcribing', { meetingId, bytes: buffer.length })
 
-    const transcript = await transcribeAudio({
+    // transcribeWithChunking handles large files (>20MB) by converting to
+    // voice-quality MP3 via ffmpeg before calling the transcription API.
+    // A 64-min 59MB WebM → ~15MB MP3 — fits Whisper's 25MB limit in one call.
+    const transcript = await transcribeWithChunking({
       buffer,
       mimeType: 'audio/webm',
       filename: 'meeting.webm',
@@ -263,15 +290,24 @@ router.post('/:id/stop', async (req, res) => {
         path: `meetings/${id}/audio.webm`,
         mimeType: 'audio/webm',
       })
-      // Clean up chunk objects
-      deleteChunks(id).catch(() => {})
+      if (audioPath) {
+        // Merged upload succeeded — safe to remove individual chunks
+        deleteChunks(id).catch(() => {})
+      } else {
+        // Upload failed (likely exceeded storage limit for large files).
+        // KEEP chunks in storage — runTranscription will fall back to them.
+        logger.warn('[Meetings] merged audio upload failed, keeping chunks for transcription fallback', {
+          id,
+          bytes: audioSize,
+        })
+      }
     }
 
-    // Idempotent stop: if already processing/done, return current state without re-running
+    // Idempotent stop: if already processing/retrying/done, return current state without re-running
     const [existing] = await db`
       SELECT transcription_status FROM meeting_recordings WHERE id = ${id}::uuid
     `
-    if (existing?.transcription_status === 'processing' || existing?.transcription_status === 'done') {
+    if (['processing', 'retrying', 'done'].includes(existing?.transcription_status)) {
       logger.info('[Meetings] stop called on already-processing/done meeting, ignoring', { id, status: existing.transcription_status })
       return res.status(200).json({
         ok: true,
@@ -421,73 +457,47 @@ router.post('/:id/transcribe', async (req, res) => {
 })
 
 // ---------------------------------------------------------------------------
-// POST /api/meetings/:id/retranscribe - synchronous re-run with current model/prompt
-// Returns new transcript inline. 410 if audio no longer in storage.
-// Sets transcript_revised_at on success.
+// POST /api/meetings/:id/retranscribe - async re-run with chunked transcription
+//
+// Returns 202 immediately after setting status='retrying'.
+// Client should poll GET /:id until transcription_status is 'done' or 'error'.
+// Uses transcribeWithChunking so large files (e.g. 64-min 59MB WebM) are
+// converted to voice-quality MP3 via ffmpeg before the API call — no heap OOM,
+// no 25MB API limit hit.
 // ---------------------------------------------------------------------------
 router.post('/:id/retranscribe', async (req, res) => {
   const { id } = req.params
   try {
-    const [row] = await db`SELECT id, audio_url FROM meeting_recordings WHERE id = ${id}::uuid AND archived_at IS NULL`
+    const [row] = await db`
+      SELECT id, audio_url, transcription_status
+      FROM meeting_recordings WHERE id = ${id}::uuid AND archived_at IS NULL
+    `
     if (!row) return res.status(404).json({ error: 'not_found' })
     if (!row.audio_url) return res.status(410).json({ error: 'no_audio', message: 'No audio on record for this meeting.' })
 
-    const sb = getSupabase()
-    if (!sb) return res.status(503).json({ error: 'storage_unavailable' })
-
-    // Verify audio actually exists in storage
-    const { data: audioData, error: dlErr } = await sb.storage
-      .from('documents')
-      .download(row.audio_url)
-
-    if (dlErr || !audioData) {
-      logger.warn('[Meetings] retranscribe: audio not in storage', { id, audio_url: row.audio_url, error: dlErr?.message })
-      return res.status(410).json({ error: 'audio_not_found', message: 'Audio file no longer available in storage.' })
+    // Idempotent: already retrying or processing — don't double-queue
+    if (row.transcription_status === 'retrying' || row.transcription_status === 'processing') {
+      return res.json({ queued: true, status: row.transcription_status, alreadyRunning: true })
     }
 
-    const ab = await audioData.arrayBuffer()
-    const buffer = Buffer.from(ab)
-    if (!buffer.length) return res.status(410).json({ error: 'audio_empty', message: 'Audio file is empty.' })
-
-    logger.info('[Meetings] retranscribing', { id, bytes: buffer.length })
-
-    const transcript = await transcribeAudio({
-      buffer,
-      mimeType: 'audio/webm',
-      filename: 'meeting.webm',
-    })
-    const text = transcript.full_text || ''
-
-    // Update storage transcript
-    const transcriptPath = `meetings/${id}/transcript.txt`
-    await storageUpload({
-      buffer: Buffer.from(text, 'utf8'),
-      path: transcriptPath,
-      mimeType: 'text/plain',
-    })
-
-    const [updated] = await db`
+    // Set retrying status so FE polling picks it up immediately
+    await db`
       UPDATE meeting_recordings SET
-        transcript_text = ${text},
-        transcript_json = ${JSON.stringify(transcript)},
-        transcript_url = ${transcriptPath},
-        transcript_engine = ${transcript.engine},
-        transcript_diarised = ${transcript.diarised},
-        transcription_status = 'done',
+        transcription_status = 'retrying',
         transcription_error = NULL,
         transcript_revised_at = NOW()
       WHERE id = ${id}::uuid
-      RETURNING transcript_text, transcript_json, transcript_revised_at
     `
 
-    logger.info('[Meetings] retranscription done', { id, engine: transcript.engine, chars: text.length })
-    return res.json({
-      transcript_text: updated.transcript_text,
-      transcript_json: updated.transcript_json,
-      transcript_revised_at: updated.transcript_revised_at,
+    // Fire async — runTranscription handles the chunk fallback + chunked transcription
+    runTranscription(id).catch(err => {
+      logger.error('[Meetings] retranscribe async error', { id, error: err.message })
     })
+
+    logger.info('[Meetings] retranscription queued', { id })
+    return res.status(202).json({ queued: true, status: 'retrying' })
   } catch (err) {
-    logger.error('[Meetings] retranscribe failed', { id, error: err.message })
+    logger.error('[Meetings] retranscribe route failed', { id, error: err.message })
     return res.status(500).json({ error: 'retranscribe_failed', detail: err.message })
   }
 })

@@ -33,6 +33,10 @@
  *
  * Authored: fork_mp1y5cmf_fd9629, 2026-05-12.
  */
+const path = require('path')
+const os = require('os')
+const fs = require('fs').promises
+const { spawn } = require('child_process')
 const logger = require('../config/logger')
 
 // ─── Cached Deepgram key (checked once then memoised for 5 min) ──────────────
@@ -306,4 +310,169 @@ async function transcribeChunk({ buffer, mimeType, filename }) {
   return result.full_text
 }
 
-module.exports = { transcribeAudio, transcribeChunk, stripRepetitiveTail }
+// ─── Large-file chunking via ffmpeg ─────────────────────────────────────────
+
+// Files larger than this threshold are pre-processed by ffmpeg before transcription.
+// 20MB ceiling keeps well under Whisper's 25MB limit and Supabase free-tier 50MB limit.
+const CHUNK_THRESHOLD_BYTES = 20 * 1024 * 1024
+
+/**
+ * Wrap ffmpeg spawn. Always adds -y (auto-overwrite).
+ * Rejects with the last few lines of stderr on non-zero exit.
+ */
+function spawnFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('ffmpeg', ['-y', ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const errLines = []
+    proc.stderr.on('data', d => errLines.push(d.toString()))
+    proc.on('error', err => reject(new Error(`ffmpeg spawn error: ${err.message}`)))
+    proc.on('close', code => {
+      if (code !== 0) {
+        reject(new Error(`ffmpeg exit ${code}: ${errLines.slice(-5).join('').trim()}`))
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+/**
+ * Compress input audio file to voice-quality mono MP3 at 16kHz / 32kbps.
+ * A 64-min 59MB WebM → ~15MB MP3, well within the 25MB Whisper limit.
+ * Returns path to the output mp3 file (caller must clean up).
+ */
+async function compressToVoiceMp3(inputPath) {
+  const outputPath = path.join(os.tmpdir(), `mtg-voice-${Date.now()}.mp3`)
+  await spawnFfmpeg([
+    '-i', inputPath,
+    '-ar', '16000',  // 16kHz — Whisper's native input rate
+    '-ac', '1',      // mono
+    '-b:a', '32k',   // 32kbps sufficient for speech
+    '-f', 'mp3',
+    outputPath,
+  ])
+  return outputPath
+}
+
+/**
+ * Segment an audio file into fixed-duration chunks using copy codec.
+ * Returns { dir, segments: [{ path, startSecs }] } — caller cleans up dir.
+ */
+async function segmentAudio(inputPath, segmentSecs = 600) {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mtg-seg-'))
+  const pattern = path.join(dir, 'seg%03d.mp3')
+  await spawnFfmpeg([
+    '-i', inputPath,
+    '-f', 'segment',
+    '-segment_time', String(segmentSecs),
+    '-c', 'copy',
+    pattern,
+  ])
+  const files = (await fs.readdir(dir)).filter(f => f.endsWith('.mp3')).sort()
+  return {
+    dir,
+    segments: files.map((f, i) => ({ path: path.join(dir, f), startSecs: i * segmentSecs })),
+  }
+}
+
+/**
+ * Merge an array of transcript parts (each from a different chunk) into one
+ * unified Transcript. Offsets all start_ms / end_ms timestamps by chunk start.
+ */
+function stitchTranscripts(parts) {
+  const segments = []
+  const paragraphs = []
+  let fullText = ''
+  let engine = 'whisper'
+  let diarised = false
+
+  for (const { result, startSecs } of parts) {
+    const offMs = startSecs * 1000
+    if (result.full_text) fullText = fullText ? `${fullText} ${result.full_text}` : result.full_text
+    engine = result.engine
+    diarised = result.diarised
+    for (const s of result.segments || []) {
+      segments.push({ ...s, start_ms: (s.start_ms || 0) + offMs, end_ms: (s.end_ms || 0) + offMs })
+    }
+    for (const p of result.paragraphs || []) {
+      paragraphs.push({ ...p, start_ms: (p.start_ms || 0) + offMs, end_ms: (p.end_ms || 0) + offMs })
+    }
+  }
+
+  return { full_text: fullText.trim(), engine, diarised, segments, paragraphs }
+}
+
+/**
+ * transcribeWithChunking({ buffer, mimeType, filename })
+ *
+ * Memory-safe wrapper around transcribeAudio() for large audio files.
+ *
+ * Small files (≤20MB): direct pass-through, no ffmpeg.
+ * Large files (>20MB): ffmpeg converts to 16kHz/mono/32kbps MP3, which
+ *   shrinks a 64-min 59MB WebM to ~15MB — fits Whisper's 25MB limit in
+ *   a single call. Only files >~100min compressed require chunk splitting.
+ *
+ * Memory ceiling: the input buffer is written to disk then freed before
+ * ffmpeg processing, so we never hold full-audio + working-copy in heap.
+ */
+async function transcribeWithChunking({ buffer, mimeType, filename }) {
+  if (!buffer?.length) throw new Error('empty audio buffer')
+
+  // Small file: skip ffmpeg overhead entirely
+  if (buffer.length <= CHUNK_THRESHOLD_BYTES) {
+    logger.info('[Transcription] small file, direct transcription', { bytes: buffer.length })
+    return transcribeAudio({ buffer, mimeType, filename })
+  }
+
+  logger.info('[Transcription] large file — ffmpeg voice-MP3 pre-processing', { bytes: buffer.length })
+
+  const tmpIn = path.join(os.tmpdir(), `mtg-in-${Date.now()}.webm`)
+  let voiceMp3 = null
+  let segDir = null
+
+  try {
+    // Write to disk and free the in-memory buffer so GC can collect it
+    await fs.writeFile(tmpIn, buffer)
+    buffer = null // eslint-disable-line no-param-reassign
+
+    voiceMp3 = await compressToVoiceMp3(tmpIn)
+    await fs.unlink(tmpIn).catch(() => {})
+
+    const { size: mp3Size } = await fs.stat(voiceMp3)
+    logger.info('[Transcription] voice MP3 ready', { bytes: mp3Size })
+
+    const MAX_SINGLE_BYTES = 24 * 1024 * 1024 // 24MB single-call ceiling
+
+    if (mp3Size <= MAX_SINGLE_BYTES) {
+      // Common path for ≤~100min recordings: single Whisper call
+      const mp3Buf = await fs.readFile(voiceMp3)
+      return await transcribeAudio({ buffer: mp3Buf, mimeType: 'audio/mpeg', filename: 'meeting.mp3' })
+    }
+
+    // Very long recording (>~100min): split into 10-min segments
+    logger.info('[Transcription] splitting into 10-min segments', { bytes: mp3Size })
+    const result = await segmentAudio(voiceMp3, 600)
+    segDir = result.dir
+    const segs = result.segments
+
+    const parts = []
+    for (const seg of segs) {
+      const segBuf = await fs.readFile(seg.path)
+      const chunkResult = await transcribeAudio({
+        buffer: segBuf,
+        mimeType: 'audio/mpeg',
+        filename: path.basename(seg.path),
+      })
+      parts.push({ result: chunkResult, startSecs: seg.startSecs })
+      await fs.unlink(seg.path).catch(() => {})
+    }
+
+    return stitchTranscripts(parts)
+  } finally {
+    await fs.unlink(tmpIn).catch(() => {})
+    if (voiceMp3) await fs.unlink(voiceMp3).catch(() => {})
+    if (segDir) await fs.rm(segDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+module.exports = { transcribeAudio, transcribeChunk, transcribeWithChunking, stripRepetitiveTail }
