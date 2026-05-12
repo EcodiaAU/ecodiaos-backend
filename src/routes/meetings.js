@@ -1033,4 +1033,253 @@ router.post('/:id/analyze', async (req, res) => {
   }
 })
 
+// ---------------------------------------------------------------------------
+// Email helpers
+// ---------------------------------------------------------------------------
+function formatMeetingDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('en-AU', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    })
+  } catch { return iso }
+}
+
+function fmtDuration(seconds) {
+  if (!seconds) return null
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
+}
+
+function esc(str) {
+  if (!str) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function buildAnalysisEmail({ meeting, analysis, actionItems, note, meetingTitle }) {
+  const dateStr = formatMeetingDate(meeting.started_at)
+  const duration = fmtDuration(meeting.duration_seconds)
+
+  const pill = (text, bg, color) =>
+    `<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:${bg};color:${color};font-size:11px;font-weight:600;margin-right:4px">${esc(text)}</span>`
+
+  // Action items sorted P1 first
+  const sortedItems = [...(actionItems || [])].sort((a, b) => {
+    const order = { P1: 0, P2: 1, P3: 2 }
+    return (order[a.priority] ?? 3) - (order[b.priority] ?? 3)
+  })
+
+  const actionItemRow = (item) => `
+    <tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;vertical-align:top">
+        <table cellpadding="0" cellspacing="0" style="width:100%"><tr>
+          <td style="width:36px;vertical-align:top;padding-top:1px">
+            ${pill(item.priority, item.priority === 'P1' ? '#FEE2E2' : item.priority === 'P2' ? '#FEF3C7' : '#F0FDF4', item.priority === 'P1' ? '#991B1B' : item.priority === 'P2' ? '#92400E' : '#166534')}
+          </td>
+          <td style="vertical-align:top">
+            <div style="font-size:13px;color:#111111;font-weight:500">${esc(item.action)}</div>
+            <div style="font-size:12px;color:#666666;margin-top:2px">
+              ${item.owner ? `Owner: ${esc(item.owner)}` : ''}${item.owner && item.due ? ' &middot; ' : ''}${item.due ? `Due: ${esc(item.due)}` : ''}
+            </div>
+          </td>
+        </tr></table>
+      </td>
+    </tr>`
+
+  const actionsContent = sortedItems.length > 0
+    ? `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+        ${sortedItems.map(actionItemRow).join('')}
+       </table>`
+    : '<p style="color:#888;font-size:13px;margin:0">No action items identified.</p>'
+
+  const decisionsContent = (analysis.key_decisions || []).length > 0
+    ? `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+        ${(analysis.key_decisions || []).map(d => `
+          <tr><td style="padding:8px 0;border-bottom:1px solid #f0f0f0">
+            <div style="font-size:13px;color:#111111;font-weight:500">${esc(d.decision)}</div>
+            ${d.rationale ? `<div style="font-size:12px;color:#666;margin-top:2px">${esc(d.rationale)}</div>` : ''}
+            ${d.owner ? `<div style="font-size:12px;color:#888;margin-top:1px">Owner: ${esc(d.owner)}</div>` : ''}
+          </td></tr>`).join('')}
+       </table>`
+    : '<p style="color:#888;font-size:13px;margin:0">No explicit decisions recorded.</p>'
+
+  const deepDiveContent = `
+    ${analysis.executive_summary
+      ? analysis.executive_summary.split('\n\n').map(para =>
+          `<p style="font-size:13px;line-height:1.6;color:#333333;margin:0 0 12px">${esc(para)}</p>`
+        ).join('')
+      : ''}
+    ${(analysis.risks_red_flags || []).length > 0 ? `
+      <h3 style="margin:16px 0 8px;font-size:12px;font-weight:600;color:#dc2626;text-transform:uppercase;letter-spacing:0.05em">Risks + Red Flags</h3>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+        ${(analysis.risks_red_flags || []).map(r => `
+          <tr><td style="padding:6px 0;border-bottom:1px solid #fee2e2">
+            <div style="font-size:13px;color:#111">${pill(r.severity, '#FEE2E2', '#991B1B')}${esc(r.risk)}</div>
+            ${r.context ? `<div style="font-size:12px;color:#666;margin-top:2px">${esc(r.context)}</div>` : ''}
+          </td></tr>`).join('')}
+      </table>` : ''}`
+
+  const section = (title, content) => `
+    <tr><td style="padding:24px 32px 0">
+      <h2 style="margin:0 0 12px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#888888">${title}</h2>
+      ${content}
+    </td></tr>`
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(meetingTitle)}</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<table cellpadding="0" cellspacing="0" style="width:100%;background:#f5f5f5"><tr><td style="padding:32px 16px">
+<table cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;margin:0 auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+
+  <tr><td style="background:#111111;padding:24px 32px">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#666666;margin-bottom:6px">Meeting Analysis</div>
+    <h1 style="margin:0;font-size:20px;font-weight:700;color:#ffffff;line-height:1.3">${esc(meetingTitle)}</h1>
+    <div style="margin-top:8px;font-size:12px;color:#888888">
+      ${esc(dateStr)}${duration ? ` &middot; ${esc(duration)}` : ''}${meeting.client_name ? ` &middot; ${esc(meeting.client_name)}` : ''}
+    </div>
+  </td></tr>
+
+  ${note ? `
+  <tr><td style="padding:16px 32px;background:#fffbeb;border-bottom:1px solid #fef3c7">
+    <div style="font-size:12px;font-weight:600;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">Note</div>
+    <p style="margin:0;font-size:13px;color:#78350f;line-height:1.5">${esc(note)}</p>
+  </td></tr>` : ''}
+
+  ${analysis.one_line_summary ? `
+  <tr><td style="padding:16px 32px;background:#f9fafb;border-bottom:1px solid #f0f0f0">
+    <p style="margin:0;font-size:14px;color:#374151;font-style:italic;line-height:1.5">"${esc(analysis.one_line_summary)}"</p>
+  </td></tr>` : ''}
+
+  ${section('Action Items', actionsContent)}
+  ${section('Key Decisions', decisionsContent)}
+  ${section('Deep Dive', deepDiveContent)}
+
+  <tr><td style="padding:24px 32px;border-top:1px solid #f0f0f0;margin-top:24px">
+    <p style="margin:0;font-size:11px;color:#aaaaaa">Sent from EcodiaOS meeting recorder. Analysis generated by AI - verify important decisions directly.</p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/meetings/:id/email - email analysis (NOT transcript) to recipient(s)
+// Body: { to: string | string[], subject?: string, note?: string }
+// ---------------------------------------------------------------------------
+router.post('/:id/email', async (req, res) => {
+  const { id } = req.params
+  const { to, subject, note } = req.body || {}
+
+  if (!to) return res.status(400).json({ error: 'to_required', message: 'Body must include "to" (email or comma-separated emails)' })
+  const recipients = Array.isArray(to)
+    ? to.map(e => e.trim()).filter(Boolean)
+    : String(to).split(',').map(e => e.trim()).filter(Boolean)
+  if (!recipients.length) return res.status(400).json({ error: 'to_invalid', message: 'No valid recipients parsed' })
+
+  try {
+    const [row] = await db`
+      SELECT m.id, m.title, m.started_at, m.duration_seconds,
+             m.analysis_json, m.action_items_json, m.analysis_status,
+             c.name AS client_name
+      FROM meeting_recordings m
+      LEFT JOIN clients c ON c.id = m.client_id
+      WHERE m.id = ${id}::uuid AND m.archived_at IS NULL
+    `
+    if (!row) return res.status(404).json({ error: 'not_found' })
+    if (!row.analysis_json) {
+      return res.status(400).json({
+        error: 'analysis_not_ready',
+        message: `Analysis not ready yet. Current status: ${row.analysis_status || 'unknown'}`,
+      })
+    }
+
+    // Read Resend credentials from kv_store - prefer meeting_analysis key, fall back to workspace_admin
+    const [kvRow] = await db`
+      SELECT key, value FROM kv_store
+      WHERE key IN ('creds.resend.meeting_analysis', 'creds.resend.workspace_admin')
+        AND archived_at IS NULL
+      ORDER BY (CASE key WHEN 'creds.resend.meeting_analysis' THEN 0 ELSE 1 END)
+      LIMIT 1
+    `
+    if (!kvRow) {
+      return res.status(503).json({
+        error: 'resend_not_configured',
+        message: "Resend not configured. Provision creds.resend.meeting_analysis in kv_store with {api_key:'re_...', from_address:'meetings@ecodia.au'}",
+      })
+    }
+    const creds = typeof kvRow.value === 'string' ? JSON.parse(kvRow.value) : kvRow.value
+    const apiKey = creds.api_key || creds.apiKey
+    const fromAddress = creds.from_address || creds.fromAddress || 'meetings@ecodia.au'
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'resend_key_missing',
+        message: 'kv_store credential row exists but api_key field is missing.',
+      })
+    }
+
+    const analysis = row.analysis_json
+    const actionItems = row.action_items_json || []
+    const meetingTitle = row.title || formatMeetingDate(row.started_at)
+    const emailSubject = subject || `Meeting analysis: ${meetingTitle}`
+    const htmlBody = buildAnalysisEmail({ meeting: row, analysis, actionItems, note: note || null, meetingTitle })
+
+    const { Resend } = require('resend')
+    const resend = new Resend(apiKey)
+    const sendResult = await resend.emails.send({
+      from: fromAddress,
+      to: recipients,
+      subject: emailSubject,
+      html: htmlBody,
+    })
+
+    if (sendResult.error) {
+      logger.error('[Meetings] email send failed', { id, error: sendResult.error })
+      await db`
+        INSERT INTO meeting_email_sends (meeting_id, sent_to, subject, status, error_text)
+        VALUES (${id}::uuid, ${recipients}, ${emailSubject}, 'error', ${JSON.stringify(sendResult.error)})
+      `
+      return res.status(502).json({ error: 'send_failed', detail: sendResult.error })
+    }
+
+    const messageId = sendResult.data?.id || null
+    await db`
+      INSERT INTO meeting_email_sends (meeting_id, sent_to, subject, resend_message_id, status)
+      VALUES (${id}::uuid, ${recipients}, ${emailSubject}, ${messageId}, 'sent')
+    `
+
+    logger.info('[Meetings] analysis emailed', { id, recipients, messageId })
+    return res.json({ ok: true, message_id: messageId, sent_to: recipients })
+  } catch (err) {
+    logger.error('[Meetings] email endpoint failed', { id, error: err.message })
+    return res.status(500).json({ error: 'email_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/meetings/:id/email-sends - send history for this meeting
+// ---------------------------------------------------------------------------
+router.get('/:id/email-sends', async (req, res) => {
+  const { id } = req.params
+  try {
+    const rows = await db`
+      SELECT id, sent_to, subject, resend_message_id, status, error_text, sent_at
+      FROM meeting_email_sends
+      WHERE meeting_id = ${id}::uuid
+      ORDER BY sent_at DESC
+      LIMIT 50
+    `
+    return res.json({ sends: rows })
+  } catch (err) {
+    logger.error('[Meetings] email-sends list failed', { id, error: err.message })
+    return res.status(500).json({ error: 'list_failed', detail: err.message })
+  }
+})
+
 module.exports = router
