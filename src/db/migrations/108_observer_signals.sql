@@ -26,10 +26,14 @@ CREATE TABLE observer_signals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Fast lookup: ambient signals visible to next turn = unexpired AND unacknowledged
+-- Fast lookup: ambient signals visible to next turn = unacknowledged.
+-- Note: we cannot put `expires_at > NOW()` in the predicate (NOW() is not
+-- immutable in index predicates). The fetchAmbient() service filters by
+-- expires_at > NOW() in the WHERE clause and the planner uses this index +
+-- a heap filter for the time check.
 CREATE INDEX observer_signals_ambient_idx
   ON observer_signals (created_at DESC)
-  WHERE acknowledged = FALSE AND expires_at > NOW();
+  WHERE acknowledged = FALSE;
 
 -- Self-mute detection: same fingerprint fired N times = observer is in a loop
 CREATE INDEX observer_signals_fingerprint_recent_idx
