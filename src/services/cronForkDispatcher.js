@@ -234,6 +234,25 @@ function estimateForkTokenCost(brief) {
 const BUDGET_KEY = 'cowork.daily_fork_budget_remaining'
 const BUDGET_MAX_KEY = 'cowork.daily_fork_budget_max'
 
+// ── Anti-flood gate: account-chain exhaustion ────────────────────────────────
+//
+// When 3+ cron-dispatched forks fail with credit-signal errors in a 10-minute
+// sliding window, LOW_PRIORITY_FORK dispatch is suppressed until the earliest
+// per-account reset time. HIGH_PRIORITY, CONDUCTOR, and DIRECT_EXEC routes
+// are never affected - only the automatic LOW_PRIORITY spawn cycle is paused.
+//
+// State durability: kv_store key 'cron_fork_dispatcher.flood_pause_until'
+// persists across PM2 restarts so a restart mid-pause doesn't reset the gate.
+// Skip telemetry lands in kv_store key 'forks.skip_log' (ring buffer, max 50).
+//
+// Spec: ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
+
+const ANTI_FLOOD_KV_KEY = 'cron_fork_dispatcher.flood_pause_until'
+const ANTI_FLOOD_SKIP_LOG_KEY = 'forks.skip_log'
+const ANTI_FLOOD_WINDOW_MS = 10 * 60 * 1000          // 10-minute sliding window
+const ANTI_FLOOD_ERROR_THRESHOLD = 3                   // N consecutive errors threshold
+const ANTI_FLOOD_DEFAULT_PAUSE_MS = 60 * 60 * 1000   // 60-min fallback if reset time not parseable
+
 async function _readBudget() {
   try {
     const rows = await db`SELECT value FROM kv_store WHERE key = ${BUDGET_KEY}`
@@ -345,6 +364,202 @@ async function _writeBudgetSkipFlag(cronName, gate) {
   }
 }
 
+// ── Anti-flood gate helpers ──────────────────────────────────────────────────
+
+/**
+ * Read flood_pause_until from kv_store.
+ * Returns ISO UTC string or null. Fail-open on DB error.
+ */
+async function _readFloodPauseUntil() {
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${ANTI_FLOOD_KV_KEY}`
+    if (rows.length === 0) return null
+    const raw = rows[0].value
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return parsed?.until || (typeof parsed === 'string' ? parsed : null)
+  } catch (err) {
+    logger.debug('cronForkDispatcher: _readFloodPauseUntil failed (non-fatal)', { error: err.message })
+    return null
+  }
+}
+
+/**
+ * Write flood_pause_until to kv_store.
+ */
+async function _writeFloodPauseUntil(untilIso) {
+  try {
+    const payload = JSON.stringify({ until: untilIso, set_at: new Date().toISOString() })
+    await db`
+      INSERT INTO kv_store (key, value)
+      VALUES (${ANTI_FLOOD_KV_KEY}, ${payload})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `
+  } catch (err) {
+    logger.warn('cronForkDispatcher: _writeFloodPauseUntil failed', { error: err.message })
+  }
+}
+
+/**
+ * Clear the flood pause (expiry or manual release).
+ */
+async function _clearFloodPauseUntil() {
+  try {
+    await db`DELETE FROM kv_store WHERE key = ${ANTI_FLOOD_KV_KEY}`
+    logger.info('cronForkDispatcher: anti-flood gate RELEASED - LOW_PRIORITY dispatch resuming')
+  } catch (err) {
+    logger.warn('cronForkDispatcher: _clearFloodPauseUntil failed (non-fatal)', { error: err.message })
+  }
+}
+
+/**
+ * Parse a reset time like "resets 11am (UTC)" or "resets 2:30pm (UTC)" from
+ * an abort_reason string. Returns ISO UTC string or null if not parseable.
+ * Used as fallback when os_forks.credit_reset_at is NULL.
+ */
+function _parseResetTimeFromAbortReason(text) {
+  if (!text) return null
+  // Matches: "resets 11am (UTC)", "resets 2:30pm (UTC)", "resets 9:00 AM UTC"
+  const match = String(text).match(/resets?\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:\(UTC\)|UTC)/i)
+  if (!match) return null
+  let hours = parseInt(match[1], 10)
+  const mins = match[2] ? parseInt(match[2], 10) : 0
+  const ampm = match[3] ? match[3].toLowerCase() : null
+  if (ampm === 'pm' && hours < 12) hours += 12
+  else if (ampm === 'am' && hours === 12) hours = 0
+  const now = new Date()
+  const candidate = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+    hours, mins, 0
+  ))
+  // If the time already passed today, use tomorrow
+  if (candidate.getTime() <= now.getTime()) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1)
+  }
+  return candidate.toISOString()
+}
+
+/**
+ * Query recent credit-exhaustion fork errors within the sliding window.
+ * Uses os_forks.credit_reset_at when available (accurate), falls back to
+ * parsing abort_reason text.
+ *
+ * Returns { exhausted: boolean, count: number, minResetIso: string|null }
+ * Fail-open on DB error (returns exhausted=false so dispatch is not blocked).
+ */
+async function _checkChainExhaustionState() {
+  try {
+    const windowStart = new Date(Date.now() - ANTI_FLOOD_WINDOW_MS)
+    const rows = await db`
+      SELECT abort_reason, ended_at, credit_reset_at, failure_class
+      FROM os_forks
+      WHERE status = 'error'
+        AND ended_at > ${windowStart}
+        AND (
+          (abort_reason IS NOT NULL AND abort_reason ~* 'out of.*(extra )?usage|weekly cap|session cap')
+          OR failure_class = 'account_chain_exhausted'
+          OR credit_reset_at IS NOT NULL
+        )
+      ORDER BY ended_at DESC
+      LIMIT 5
+    `
+
+    if (rows.length < ANTI_FLOOD_ERROR_THRESHOLD) {
+      return { exhausted: false, count: rows.length, minResetIso: null }
+    }
+
+    // Compute min reset time: prefer credit_reset_at column (parsed by forkService),
+    // fall back to parsing abort_reason text.
+    const resetTimes = rows
+      .map(r => r.credit_reset_at
+        ? new Date(r.credit_reset_at).toISOString()
+        : _parseResetTimeFromAbortReason(r.abort_reason))
+      .filter(Boolean)
+
+    const minResetIso = resetTimes.length > 0
+      ? resetTimes.reduce((min, t) => (t < min ? t : min), resetTimes[0])
+      : new Date(Date.now() + ANTI_FLOOD_DEFAULT_PAUSE_MS).toISOString()
+
+    return { exhausted: true, count: rows.length, minResetIso }
+  } catch (err) {
+    logger.debug('cronForkDispatcher: _checkChainExhaustionState failed (fail-open)', { error: err.message })
+    return { exhausted: false, count: 0, minResetIso: null }
+  }
+}
+
+/**
+ * Append one entry to the skip-log ring buffer in kv_store (max 50 entries).
+ * Best-effort, fire-and-forget. Must never throw to callers.
+ */
+async function _writeAntiFloodSkipLog(cronName, pauseUntilIso) {
+  try {
+    const MAX_ENTRIES = 50
+    let existing = []
+    try {
+      const rows = await db`SELECT value FROM kv_store WHERE key = ${ANTI_FLOOD_SKIP_LOG_KEY}`
+      if (rows.length > 0) {
+        const raw = rows[0].value
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        existing = Array.isArray(parsed) ? parsed : []
+      }
+    } catch { /* start fresh ring */ }
+
+    const entry = {
+      cron: cronName,
+      skipped_at: new Date().toISOString(),
+      reason: 'anti_flood_pause',
+      pause_until: pauseUntilIso,
+    }
+    const updated = [...existing.slice(-(MAX_ENTRIES - 1)), entry]
+    await db`
+      INSERT INTO kv_store (key, value)
+      VALUES (${ANTI_FLOOD_SKIP_LOG_KEY}, ${JSON.stringify(updated)})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `
+  } catch (err) {
+    logger.debug('cronForkDispatcher: _writeAntiFloodSkipLog failed (non-fatal)', { error: err.message })
+  }
+}
+
+/**
+ * Top-level gate check: is LOW_PRIORITY dispatch currently suppressed?
+ *
+ * Algorithm:
+ *   1. Read kv_store for an existing pause (survives PM2 restarts).
+ *   2. If present and still in the future: paused.
+ *   3. If present but expired: clear it, fall through to live check.
+ *   4. Live check: query os_forks for 3+ credit-exhaustion errors in window.
+ *   5. If threshold met: write pause to kv_store, return paused=true.
+ *
+ * Returns { paused: boolean, pauseUntilIso: string|null }
+ */
+async function _isAntiFloodPaused() {
+  // Step 1-3: check kv_store
+  const storedUntil = await _readFloodPauseUntil()
+  if (storedUntil) {
+    if (Date.now() < new Date(storedUntil).getTime()) {
+      return { paused: true, pauseUntilIso: storedUntil }
+    }
+    // Expired - clear and fall through to live check
+    await _clearFloodPauseUntil()
+  }
+
+  // Step 4: live check against recent fork errors
+  const { exhausted, count, minResetIso } = await _checkChainExhaustionState()
+  if (!exhausted) {
+    return { paused: false, pauseUntilIso: null }
+  }
+
+  // Step 5: engage the gate
+  logger.info('cronForkDispatcher: anti-flood gate ENGAGED - account chain exhausted', {
+    error_count: count,
+    window_minutes: ANTI_FLOOD_WINDOW_MS / 60000,
+    threshold: ANTI_FLOOD_ERROR_THRESHOLD,
+    pause_until: minResetIso,
+  })
+  await _writeFloodPauseUntil(minResetIso)
+  return { paused: true, pauseUntilIso: minResetIso }
+}
+
 // ── Fork-id stamp on the cron task ───────────────────────────────────────────
 
 async function _stampForkIdOnCron(taskId, forkId) {
@@ -400,6 +615,34 @@ async function dispatchCronAsFork(cronTask) {
   const cost = estimateForkTokenCost(cronTask.prompt)
   const budgetRemaining = await _readBudget()
   const budgetMax = await _readBudgetMax()
+
+  // ── Anti-flood gate (account-chain exhaustion) ──────────────────────────────
+  // Suppress LOW_PRIORITY forks when 3+ cron forks have failed with credit-
+  // exhaustion signals in the last 10 minutes. HIGH_PRIORITY, CONDUCTOR, and
+  // DIRECT_EXEC routes are never suppressed - only the automatic LOW_PRIORITY
+  // spawn cycle is paused until the earliest per-account reset time.
+  // Spec: ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
+  if (route === 'low_priority_fork') {
+    const antiFlood = await _isAntiFloodPaused()
+    if (antiFlood.paused) {
+      // Best-effort skip log - fire-and-forget, never blocks dispatch path
+      _writeAntiFloodSkipLog(cronTask.name, antiFlood.pauseUntilIso).catch(() => {})
+      logger.info('cronForkDispatcher: LOW_PRIORITY cron suppressed (anti-flood gate)', {
+        cron: cronTask.name,
+        pause_until: antiFlood.pauseUntilIso,
+      })
+      return {
+        spawned: false,
+        route,
+        fork_id: null,
+        reason: 'anti_flood_pause',
+        budget_remaining: budgetRemaining,
+        estimated_cost: cost,
+        shouldHandle: true,
+      }
+    }
+  }
+
   const gate = budgetGateDecision({
     classification: route,
     budgetRemaining,
@@ -563,4 +806,10 @@ module.exports = {
   _readBudget,
   _readBudgetMax,
   _writeBudget,
+  // anti-flood gate (exposed for tests)
+  _isAntiFloodPaused,
+  _checkChainExhaustionState,
+  _readFloodPauseUntil,
+  _clearFloodPauseUntil,
+  _parseResetTimeFromAbortReason,
 }
