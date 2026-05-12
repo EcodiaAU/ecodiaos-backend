@@ -1,0 +1,4 @@
+{"_retro_header":true,"trigger":{"ts":"2026-05-12T05:46:22.529Z","level":"error","message":"[Meetings] email endpoint failed","service":"ecodiaos","id":"fb755c02-0d0c-4df9-a777-364ab915bbb2","error":"column \"archived_at\" does not exist"},"ts":"2026-05-12T05:46:22.530Z"}
+{"ts":"2026-05-12T05:35:30.343Z","level":"info","message":"[ecodia-meetings] listening on :3003","service":"ecodiaos"}
+{"ts":"2026-05-12T05:46:08.647Z","level":"error","message":"[Meetings] email endpoint failed","service":"ecodiaos","id":"fb755c02-0d0c-4df9-a777-364ab915bbb2","error":"column \"archived_at\" does not exist"}
+{"ts":"2026-05-12T05:46:22.529Z","level":"error","message":"[Meetings] email endpoint failed","service":"ecodiaos","id":"fb755c02-0d0c-4df9-a777-364ab915bbb2","error":"column \"archived_at\" does not exist"}
