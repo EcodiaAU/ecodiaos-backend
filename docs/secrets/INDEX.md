@@ -48,6 +48,7 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [coexist-supabase.md](coexist-supabase.md) | coexist, supabase-coexist, coexist-db, anon-key-coexist, service-role-coexist, db_password-coexist | programmatic-required | ecodiaos |
 | [chambers-supabase.md](chambers-supabase.md) | chambers, chambers-supabase, federation, multi-tenant-chambers, anon-key-chambers, service-role-chambers | programmatic-required | ecodiaos |
 | [github-pat.md](github-pat.md) | github, gh, gh-cli, github-token, github-pat, GITHUB_TOKEN, ghp_, github_pat_, github api, git push github, EcodiaTate, ecodiaos-backend, factory-dispatch-github-auth | programmatic-required | tate |
+| [vercel-api-token.md](vercel-api-token.md) | vercel, vercel-api, vercel-token, vcp_, vercel-deploy, vercel-rest-api, vercel_list_deployments, vercel_trigger_deploy, vercel-team, vercel-monitor, vercel-probe, vercel-project-env | programmatic-required | tate |
 | [resend.md](resend.md) | resend, transactional-email, smtp, email-api, re_, dkim, coexist-resend | programmatic-required | ecodiaos |
 | [canva-connect-api.md](canva-connect-api.md) | canva, canva-connect, design-automation, oauth-canva, client_id-canva, canva-api | programmatic-required | ecodiaos |
 | [canva-mfa-backup-codes.md](canva-mfa-backup-codes.md) | canva, canva-2fa, mfa-backup-codes, canva-login, backup-codes, recovery-codes | gui-macro-replaces | tate |
