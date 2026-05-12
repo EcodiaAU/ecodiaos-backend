@@ -18,7 +18,7 @@ const router = Router()
 const COLS = db`
   id, entity_type, entity_ref, name, status, next_action,
   next_action_by, next_action_due, priority, archived_at,
-  last_touched, context, created_at, updated_at
+  last_touched, context, created_at
 `
 
 const VALID_NAB = new Set(['ecodiaos', 'tate', 'client', 'external'])
@@ -144,8 +144,7 @@ router.patch('/:id', auth, async (req, res, next) => {
 
     const [row] = await db`
       UPDATE status_board
-      SET ${setSql}, last_touched = NOW(), updated_at = NOW()
-      WHERE id = ${id}
+      SET ${setSql}, last_touched = NOW()      WHERE id = ${id}
       RETURNING ${COLS}
     `
 
@@ -161,8 +160,7 @@ router.post('/:id/archive', auth, async (req, res, next) => {
   try {
     const [row] = await db`
       UPDATE status_board
-      SET archived_at = NOW(), updated_at = NOW()
-      WHERE id = ${req.params.id} AND archived_at IS NULL
+      SET archived_at = NOW()      WHERE id = ${req.params.id} AND archived_at IS NULL
       RETURNING ${COLS}
     `
     if (!row) return res.status(404).json({ error: 'Row not found or already archived' })
@@ -177,8 +175,7 @@ router.post('/:id/unarchive', auth, async (req, res, next) => {
   try {
     const [row] = await db`
       UPDATE status_board
-      SET archived_at = NULL, last_touched = NOW(), updated_at = NOW()
-      WHERE id = ${req.params.id}
+      SET archived_at = NULL, last_touched = NOW()      WHERE id = ${req.params.id}
       RETURNING ${COLS}
     `
     if (!row) return res.status(404).json({ error: 'Row not found' })
@@ -198,8 +195,7 @@ router.post('/bulk-archive', auth, async (req, res, next) => {
 
     const rows = await db`
       UPDATE status_board
-      SET archived_at = NOW(), updated_at = NOW()
-      WHERE id = ANY(${ids}) AND archived_at IS NULL
+      SET archived_at = NOW()      WHERE id = ANY(${ids}) AND archived_at IS NULL
       RETURNING id
     `
     res.json({ archived: rows.map(r => r.id), count: rows.length })
@@ -222,8 +218,7 @@ router.post('/bulk-priority', auth, async (req, res, next) => {
 
     const rows = await db`
       UPDATE status_board
-      SET priority = ${p}, last_touched = NOW(), updated_at = NOW()
-      WHERE id = ANY(${ids})
+      SET priority = ${p}, last_touched = NOW()      WHERE id = ANY(${ids})
       RETURNING id
     `
     res.json({ updated: rows.map(r => r.id), count: rows.length })
