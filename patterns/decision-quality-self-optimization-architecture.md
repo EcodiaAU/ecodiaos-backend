@@ -62,13 +62,24 @@ The 8-layer architecture closes all three loops mechanically, plus adds an adver
 
 ### Layer 3 - Forcing function (Phase C, shipped)
 
-**What:** a hook fires AFTER an action emits its result and requires the conductor to tag the action with `[APPLIED] <pattern_path> because <reason>` for every pattern that surfaced. Missing tags are flagged. The forcing function is warn-only (consistent with the hook discipline) but the warn is loud and shows the pattern path the conductor failed to acknowledge.
+**What:** passive telemetry pipeline that classifies how the conductor handled each surfaced pattern - applied, not-applied, false-positive, or override. Classification sources: (a) tags embedded in fork briefs (conductor pre-tags the dispatch before spawning), (b) the `conductorStreamTagWatcher` in-process listener that reads the conductor's `assistant_text` stream and logs any tag lines silently without model feedback.
 
-**Why this layer matters:** Layer 1 brings doctrine to the agent. Layer 2 ranks it. Layer 3 closes the loop: the agent must SAY which patterns it applied (and which it deliberately did not, and why). Today the agent reads the warn, can ignore it silently, and no record exists of the choice. The forcing function makes ignoring explicit ("[NOT-APPLIED] X.md because <reason>"), which feeds Phase D's failure classifier.
+**Why this layer matters:** Layer 1 brings doctrine to the agent. Layer 2 ranks it. Layer 3 closes the loop: which patterns did the conductor actually apply, and which did it skip? The telemetry answers that without requiring the conductor to narrate tags in chat.
+
+**CONDUCTOR CHAT DISCIPLINE (12 May 2026 - canonical rule):**
+
+`[APPLIED]`, `[NOT-APPLIED]`, `[FALSE-POSITIVE]`, and `[OVERRIDE]` tag lines MUST NEVER appear in the conductor's chat text directed at Tate. They are telemetry artefacts - not prose.
+
+- **Allowed location:** inside fork briefs (tool input to `mcp__forks__spawn_fork`). Tate never sees brief internals.
+- **Disallowed location:** any assistant text reply that Tate reads - including in-chat summaries, post-fork narration, meta-loop outputs.
+- **Classification without narration:** `conductorStreamTagWatcher.js` reads the `assistant_text` event stream. If the conductor embeds tags in briefs OR if a tag line does slip into chat text, the watcher captures it to JSONL silently. The model context receives no `[FORCING WARN]` feedback loop.
+- **Survival across cold-starts:** this rule is enforced structurally by removing the `additionalContext` injection from `post-action-applied-tag-check.sh` (fork_mp23xvj4_d68b9c, 12 May 2026). The hook still writes JSONL telemetry but no longer pressures the model to respond.
+
+Tate verbatim 14:00 AEST 12 May 2026: "we shipped a full haiku chat listening system that would do all of this for you, watch for pattern applications etc, even have multiple of those really light chats processing everything we're saying and letting you know when pertinent, but you've reverted to this bullshit, blowing up your own context so much."
 
 **The three-tag protocol (shipped 8 May 2026, Phase C tag-feedback Gap 2 close):**
 
-For every surfaced pattern, the conductor must respond with EXACTLY ONE of three explicit tag classes in the brief or the result text:
+For every surfaced pattern, the conductor MAY respond with ONE of three explicit tag classes - but ONLY inside fork briefs, NEVER in chat text:
 
 | Tag | When to use | application_event semantics |
 |-----|-------------|------------------------------|

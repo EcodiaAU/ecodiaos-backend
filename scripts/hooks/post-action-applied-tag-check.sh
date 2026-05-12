@@ -278,22 +278,19 @@ for i in $(seq 0 $((surface_count - 1))); do
   printf '%s\n' "$line" >> "$APP_JSONL" 2>/dev/null || true
 done
 
-# Emit warns to stderr + additionalContext for the model.
+# Emit warns to stderr ONLY (PM2 captures to err.log). No additionalContext injection.
+# The [FORCING WARN] path was removed 12 May 2026 (fork_mp23xvj4_d68b9c) because it
+# injected tags into the model's context, which the conductor then echoed as chat text
+# visible to Tate. TELEMETRY IS KEPT (JSONL writes above). The conductor is NOT forced
+# to acknowledge tags in chat. The passive conductorStreamTagWatcher listener reads the
+# conductor's assistant_text stream and logs any tags silently.
+# See ~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md Layer 3.
 if [ "${#warnings[@]}" -eq 0 ]; then
   exit 0
 fi
 
-ctx=""
 for w in "${warnings[@]}"; do
   echo "$w" >&2
-  if [ -z "$ctx" ]; then
-    ctx="$w"
-  else
-    ctx="${ctx}
-${w}"
-  fi
 done
-
-jq -n --arg ctx "$ctx" '{hookSpecificOutput:{hookEventName:"PostToolUse", additionalContext:$ctx}}' 2>/dev/null || true
 
 exit 0

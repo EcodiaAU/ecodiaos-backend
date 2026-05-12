@@ -42,6 +42,7 @@ const logger = require('../../config/logger')
 const LISTENER_FILES = [
   '_smoke.js',
   'ccSessionsFailure.js',
+  'conductorStreamTagWatcher.js',
   'dbBridge.js',
   'dispatchQueueListener.js',
   'emailArrival.js',
