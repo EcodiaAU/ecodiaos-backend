@@ -1,0 +1,10 @@
+[Unit]
+Description=Run EcodiaOS API Watchdog every 60s
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=60s
+Unit=api-watchdog.service
+
+[Install]
+WantedBy=timers.target

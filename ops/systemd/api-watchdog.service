@@ -1,0 +1,12 @@
+[Unit]
+Description=EcodiaOS API Watchdog
+After=network.target
+
+[Service]
+Type=oneshot
+User=tate
+WorkingDirectory=/home/tate/ecodiaos
+Environment=PATH=/home/tate/.nvm/versions/node/v20.20.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/tate/ecodiaos/scripts/api-watchdog.sh
+StandardOutput=journal
+StandardError=journal
