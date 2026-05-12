@@ -11,13 +11,23 @@ triggers: credit-exhaustion, credit_exhaustion, account-credit, weekly-cap, sess
 We have THREE Claude Max accounts wired into the fork-spawning provider chain:
 - `claude_max` (tate@ecodia.au)
 - `claude_max_2` (code@ecodia.au)
-- `claude_max_3` (third account, confirmed live 12 May 2026)
+- `claude_max_3` (money@ecodia.au)
 
 Each account has TWO independent capacity limits:
 - **Weekly cap** (7-day window, `anthropic-ratelimit-unified-7d-utilization`, resets on a rolling per-account schedule)
 - **5-hour session cap** (`anthropic-ratelimit-unified-5h-utilization`, resets faster, per-account)
 
 This means there are **six independent capacity slots** at any moment. Each slot can be in one of: healthy / 5h-capped / weekly-capped. The fork provider router (`usageEnergyService.getBestProvider()`) scores all three accounts continuously and picks the highest-scoring one. It only falls back to DeepSeek when **all three** accounts score <= 0.
+
+## Chat-warning interpretation - one warning does not mean system out
+
+**A single "out of usage" / "session cap reached" / "weekly cap reached" message arriving in conductor chat or as a fork-error abort_reason does NOT mean the system is out of capacity.**
+
+It means ONE of the three accounts hit ONE of its two caps. The other two accounts (or the other cap on the same account) may still have capacity. With 3 accounts x 2 independent caps, there are six independent capacity slots. A warning arriving in chat while the conductor is still processing that same turn proves at minimum one slot is available - the conductor's own turn execution requires it.
+
+Only when all three accounts have BOTH caps depleted concurrently does `account_chain_exhausted` apply.
+
+**Tate verbatim 12:51 AEST 12 May 2026:** "you also need to codify that we have 3 claude accounts at tate@, code@, money@ which each have 5hr session and weekly session usage caps which will come through into the chat evy now and then, and dont necesarilly mean that we dont have usage, it might jsut be one account...."
 
 ## Proof-of-conductor-capacity invariant
 
@@ -112,3 +122,7 @@ Verified in `forkService.js` `_resolveProviderForFork()` and `usageEnergyService
 Triggering event: fork triage `fork_mp1xqs5q_93fe1c` at 11:14 AEST 12 May 2026 framed a fork error storm as a "~12.5h exhaustion wave" - implying a monolithic system outage. Tate corrected: the conductor processing that very triage turn proved capacity existed. The "wave" was three accounts hitting their caps at slightly different points; each account's individual reset window was the recovery mechanism, not a single global reset.
 
 Codification fork: `fork_mp1y4qi1_6542c6`, 12 May 2026 11:20 AEST.
+
+**Tate verbatim 12:51 AEST 12 May 2026:** "you also need to codify that we have 3 claude accounts at tate@, code@, money@ which each have 5hr session and weekly session usage caps which will come through into the chat evy now and then, and dont necesarilly mean that we dont have usage, it might jsut be one account...."
+
+Third account explicitly named as `claude_max_3` mapped to money@ecodia.au. Chat-warning interpretation section added: a single cap-reached warning in conductor chat means ONE account hit ONE of its two caps, never the system as a whole. Codification fork: `fork_mp21b8ku_eb5b95`, 12 May 2026 12:51 AEST.
