@@ -2471,6 +2471,12 @@ async function _sendMessageImpl(content, opts = {}) {
         user_content: content,
         now: continuityParts.length > 0 ? (continuityParts.find(p => typeof p === 'string' && p.startsWith('<now>')) || '').replace(/^<now>|<\/now>$/g, '') : null,
         forks_rollup: _forksBlock || null,
+        // working_set, scratchpad_recent, observer_signals were added to v1
+        // but missing from v2's turn_context — meaning under canary/live they
+        // were silently dropped. Wire them through. (13 May 2026.)
+        working_set: _workingSetBlock || null,
+        scratchpad_recent: _scratchpadBlock || null,
+        observer_signals: _observerSignalsBlock || null,
         recent_doctrine: _doctrineBlock || null,
         relevant_memory: _memoryBlock || null,
         perception_summary: _perceptionBlock || null,

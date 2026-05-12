@@ -260,8 +260,12 @@ function _buildBp4(turn_context) {
   if (!turn_context) return ''
   const parts = []
   const {
+    user_content,
     now,
     forks_rollup,
+    working_set,
+    scratchpad_recent,
+    observer_signals,
     recent_doctrine,
     relevant_memory,
     perception_summary,
@@ -270,8 +274,39 @@ function _buildBp4(turn_context) {
     last_turn_breadcrumb,
   } = turn_context
 
+  // ─── Tate-typed message FIRST (13 May 2026) ─────────────────────────────
+  // The v2 assembler's userMessage previously had no user_content path at
+  // all — BP3 was doctrine surface only, BP4 was continuity blocks. Result:
+  // when canary/live activated, Tate's actual typed message was DROPPED
+  // entirely from the prompt and the conductor saw only system context.
+  // It replied "No response requested" / "Standing by" because there was
+  // genuinely no question in the prompt.
+  //
+  // Fix: wrap real Tate-typed content in <tate_typed> at the TOP of BP4
+  // (which sits at the top of the v2 userMessage). Skip-wrap on the
+  // well-known system-marker prefixes — they have their own conductor
+  // doctrine and don't need the Tate-typed semantics.
+  if (user_content && typeof user_content === 'string' && user_content.trim().length > 0) {
+    const head = user_content.trimStart().slice(0, 80)
+    const isSystemWake =
+      head.startsWith('[SYSTEM:') ||
+      head.startsWith('[Pending queued messages') ||
+      head.startsWith('⚡ Back. Handoff state') ||
+      head.startsWith('[AUTO_WAKE]') ||
+      head.startsWith('AUTO_WAKE') ||
+      head.startsWith('<observer source=')
+    if (isSystemWake) {
+      parts.push(user_content)
+    } else {
+      parts.push(`<tate_typed>\n${user_content}\n</tate_typed>`)
+    }
+  }
+
   if (now) parts.push(`<now>${now}</now>`)
   if (forks_rollup) parts.push(forks_rollup)
+  if (working_set) parts.push(working_set)
+  if (scratchpad_recent) parts.push(scratchpad_recent)
+  if (observer_signals) parts.push(observer_signals)
   if (recent_doctrine) parts.push(recent_doctrine)
   if (relevant_memory) parts.push(relevant_memory)
   if (perception_summary) parts.push(`<perception_summary>\n${perception_summary}\n</perception_summary>`)
