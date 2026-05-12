@@ -227,21 +227,32 @@ async function dispatch(event, _testListeners) {
  * Register all loaded listeners with the wsManager's in-process subscribe().
  * Accepts an optional wsManager override for tests.
  *
- * NOTE: wsManager fan-out emits on channel keys (currently only 'os-session:output'),
- * NOT on envelope.type. Listeners declare subscribesTo in envelope-type terms
- * (e.g. 'text_delta'); dispatch() does the envelope.type filter. If more fan-out
- * channels are added later, extend WS_CHANNELS + route per-listener.
+ * Bug-fix 12 May 2026: previous code subscribed each listener with its
+ * `subscribesTo` array (e.g. ['assistant_text', 'user']). But wsManager
+ * fan-out keys events by the BROADCAST CHANNEL name ('os-session:output'),
+ * not by envelope.data.type. So listeners subscribed to 'assistant_text'
+ * never received any events — _inProcessSubscribers had no entry for the
+ * channel, only for the inner types. Symptom: coherenceObserver +
+ * actionAuditObserver + conductorStreamTagWatcher all loaded but never
+ * fired despite 1000+ assistant_text events broadcast.
+ *
+ * Fix: subscribe every listener to the WS_CHANNELS list. The dispatch()
+ * function does the envelope.data.type filter internally based on the
+ * listener's declared subscribesTo. We also pipe db:event channel here
+ * so listeners that subscribe to DB triggers (forkComplete, emailArrival,
+ * etc.) work via dbBridge → wsManager.broadcast('db:event', ...).
  */
-const WS_CHANNELS = ['os-session:output']
+const WS_CHANNELS = ['os-session:output', 'db:event']
 
 function registerAll(_wsManager) {
   const wsMgr = _wsManager || require('../../websocket/wsManager')
 
   let registered = 0
   for (const listener of _listeners) {
-    // Subscribe each listener directly to its declared event types
     const l = listener
-    wsMgr.subscribe(l.subscribesTo, async (event) => {
+    // Subscribe each listener to ALL fan-out channels. dispatch() filters
+    // by the listener's subscribesTo array on the envelope.data.type.
+    wsMgr.subscribe(WS_CHANNELS, async (event) => {
       await dispatch(event, [l])
     })
     registered++
