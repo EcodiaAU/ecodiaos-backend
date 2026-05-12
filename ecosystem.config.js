@@ -39,6 +39,11 @@ module.exports = {
     // the route-level flag read from process.env.CONDUCTOR_DETACHED.
     // Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
     { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_DETACHED: 'true' } },
+    // Meeting recorder - decoupled from ecodia-api so API restarts don't drop
+    // in-flight chunk uploads. Handles all /api/meetings/* routes. Nginx routes
+    // /api/meetings/* → :3003 before the catch-all → :3001.
+    // Origin: fork_mp26bxy3_2dccf4, 2026-05-12. See drafts/meeting-recorder-decoupling-proposal-2026-05-12.md
+    { ...COMMON, name: 'ecodia-meetings', script: 'src/meetingsServer.js', max_memory_restart: '512M', env: { ...COMMON.env, MEETINGS_PORT: 3003 } },
     // Factory runner - owns all CC session child processes.
     // Runs separately from ecodia-api so CC sessions survive API restarts (e.g. self-modification deploys).
     // Communicates with ecodia-api via Redis pub/sub (factoryBridge).
