@@ -43,12 +43,29 @@ STYLE RULES:
 }
 
 /**
+ * Rewrite "Speaker A:" labels in the transcript to real names using the
+ * speaker_names map. Speakers without a mapping keep their letter label.
+ */
+function applySpeakerNames(transcript, speakerNames) {
+  if (!speakerNames || Object.keys(speakerNames).length === 0) return transcript
+  return transcript.replace(/Speaker ([A-Z])/g, (_, code) => speakerNames[code] || `Speaker ${code}`)
+}
+
+function buildSpeakerRoster(speakerNames) {
+  const entries = Object.entries(speakerNames || {})
+  if (entries.length === 0) return ''
+  const lines = entries.map(([code, name]) => `- ${name} (was Speaker ${code})`).join('\n')
+  return `## Speakers\nThe speakers in this transcript have been identified. When someone says "I" or "we", attribute it to the named speaker:\n${lines}\n\nCRITICAL: Owner fields must be the names listed above. Do NOT default to one person for everything — attribute each commitment, decision, and action to the actual speaker who took it on.\n\n`
+}
+
+/**
  * Build the analysis user prompt.
  */
-function buildAnalysisPrompt(transcript, meetingMeta) {
-  const truncated = transcript.length > TRANSCRIPT_MAX_CHARS
-    ? transcript.slice(0, TRANSCRIPT_MAX_CHARS) + '\n\n[TRANSCRIPT TRUNCATED AT ' + TRANSCRIPT_MAX_CHARS + ' CHARS]'
-    : transcript
+function buildAnalysisPrompt(transcript, meetingMeta, speakerNames) {
+  const labelled = applySpeakerNames(transcript, speakerNames)
+  const truncated = labelled.length > TRANSCRIPT_MAX_CHARS
+    ? labelled.slice(0, TRANSCRIPT_MAX_CHARS) + '\n\n[TRANSCRIPT TRUNCATED AT ' + TRANSCRIPT_MAX_CHARS + ' CHARS]'
+    : labelled
 
   const metaBlock = [
     meetingMeta.title ? `Title: ${meetingMeta.title}` : null,
@@ -56,7 +73,7 @@ function buildAnalysisPrompt(transcript, meetingMeta) {
     meetingMeta.client_name ? `Client: ${meetingMeta.client_name}` : null,
   ].filter(Boolean).join('\n')
 
-  return `${metaBlock ? `## Meeting Context\n${metaBlock}\n\n` : ''}## Transcript\n\n${truncated}
+  return `${metaBlock ? `## Meeting Context\n${metaBlock}\n\n` : ''}${buildSpeakerRoster(speakerNames)}## Transcript\n\n${truncated}
 
 ---
 
@@ -101,19 +118,20 @@ Return ONLY valid JSON. No markdown fences. No explanation outside the JSON.`
 /**
  * Build the action items prompt.
  */
-function buildActionItemsPrompt(transcript, existingAnalysis) {
+function buildActionItemsPrompt(transcript, existingAnalysis, speakerNames) {
   // Use the commitments + recommended actions from the analysis as context
   const analysisContext = existingAnalysis ? JSON.stringify({
     commitments: existingAnalysis.commitments,
     recommended_next_actions: existingAnalysis.recommended_next_actions,
   }, null, 2) : ''
 
-  const truncated = transcript.length > TRANSCRIPT_MAX_CHARS
-    ? transcript.slice(0, TRANSCRIPT_MAX_CHARS)
-    : transcript
+  const labelled = applySpeakerNames(transcript, speakerNames)
+  const truncated = labelled.length > TRANSCRIPT_MAX_CHARS
+    ? labelled.slice(0, TRANSCRIPT_MAX_CHARS)
+    : labelled
 
   return `Extract all action items from this meeting transcript. Be exhaustive - capture every commitment, task, follow-up, and deliverable mentioned, even implicit ones.
-${analysisContext ? `\nFor context, the analysis already identified these commitments and recommended actions:\n${analysisContext}\n` : ''}
+${buildSpeakerRoster(speakerNames)}${analysisContext ? `\nFor context, the analysis already identified these commitments and recommended actions:\n${analysisContext}\n` : ''}
 Transcript:
 ${truncated}
 
@@ -145,9 +163,9 @@ Rules:
  * Call Claude for analysis. Returns parsed JSON object.
  * Throws on API error or JSON parse failure.
  */
-async function callClaudeForAnalysis(transcript, meetingMeta) {
+async function callClaudeForAnalysis(transcript, meetingMeta, speakerNames) {
   const systemPrompt = buildAnalysisSystemPrompt()
-  const userPrompt = buildAnalysisPrompt(transcript, meetingMeta)
+  const userPrompt = buildAnalysisPrompt(transcript, meetingMeta, speakerNames)
 
   logger.info('[MeetingAnalysis] calling Claude for analysis', {
     transcriptChars: transcript.length,
@@ -178,9 +196,9 @@ async function callClaudeForAnalysis(transcript, meetingMeta) {
 /**
  * Call Claude for action items. Returns parsed JSON array.
  */
-async function callClaudeForActionItems(transcript, existingAnalysis) {
+async function callClaudeForActionItems(transcript, existingAnalysis, speakerNames) {
   const systemPrompt = buildAnalysisSystemPrompt()
-  const userPrompt = buildActionItemsPrompt(transcript, existingAnalysis)
+  const userPrompt = buildActionItemsPrompt(transcript, existingAnalysis, speakerNames)
 
   logger.info('[MeetingAnalysis] calling Claude for action items', {
     transcriptChars: transcript.length,
@@ -231,9 +249,9 @@ async function runAnalysis(meetingId, db) {
   `
 
   try {
-    // Load transcript + meeting metadata
+    // Load transcript + meeting metadata + speaker names
     const [row] = await db`
-      SELECT m.transcript_text, m.title, m.duration_seconds,
+      SELECT m.transcript_text, m.title, m.duration_seconds, m.speaker_names,
              c.name AS client_name
       FROM meeting_recordings m
       LEFT JOIN clients c ON c.id = m.client_id
@@ -252,12 +270,13 @@ async function runAnalysis(meetingId, db) {
       duration_seconds: row.duration_seconds,
       client_name: row.client_name,
     }
+    const speakerNames = row.speaker_names || {}
 
     // Step 1: Full analysis
-    const analysisJson = await callClaudeForAnalysis(transcript, meetingMeta)
+    const analysisJson = await callClaudeForAnalysis(transcript, meetingMeta, speakerNames)
 
     // Step 2: Action items (with analysis context for richer extraction)
-    const actionItemsJson = await callClaudeForActionItems(transcript, analysisJson)
+    const actionItemsJson = await callClaudeForActionItems(transcript, analysisJson, speakerNames)
 
     // Store both
     await db`
