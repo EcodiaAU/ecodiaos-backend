@@ -530,7 +530,10 @@ function _accountHealth(account) {
       state.rejectionClearedAt = Date.now()  // debounce markAccountRejected for 5 min
       // Fire a fresh quota-check in the background (don't await - decision needs a value now)
       refreshQuotaCheck(account).catch(() => {})
-      return { score: 30, reason: `reset_just_passed_reprobing (${resetType})` }
+      // Score 25 (not 30): a just-cleared rejection is UNVERIFIED healthy. If a
+      // genuinely no_data lane (score 30) is also available, prefer it — its
+      // failure modes are less correlated with this account's recent capping.
+      return { score: 25, reason: `reset_just_passed_reprobing (${resetType})` }
     }
     // Stuck-rejection guard: if status is rejected but we have no reset
     // timestamp AND no captured headers, treat as a stale wedge (typically:
@@ -546,7 +549,11 @@ function _accountHealth(account) {
       state.sessionUtilization = null
       state.rejectionClearedAt = Date.now()
       refreshQuotaCheck(account).catch(() => {})
-      return { score: 30, reason: 'stuck_rejection_cleared_reprobing' }
+      // Score 20 (not 30): a stale-wedge clear is even less verified than
+      // reset_just_passed. We have NO ground truth this account is healthy.
+      // Genuine no_data lanes (score 30) should win, then truly-unknown lanes
+      // get a chance before we re-poke the suspect lane.
+      return { score: 20, reason: 'stuck_rejection_cleared_reprobing' }
     }
     return { score: -10, reason: `rejected (${state.rateLimitType || 'unknown'})` }
   }
