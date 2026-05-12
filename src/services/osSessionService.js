@@ -600,6 +600,7 @@ let activeQuerySuppressed = false  // true when the current query was started vi
 let abortGraceTimer = null      // 30s backstop: process.exit(1) if turn stays hung after abort
 let _abortInProgress = false    // true from abort until the for-await loop naturally exits
 let ccSessionId = null          // CC's internal session_id (for resume)
+let _currentDbSessionId = null  // current DB session id — read by scratchpadTool for write attribution
 let sessionTokenUsage = { input: 0, output: 0 }
 let _currentProvider = 'claude_max'  // tracks which provider the current session is using
 
@@ -1403,6 +1404,65 @@ async function _injectWorkingSet() {
   }
 }
 
+// _injectScratchpadRecent — last N scratchpad entries for the current session.
+// Gives the conductor visibility into its own recent reasoning without repeating
+// chat text. Hard cap: 1500 bytes. Placed after <working_set> in ORDER.
+// Origin: fork_mp27sa0a_67954f, 2026-05-12.
+async function _injectScratchpadRecent() {
+  try {
+    const scratchpad = require('./scratchpadService')
+    const session_id = _currentDbSessionId || 'conductor_main'
+    const entries = await scratchpad.recentForSession(session_id, 10)
+    if (!entries || entries.length === 0) return null
+
+    const now = Date.now()
+    const fmtAge = (ts) => {
+      if (!ts) return '?'
+      const ms = now - new Date(ts).getTime()
+      if (ms < 60000) return `${Math.floor(ms / 1000)}s`
+      if (ms < 3600000) return `${Math.floor(ms / 60000)}m`
+      return `${Math.floor(ms / 3600000)}h`
+    }
+
+    const lines = entries.map(e => {
+      const age = fmtAge(e.ts)
+      const suffix = e.pattern_path ? ` — ${e.pattern_path.split('/').pop().replace('.md', '')}` : ''
+      const content = String(e.content).slice(0, 120)
+      return `  [${e.kind} @ ${age} ago]${suffix}: ${content}`
+    })
+
+    const header = `<scratchpad_recent count="${entries.length}">`
+    const body = lines.join('\n')
+    const footer = '</scratchpad_recent>'
+    let block = `${header}\n${body}\n${footer}`
+
+    // Hard cap: 1500 bytes. Drop oldest entries if over.
+    if (Buffer.byteLength(block, 'utf8') > 1500) {
+      const kept = []
+      let bytes = Buffer.byteLength(header + '\n' + footer, 'utf8') + 40
+      for (const line of lines) {
+        const lb = Buffer.byteLength(line + '\n', 'utf8')
+        if (bytes + lb > 1450) {
+          kept.push(`  <!-- ${lines.length - kept.length} more entries omitted -->`)
+          break
+        }
+        kept.push(line)
+        bytes += lb
+      }
+      block = `${header}\n${kept.join('\n')}\n${footer}`
+    }
+
+    logger.debug('OS Session: scratchpad_recent injected', {
+      count: entries.length,
+      bytes: Buffer.byteLength(block, 'utf8'),
+    })
+    return block
+  } catch (err) {
+    logger.debug('OS Session: scratchpad_recent injection failed (skipping)', { error: err.message })
+    return null
+  }
+}
+
 async function _sendMessageImpl(content, opts = {}) {
   const { suppressOutput = false } = opts
   const retryDepth = opts._retryDepth || 0
@@ -1432,6 +1492,7 @@ async function _sendMessageImpl(content, opts = {}) {
   }
 
   const dbSessionId = session.id
+  _currentDbSessionId = dbSessionId  // expose for scratchpadTool session attribution
   if (!suppressOutput) {
     emitStatus('streaming', { sessionId: dbSessionId })
 
@@ -1495,6 +1556,18 @@ async function _sendMessageImpl(content, opts = {}) {
     if (routerServer) mcpServers.router = routerServer
   } catch (err) {
     logger.warn('OS Session: capability router MCP server unavailable for this turn', { error: err.message })
+  }
+
+  // Scratchpad (Build 1): conductor calls mcp__scratchpad__write() to record
+  // pattern applications, decisions and observations silently to DB — replacing
+  // [APPLIED]/[NOT-APPLIED] chat-tag narration. Per-query rebuild per
+  // sdk-mcp-server-instances-must-be-per-query-not-singleton. Non-fatal.
+  try {
+    const { getScratchpadMcpServer } = require('./scratchpadTool')
+    const scratchpadServer = await getScratchpadMcpServer()
+    if (scratchpadServer) mcpServers.scratchpad = scratchpadServer
+  } catch (err) {
+    logger.warn('OS Session: scratchpad MCP server unavailable for this turn', { error: err.message })
   }
 
   // Energy level is still tracked for logging + provider routing, but no longer
@@ -2053,6 +2126,13 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'working set',
   )
+  // scratchpad_recent — last 10 scratchpad entries for current session.
+  // Gives the conductor visibility into recent silent reasoning.
+  const _scratchpadRecentPromise = _withTimeout(
+    _injectScratchpadRecent().catch(() => null),
+    2000,
+    'scratchpad recent',
+  )
   // Stubs retained for legacy compat — both return null immediately.
   const _commitmentsPromise = Promise.resolve(null)
   const _carryForwardPromise = Promise.resolve(null)
@@ -2095,6 +2175,10 @@ async function _sendMessageImpl(content, opts = {}) {
   let _workingSetBlock = null
   try { _workingSetBlock = await _workingSetPromise } catch (err) {
     logger.debug('OS Session: working set injection failed', { error: err.message })
+  }
+  let _scratchpadBlock = null
+  try { _scratchpadBlock = await _scratchpadRecentPromise } catch (err) {
+    logger.debug('OS Session: scratchpad recent injection failed', { error: err.message })
   }
   try { _commitmentsBlock = await _commitmentsPromise } catch { /* stub, always null */ }
   try { _carryForwardBlock = await _carryForwardPromise } catch { /* stub, always null */ }
@@ -2171,6 +2255,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<now>':                  continuityParts[0] || null, // already pushed at top
       '<forks_rollup>':         _forksBlock,
       '<working_set>':          _workingSetBlock,
+      '<scratchpad_recent>':    _scratchpadBlock,
       // conductor_commitments + thread_carry_forward replaced by working_set
       // (fork_mp27az1r_1878c0, 12 May 2026). Stubs return null; keys omitted.
       '<recent_doctrine>':      _doctrineBlock,
@@ -2191,6 +2276,7 @@ async function _sendMessageImpl(content, opts = {}) {
       '<now>',
       '<forks_rollup>',
       '<working_set>',
+      '<scratchpad_recent>',
       '<recent_doctrine>',
       '<relevant_memory>',
       '<perception_summary>',
@@ -2206,6 +2292,7 @@ async function _sendMessageImpl(content, opts = {}) {
       now: !!emitted['<now>'],
       forks_rollup: !!emitted['<forks_rollup>'],
       working_set: !!emitted['<working_set>'],
+      scratchpad_recent: !!emitted['<scratchpad_recent>'],
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
@@ -2229,6 +2316,7 @@ async function _sendMessageImpl(content, opts = {}) {
     logger.warn('OS Session: turnInjection.processBlocks failed - emitting raw blocks', { error: err.message })
     if (_forksBlock) continuityParts.splice(1, 0, _forksBlock)
     if (_workingSetBlock) continuityParts.splice(1, 0, _workingSetBlock)
+    if (_scratchpadBlock) continuityParts.splice(1, 0, _scratchpadBlock)
     if (_doctrineBlock) continuityParts.splice(1, 0, _doctrineBlock)
     if (_memoryBlock) continuityParts.splice(1, 0, _memoryBlock)
     if (_perceptionBlock) continuityParts.splice(1, 0, `<perception_summary>\n${_perceptionBlock}\n</perception_summary>`)
@@ -4011,4 +4099,6 @@ function _setActiveAbortForTest(ac) { activeAbort = ac }
 function _setActiveQueryForTest(q) { activeQuery = q }
 function _resetAbortStateForTest() { activeAbort = null; activeQuery = null; _abortInProgress = false; if (abortGraceTimer) { clearTimeout(abortGraceTimer); abortGraceTimer = null } }
 
-module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, getMessagesSinceTimestamp, autoHandover, abort, buildCustomSystemPrompt, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }
+function currentDbSessionId() { return _currentDbSessionId }
+
+module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, getMessagesSinceTimestamp, autoHandover, abort, buildCustomSystemPrompt, currentDbSessionId, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }

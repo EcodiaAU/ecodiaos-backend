@@ -756,24 +756,11 @@ Anything prints → narrate as MISSING, don't claim active. Cross-refs: `~/ecodi
 
 **Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
 
-### Phase C (Layer 3) - applied-pattern-tag forcing function (LIVE)
+### Doctrine compliance is silent (Layer 3 - replaced 2026-05-12)
 
-`post-action-applied-tag-check.sh` on main HEAD (canonical-path normalization from `4c24ace`). When `brief-consistency-check.sh` emits `[CONTEXT-SURFACE WARN]` / `[CONTEXT-SURFACE PRIMARY]` / `[CONTEXT-SURFACE ALSO]`, dispatch brief MUST include explicit acknowledgement tag for every surfaced pattern:
+Pattern application is captured via `mcp__scratchpad__write({ kind: 'pattern_applied' | 'pattern_not_applied', pattern_path, reason })`. NEVER narrate [APPLIED]/[NOT-APPLIED] into chat. The scratchpad tool writes the entry to `scratchpad_entries` DB table; the existing telemetry pipeline reads from there via JSONL bridge in `scratchpadService._writeJsonlBridge`. Three uses: (1) genuinely high-leverage pattern that affected the action, (2) deliberately not-applied with a reason, (3) override of a forcing-function nudge.
 
-```
-[APPLIED] <pattern_path_or_basename> because <one-sentence reason>
-[NOT-APPLIED] <pattern_path_or_basename> because <one-sentence reason>
-```
-
-- Tag in brief (preferred) OR immediate tool result text
-- PostToolUse hook scans, emits `[FORCING WARN]` for untagged surfaces
-- Untagged = `tagged_silent=true` in `application_event`, rolls into `tag_distribution` of `/api/telemetry/decision-quality`
-- Patterns silent-rate >50% over 7d = `pattern_silent_majority` drift signal (status_board P3)
-- Warn-only, never blocks. Pre-Phase-C surface_event without companion application_event = `tagged_silent=true` at query time
-
-**Why:** Layer 1 brings doctrine. Layer 2 ranks. Layer 3 closes loop - silently ignoring is no longer free. Either applied (state why) or not (state why). Doctrine: `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3. Cross-ref: `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (saying "I considered it" without artefact = symbolic; tags = artefact).
-
-**Worked examples:** see Decision Quality architecture file Layer 3 section. Quick rule: tag canonical doc file path (`.md` under `~/ecodiaos/docs/secrets/` for cred surfaces, `.md` under `~/ecodiaos/patterns/` for pattern surfaces). One tag per surfaced file. Never inside another tag's explanation line.
+`post-action-applied-tag-check.sh` removed from hooks 2026-05-12. `conductorStreamTagWatcher.js` retained as deprecated fallback (JSONL bridge path). Origin: fork_mp27sa0a_67954f, 2026-05-12.
 
 **Architectural template for any new doctrine-layer directory.** All 5 layers mandatory: (1) file-per-thing (one durable concept per file, never bundle), (2) `triggers:` frontmatter on every file, (3) documented pre-action `Grep` protocol, (4) mechanical PreToolUse hook enforcement at high-leverage tool dispatch, (5) Neo4j `graph_semantic_search` fallback when keyword grep misses. Missing any layer = doctrine-layer regression. Full: `~/ecodiaos/patterns/context-surfacing-must-be-reliable-and-selective.md`.
 

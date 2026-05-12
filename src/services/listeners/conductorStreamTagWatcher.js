@@ -1,5 +1,11 @@
 'use strict'
 
+// DEPRECATED 2026-05-12: The conductor now writes directly to scratchpad_entries
+// via mcp__scratchpad__write. This watcher's [APPLIED] tag matching is a no-op
+// since conductors no longer emit those tags. Retained for the application-events.jsonl
+// bridge path in scratchpadService. Remove after 30 days of stable operation.
+// Origin: fork_mp27sa0a_67954f. Superseded by scratchpadService._writeJsonlBridge.
+
 /**
  * conductorStreamTagWatcher - passive observer of the conductor's assistant_text stream.
  *
