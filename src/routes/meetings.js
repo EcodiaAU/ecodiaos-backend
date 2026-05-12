@@ -372,7 +372,7 @@ router.patch('/:id', async (req, res) => {
 })
 
 // ---------------------------------------------------------------------------
-// POST /api/meetings/:id/transcribe - manual retrigger
+// POST /api/meetings/:id/transcribe - manual retrigger (async, fire-and-forget)
 // ---------------------------------------------------------------------------
 router.post('/:id/transcribe', async (req, res) => {
   const { id } = req.params
@@ -391,6 +391,107 @@ router.post('/:id/transcribe', async (req, res) => {
   } catch (err) {
     logger.error('[Meetings] transcribe route failed', { id, error: err.message })
     return res.status(500).json({ error: 'transcribe_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/meetings/:id/retranscribe - synchronous re-run with current model/prompt
+// Returns new transcript inline. 410 if audio no longer in storage.
+// Sets transcript_revised_at on success.
+// ---------------------------------------------------------------------------
+router.post('/:id/retranscribe', async (req, res) => {
+  const { id } = req.params
+  try {
+    const [row] = await db`SELECT id, audio_url FROM meeting_recordings WHERE id = ${id}::uuid AND archived_at IS NULL`
+    if (!row) return res.status(404).json({ error: 'not_found' })
+    if (!row.audio_url) return res.status(410).json({ error: 'no_audio', message: 'No audio on record for this meeting.' })
+
+    const sb = getSupabase()
+    if (!sb) return res.status(503).json({ error: 'storage_unavailable' })
+
+    // Verify audio actually exists in storage
+    const { data: audioData, error: dlErr } = await sb.storage
+      .from('documents')
+      .download(row.audio_url)
+
+    if (dlErr || !audioData) {
+      logger.warn('[Meetings] retranscribe: audio not in storage', { id, audio_url: row.audio_url, error: dlErr?.message })
+      return res.status(410).json({ error: 'audio_not_found', message: 'Audio file no longer available in storage.' })
+    }
+
+    const ab = await audioData.arrayBuffer()
+    const buffer = Buffer.from(ab)
+    if (!buffer.length) return res.status(410).json({ error: 'audio_empty', message: 'Audio file is empty.' })
+
+    logger.info('[Meetings] retranscribing', { id, bytes: buffer.length })
+
+    const text = await transcribeChunk({
+      buffer,
+      mimeType: 'audio/webm',
+      filename: 'meeting.webm',
+    })
+
+    // Update storage transcript
+    const transcriptPath = `meetings/${id}/transcript.txt`
+    await storageUpload({
+      buffer: Buffer.from(text || '', 'utf8'),
+      path: transcriptPath,
+      mimeType: 'text/plain',
+    })
+
+    const [updated] = await db`
+      UPDATE meeting_recordings SET
+        transcript_text = ${text || ''},
+        transcript_url = ${transcriptPath},
+        transcription_status = 'done',
+        transcription_error = NULL,
+        transcript_revised_at = NOW()
+      WHERE id = ${id}::uuid
+      RETURNING transcript_text, transcript_revised_at
+    `
+
+    logger.info('[Meetings] retranscription done', { id, chars: (text || '').length })
+    return res.json({
+      transcript_text: updated.transcript_text,
+      transcript_revised_at: updated.transcript_revised_at,
+    })
+  } catch (err) {
+    logger.error('[Meetings] retranscribe failed', { id, error: err.message })
+    return res.status(500).json({ error: 'retranscribe_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/meetings/:id/transcript - save hand-edited transcript
+// Body: { transcript_text: string }
+// ---------------------------------------------------------------------------
+router.patch('/:id/transcript', async (req, res) => {
+  const { id } = req.params
+  try {
+    const { transcript_text } = req.body || {}
+    if (typeof transcript_text !== 'string') {
+      return res.status(400).json({ error: 'transcript_text_required', message: 'Body must include transcript_text string.' })
+    }
+
+    const [updated] = await db`
+      UPDATE meeting_recordings SET
+        transcript_text = ${transcript_text},
+        transcription_status = 'done',
+        transcript_edited_at = NOW(),
+        transcript_edited_by = 'tate'
+      WHERE id = ${id}::uuid AND archived_at IS NULL
+      RETURNING transcript_text, transcript_edited_at, transcript_edited_by
+    `
+    if (!updated) return res.status(404).json({ error: 'not_found' })
+
+    return res.json({
+      transcript_text: updated.transcript_text,
+      transcript_edited_at: updated.transcript_edited_at,
+      transcript_edited_by: updated.transcript_edited_by,
+    })
+  } catch (err) {
+    logger.error('[Meetings] transcript patch failed', { id, error: err.message })
+    return res.status(500).json({ error: 'transcript_patch_failed', detail: err.message })
   }
 })
 
