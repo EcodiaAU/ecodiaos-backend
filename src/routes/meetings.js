@@ -18,7 +18,7 @@ const express = require('express')
 const multer = require('multer')
 const logger = require('../config/logger')
 const db = require('../config/db')
-const { transcribeChunk } = require('../services/voiceTranscription')
+const { transcribeAudio } = require('../services/transcriptionService')
 
 const router = express.Router()
 
@@ -134,29 +134,40 @@ async function runTranscription(meetingId) {
 
     logger.info('[Meetings] transcribing', { meetingId, bytes: buffer.length })
 
-    const text = await transcribeChunk({
+    const transcript = await transcribeAudio({
       buffer,
       mimeType: 'audio/webm',
       filename: 'meeting.webm',
     })
 
-    // Store transcript text
+    const text = transcript.full_text || ''
+
+    // Store plain-text transcript to storage
     const transcriptPath = `meetings/${meetingId}/transcript.txt`
     await storageUpload({
-      buffer: Buffer.from(text || '', 'utf8'),
+      buffer: Buffer.from(text, 'utf8'),
       path: transcriptPath,
       mimeType: 'text/plain',
     })
 
     await db`
       UPDATE meeting_recordings SET
-        transcript_text = ${text || ''},
+        transcript_text = ${text},
+        transcript_json = ${JSON.stringify(transcript)},
         transcript_url = ${transcriptPath},
+        transcript_engine = ${transcript.engine},
+        transcript_diarised = ${transcript.diarised},
         transcription_status = 'done',
         transcription_error = NULL
       WHERE id = ${meetingId}::uuid
     `
-    logger.info('[Meetings] transcription done', { meetingId, chars: (text || '').length })
+    logger.info('[Meetings] transcription done', {
+      meetingId,
+      engine: transcript.engine,
+      diarised: transcript.diarised,
+      chars: text.length,
+      segments: transcript.segments?.length,
+    })
   } catch (err) {
     logger.error('[Meetings] transcription failed', { meetingId, error: err.message })
     await db`
@@ -256,8 +267,23 @@ router.post('/:id/stop', async (req, res) => {
       deleteChunks(id).catch(() => {})
     }
 
-    const hasOpenAI = !!process.env.OPENAI_API_KEY
-    const newStatus = (chunks.length > 0 && hasOpenAI) ? 'processing' : 'uploaded_awaiting_transcription'
+    // Idempotent stop: if already processing/done, return current state without re-running
+    const [existing] = await db`
+      SELECT transcription_status FROM meeting_recordings WHERE id = ${id}::uuid
+    `
+    if (existing?.transcription_status === 'processing' || existing?.transcription_status === 'done') {
+      logger.info('[Meetings] stop called on already-processing/done meeting, ignoring', { id, status: existing.transcription_status })
+      return res.status(200).json({
+        ok: true,
+        merged_chunks: 0,
+        audio_bytes: 0,
+        transcription_status: existing.transcription_status,
+        idempotent: true,
+      })
+    }
+
+    const hasTranscriptionKey = !!(process.env.OPENAI_API_KEY || process.env.DEEPGRAM_API_KEY)
+    const newStatus = (chunks.length > 0 && hasTranscriptionKey) ? 'processing' : 'uploaded_awaiting_transcription'
 
     await db`
       UPDATE meeting_recordings SET
@@ -269,8 +295,8 @@ router.post('/:id/stop', async (req, res) => {
       WHERE id = ${id}::uuid
     `
 
-    // Fire async transcription if we have audio + API key
-    if (chunks.length > 0 && hasOpenAI) {
+    // Fire async transcription if we have audio + a transcription API key
+    if (chunks.length > 0 && hasTranscriptionKey) {
       runTranscription(id).catch(err => {
         logger.error('[Meetings] async transcription error', { id, error: err.message })
       })
@@ -425,34 +451,39 @@ router.post('/:id/retranscribe', async (req, res) => {
 
     logger.info('[Meetings] retranscribing', { id, bytes: buffer.length })
 
-    const text = await transcribeChunk({
+    const transcript = await transcribeAudio({
       buffer,
       mimeType: 'audio/webm',
       filename: 'meeting.webm',
     })
+    const text = transcript.full_text || ''
 
     // Update storage transcript
     const transcriptPath = `meetings/${id}/transcript.txt`
     await storageUpload({
-      buffer: Buffer.from(text || '', 'utf8'),
+      buffer: Buffer.from(text, 'utf8'),
       path: transcriptPath,
       mimeType: 'text/plain',
     })
 
     const [updated] = await db`
       UPDATE meeting_recordings SET
-        transcript_text = ${text || ''},
+        transcript_text = ${text},
+        transcript_json = ${JSON.stringify(transcript)},
         transcript_url = ${transcriptPath},
+        transcript_engine = ${transcript.engine},
+        transcript_diarised = ${transcript.diarised},
         transcription_status = 'done',
         transcription_error = NULL,
         transcript_revised_at = NOW()
       WHERE id = ${id}::uuid
-      RETURNING transcript_text, transcript_revised_at
+      RETURNING transcript_text, transcript_json, transcript_revised_at
     `
 
-    logger.info('[Meetings] retranscription done', { id, chars: (text || '').length })
+    logger.info('[Meetings] retranscription done', { id, engine: transcript.engine, chars: text.length })
     return res.json({
       transcript_text: updated.transcript_text,
+      transcript_json: updated.transcript_json,
       transcript_revised_at: updated.transcript_revised_at,
     })
   } catch (err) {
@@ -492,6 +523,100 @@ router.patch('/:id/transcript', async (req, res) => {
   } catch (err) {
     logger.error('[Meetings] transcript patch failed', { id, error: err.message })
     return res.status(500).json({ error: 'transcript_patch_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/meetings/:id/speakers - save speaker name overrides
+// Body: { speakers: { "A": "Tate", "B": "Angelica" } }
+// ---------------------------------------------------------------------------
+router.patch('/:id/speakers', async (req, res) => {
+  const { id } = req.params
+  try {
+    const { speakers } = req.body || {}
+    if (!speakers || typeof speakers !== 'object' || Array.isArray(speakers)) {
+      return res.status(400).json({ error: 'speakers_required', message: 'Body must include speakers object e.g. {"A":"Tate","B":"Angelica"}' })
+    }
+    // Sanitise: only single uppercase letter keys, string values
+    const clean = {}
+    for (const [k, v] of Object.entries(speakers)) {
+      if (/^[A-Z]$/.test(k) && typeof v === 'string' && v.trim().length > 0) {
+        clean[k] = v.trim().slice(0, 50)
+      }
+    }
+    const [updated] = await db`
+      UPDATE meeting_recordings SET
+        speaker_names = ${JSON.stringify(clean)}::jsonb
+      WHERE id = ${id}::uuid AND archived_at IS NULL
+      RETURNING speaker_names
+    `
+    if (!updated) return res.status(404).json({ error: 'not_found' })
+    return res.json({ speaker_names: updated.speaker_names })
+  } catch (err) {
+    logger.error('[Meetings] speakers patch failed', { id, error: err.message })
+    return res.status(500).json({ error: 'speakers_patch_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/meetings/:id/export - download transcript as markdown script
+// Query: ?format=md (default) or ?format=txt
+// ---------------------------------------------------------------------------
+router.get('/:id/export', async (req, res) => {
+  const { id } = req.params
+  const fmt = req.query.format === 'txt' ? 'txt' : 'md'
+  try {
+    const [row] = await db`
+      SELECT m.title, m.started_at, m.duration_seconds,
+             m.transcript_text, m.transcript_json, m.speaker_names,
+             m.transcript_diarised
+      FROM meeting_recordings m
+      WHERE m.id = ${id}::uuid AND m.archived_at IS NULL
+    `
+    if (!row) return res.status(404).json({ error: 'not_found' })
+
+    const speakerNames = row.speaker_names || {}
+    const label = (code) => speakerNames[code] || (code ? `Speaker ${code}` : 'Speaker')
+    const ts = (ms) => {
+      if (!ms) return '0:00'
+      const s = Math.floor(ms / 1000)
+      const m = Math.floor(s / 60)
+      const sec = s % 60
+      return `${m}:${sec.toString().padStart(2, '0')}`
+    }
+
+    const title = row.title || `Meeting ${new Date(row.started_at).toLocaleDateString('en-AU')}`
+    const dateStr = new Date(row.started_at).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' })
+
+    let body = ''
+    const transcript = row.transcript_json
+
+    if (transcript?.diarised && transcript?.paragraphs?.length > 0) {
+      // Script format
+      body = transcript.paragraphs.map(p => {
+        const spkLine = fmt === 'md'
+          ? `**${label(p.speaker)}** *(${ts(p.start_ms)} - ${ts(p.end_ms)})*`
+          : `${label(p.speaker)} (${ts(p.start_ms)} - ${ts(p.end_ms)})`
+        return `${spkLine}\n  ${p.text}`
+      }).join('\n\n')
+    } else {
+      // Plain text fallback
+      body = row.transcript_text || '(no transcript)'
+    }
+
+    const header = fmt === 'md'
+      ? `# ${title}\n\n*${dateStr}*\n\n---\n\n`
+      : `${title}\n${dateStr}\n${'='.repeat(title.length)}\n\n`
+
+    const content = header + body
+    const filename = `${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-transcript.${fmt}`
+
+    res.setHeader('Content-Type', fmt === 'md' ? 'text/markdown; charset=utf-8' : 'text/plain; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    return res.send(content)
+  } catch (err) {
+    logger.error('[Meetings] export failed', { id, error: err.message })
+    return res.status(500).json({ error: 'export_failed', detail: err.message })
   }
 })
 
