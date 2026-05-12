@@ -528,12 +528,14 @@ You are powered by Claude (Anthropic's model). Running inside the EcodiaOS condu
 - "Standing by" is not a default state. Use it only when there is genuinely nothing actionable AND no Tate input awaiting a response. If Tate is asking you something, you are not standing by — you are answering him.
 
 # Message-source discipline (highest priority — read at top of every turn)
-- The user-role turn you are reading right now is one of THREE classes; identify which before responding:
-  (1) **TATE-TYPED**: a message Tate actually typed into chat. The user text does NOT start with \`[SYSTEM: \` or \`[Pending queued messages\`. **ALWAYS answer Tate's actual question directly. Fork status, perception, observer signals are SECONDARY context — never narrate them in lieu of answering.**
-  (2) **SYSTEM-WAKE**: starts with \`[SYSTEM: fork_report ...]\` or \`[SYSTEM: fork_reports_batched ...]\` — a fork completion woke you. Process the report(s), update working_set, take any clear next_step actions. NO narration to Tate unless the report contains something he needs to know.
-  (3) **QUEUE-DRAIN**: starts with \`[Pending queued messages delivered opportunistically]\` — multiple background messages batched. Handle each one's substrate action; do NOT chat-narrate each.
-- If a TATE-TYPED message arrives mid-fork-flurry (you can tell because <forks_rollup> shows activity but the user text itself is human-typed, not bracket-prefixed), TATE WINS. Answer him first. Forks keep running; you can read their reports next turn.
-- Never reply to a system-wake with "Standing by" or "Both forks progressing" if the same turn contains a Tate-typed message somewhere in the user content. Search the user text for the actual question.`
+- Every user-role turn ends with EITHER a <tate_typed>...</tate_typed> block OR a bracket-prefixed system marker. Find which.
+- If you see <tate_typed> in the user content, **the text inside is from Tate, directly. ANSWER IT FIRST. This rule overrides every other consideration.** Forks, observers, perception, working_set are all SECONDARY context — read for awareness, never narrate in lieu of answering. After answering Tate, take any non-narration actions the secondary context implies.
+- If the user content has NO <tate_typed> block, it is one of:
+  (1) **SYSTEM-WAKE** — starts with \`[SYSTEM: fork_report ...]\` or \`[SYSTEM: fork_reports_batched ...]\`. Process the report(s), update working_set, take any clear next_step actions. NO narration to Tate unless the report contains something he needs to know.
+  (2) **QUEUE-DRAIN** — starts with \`[Pending queued messages delivered opportunistically]\`. Handle each substrate action; do NOT chat-narrate each.
+  (3) **AUTO-WAKE** — starts with \`⚡ Back. Handoff state\`. Resume the in-flight task naturally without commentary.
+- "Standing by" / "No response requested" / "Acknowledged" are NEVER valid replies to a <tate_typed> block. If you produce those text replies, you have read the user content wrong — re-read for <tate_typed>.
+- Quick check before replying: does the user content contain the literal string "<tate_typed>"? If YES, answer Tate. If NO, you may be terse / silent / take a tool action only.`
 
   // Fork-mode doctrine. The conductor IS the parallelism decider — it has
   // the spawn_fork tool and is expected to use it whenever work can run in
@@ -1594,7 +1596,30 @@ async function _sendMessageImpl(content, opts = {}) {
   // became the only "context" left — causing the model to hallucinate tasks from
   // previous sessions. Neo4j MCP tool is available for on-demand memory recall
   // instead of blind pre-injection.
-  const promptWithMemory = content
+  //
+  // ─── Tate-typed wrapping (13 May 2026) ─────────────────────────────────────
+  // When the user content is a real Tate-typed message (NOT a SYSTEM/queue/wake
+  // pseudo-user-message), wrap it in <tate_typed> so the conductor cannot
+  // miss it under 3500+ chars of <forks_rollup> + <observer_signals> +
+  // <perception_summary> + <working_set> continuity blocks that get prepended
+  // downstream. Without this wrap, "Oi hola" at the tail of 3500 chars of
+  // system context got read as "no actual question" and conductor replied
+  // "No response requested" (13 May 2026 incident).
+  //
+  // Heuristic: a Tate-typed message does NOT start with the well-known
+  // bracket-prefix system markers. SYSTEM wakes and queue drains have their
+  // own format and the conductor's Message-source discipline knows how to
+  // handle them — wrapping THOSE would be redundant and confusing.
+  let promptWithMemory = content
+  const _trimmedHead = (content || '').trimStart().slice(0, 64)
+  const _isSystemWake =
+    _trimmedHead.startsWith('[SYSTEM:') ||
+    _trimmedHead.startsWith('[Pending queued messages') ||
+    _trimmedHead.startsWith('⚡ Back. Handoff state') ||
+    _trimmedHead.startsWith('<observer source=')  // legacy guard
+  if (!_isSystemWake && content && content.trim().length > 0) {
+    promptWithMemory = `<tate_typed>\n${content}\n</tate_typed>`
+  }
 
   // ─── Build SDK options (conductor architecture) ────────────────────────────
   // Load ALL MCP configs, then split: conductor gets ~35 tools directly,
