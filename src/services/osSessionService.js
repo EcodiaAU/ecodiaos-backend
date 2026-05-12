@@ -1611,11 +1611,13 @@ async function _sendMessageImpl(content, opts = {}) {
   // own format and the conductor's Message-source discipline knows how to
   // handle them — wrapping THOSE would be redundant and confusing.
   let promptWithMemory = content
-  const _trimmedHead = (content || '').trimStart().slice(0, 64)
+  const _trimmedHead = (content || '').trimStart().slice(0, 80)
   const _isSystemWake =
     _trimmedHead.startsWith('[SYSTEM:') ||
     _trimmedHead.startsWith('[Pending queued messages') ||
     _trimmedHead.startsWith('⚡ Back. Handoff state') ||
+    _trimmedHead.startsWith('[AUTO_WAKE]') ||
+    _trimmedHead.startsWith('AUTO_WAKE') ||
     _trimmedHead.startsWith('<observer source=')  // legacy guard
   if (!_isSystemWake && content && content.trim().length > 0) {
     promptWithMemory = `<tate_typed>\n${content}\n</tate_typed>`
@@ -2432,7 +2434,18 @@ async function _sendMessageImpl(content, opts = {}) {
   }
 
   if (continuityParts.length > 0) {
-    finalPrompt = `${continuityParts.join('\n\n')}\n\n${promptWithMemory}`
+    // For Tate-typed turns: <tate_typed> goes FIRST so the model reads
+    // Tate's actual question before the 3-5KB of continuity blocks. The
+    // continuity blocks remain present (model may still need them) but as
+    // secondary context. For SYSTEM-wake turns, keep the original order
+    // (continuity first, then the system marker text) — that flow was
+    // working fine. (13 May 2026 — see <tate_typed> wrap fix.)
+    const _hasTateTyped = promptWithMemory.startsWith('<tate_typed>')
+    if (_hasTateTyped) {
+      finalPrompt = `${promptWithMemory}\n\n${continuityParts.join('\n\n')}`
+    } else {
+      finalPrompt = `${continuityParts.join('\n\n')}\n\n${promptWithMemory}`
+    }
   }
 
   // ─── PROMPT_ASSEMBLY_V2 dispatch ────────────────────────────────────────
