@@ -22,6 +22,7 @@ const fs = require('fs')
 const logger = require('../config/logger')
 const db = require('../config/db')
 const { transcribeWithChunking } = require('../services/transcriptionService')
+const { runAnalysis } = require('../services/meetingAnalysisService')
 
 const router = express.Router()
 
@@ -227,6 +228,10 @@ async function runTranscription(meetingId) {
       diarised: transcript.diarised,
       chars: text.length,
       segments: transcript.segments?.length,
+    })
+    // Fire analysis pipeline async - does NOT block transcription response
+    runAnalysis(meetingId, db).catch(err => {
+      logger.error('[Meetings] async analysis error', { meetingId, error: err.message })
     })
   } catch (err) {
     logger.error('[Meetings] transcription failed', { meetingId, error: err.message })
@@ -555,6 +560,7 @@ router.post('/:id/retranscribe', async (req, res) => {
 router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, res) => {
   const { id } = req.params
   const tmpPath = req.file?.path
+  let compressedPath = null
 
   try {
     if (!req.file) {
@@ -580,7 +586,6 @@ router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, 
     const mimeExt = (req.file.mimetype || 'audio/mpeg').split('/')[1]?.split(';')[0] || 'mp3'
     const ext = origExt || mimeExt || 'mp3'
     const ts = Date.now()
-    const storagePath = `meetings/${id}/uploaded-${ts}.${ext}`
     const mimeType = (req.file.mimetype || 'audio/mpeg').split(';')[0].trim()
 
     // Read temp file and upload to Supabase Storage.
@@ -589,16 +594,51 @@ router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, 
     // the file (transcribeWithChunking handles any size via disk + ffmpeg).
     const fileBuffer = await fs.promises.readFile(tmpPath)
 
+    // For large files (>50MB), compress to voice-quality MP3 before storage upload.
+    // A 165MB 128kbps MP3 compresses to ~41MB at 16kHz/32kbps - well under limits.
+    let uploadBuffer = fileBuffer
+    let uploadMime = mimeType
+    let uploadExt = ext
+    const COMPRESS_THRESHOLD = 50 * 1024 * 1024 // 50 MB
+
+    if (fileBuffer.length > COMPRESS_THRESHOLD) {
+      logger.info('[Meetings] upload-audio: large file, compressing to voice MP3', {
+        id, originalBytes: fileBuffer.length,
+      })
+      try {
+        const { compressToVoiceMp3 } = require('../services/transcriptionService')
+        // Write buffer to a separate temp file for ffmpeg input
+        const ffmpegIn = path.join(os.tmpdir(), `mtg-raw-${Date.now()}${path.extname(tmpPath)}`)
+        await fs.promises.writeFile(ffmpegIn, fileBuffer)
+        compressedPath = await compressToVoiceMp3(ffmpegIn)
+        await fs.promises.unlink(ffmpegIn).catch(() => {})
+        uploadBuffer = await fs.promises.readFile(compressedPath)
+        uploadMime = 'audio/mpeg'
+        uploadExt = 'mp3'
+        logger.info('[Meetings] upload-audio: compressed', {
+          id, compressedBytes: uploadBuffer.length,
+          ratio: `${Math.round(uploadBuffer.length / fileBuffer.length * 100)}%`,
+        })
+      } catch (compressErr) {
+        logger.warn('[Meetings] upload-audio: compression failed, uploading raw', {
+          id, error: compressErr.message,
+        })
+        // Fall through with original buffer - transcribeWithChunking handles it
+      }
+    }
+
+    const storagePath = `meetings/${id}/uploaded-${ts}.${uploadExt}`
+
     logger.info('[Meetings] upload-audio: uploading to storage', {
       id,
       storagePath,
-      bytes: fileBuffer.length,
-      mimeType,
+      bytes: uploadBuffer.length,
+      mimeType: uploadMime,
     })
 
     const { error: uploadErr } = await sb.storage
       .from('documents')
-      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: true })
+      .upload(storagePath, uploadBuffer, { contentType: uploadMime, upsert: true })
 
     if (uploadErr) {
       logger.error('[Meetings] upload-audio: storage upload failed', { id, error: uploadErr.message })
@@ -643,6 +683,7 @@ router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, 
     if (tmpPath) {
       fs.promises.unlink(tmpPath).catch(() => {})
     }
+    if (compressedPath) fs.promises.unlink(compressedPath).catch(() => {})
   }
 })
 
@@ -784,6 +825,78 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     logger.error('[Meetings] delete failed', { id: req.params.id, error: err.message })
     return res.status(500).json({ error: 'delete_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// GET /api/meetings/:id/analysis - get analysis + action items bundle
+// ---------------------------------------------------------------------------
+router.get('/:id/analysis', async (req, res) => {
+  try {
+    const [row] = await db`
+      SELECT id, title, started_at, duration_seconds,
+             analysis_status, analysis_json, action_items_json,
+             analysis_started_at, analysis_completed_at, analysis_error,
+             transcript_text, transcript_diarised, transcript_engine
+      FROM meeting_recordings
+      WHERE id = ${req.params.id}::uuid AND archived_at IS NULL
+    `
+    if (!row) return res.status(404).json({ error: 'not_found' })
+    return res.json({
+      meeting_id: row.id,
+      title: row.title,
+      started_at: row.started_at,
+      duration_seconds: row.duration_seconds,
+      analysis_status: row.analysis_status,
+      analysis: row.analysis_json,
+      action_items: row.action_items_json,
+      analysis_started_at: row.analysis_started_at,
+      analysis_completed_at: row.analysis_completed_at,
+      analysis_error: row.analysis_error,
+      transcript_engine: row.transcript_engine,
+      transcript_diarised: row.transcript_diarised,
+    })
+  } catch (err) {
+    logger.error('[Meetings] analysis get failed', { id: req.params.id, error: err.message })
+    return res.status(500).json({ error: 'analysis_get_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/meetings/:id/analyze - manually trigger / re-trigger analysis
+// Body: optional { force: true } to re-run even if status='done'
+// ---------------------------------------------------------------------------
+router.post('/:id/analyze', async (req, res) => {
+  const { id } = req.params
+  const { force } = req.body || {}
+  try {
+    const [row] = await db`
+      SELECT id, transcription_status, analysis_status, transcript_text
+      FROM meeting_recordings WHERE id = ${id}::uuid AND archived_at IS NULL
+    `
+    if (!row) return res.status(404).json({ error: 'not_found' })
+    if (row.transcription_status !== 'done') {
+      return res.status(409).json({
+        error: 'transcription_not_done',
+        message: `Transcription must complete before analysis. Current status: ${row.transcription_status}`,
+      })
+    }
+    if (!row.transcript_text || row.transcript_text.length < 50) {
+      return res.status(400).json({ error: 'transcript_too_short', message: 'No usable transcript for analysis.' })
+    }
+    if (row.analysis_status === 'processing' && !force) {
+      return res.status(409).json({ error: 'already_processing', message: 'Analysis already running. Pass force:true to restart.' })
+    }
+
+    // Fire async
+    runAnalysis(id, db).catch(err => {
+      logger.error('[Meetings] manual analyze error', { id, error: err.message })
+    })
+
+    return res.status(202).json({ queued: true, meeting_id: id })
+  } catch (err) {
+    logger.error('[Meetings] analyze route failed', { id, error: err.message })
+    return res.status(500).json({ error: 'analyze_failed', detail: err.message })
   }
 })
 

@@ -475,4 +475,4 @@ async function transcribeWithChunking({ buffer, mimeType, filename }) {
   }
 }
 
-module.exports = { transcribeAudio, transcribeChunk, transcribeWithChunking, stripRepetitiveTail }
+module.exports = { transcribeAudio, transcribeChunk, transcribeWithChunking, stripRepetitiveTail, compressToVoiceMp3 }
