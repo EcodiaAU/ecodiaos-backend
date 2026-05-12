@@ -262,8 +262,8 @@ async function runAnalysis(meetingId, db) {
     // Store both
     await db`
       UPDATE meeting_recordings SET
-        analysis_json = ${JSON.stringify(analysisJson)}::jsonb,
-        action_items_json = ${JSON.stringify(actionItemsJson)}::jsonb,
+        analysis_json = ${analysisJson},
+        action_items_json = ${actionItemsJson},
         analysis_status = 'done',
         analysis_completed_at = NOW(),
         analysis_error = NULL
