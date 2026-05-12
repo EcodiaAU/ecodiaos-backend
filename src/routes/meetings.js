@@ -16,15 +16,40 @@
 
 const express = require('express')
 const multer = require('multer')
+const path = require('path')
+const os = require('os')
+const fs = require('fs')
 const logger = require('../config/logger')
 const db = require('../config/db')
 const { transcribeWithChunking } = require('../services/transcriptionService')
 
 const router = express.Router()
 
+// Multer instance for live chunk uploads (in-memory, 20 MB cap per chunk)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB per chunk
+})
+
+// Multer instance for full-file audio upload (disk storage, 500 MB cap).
+// Writing to disk avoids holding 100MB+ files in heap.
+const uploadAudioToDisk = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.mp3'
+      cb(null, `meeting-upload-${Date.now()}${ext}`)
+    },
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+  fileFilter: (req, file, cb) => {
+    const mime = (file.mimetype || '').split(';')[0].trim()
+    if (mime.startsWith('audio/') || mime === 'video/mp4') {
+      cb(null, true)
+    } else {
+      cb(new Error(`Unsupported file type: ${mime}. Expected audio/*.`))
+    }
+  },
 })
 
 // ---------------------------------------------------------------------------
@@ -113,33 +138,41 @@ async function deleteChunks(meetingId) {
 }
 
 // ---------------------------------------------------------------------------
-// Async transcription pipeline - runs after stop, does not block response
+// Async transcription pipeline - runs after stop/upload, does not block response
 // ---------------------------------------------------------------------------
 async function runTranscription(meetingId) {
   try {
     const sb = getSupabase()
     if (!sb) throw new Error('no supabase client')
 
+    // Read audio_url from DB so both live recordings (audio.webm) and
+    // uploaded files (uploaded-<ts>.mp3 etc.) are handled correctly.
+    const [meetingRow] = await db`
+      SELECT audio_url FROM meeting_recordings WHERE id = ${meetingId}::uuid
+    `
+    const audioStoragePath = meetingRow?.audio_url || `meetings/${meetingId}/audio.webm`
+
     let buffer = null
 
-    // Primary: download merged audio.webm
+    // Primary: download from the stored audio_url
     const { data, error } = await sb.storage
       .from('documents')
-      .download(`meetings/${meetingId}/audio.webm`)
+      .download(audioStoragePath)
 
     if (data && !error) {
       const ab = await data.arrayBuffer()
       buffer = Buffer.from(ab)
     } else {
-      // Fallback: audio.webm missing (e.g. upload exceeded storage limit).
+      // Fallback: stored audio missing (e.g. upload exceeded storage limit for live recording).
       // Re-merge from individual chunks which may still be in storage.
-      logger.warn('[Meetings] merged audio not found, falling back to chunks', {
+      logger.warn('[Meetings] audio download failed, falling back to chunks', {
         meetingId,
+        audioStoragePath,
         error: error?.message,
       })
       const chunkBuffers = await downloadChunks(meetingId)
       if (!chunkBuffers.length) {
-        throw new Error('audio unavailable: merged audio missing and no chunks found in storage')
+        throw new Error('audio unavailable: audio download failed and no chunks found in storage')
       }
       buffer = Buffer.concat(chunkBuffers)
       // Attempt to upload merged audio now (best-effort; don't block transcription if it fails)
@@ -499,6 +532,117 @@ router.post('/:id/retranscribe', async (req, res) => {
   } catch (err) {
     logger.error('[Meetings] retranscribe route failed', { id, error: err.message })
     return res.status(500).json({ error: 'retranscribe_failed', detail: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// POST /api/meetings/:id/upload-audio
+//
+// Rescue path for meetings whose live capture was lost.
+// Accepts an mp3/m4a/wav/webm from Tate's laptop voice recorder.
+// Streams to disk via multer (never buffers 500MB in heap), uploads to
+// Supabase Storage, then fires the same transcription pipeline used by
+// the live recording path.
+//
+// Multipart/form-data field: audio (file, max 500 MB)
+// Accepted types: audio/* (mp3, m4a, wav, webm, ogg, etc.)
+//
+// Response 200: { meeting_id, audio_url, transcription_status: 'queued' }
+// Response 400: audio field missing
+// Response 404: meeting not found / archived
+// Response 503: Supabase unavailable
+// ---------------------------------------------------------------------------
+router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, res) => {
+  const { id } = req.params
+  const tmpPath = req.file?.path
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'audio_required', message: 'Multipart field "audio" is required.' })
+    }
+
+    // Verify meeting row exists and is not archived
+    const [row] = await db`
+      SELECT id, transcription_status FROM meeting_recordings
+      WHERE id = ${id}::uuid AND archived_at IS NULL
+    `
+    if (!row) {
+      return res.status(404).json({ error: 'not_found', message: 'Meeting not found or archived.' })
+    }
+
+    const sb = getSupabase()
+    if (!sb) {
+      return res.status(503).json({ error: 'storage_unavailable', message: 'Supabase client not initialised.' })
+    }
+
+    // Derive extension from original filename or mime type
+    const origExt = path.extname(req.file.originalname || '').toLowerCase().replace(/^\./, '')
+    const mimeExt = (req.file.mimetype || 'audio/mpeg').split('/')[1]?.split(';')[0] || 'mp3'
+    const ext = origExt || mimeExt || 'mp3'
+    const ts = Date.now()
+    const storagePath = `meetings/${id}/uploaded-${ts}.${ext}`
+    const mimeType = (req.file.mimetype || 'audio/mpeg').split(';')[0].trim()
+
+    // Read temp file and upload to Supabase Storage.
+    // The temp file is already on disk (multer wrote it), so this avoids a second
+    // large in-memory copy. The transcription pipeline will download + ffmpeg-compress
+    // the file (transcribeWithChunking handles any size via disk + ffmpeg).
+    const fileBuffer = await fs.promises.readFile(tmpPath)
+
+    logger.info('[Meetings] upload-audio: uploading to storage', {
+      id,
+      storagePath,
+      bytes: fileBuffer.length,
+      mimeType,
+    })
+
+    const { error: uploadErr } = await sb.storage
+      .from('documents')
+      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: true })
+
+    if (uploadErr) {
+      logger.error('[Meetings] upload-audio: storage upload failed', { id, error: uploadErr.message })
+      return res.status(500).json({ error: 'storage_upload_failed', detail: uploadErr.message })
+    }
+
+    // Update meeting row. Upload always wins — supersedes any previous audio_url
+    // (live capture, 410 chunk, or partial bad-quality file).
+    await db`
+      UPDATE meeting_recordings SET
+        audio_url          = ${storagePath},
+        audio_source       = 'uploaded',
+        audio_uploaded_at  = NOW(),
+        audio_size_bytes   = ${fileBuffer.length},
+        transcription_status = 'processing',
+        transcription_error  = NULL
+      WHERE id = ${id}::uuid
+    `
+
+    // Fire async transcription — same pipeline as live recordings.
+    // runTranscription() reads audio_url from DB, so it will pick up storagePath.
+    runTranscription(id).catch(err => {
+      logger.error('[Meetings] upload-audio: transcription error', { id, error: err.message })
+    })
+
+    logger.info('[Meetings] upload-audio: complete, transcription queued', {
+      id,
+      storagePath,
+      bytes: fileBuffer.length,
+    })
+
+    return res.json({
+      meeting_id: id,
+      audio_url: storagePath,
+      transcription_status: 'queued',
+    })
+  } catch (err) {
+    logger.error('[Meetings] upload-audio: failed', { id, error: err.message })
+    return res.status(500).json({ error: 'upload_failed', detail: err.message })
+  } finally {
+    // Always clean up the temp file multer wrote to disk
+    if (tmpPath) {
+      fs.promises.unlink(tmpPath).catch(() => {})
+    }
   }
 })
 
