@@ -223,6 +223,28 @@ async function recentSummary(windowMinutes = 60) {
     const notable = rows.filter(r => r.confidence >= 0.7 || promotionScore({ kind: r.kind, source: r.source, data: r.data }) >= 0.6)
     for (const r of notable.slice(0, 5)) {
       const ago = Math.round((Date.now() - new Date(r.observed_at).getTime()) / 60000)
+
+      // Special-case rendering for fork_credit_exhaustion_observed: the raw
+      // JSON snippet read as "the chain is exhausted" to the conductor, even
+      // when the payload's chain_exhausted flag was false. Render lane truth
+      // explicitly so the conductor cannot misread it. (12 May 2026 fix.)
+      if (r.kind === 'fork_credit_exhaustion_observed' && r.data) {
+        const d = r.data
+        const exhausted = Array.isArray(d.exhausted_accounts) ? d.exhausted_accounts : []
+        const healthy = Array.isArray(d.healthy_accounts) ? d.healthy_accounts : []
+        if (d.chain_exhausted === true) {
+          const resetTxt = d.earliest_reset_at
+            ? ` Earliest reset ${new Date(d.earliest_reset_at).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })} AEST.`
+            : ''
+          lines.push(`  ${ago}m ago: ACCOUNT CHAIN EXHAUSTED — all 3 lanes capped.${resetTxt} You may continue serving via DeepSeek fallback if enabled; defer non-urgent fork work.`)
+        } else {
+          const exhTxt = exhausted.length > 0 ? exhausted.join(',') : '(unknown)'
+          const healthyTxt = healthy.length > 0 ? healthy.join(',') : '(none reported healthy)'
+          lines.push(`  ${ago}m ago: fork_credit_exhaustion: lane(s) ${exhTxt} capped, healthy lanes still serving: ${healthyTxt}. NOT a system outage. If you are reading this you are running on a healthy lane.`)
+        }
+        continue
+      }
+
       const snippet = r.data ? JSON.stringify(r.data).slice(0, 80) : ''
       lines.push(`  ${ago}m ago: ${r.source}/${r.kind} ${snippet}`)
     }

@@ -256,6 +256,51 @@ const MATCHERS = [
             `
             const abortReason = r && r[0] && r[0].abort_reason
             if (abortReason && CREDIT_EXHAUSTION_REGEX.test(abortReason)) {
+              // ─── Lane-truth enrichment (12 May 2026) ───────────────────────
+              // ONE fork erroring with credit-exhaustion text does NOT mean
+              // the whole chain is exhausted. Query usageEnergyService for
+              // per-account state and publish that truth alongside the event.
+              // Without this, the conductor reads <perception_summary> as
+              // "chain exhausted" while it is literally running on a healthy
+              // account, falls into "standing by", and ignores real user
+              // input. Tate caught this live 12 May 2026 16:00 AEST:
+              //   "The account chain isn't exhausted because you're able to
+              //    reply… those two things can't be true at the same time."
+              // Fix: enrich payload with which lanes are exhausted vs healthy
+              // so recentSummary() can render "NOT a system outage" when
+              // appropriate.
+              let exhausted_accounts = []
+              let healthy_accounts = []
+              let chain_exhausted = false
+              let earliest_reset_at = null
+              try {
+                const usageEnergy = require('./usageEnergyService')
+                const energy = await usageEnergy.getEnergy()
+                const accts = (energy && energy.accounts) || {}
+                for (const [name, acct] of Object.entries(accts)) {
+                  if (!acct) continue
+                  const capped = acct.rateLimitStatus === 'rejected'
+                    || (typeof acct.pctUsed === 'number' && acct.pctUsed >= 98)
+                    || (typeof acct.sessionPctUsed === 'number' && acct.sessionPctUsed >= 98)
+                  if (capped) {
+                    exhausted_accounts.push(name)
+                    if (acct.hoursUntilReset != null) {
+                      const resetEpochMs = Date.now() + acct.hoursUntilReset * 3_600_000
+                      if (earliest_reset_at == null || resetEpochMs < earliest_reset_at) {
+                        earliest_reset_at = resetEpochMs
+                      }
+                    }
+                  } else {
+                    healthy_accounts.push(name)
+                  }
+                }
+                chain_exhausted = healthy_accounts.length === 0 && exhausted_accounts.length > 0
+              } catch (energyErr) {
+                logger.debug('perceptionDispatcher: getEnergy lookup failed (publishing without lane truth)', {
+                  error: energyErr.message,
+                })
+              }
+
               try {
                 await perceptionBus.publish({
                   source: 'perception_dispatcher',
@@ -264,8 +309,17 @@ const MATCHERS = [
                     fork_id: forkId,
                     abort_reason: String(abortReason).slice(0, 200),
                     original_kind: event.kind,
+                    exhausted_accounts,
+                    healthy_accounts,
+                    chain_exhausted,
+                    earliest_reset_at: earliest_reset_at
+                      ? new Date(earliest_reset_at).toISOString()
+                      : null,
                   },
-                  confidence: 0.6,
+                  // Lower confidence when chain is healthy — this is per-lane
+                  // telemetry, NOT a system-wide signal. Only ride 0.9 when
+                  // we've actually verified all lanes are capped.
+                  confidence: chain_exhausted ? 0.9 : 0.4,
                 })
               } catch (err) {
                 logger.debug('perceptionDispatcher: credit_exhaustion publish failed', { error: err.message })
