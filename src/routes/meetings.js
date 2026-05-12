@@ -372,7 +372,7 @@ router.post('/upload', uploadAudioToDisk.single('file'), async (req, res) => {
       UPDATE meeting_recordings SET
         audio_url            = ${storagePath},
         audio_format         = ${uploadExt},
-        audio_source         = 'upload',
+        audio_source         = 'uploaded',
         audio_uploaded_at    = NOW(),
         audio_size_bytes     = ${originalBytes},
         transcription_status = 'processing',
