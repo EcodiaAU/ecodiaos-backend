@@ -8,12 +8,13 @@
  * even while Tate is in Fiji.
  */
 
+const { spawnSync } = require('child_process')
 const db = require('../config/db')
 const logger = require('../config/logger')
 const usageEnergy = require('./usageEnergyService')
 const doctrineSurface = require('./skillsSurfaceService')
 const cronForkDispatcher = require('./cronForkDispatcher')
-const { classifyCron } = require('../config/cronPriority')
+const { classifyCron, DIRECT_EXEC_COMMANDS } = require('../config/cronPriority')
 
 const POLL_INTERVAL_MS = 30_000
 const TZ_OFFSET_HOURS = 10 // AEST (UTC+10, no DST)
@@ -71,6 +72,143 @@ async function isSessionBusy() {
   }
 }
 
+// ── Direct-exec handler (no fork, no credits consumed) ──────────────────────
+//
+// For DIRECT_EXEC_CRONS: run the shell command synchronously via spawnSync,
+// parse the `tick complete: {...}` JSON line from stdout, update the task
+// timestamps, and upsert a status_board P2 row on failure.
+//
+// This path is taken INSTEAD of the fork-dispatch path. It never touches
+// /api/os-session/message or forkService. The whole point is that it runs
+// when all Claude Max accounts are exhausted — no fork = no credits burned.
+//
+// Failure modes handled:
+//   - spawnSync error (ENOENT, ETIMEDOUT, SIGKILL on 120s timeout)
+//   - non-zero exit code from the consumer script
+//   - ok=false in the parsed tick JSON
+//   - lineErrors > 0 in the parsed tick JSON
+//
+// Success (including processed:0 / empty JSONL) logs at info and auto-archives
+// any open status_board error row from a previous failure.
+//
+// Origin: fork_mp28xkeh_b611b0, 12 May 2026. Precedent: commit 773697d
+// (daily-index-regen moved to direct node-script execution for same reason).
+// Pattern: ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
+
+async function _fireDirectExecTask(task, cmd) {
+  const startMs = Date.now()
+  logger.info('Scheduler: firing direct-exec cron', { name: task.name, cmd })
+
+  const spawnResult = spawnSync('bash', ['-c', cmd], {
+    encoding: 'utf8',
+    timeout: 120_000,
+    maxBuffer: 1024 * 1024, // 1MB cap on stdout+stderr
+  })
+
+  const stdout = spawnResult.stdout || ''
+  const stderr = spawnResult.stderr || ''
+  const exitCode = spawnResult.status
+  const elapsed = Date.now() - startMs
+
+  // Parse `tick complete: {...}` JSON from stdout.
+  // Both consumers emit one of:
+  //   "[consumer] tick complete: {...}"
+  //   "[perf-consumer] tick complete: {...}"
+  let tickData = null
+  const tickMatch = stdout.match(/tick complete:\s*(\{.+\})/m)
+  if (tickMatch) {
+    try { tickData = JSON.parse(tickMatch[1]) } catch (_) { /* unparseable - treated as error below */ }
+  }
+
+  const hasError = Boolean(
+    spawnResult.error ||                             // spawn-level error (timeout/ENOENT)
+    exitCode !== 0 ||                                // non-zero exit
+    (tickData && tickData.ok === false) ||           // ok:false in output
+    (tickData && (tickData.lineErrors || 0) > 0),   // lineErrors > 0
+  )
+
+  const summaryForResult = JSON.stringify({
+    direct_exec: true,
+    exit_code: exitCode,
+    elapsed_ms: elapsed,
+    tick: tickData,
+    spawn_error: spawnResult.error ? spawnResult.error.message : null,
+  }).slice(0, 500)
+
+  // Update task row (last_run_at, next_run_at, run_count, result).
+  const now = new Date()
+  const nextRun = computeNextRun(task.cron_expression)
+  await db`
+    UPDATE os_scheduled_tasks
+    SET last_run_at = ${now}, next_run_at = ${nextRun},
+        run_count = run_count + 1, result = ${summaryForResult}
+    WHERE id = ${task.id}
+  `
+
+  if (hasError) {
+    const contextParts = []
+    if (spawnResult.error) contextParts.push(`spawn_error: ${spawnResult.error.message}`)
+    if (exitCode !== 0)    contextParts.push(`exit_code: ${exitCode}`)
+    if (tickData?.ok === false) contextParts.push(`ok:false ${tickData.error || ''}`.trim())
+    if ((tickData?.lineErrors || 0) > 0) contextParts.push(`lineErrors: ${tickData.lineErrors}`)
+    if (stderr)            contextParts.push(`stderr: ${stderr.slice(0, 400)}`)
+    const context = contextParts.join('\n')
+    const entityRef = `direct-exec-${task.name}`
+
+    // Upsert: update existing open row if present, otherwise insert.
+    const existing = await db`
+      SELECT id FROM status_board
+      WHERE entity_ref = ${entityRef} AND archived_at IS NULL
+      LIMIT 1
+    `
+    if (existing.length > 0) {
+      await db`
+        UPDATE status_board
+        SET status        = 'error',
+            context       = ${context},
+            last_touched  = ${now},
+            priority      = 2,
+            next_action   = ${'Investigate direct-exec failure for ' + task.name},
+            next_action_by = 'ecodiaos'
+        WHERE id = ${existing[0].id}
+      `
+    } else {
+      await db`
+        INSERT INTO status_board
+          (entity_type, entity_ref, name, status, next_action, next_action_by, priority, context, last_touched)
+        VALUES (
+          'infrastructure',
+          ${entityRef},
+          ${'Direct-exec cron failure: ' + task.name},
+          'error',
+          ${'Investigate and fix - consumer exited with errors'},
+          'ecodiaos',
+          2,
+          ${context},
+          ${now}
+        )
+      `
+    }
+
+    logger.warn('Scheduler: direct-exec cron failed', {
+      name: task.name, exit_code: exitCode, elapsed_ms: elapsed,
+      tick: tickData, stderr: stderr.slice(0, 200),
+    })
+  } else {
+    // Success — auto-archive any open error row from a prior failure.
+    await db`
+      UPDATE status_board
+      SET archived_at = ${now}
+      WHERE entity_ref = ${'direct-exec-' + task.name} AND archived_at IS NULL
+    `.catch(() => {})
+
+    logger.info('Scheduler: direct-exec cron succeeded', {
+      name: task.name, exit_code: exitCode, elapsed_ms: elapsed,
+      processed: tickData?.processed ?? 0,
+    })
+  }
+}
+
 // ── Fire a single task ──
 
 // Decide whether to route a cron task to the conductor (POST to os-session) or
@@ -81,11 +219,14 @@ async function isSessionBusy() {
 // Decision 4 May 2026 ("Crons route to forks by default, NEVER main chat"):
 //   conductor          → POST to /api/os-session/message (RESERVED: meta-loop only,
 //                         the conductor's CEO judgment cycle which IS main chat).
-//   direct_exec        → POST to /api/os-session/message. DEPRECATED 4 May 2026.
-//                         Set is empty; preserved only for forward-compat.
-//                         Per Tate verbatim 19:30 AEST: every previous DIRECT_EXEC
-//                         cron now spawns a fork instead so it never pollutes
-//                         the chat stream.
+//   direct_exec        → spawnSync shell command directly in-process.
+//                         Re-activated 12 May 2026 (fork_mp28xkeh_b611b0) for
+//                         telemetry-dispatch-consumer + telemetry-perf-consumer.
+//                         These are deterministic JSONL→Postgres rotation scripts;
+//                         routing through forks caused credit-exhaustion floods
+//                         every 15m when all Max accounts were exhausted.
+//                         Handled by _fireDirectExecTask() BEFORE this check.
+//                         Pattern: cron-fork-anti-flood-on-account-chain-exhaustion.md
 //   high_priority_fork → spawn fork (always, budget bypass).
 //   low_priority_fork  → spawn fork (skipped if budget < 25%).
 //
@@ -109,6 +250,26 @@ async function fireTask(task) {
   // behind in-flight turns or initialise an idle session. See
   // patterns/scheduler-no-pregate-trust-os-message-queue.md.
   try {
+    // ── Direct-exec route: deterministic shell scripts, zero fork/credit cost ──
+    // Checked BEFORE the fork-dispatch path. DIRECT_EXEC_CRONS bypass the fork
+    // system entirely — spawnSync runs the command in-process. This means they
+    // fire correctly even when all Claude Max accounts are exhausted.
+    // See src/config/cronPriority.js DIRECT_EXEC_CRONS + DIRECT_EXEC_COMMANDS.
+    // Pattern: ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
+    if (task.type === 'cron' && classifyCron(task.name) === 'direct_exec') {
+      const cmd = DIRECT_EXEC_COMMANDS.get(task.name)
+      if (cmd) {
+        await _fireDirectExecTask(task, cmd)
+        return
+      }
+      // Safety valve: if a task is in DIRECT_EXEC_CRONS but has no command
+      // mapped, log a warning and fall through to fork dispatch rather than
+      // silently doing nothing.
+      logger.warn('Scheduler: direct_exec cron has no command in DIRECT_EXEC_COMMANDS — falling through to fork', {
+        name: task.name,
+      })
+    }
+
     // Decision 3993: route fork-eligible crons through cronForkDispatcher
     // rather than POSTing into the conductor's message queue. See
     // src/config/cronPriority.js for the classification table.

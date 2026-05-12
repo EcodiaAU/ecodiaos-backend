@@ -70,19 +70,39 @@ const CONDUCTOR_CRONS = new Set([
   'meta-loop',
 ])
 
-// ─── Route 2: direct-exec - DEPRECATED (4 May 2026). Empty by design. ───────
-// All entries previously in this set (telemetry-dispatch-consumer,
-// decision-quality-classifier, os-forks-reaper, telemetry-outcome-inference,
-// kg-consolidation, kg-embedding, neo4j-keepalive, daily-telemetry,
-// coexist-sync-health, peer-monitor, cowork-fork-budget-reset) were moved to
-// HIGH_PRIORITY_FORK_CRONS so they spawn ephemeral forks instead of POSTing
-// into the conductor's message queue. The set itself is kept (empty) so the
-// classifier function continues to recognise the route name and so a future
-// genuinely-fork-inappropriate infra cron (none today) has a slot. Do NOT
-// re-add a cron here without Tate's explicit go-ahead - the previous reasoning
-// "pollution footprint negligible, refactoring is churn for no gain" was
-// rejected by Tate verbatim 4 May 2026 19:30 AEST.
-const DIRECT_EXEC_CRONS = new Set([])
+// ─── Route 2: direct-exec — deterministic shell scripts, no fork needed ──────
+// A cron in this set causes schedulerPollerService to run its shell command
+// directly via spawnSync (no fork spawned, no credits consumed, no account
+// exhaustion risk). The command is looked up from DIRECT_EXEC_COMMANDS below.
+//
+// Canonical use case (12 May 2026, fork_mp28xkeh_b611b0): JSONL→Postgres
+// telemetry rotation scripts. These are fully deterministic, agentic-decision-
+// free, and run every 15 minutes. Routing them through the fork system caused
+// credit-exhaustion floods: when all three Max accounts hit their weekly cap,
+// every 15-minute fire produced a fork error row, triggering the anti-flood
+// pattern each time (~3+ consecutive errors at 06:18-06:23 UTC 12 May 2026
+// against fork_mp28p0q6, fork_mp28ugfu, fork_mp28uibh).
+//
+// Precedent: the `daily-index-regen` cron was moved to direct node-script
+// execution for the same reason (Decision 2026-05-04, commit 773697d).
+//
+// Pattern: ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
+// (failure mode this prevents). Only add crons here when: (1) fully
+// deterministic with no agentic decisions, (2) zero branching logic needing
+// the conductor's MCP surface, (3) credit-exhaustion-tolerant (must run even
+// when all Claude Max accounts are exhausted).
+const DIRECT_EXEC_CRONS = new Set([
+  'telemetry-dispatch-consumer',  // every 15m — JSONL→Postgres consumer (Layer 4 decision-quality)
+  'telemetry-perf-consumer',      // every 15m — JSONL→Postgres consumer for perf events (Layer 6 Phase E)
+])
+
+// Shell commands for each direct-exec cron. Keyed by task name (must match
+// os_scheduled_tasks.name). spawnSync runs these via `bash -c <cmd>`.
+// IMPORTANT: keep in sync with DIRECT_EXEC_CRONS membership.
+const DIRECT_EXEC_COMMANDS = new Map([
+  ['telemetry-dispatch-consumer', 'cd /home/tate/ecodiaos && node src/services/telemetry/dispatchEventConsumer.js --once'],
+  ['telemetry-perf-consumer',     'cd /home/tate/ecodiaos && node src/services/telemetry/perfEventConsumer.js --once'],
+])
 
 // ─── Route 3: HIGH-priority forks (always run, never budget-gated) ──────────
 // These are the watchdogs and ops loops. If they defer because of budget, the
@@ -113,8 +133,12 @@ const HIGH_PRIORITY_FORK_CRONS = new Set([
   //    conductor's message queue. Each spawns an ephemeral fork via
   //    cronForkDispatcher; HIGH classification means budget bypass so the
   //    self-healing signals never silently skip. ──────────────────────────────
-  'telemetry-dispatch-consumer',   // every 15m - JSONL→Postgres consumer (Layer 4 of decision-quality).
-  'telemetry-perf-consumer',       // every 15m - JSONL→Postgres consumer for per-primitive perf events (Layer 6 of decision-quality, Phase E H1-A).
+  // NOTE: telemetry-dispatch-consumer and telemetry-perf-consumer were moved
+  //   to DIRECT_EXEC_CRONS on 12 May 2026 (fork_mp28xkeh_b611b0). Both are
+  //   deterministic JSONL→Postgres rotation scripts with zero agentic decision
+  //   component. Routing through the fork system caused credit-exhaustion
+  //   floods every 15 minutes when all Max accounts were exhausted. Pattern:
+  //   ~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md
   'decision-quality-classifier',   // every 1h - Phase D failure classifier.
   'telemetry-outcome-inference',   // every 30m - outcome inferrer.
   'os-forks-reaper',               // every 30m - auto-reconcile stuck forks (in-mem GC vs DB drift).
@@ -221,6 +245,7 @@ function budgetGateDecision({ classification, budgetRemaining, budgetMax }) {
 module.exports = {
   CONDUCTOR_CRONS,
   DIRECT_EXEC_CRONS,
+  DIRECT_EXEC_COMMANDS,
   HIGH_PRIORITY_FORK_CRONS,
   LOW_PRIORITY_FORK_CRONS,
   BUDGET_TIER_NORMAL,
