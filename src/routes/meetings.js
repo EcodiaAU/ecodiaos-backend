@@ -1204,7 +1204,6 @@ router.post('/:id/email', async (req, res) => {
     const [kvRow] = await db`
       SELECT key, value FROM kv_store
       WHERE key IN ('creds.resend.meeting_analysis', 'creds.resend.workspace_admin')
-        AND archived_at IS NULL
       ORDER BY (CASE key WHEN 'creds.resend.meeting_analysis' THEN 0 ELSE 1 END)
       LIMIT 1
     `
