@@ -6,9 +6,10 @@
  * osSessionService calls to the ecodia-conductor HTTP loopback bridge
  * (127.0.0.1:CONDUCTOR_LOOPBACK_PORT) instead of invoking the service
  * in-process. Proxied routes: POST /message, POST /abort, GET /status,
- * POST /save-state.  All other routes (history, tokens, recover, forks,
- * energy, upload, restart, compact, handover) continue in-process because
- * they either do not touch the live SDK session or are api-side concerns.
+ * POST /save-state, GET /forks, GET /fork/:id, POST /fork/:id/abort,
+ * POST /fork. All other routes (history, tokens, recover, energy, upload,
+ * restart, compact, handover) continue in-process because they either do
+ * not touch the live SDK session or are api-side concerns.
  *
  * Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
  */
@@ -453,6 +454,12 @@ router.post('/abort', async (_req, res, next) => {
 
 router.post('/fork', async (req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      // Proxy to conductor - it owns the forkService and _forks Map.
+      const resp = await proxyToLoopback('/fork', 'POST', req.body || {})
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const { brief, context_mode, parent_fork_id } = req.body || {}
     const snapshot = await fork.spawnFork({ brief, context_mode, parent_fork_id })
     return res.status(202).json({ accepted: true, fork: snapshot })
@@ -471,6 +478,15 @@ router.post('/fork', async (req, res, next) => {
 
 router.get('/forks', async (_req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      // Proxy to conductor - it owns the forkService and _forks Map.
+      // Without this proxy, CONDUCTOR_DETACHED mode always returned live:[]
+      // because ecodia-api's in-memory _forks Map is always empty (forks are
+      // spawned and tracked inside ecodia-conductor). Fix: fork_mp384bbz_f727f0.
+      const resp = await proxyToLoopback('/forks', 'GET')
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     res.json({
       live: fork.listForks(),
       hard_cap: fork.HARD_FORK_CAP,
@@ -481,6 +497,11 @@ router.get('/forks', async (_req, res, next) => {
 
 router.get('/fork/:id', async (req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      const resp = await proxyToLoopback(`/fork/${encodeURIComponent(req.params.id)}`, 'GET')
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const snap = fork.getFork(req.params.id)
     if (!snap) return res.status(404).json({ error: 'not_found' })
     res.json(snap)
@@ -489,6 +510,11 @@ router.get('/fork/:id', async (req, res, next) => {
 
 router.post('/fork/:id/abort', async (req, res, next) => {
   try {
+    if (CONDUCTOR_DETACHED) {
+      const resp = await proxyToLoopback(`/fork/${encodeURIComponent(req.params.id)}/abort`, 'POST', req.body || {})
+      const result = await resp.json()
+      return res.status(resp.status).json(result)
+    }
     const reason = (req.body && req.body.reason) || 'manual_abort'
     const result = await fork.abortFork(req.params.id, reason)
     if (!result.aborted) return res.status(409).json(result)

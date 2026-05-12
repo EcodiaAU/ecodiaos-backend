@@ -173,6 +173,56 @@ async function handleLoopbackRequest(req, res, secret) {
       return sendJson(res, 200, { ok: true, saved_at: state.saved_at })
     }
 
+    // GET /forks - list all live forks from conductor's forkService.
+    // fix(forks): CONDUCTOR_DETACHED mode had live:[] because ecodia-api's
+    // in-memory _forks Map is always empty — conductor owns it. fork_mp384bbz_f727f0.
+    if (method === 'GET' && url === '/forks') {
+      const forkService = require('./services/forkService')
+      return sendJson(res, 200, {
+        live: forkService.listForks(),
+        hard_cap: forkService.HARD_FORK_CAP,
+        energy_caps: forkService.ENERGY_FORK_CAPS,
+      })
+    }
+
+    // POST /fork - spawn a fork (proxied from ecodia-api FE requests)
+    if (method === 'POST' && url === '/fork') {
+      const body = await parseBody(req)
+      const { brief, context_mode, parent_fork_id } = body || {}
+      const forkService = require('./services/forkService')
+      try {
+        const snapshot = await forkService.spawnFork({ brief, context_mode, parent_fork_id })
+        return sendJson(res, 202, { accepted: true, fork: snapshot })
+      } catch (err) {
+        if (err && err.httpStatus) {
+          return sendJson(res, err.httpStatus, { error: err.code || 'fork_spawn_failed', message: err.message })
+        }
+        throw err
+      }
+    }
+
+    // GET /fork/:id - single fork snapshot
+    const forkIdMatch = url.match(/^\/fork\/([^/]+)$/)
+    if (method === 'GET' && forkIdMatch) {
+      const forkService = require('./services/forkService')
+      const snap = forkService.getFork(decodeURIComponent(forkIdMatch[1]))
+      if (!snap) return sendJson(res, 404, { error: 'not_found' })
+      return sendJson(res, 200, snap)
+    }
+
+    // POST /fork/:id/abort - abort a running fork
+    const abortMatch = url.match(/^\/fork\/([^/]+)\/abort$/)
+    if (method === 'POST' && abortMatch) {
+      const body = await parseBody(req)
+      const forkService = require('./services/forkService')
+      const result = await forkService.abortFork(
+        decodeURIComponent(abortMatch[1]),
+        (body && body.reason) || 'manual_abort'
+      )
+      if (!result.aborted) return sendJson(res, 409, result)
+      return sendJson(res, 200, result)
+    }
+
     sendJson(res, 404, { error: 'not_found' })
   } catch (err) {
     logger.error(`${BOOT_TAG} loopback request error`, { url, method, error: err.message })
