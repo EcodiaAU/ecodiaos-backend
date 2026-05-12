@@ -62,17 +62,11 @@ module.exports = {
     // CONDUCTOR_LOOPBACK_SECRET is NOT set here - it is read from
     // kv_store.creds.conductor_loopback_secret at boot time so the value
     // never appears in a committed file.  See docs/secrets/conductor-loopback-secret.md.
-    // CONDUCTOR_OWNS_WORKERS is intentionally absent here (Phase 2 mode).
-    //   Without it, conductor starts ONLY the HTTP bridge; ecodia-api keeps
-    //   its in-process workers.  This lets Phase 3 activation be atomic:
-    //   (1) pm2 start --only ecodia-conductor  [bridge-only, no double-run]
-    //   (2) smoke /status with bearer -> 200
-    //   (3) pm2 restart ecodia-api --update-env  [api drops workers via CONDUCTOR_DETACHED]
-    //   (4) Add CONDUCTOR_OWNS_WORKERS:'true' to this entry, then:
-    //       pm2 restart ecodia-conductor --update-env  [conductor owns workers]
-    // Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
-    // Phase 2 follow-up (bearer + worker gate): fork_mp1n7bm3_a5d11f, 12 May 2026.
-    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002' } },
+    // CONDUCTOR_OWNS_WORKERS: 'true' added Phase 3 activation (fork_mp1wwwl0_6d2263, 12 May 2026).
+    //   Phase 2 bridge: fork_mp1mrgs4_f2ba17. Phase 2 follow-up (bearer + worker gate): fork_mp1n7bm3_a5d11f.
+    //   Phase 3: conductor now owns all workers (cron poller, os-session queue, listeners).
+    //   ecodia-api keeps CONDUCTOR_DETACHED=true and proxies session calls to 127.0.0.1:3002.
+    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 - OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.
