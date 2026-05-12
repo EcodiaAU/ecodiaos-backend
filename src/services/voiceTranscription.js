@@ -26,7 +26,11 @@
 const logger = require('../config/logger')
 
 const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions'
-const PROMPT_HINT = 'Tate is brainstorming aloud while walking. He may pause for many seconds. Transcribe verbatim, including filler words.'
+// Whisper prompt must be NEUTRAL CONTEXT, never an instruction/imperative.
+// Instruction-shaped prompts ("Transcribe verbatim...") cause Whisper to
+// echo-loop the prompt text on longer audio instead of transcribing.
+// This prompt seeds proper nouns + speaking-style context only.
+const PROMPT_HINT = 'EcodiaOS, Ecodia DAO, Tate Donohoe. Casual business discussion. May include filler words, partial sentences, and long pauses.'
 
 async function transcribeChunk({ buffer, mimeType, filename }) {
   const apiKey = process.env.OPENAI_API_KEY
