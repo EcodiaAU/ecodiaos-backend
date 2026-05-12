@@ -694,14 +694,24 @@ async function getEnergy() {
   // was crashing the api process (silent exit code 0 mid-fetch). Real SDK
   // turns populate headers via updateFromHeaders, which is enough for routing.
   const hasAcct2 = !!(process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2)
+  // Third account wired 12 May 2026 — money@ecodia.au via CLAUDE_CODE_OAUTH_TOKEN_MONEY.
+  // _accounts.claude_max_3 has always existed (see _accounts at top), getBestProvider()
+  // already scores it, but getEnergy().accounts was the 2-account-only legacy shape.
+  // Without this, perceptionDispatcher's chain_exhausted lookup misses the lane that
+  // is actually serving the conductor — pattern:
+  // perception-must-not-claim-chain-exhausted-from-single-fork-error.md
+  const hasAcct3 = !!process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
   const skipAcct1 = !!process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE && !process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE && !process.env.CLAUDE_CONFIG_DIR_1
 
-  // Build snapshots for both accounts
+  // Build snapshots for all three accounts
   const acct1 = skipAcct1 ? null : _getAccountSnapshot('claude_max')
   const acct2 = hasAcct2 ? _getAccountSnapshot('claude_max_2') : null
+  const acct3 = hasAcct3 ? _getAccountSnapshot('claude_max_3') : null
 
   // Active account's snapshot is the primary one (backwards compat)
-  const active = _activeProvider === 'claude_max_2' ? acct2 : acct1
+  const active = _activeProvider === 'claude_max_2' ? acct2
+    : _activeProvider === 'claude_max_3' ? acct3
+    : acct1
   const hasRealData = active?.source === 'anthropic_headers'
 
   // Self-tracked turn count
@@ -735,10 +745,14 @@ async function getEnergy() {
     label: active?.label || 'Unknown',
     modelRec: active?.modelRec || 'opus',
     scheduleMultiplier: active?.scheduleMultiplier || 1.0,
-    // ─── Both accounts (for dashboard / debugging)
+    // ─── All accounts (for dashboard / debugging / perception dispatcher
+    //     lane-truth lookup). Names that are null get included when env tokens
+    //     are configured so perception code can distinguish "configured but
+    //     no headers yet" from "not configured at all".
     accounts: {
       claude_max: acct1,
       claude_max_2: acct2,
+      claude_max_3: acct3,
     },
     // ─── Smart provider recommendation
     recommendedProvider: best.provider,

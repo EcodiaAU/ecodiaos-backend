@@ -271,14 +271,32 @@ const MATCHERS = [
               // appropriate.
               let exhausted_accounts = []
               let healthy_accounts = []
+              let unknown_accounts = []
               let chain_exhausted = false
               let earliest_reset_at = null
+              let active_provider = null
               try {
                 const usageEnergy = require('./usageEnergyService')
                 const energy = await usageEnergy.getEnergy()
                 const accts = (energy && energy.accounts) || {}
+                active_provider = energy && energy.currentProvider
                 for (const [name, acct] of Object.entries(accts)) {
-                  if (!acct) continue
+                  // null snapshot = account configured but no headers yet.
+                  // Critically: we MUST NOT count these as exhausted. If the
+                  // active provider is one of these and we're publishing this
+                  // event from a fork that just errored, the active provider
+                  // is by definition healthy enough to have served at least
+                  // one recent turn. Treat as "unknown" rather than capped.
+                  if (!acct) {
+                    if (name === active_provider) {
+                      // The currently-serving lane is in the unknown set —
+                      // it's healthy by virtue of serving. Stamp it.
+                      healthy_accounts.push(name)
+                    } else {
+                      unknown_accounts.push(name)
+                    }
+                    continue
+                  }
                   const capped = acct.rateLimitStatus === 'rejected'
                     || (typeof acct.pctUsed === 'number' && acct.pctUsed >= 98)
                     || (typeof acct.sessionPctUsed === 'number' && acct.sessionPctUsed >= 98)
@@ -294,7 +312,14 @@ const MATCHERS = [
                     healthy_accounts.push(name)
                   }
                 }
-                chain_exhausted = healthy_accounts.length === 0 && exhausted_accounts.length > 0
+                // chain_exhausted is true ONLY when we KNOW all accounts are
+                // capped. Unknown lanes count as not-exhausted (we don't have
+                // evidence). The active_provider lane is treated as healthy
+                // even if its snapshot is null (it's serving by definition).
+                chain_exhausted =
+                  healthy_accounts.length === 0
+                  && unknown_accounts.length === 0
+                  && exhausted_accounts.length > 0
               } catch (energyErr) {
                 logger.debug('perceptionDispatcher: getEnergy lookup failed (publishing without lane truth)', {
                   error: energyErr.message,
@@ -311,7 +336,9 @@ const MATCHERS = [
                     original_kind: event.kind,
                     exhausted_accounts,
                     healthy_accounts,
+                    unknown_accounts,
                     chain_exhausted,
+                    active_provider,
                     earliest_reset_at: earliest_reset_at
                       ? new Date(earliest_reset_at).toISOString()
                       : null,
