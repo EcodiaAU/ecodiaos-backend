@@ -876,30 +876,11 @@ router.patch('/:id/speakers', async (req, res) => {
       UPDATE meeting_recordings SET
         speaker_names = ${JSON.stringify(clean)}::jsonb
       WHERE id = ${id}::uuid AND archived_at IS NULL
-      RETURNING speaker_names, transcription_status, analysis_status
+      RETURNING speaker_names
     `
     if (!updated) return res.status(404).json({ error: 'not_found' })
 
-    // Re-run analysis with the updated speaker names so owner attribution
-    // reflects the actual speakers (not "Speaker A" guesses). Only when
-    // transcription is done and no analysis is currently running.
-    const shouldReanalyse =
-      updated.transcription_status === 'done' &&
-      updated.analysis_status !== 'processing' &&
-      Object.keys(clean).length > 0
-
-    if (shouldReanalyse) {
-      await db`
-        UPDATE meeting_recordings SET analysis_status = 'processing', analysis_error = NULL
-        WHERE id = ${id}::uuid
-      `
-      runAnalysis(id, db).catch(err => {
-        logger.error('[Meetings] auto-reanalyse after speaker rename failed', { id, error: err.message })
-      })
-      logger.info('[Meetings] auto-reanalyse queued after speaker rename', { id, speakers: clean })
-    }
-
-    return res.json({ speaker_names: updated.speaker_names, reanalysing: shouldReanalyse })
+    return res.json({ speaker_names: updated.speaker_names })
   } catch (err) {
     logger.error('[Meetings] speakers patch failed', { id, error: err.message })
     return res.status(500).json({ error: 'speakers_patch_failed', detail: err.message })
