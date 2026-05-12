@@ -24,11 +24,49 @@ const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const MAX_TOKENS = 400
 const REQUEST_TIMEOUT_MS = 15_000
 
+// Energy-aware token resolution. The naive
+//   TATE || CODE || MONEY
+// chain always returned TATE if configured, which 429'd every observer
+// call whenever TATE was capped. usageEnergyService.getBestProvider()
+// already scores all three accounts on real headers — use it.
+// Fallback to the static chain when energy state is unknown (e.g. boot
+// before first SDK turn populated headers).
 function _resolveBearer() {
+  try {
+    const usageEnergy = require('../usageEnergyService')
+    const best = usageEnergy.getBestProvider && usageEnergy.getBestProvider()
+    if (best && best.provider && !best.isDeepseekFallback) {
+      if (best.provider === 'claude_max' && process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE) {
+        return process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE
+      }
+      if (best.provider === 'claude_max_2' && process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE) {
+        return process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
+      }
+      if (best.provider === 'claude_max_3' && process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY) {
+        return process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
+      }
+    }
+  } catch { /* fall through to static chain */ }
   return process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE
     || process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE
     || process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY
     || null
+}
+
+// Mark account capped on 429 so subsequent observer calls route to a
+// healthy lane immediately (without waiting for the cache TTL).
+function _markCappedFromBearer(bearer) {
+  try {
+    const usageEnergy = require('../usageEnergyService')
+    if (!bearer || !usageEnergy.markAccountRejected) return
+    if (bearer === process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE) {
+      usageEnergy.markAccountRejected('claude_max', 'observer_429')
+    } else if (bearer === process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE) {
+      usageEnergy.markAccountRejected('claude_max_2', 'observer_429')
+    } else if (bearer === process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY) {
+      usageEnergy.markAccountRejected('claude_max_3', 'observer_429')
+    }
+  } catch { /* non-fatal */ }
 }
 
 async function _incrementCostTelemetry(observerName, usage) {
@@ -107,7 +145,11 @@ async function call({ systemPrompt, userMessage, observerName }) {
       logger.warn(`haikuClient (${observerName}): API ${res.status}`, {
         body: errText.slice(0, 200),
       })
-      return { intervene: false, reason: 'haiku_error' }
+      // On 429, mark the bearer's account capped so the next call routes elsewhere.
+      if (res.status === 429) {
+        _markCappedFromBearer(bearer)
+      }
+      return { intervene: false, reason: `haiku_error_${res.status}` }
     }
 
     const json = await res.json()
