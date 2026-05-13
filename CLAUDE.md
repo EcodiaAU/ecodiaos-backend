@@ -603,7 +603,9 @@ When session completes:
 
 ---
 
-## Routing decisions are silent
+## Routing decisions are silent (TOOL NOT YET SHIPPED - 13 May 2026)
+
+> **NOTE (13 May 2026):** `mcp__router__route_work` is not yet on disk - `src/routes/mcp/router*` does not exist. The section below documents the intended architecture. Until the tool ships, the `router-skip-check.sh` hook fires warn-only on a phantom tool call. Do NOT treat [ROUTER-SKIP WARN] as actionable. Monitor for tool shipment before treating this section as operating instructions.
 
 Before any non-trivial action, call `mcp__router__route_work` with the task shape. Trust its answer unless you have a specific reason to override (note the reason in scratchpad). **NEVER narrate routing** ("I'll fork this", "let me do it on main") — just call the tool and proceed.
 
@@ -758,7 +760,9 @@ Anything prints → narrate as MISSING, don't claim active. Cross-refs: `~/ecodi
 
 **Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
 
-### Doctrine compliance is silent (Layer 3 - replaced 2026-05-12)
+### Doctrine compliance is silent (Layer 3 - mcp__scratchpad NOT YET SHIPPED, 13 May 2026)
+
+> **NOTE (13 May 2026):** `mcp__scratchpad__write` is not in the loaded MCP tool surface - the tool has not shipped. Pattern application telemetry is currently dark. The JSONL bridge in `conductorStreamTagWatcher.js` is the active fallback path. Do NOT narrate [APPLIED]/[NOT-APPLIED] into chat. Do NOT rely on scratchpad-based telemetry until the tool is confirmed available.
 
 Pattern application is captured via `mcp__scratchpad__write({ kind: 'pattern_applied' | 'pattern_not_applied', pattern_path, reason })`. NEVER narrate [APPLIED]/[NOT-APPLIED] into chat. The scratchpad tool writes the entry to `scratchpad_entries` DB table; the existing telemetry pipeline reads from there via JSONL bridge in `scratchpadService._writeJsonlBridge`. Three uses: (1) genuinely high-leverage pattern that affected the action, (2) deliberately not-applied with a reason, (3) override of a forcing-function nudge.
 
@@ -870,6 +874,23 @@ The `working_set` table is the single canonical "what is the OS attending to rig
   <thread id="def67890" topic="email triage" status="blocked" blocking="tate" age="12m">
 </working_set>
 ```
+
+---
+
+### Haiku Observer Trio - signals route to observer_signals, never to chat
+
+The Haiku Observer Trio (Coherence, Action-Audit, Attention-Economy) monitors the conductor's meta-cognition. Interventions route to the `observer_signals` substrate and surface in the `<observer_signals count="N">` turn-start continuity block. Observer signals are NEVER posted to `/api/os-session/message` - doing so treats observers as users, pollutes chat, and creates response loops (13 May 2026 breach, commits `084c00f4` observer_signals substrate + `f54d1006` migration + `eb1c8531` frontend strip).
+
+- Producer: every observer module uses `_observerBase._postIntervention` which routes through `observerSignalsService.writeSignal()`. Do not re-implement.
+- Consumer: conductor reads `<observer_signals>` block at turn-start (ambient context, NOT user input). Acknowledge acted-on signals via `mcp__observer__ack(id)`.
+- Self-mute: same fingerprint 3x in 10min triggers 1h cooldown.
+- 30-min expiry: stale unacknowledged signals auto-disappear.
+- Frontend: strips any `<observer source=` strings from chat render (defensive).
+
+Verification: `SELECT COUNT(*) FROM observer_signals;` should grow as observers fire. `SELECT COUNT(*) FROM os_session_messages WHERE body LIKE '%<observer source%';` should be 0 for rows after deploy.
+
+Full: `~/ecodiaos/patterns/observer-interventions-are-ambient-not-chat.md`.
+Cross: `~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`, `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md`.
 
 ---
 
