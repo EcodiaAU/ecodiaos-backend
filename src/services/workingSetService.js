@@ -203,11 +203,18 @@ async function parkOldest() {
 
 /**
  * Auto-park any active threads not touched in STALE_PARK_MS (30min).
+ * Also closes stale blocked threads — belt-and-suspenders safety net for
+ * forks that terminated without the forkComplete listener closing their row.
+ * Primary fix is in forkComplete.js (fork_mp3kbkfc_50a1e5): error/aborted
+ * terminal statuses now call closeThread() directly rather than setting
+ * status='blocked'. This loop is the fallback for any rows that slip through.
  */
 async function autoParkStale() {
   try {
     const cutoff = new Date(Date.now() - STALE_PARK_MS)
-    const rows = await db`
+
+    // Park stale active threads
+    const parked = await db`
       UPDATE working_set
       SET status = 'parked', last_touched_at = NOW()
       WHERE status = 'active'
@@ -215,10 +222,34 @@ async function autoParkStale() {
         AND last_touched_at < ${cutoff}
       RETURNING id, topic
     `
-    if (rows.length > 0) {
+    if (parked.length > 0) {
       logger.info('workingSetService: auto-parked stale threads', {
-        count: rows.length,
-        ids: rows.map(r => r.id),
+        count: parked.length,
+        ids: parked.map(r => r.id),
+      })
+    }
+
+    // Close stale blocked threads — these are terminal-failure fork rows that
+    // should have been closed by forkComplete but weren't (pre-fix accumulation
+    // or future edge cases). Use a longer window (2x) to avoid racing with
+    // legitimate blocked states that the conductor is actively investigating.
+    const staleBlockedCutoff = new Date(Date.now() - STALE_PARK_MS * 2)
+    const closed = await db`
+      UPDATE working_set
+      SET
+        status    = 'resolved',
+        closed_at = NOW(),
+        last_touched_at = NOW(),
+        artifacts = artifacts || ${db.json({ auto_closed: true, reason: 'stale_blocked_auto_close' })}
+      WHERE status = 'blocked'
+        AND closed_at IS NULL
+        AND last_touched_at < ${staleBlockedCutoff}
+      RETURNING id, topic
+    `
+    if (closed.length > 0) {
+      logger.info('workingSetService: auto-closed stale blocked threads', {
+        count: closed.length,
+        ids: closed.map(r => r.id),
       })
     }
   } catch (err) {

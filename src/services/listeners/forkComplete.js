@@ -269,16 +269,21 @@ module.exports = {
       // a signal the conductor already has into chat-stream pollution.
       logger.info('forkComplete: terminal failure (silent, no wake)', { forkId, status })
       try { require('../perceptionBus').publish({ source: 'fork', kind: `fork_${status}`, data: { fork_id: forkId, status }, confidence: 1.0 }) } catch {}
-      // working_set: mark thread as blocked so conductor sees it needs investigation
+      // working_set: close thread on terminal failure.
+      // error/aborted are terminal states — the thread is done, not pending
+      // investigation. Leaving rows in 'blocked' caused 33 stale rows to
+      // accumulate over 6h (12 May 2026), saturating <working_set> context.
+      // Resolution label encodes the failure so conductor can triage via
+      // the context block without the row staying permanently open.
+      // fix: fork_mp3kbkfc_50a1e5
       ;(async () => {
         try {
           const ws = require('../workingSetService')
           const thread = await ws.findByForkId(forkId)
           if (thread) {
-            await ws.updateThread(thread.id, {
-              status: 'blocked',
-              blocking_on: 'investigate',
-              artifacts: { terminal_status: status },
+            const reason = row.abort_reason || status
+            await ws.closeThread(thread.id, {
+              resolution: `fork_${status}: ${reason.slice(0, 200)}`,
             })
           }
         } catch { /* non-fatal */ }
