@@ -414,10 +414,17 @@ function extractTateMessageFromContent(content) {
  * If both correction and affirmation keywords appear in the same window, the
  * EARLIER message wins. If the earliest message contains BOTH, correction wins
  * (the rebuke is the actionable signal).
+ *
+ * @param {object} client  - postgres client
+ * @param {object} dispatch - dispatch_event row
+ * @param {Date|string|null} windowStartTs - override the start of the search
+ *   window. When null (default) the window anchors to dispatch.ts. Set to
+ *   fork.ended_at for fork_spawn dispatches (critique-02 fix: fork_id scope).
  */
-async function findTateChatSignal(client, dispatch) {
-  const startTs = new Date(dispatch.ts).toISOString()
-  const endTs = new Date(new Date(dispatch.ts).getTime() + SMS_CORRECTION_WINDOW_MS).toISOString()
+async function findTateChatSignal(client, dispatch, windowStartTs = null) {
+  const baseTs = windowStartTs ? new Date(windowStartTs) : new Date(dispatch.ts)
+  const startTs = baseTs.toISOString()
+  const endTs = new Date(baseTs.getTime() + SMS_CORRECTION_WINDOW_MS).toISOString()
 
   let rows
   try {
@@ -472,10 +479,13 @@ async function findTateChatSignal(client, dispatch) {
  * function therefore returns null when smsTable is null (the common case)
  * and serves only as a fallback for future schema additions. The primary
  * signal source is findTateChatSignal (os_conversation scan).
+ *
+ * @param {Date|string|null} windowStartTs - forwarded to findTateChatSignal;
+ *   use fork.ended_at for fork_spawn dispatches (critique-02 fix).
  */
-async function findTateSignal(client, dispatch, smsTable) {
+async function findTateSignal(client, dispatch, smsTable, windowStartTs = null) {
   // Primary path: os_conversation (covers both chat AND SMS-wrapped messages).
-  const chatSig = await findTateChatSignal(client, dispatch)
+  const chatSig = await findTateChatSignal(client, dispatch, windowStartTs)
   if (chatSig) return chatSig
 
   // Legacy fallback: dedicated SMS table (currently never populated).
@@ -526,13 +536,53 @@ async function findTateSignal(client, dispatch, smsTable) {
  * Backwards-compatible wrapper for the pre-Phase-G interface; some callers may
  * still reach for findTateCorrection by name. Returns the same payload shape
  * as the old correction-only function (or null).
+ *
+ * @param {Date|string|null} windowStartTs - forwarded; use fork.ended_at for
+ *   fork_spawn dispatches (critique-02 fix).
  */
-async function findTateCorrection(client, dispatch, smsTable) {
-  const sig = await findTateSignal(client, dispatch, smsTable)
+async function findTateCorrection(client, dispatch, smsTable, windowStartTs = null) {
+  const sig = await findTateSignal(client, dispatch, smsTable, windowStartTs)
   if (sig && sig.kind === 'correction') {
     return { matched_keyword: sig.matched_keyword, body: sig.body, ts: sig.ts }
   }
   return null
+}
+
+/**
+ * Look up os_forks to find when a fork reached a terminal state.
+ *
+ * Returns { ended_at, status } if the fork row exists, null otherwise.
+ * ended_at may itself be null if the fork is still running.
+ *
+ * Used by inferDispatchOutcome for the critique-02 fix: anchor the correction
+ * window to fork.ended_at (fork_id scope) rather than dispatch.ts
+ * (dispatch_event_id scope). Tate's corrections respond to what a fork
+ * PRODUCED, so the relevant signal window is
+ *   [fork.ended_at,  fork.ended_at + SMS_CORRECTION_WINDOW_MS]
+ * not
+ *   [dispatch.ts,    dispatch.ts   + SMS_CORRECTION_WINDOW_MS]
+ *
+ * When ended_at is null the fork has not yet finished — callers should defer
+ * correction attribution rather than fall back to dispatch.ts (which causes
+ * earlier unrelated dispatches to "steal" the correction via the dedup index).
+ */
+async function getForkEndedAt(client, forkId) {
+  if (!forkId) return null
+  let table = null
+  if (await tableExists(client, 'os_forks')) table = 'os_forks'
+  else if (await tableExists(client, 'forks')) table = 'forks'
+  if (!table) return null
+  const pkColumn = table === 'os_forks' ? 'fork_id' : 'id'
+  try {
+    const r = await client.query(
+      `SELECT ended_at, status FROM ${table} WHERE ${pkColumn} = $1 LIMIT 1`,
+      [forkId]
+    )
+    if (r.rowCount === 0) return null
+    return { ended_at: r.rows[0].ended_at || null, status: r.rows[0].status || null }
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -645,11 +695,26 @@ async function inferFactoryDispatchOutcome(client, dispatch) {
  *
  * Decision tree (priority order):
  *   1. Type-specific FAILURE signals (most actionable - takes precedence).
- *   2. Tate SMS CORRECTION within 30 min.
- *   3. Tate SMS AFFIRMATION within 30 min.
+ *   2. Tate SMS CORRECTION within 30 min (fork_id-scoped window for fork_spawn).
+ *   3. Tate SMS AFFIRMATION within 30 min (same scoping).
  *   4. Type-specific SUCCESS signals (factory commit+deploy, fork done+result).
  *   5. UNVERIFIED default for dispatches older than UNVERIFIED_AGE_MS.
  *   6. Defer (return null) for fresh dispatches.
+ *
+ * critique-02 fix (Phase G audit 2026-05-12, fork_mp3mfnjj_b5930a):
+ *   For fork_spawn dispatches, the correction window is anchored to
+ *   fork.ended_at (fork_id scope) rather than dispatch.ts
+ *   (dispatch_event_id scope). Tate's corrections respond to what a fork
+ *   PRODUCED — the relevant window is [fork.ended_at, fork.ended_at+30min].
+ *   Anchoring to dispatch.ts caused earlier unrelated dispatches to "steal"
+ *   corrections via the dedup partial index, suppressing 280+ real signals
+ *   as correction_text_already_attributed|settled_as_unverified.
+ *
+ *   Deferral rule: if a fork_spawn has a fork_id but the fork has not yet
+ *   set ended_at (still running), return null (defer). Attributing before
+ *   the fork finishes means the correction window [dispatch.ts, +30min]
+ *   would miss post-completion corrections entirely and create the exact
+ *   theft race condition the fix is designed to prevent.
  */
 async function inferDispatchOutcome(client, dispatch, smsTable) {
   const meta = dispatch.metadata || {}
@@ -667,8 +732,39 @@ async function inferDispatchOutcome(client, dispatch, smsTable) {
     substratesChecked += 1
   }
 
-  // Step 2 + 3: Tate SMS signal (correction OR affirmation).
-  const sig = await findTateSignal(client, dispatch, smsTable)
+  // Step 2 + 3: Tate signal (correction OR affirmation).
+  //
+  // critique-02 fix: for fork_spawn dispatches, resolve the correction window
+  // start to fork.ended_at (fork_id scope) rather than dispatch.ts.
+  let correctionWindowStart = null // null → falls back to dispatch.ts inside findTateChatSignal
+  if (dispatch.action_type === 'fork_spawn') {
+    const forkId = meta.fork_id || meta.id || null
+    if (forkId) {
+      const forkState = await getForkEndedAt(client, forkId)
+      if (forkState) {
+        if (forkState.ended_at) {
+          // Fork completed — anchor correction window to fork completion time.
+          correctionWindowStart = forkState.ended_at
+        } else {
+          // Fork has a row in os_forks but hasn't finished yet (ended_at NULL).
+          // Defer: do not assign any outcome until the fork reaches terminal state.
+          // Exception: very old dispatches (>24h) where the fork appears stuck —
+          // fall through with dispatch.ts window to avoid stalling forever.
+          const ageMs = Date.now() - new Date(dispatch.ts).getTime()
+          if (ageMs < 24 * 60 * 60 * 1000) {
+            return null // defer; next tick will re-evaluate after fork finishes
+          }
+          // >24h old, fork status still non-terminal: fall back to dispatch.ts
+          // (correctionWindowStart remains null)
+        }
+      }
+      // forkState === null means fork_id not found in os_forks (data quality gap
+      // on pre-migration dispatches). Fall back to dispatch.ts.
+    }
+    // No fork_id in metadata (pre-migration dispatches): dispatch.ts fallback.
+  }
+
+  const sig = await findTateSignal(client, dispatch, smsTable, correctionWindowStart)
   if (smsTable) substratesChecked += 1
   if (sig && sig.kind === 'correction') {
     return {
@@ -911,6 +1007,10 @@ async function runLoop() {
  * dispatch, re-runs findTateChatSignal using the expanded keyword set. If a
  * correction is detected, upgrades the outcome_event row to 'correction'.
  *
+ * critique-02 fix applied: for fork_spawn dispatches with a fork_id in metadata,
+ * uses fork.ended_at as the correction window start (fork_id scope) rather than
+ * dispatch.ts (dispatch_event_id scope). See inferDispatchOutcome for rationale.
+ *
  * Conservative: only upgrades 'unverified' → 'correction'. Never touches
  * existing 'success' or 'failure' rows (those have stronger evidence already).
  * For dispatches with no outcome_event row, inserts a new 'correction' row.
@@ -929,6 +1029,8 @@ async function backfillCorrections(lookbackDays = 30) {
 
   try {
     // Pull unverified + no-outcome dispatches from the lookback window.
+    // Excludes correction_text_already_attributed rows — those require the
+    // dedicated backfillSuppressedCorrections pass (swap logic needed).
     const r = await client.query(`
       SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata,
              o.id AS outcome_id, o.outcome AS current_outcome
@@ -936,6 +1038,7 @@ async function backfillCorrections(lookbackDays = 30) {
       LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
       WHERE d.ts > NOW() - INTERVAL '${parseInt(lookbackDays, 10)} days'
         AND (o.outcome = 'unverified' OR o.id IS NULL)
+        AND (o.evidence IS NULL OR o.evidence NOT LIKE 'correction_text_already_attributed%')
       ORDER BY d.ts ASC
       LIMIT 2000
     `)
@@ -943,18 +1046,27 @@ async function backfillCorrections(lookbackDays = 30) {
     for (const dispatch of r.rows) {
       scanned += 1
       try {
-        const sig = await findTateChatSignal(client, dispatch)
+        // critique-02 fix: resolve correction window start to fork.ended_at
+        // for fork_spawn dispatches that have a fork_id in metadata.
+        let correctionWindowStart = null
+        if (dispatch.action_type === 'fork_spawn') {
+          const forkId = (dispatch.metadata || {}).fork_id || (dispatch.metadata || {}).id || null
+          if (forkId) {
+            const forkState = await getForkEndedAt(client, forkId)
+            if (forkState && forkState.ended_at) {
+              correctionWindowStart = forkState.ended_at
+            }
+          }
+        }
+
+        const sig = await findTateChatSignal(client, dispatch, correctionWindowStart)
         if (!sig || sig.kind !== 'correction') continue
 
-        const evidence = `confidence=1.0|backfill_11_may_2026|os_conversation within 30min matched correction '${sig.matched_keyword}'`
+        const evidence = `confidence=1.0|backfill_13_may_2026_critique02|os_conversation within 30min matched correction '${sig.matched_keyword}'${correctionWindowStart ? '|window=fork_ended_at' : ''}`
 
         if (dispatch.outcome_id) {
           // Upgrade existing unverified row — but first check that the
           // correction_text isn't already attributed to a DIFFERENT dispatch.
-          // The partial unique index outcome_event_dedup_correction enforces
-          // md5(correction_text) uniqueness across all correction rows; an UPDATE
-          // that sets correction_text to an already-present value will also
-          // violate the constraint (UPDATE triggers the index on changed rows).
           const dupUp = await client.query(
             `SELECT 1 FROM outcome_event
              WHERE outcome = 'correction'
@@ -978,8 +1090,7 @@ async function backfillCorrections(lookbackDays = 30) {
           )
           upgraded += 1
         } else {
-          // Insert new correction row — guard against duplicate correction_text
-          // (same Tate message covers multiple dispatches in the window).
+          // Insert new correction row — guard against duplicate correction_text.
           const dupIns = await client.query(
             `SELECT 1 FROM outcome_event
              WHERE outcome = 'correction'
@@ -988,7 +1099,6 @@ async function backfillCorrections(lookbackDays = 30) {
             [sig.body]
           )
           if (dupIns.rowCount > 0) {
-            // Already attributed to another dispatch — skip.
             continue
           }
           await client.query(
@@ -1010,10 +1120,191 @@ async function backfillCorrections(lookbackDays = 30) {
   return { scanned, upgraded, inserted, errors }
 }
 
+/**
+ * Recover corrections suppressed by the dedup race condition (critique-02).
+ *
+ * Background: before the critique-02 fix, corrections were attributed based on
+ * dispatch.ts windows. Earlier unrelated dispatches "stole" corrections from
+ * fork_spawn dispatches via the dedup partial index, resulting in
+ * outcome_event rows with evidence='correction_text_already_attributed|settled_as_unverified'.
+ *
+ * This function re-evaluates those rows using fork_id-scoped windows and swaps
+ * attribution when the original winner has a weaker claim:
+ *
+ *   Winner has weaker claim when:
+ *     (a) winner's action_type is NOT fork_spawn (e.g. tool_call stole it), OR
+ *     (b) winner is fork_spawn but its fork.ended_at is AFTER the candidate's
+ *         fork.ended_at — meaning the candidate's fork finished first and
+ *         is therefore the more likely cause of the correction.
+ *
+ * Swap: winner's outcome_event → 'unverified'; candidate's → 'correction'.
+ * Transaction-wrapped to keep the partial dedup index consistent.
+ *
+ * Returns { scanned, swapped, skipped, errors }.
+ */
+async function backfillSuppressedCorrections(lookbackDays = 30) {
+  const env = getEnv()
+  const client = new Client({ connectionString: env.DATABASE_URL })
+  await client.connect()
+
+  let scanned = 0
+  let swapped = 0
+  let skipped = 0
+  let errors = 0
+
+  try {
+    // Pull unverified rows with the correction_text_already_attributed evidence.
+    const r = await client.query(`
+      SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata,
+             o.id AS outcome_id
+      FROM outcome_event o
+      JOIN dispatch_event d ON d.id = o.dispatch_event_id
+      WHERE o.outcome = 'unverified'
+        AND o.evidence LIKE 'correction_text_already_attributed%'
+        AND d.ts > NOW() - INTERVAL '${parseInt(lookbackDays, 10)} days'
+      ORDER BY d.ts ASC
+      LIMIT 2000
+    `)
+
+    for (const dispatch of r.rows) {
+      scanned += 1
+      try {
+        // Resolve correction window start (fork_id scope).
+        let correctionWindowStart = null
+        let candidateForkEndedAt = null
+        if (dispatch.action_type === 'fork_spawn') {
+          const forkId = (dispatch.metadata || {}).fork_id || (dispatch.metadata || {}).id || null
+          if (forkId) {
+            const forkState = await getForkEndedAt(client, forkId)
+            if (forkState && forkState.ended_at) {
+              correctionWindowStart = forkState.ended_at
+              candidateForkEndedAt = new Date(forkState.ended_at)
+            }
+          }
+        }
+
+        // Re-scan os_conversation with the fork_id-scoped window to find the
+        // correction text that was originally attributed elsewhere.
+        const sig = await findTateChatSignal(client, dispatch, correctionWindowStart)
+        if (!sig || sig.kind !== 'correction') {
+          skipped += 1
+          continue
+        }
+
+        // Find who currently holds this correction text.
+        const winnerRow = await client.query(
+          `SELECT oe.id AS oe_id, oe.dispatch_event_id,
+                  d2.action_type AS winner_action_type,
+                  d2.metadata AS winner_meta
+           FROM outcome_event oe
+           JOIN dispatch_event d2 ON d2.id = oe.dispatch_event_id
+           WHERE oe.outcome = 'correction'
+             AND md5(oe.correction_text) = md5($1::text)
+           LIMIT 1`,
+          [sig.body]
+        )
+
+        if (winnerRow.rowCount === 0) {
+          // No winner found — the correction was never properly attributed.
+          // Directly upgrade this row.
+          const evidence = `confidence=1.0|backfill_suppressed_critique02|os_conversation matched correction '${sig.matched_keyword}'${correctionWindowStart ? '|window=fork_ended_at' : ''}`
+          await client.query(
+            `UPDATE outcome_event
+             SET outcome = 'correction', evidence = $1, correction_text = $2, ts = NOW()
+             WHERE id = $3`,
+            [evidence, sig.body, dispatch.outcome_id]
+          )
+          swapped += 1
+          continue
+        }
+
+        const winner = winnerRow.rows[0]
+        const winnerActionType = winner.winner_action_type || ''
+        const winnerMeta = winner.winner_meta || {}
+
+        // Determine if candidate has a stronger claim than the current winner.
+        let candidateHasBetterClaim = false
+
+        if (winnerActionType !== 'fork_spawn') {
+          // Winner is not a fork_spawn: candidate (fork) has a stronger claim.
+          candidateHasBetterClaim = true
+        } else {
+          // Both are fork_spawn: compare fork completion times.
+          // Candidate has better claim if its fork finished first (earlier ended_at).
+          const winnerForkId = winnerMeta.fork_id || winnerMeta.id || null
+          if (winnerForkId && candidateForkEndedAt) {
+            const winnerForkState = await getForkEndedAt(client, winnerForkId)
+            if (winnerForkState && winnerForkState.ended_at) {
+              const winnerEndedAt = new Date(winnerForkState.ended_at)
+              // Candidate has better claim if it finished BEFORE the winner's fork.
+              // A correction at T is most likely caused by the fork that completed
+              // most recently before T (earliest ended_at ≤ correction time).
+              if (candidateForkEndedAt <= winnerEndedAt) {
+                candidateHasBetterClaim = true
+              }
+            }
+          }
+        }
+
+        if (!candidateHasBetterClaim) {
+          skipped += 1
+          continue
+        }
+
+        // Swap attribution in a transaction to keep the dedup index consistent.
+        const candidateEvidence = `confidence=1.0|backfill_suppressed_critique02|swapped_from_${winner.oe_id}|os_conversation matched correction '${sig.matched_keyword}'${correctionWindowStart ? '|window=fork_ended_at' : ''}`
+        const winnerEvidence = `correction_reattributed_to_fork_owner|swapped_to_${dispatch.outcome_id}|critique02_recovery`
+
+        await client.query('BEGIN')
+        try {
+          // Step 1: demote winner to unverified (clears correction_text, releases dedup slot).
+          await client.query(
+            `UPDATE outcome_event
+             SET outcome = 'unverified', evidence = $1, correction_text = NULL, ts = NOW()
+             WHERE id = $2`,
+            [winnerEvidence, winner.oe_id]
+          )
+          // Step 2: promote candidate to correction.
+          await client.query(
+            `UPDATE outcome_event
+             SET outcome = 'correction', evidence = $1, correction_text = $2, ts = NOW()
+             WHERE id = $3`,
+            [candidateEvidence, sig.body, dispatch.outcome_id]
+          )
+          await client.query('COMMIT')
+          swapped += 1
+        } catch (txErr) {
+          await client.query('ROLLBACK')
+          throw txErr
+        }
+      } catch (err) {
+        errors += 1
+        console.error('[backfill_suppressed] error on dispatch', dispatch.id, err.message)
+      }
+    }
+  } finally {
+    try { await client.end() } catch { /* ignore */ }
+  }
+
+  return { scanned, swapped, skipped, errors }
+}
+
 if (require.main === module) {
   const onceMode = process.argv.includes('--once')
   const backfillMode = process.argv.includes('--backfill')
-  if (backfillMode) {
+  const backfillSuppressedMode = process.argv.includes('--backfill-suppressed')
+  if (backfillSuppressedMode) {
+    // Recover the 280+ corrections suppressed by the pre-critique-02 dedup race.
+    // Swaps attribution from non-fork winners to the fork_spawn dispatches that
+    // caused the corrections. Safe to run multiple times (idempotent per swap).
+    const days = parseInt(process.argv[process.argv.indexOf('--backfill-suppressed') + 1] || '30', 10)
+    backfillSuppressedCorrections(isNaN(days) ? 30 : days)
+      .then(result => {
+        console.log('[outcomeInference] backfill-suppressed complete:', JSON.stringify(result))
+        process.exit(0)
+      })
+      .catch(err => { console.error(err); process.exit(1) })
+  } else if (backfillMode) {
     const days = parseInt(process.argv[process.argv.indexOf('--backfill') + 1] || '30', 10)
     backfillCorrections(isNaN(days) ? 30 : days)
       .then(result => {
@@ -1034,6 +1325,7 @@ module.exports = {
   tickInferOutcomes,
   runOnce,
   backfillCorrections,
+  backfillSuppressedCorrections,
   inferDispatchOutcome,
   findTateSignal,
   findTateChatSignal,
@@ -1041,6 +1333,7 @@ module.exports = {
   findTateCorrection,
   inferForkSpawnOutcome,
   inferFactoryDispatchOutcome,
+  getForkEndedAt,
   computeConfidence,
   probeExpectedArtefact,
   CORRECTION_KEYWORDS,
