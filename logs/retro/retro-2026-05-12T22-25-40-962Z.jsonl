@@ -1,0 +1,8 @@
+{"_retro_header":true,"trigger":{"ts":"2026-05-12T22:25:40.961Z","level":"error","message":"[Meetings] list failed","service":"ecodiaos","error":"(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15"},"ts":"2026-05-12T22:25:40.962Z"}
+{"ts":"2026-05-12T05:48:38.151Z","level":"info","message":"[ecodia-meetings] listening on :3003","service":"ecodiaos"}
+{"ts":"2026-05-12T05:49:40.311Z","level":"info","message":"[Meetings] analysis emailed","service":"ecodiaos","id":"fb755c02-0d0c-4df9-a777-364ab915bbb2","recipients":["ceo@coexistaus.org","tate@ecodia.au"],"messageId":"c6adc9e4-ddeb-4e1f-a348-5e87fd51c702"}
+{"ts":"2026-05-12T12:39:11.015Z","level":"info","message":"[Meetings] upload: large file, compressing to voice MP3","service":"ecodiaos","id":"0e7e39a0-fce1-4af8-a7d1-5dc1708bf674","originalBytes":273948237}
+{"ts":"2026-05-12T12:40:18.369Z","level":"info","message":"[Meetings] upload: compressed","service":"ecodiaos","id":"0e7e39a0-fce1-4af8-a7d1-5dc1708bf674","compressedBytes":43200894,"ratio":"16%"}
+{"ts":"2026-05-12T12:40:18.369Z","level":"info","message":"[Meetings] upload: uploading to storage","service":"ecodiaos","id":"0e7e39a0-fce1-4af8-a7d1-5dc1708bf674","storagePath":"meetings/0e7e39a0-fce1-4af8-a7d1-5dc1708bf674/source.mp3","bytes":43200894}
+{"ts":"2026-05-12T12:40:20.079Z","level":"error","message":"[Meetings] upload: failed","service":"ecodiaos","error":"new row for relation \"meeting_recordings\" violates check constraint \"meeting_recordings_audio_source_check\""}
+{"ts":"2026-05-12T22:25:40.961Z","level":"error","message":"[Meetings] list failed","service":"ecodiaos","error":"(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15"}
