@@ -666,4 +666,34 @@ setInterval(load, 10_000)
   res.send(html)
 })
 
+// ── GET /api/ops/notes ────────────────────────────────────────────────────────
+// Returns the last N non-expired notes from dashboard_notes for the NotesPanel.
+// N defaults to 8; caller may pass ?limit=N (max 20).
+// Returns [] if the table doesn't exist yet (graceful degradation).
+// Origin: fork_mp3ziqzn_34ac39, Phase 11, 2026-05-13.
+router.get('/notes', async (req, res) => {
+  try {
+    const rawLimit = parseInt(req.query.limit, 10)
+    const limit = (!isNaN(rawLimit) && rawLimit > 0 && rawLimit <= 20) ? rawLimit : 8
+
+    const rows = await db`
+      SELECT id, listener_name, note_text, related_entity, created_at
+      FROM dashboard_notes
+      WHERE expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `.catch(() => null)
+
+    // Null return means table doesn't exist yet
+    if (rows === null) {
+      return res.json([])
+    }
+
+    res.json(rows)
+  } catch (err) {
+    logger.warn('GET /api/ops/notes error', { error: err.message })
+    res.json([])
+  }
+})
+
 module.exports = router

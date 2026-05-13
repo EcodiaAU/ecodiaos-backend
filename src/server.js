@@ -678,6 +678,42 @@ server.listen(env.PORT, async () => {
     logger.warn('Attention economy observer failed to start (non-fatal)', { error: err.message })
   }
   process.stderr.write('[boot] post-attentionEconomyObserver\n')
+
+  // ── Boot: Dashboard Note Observers (Phase 11) ─────────────────────
+  // Four Haiku-powered polling observers that write ambient notes to
+  // dashboard_notes for display in the frontend NotesPanel. All are
+  // non-fatal; observer failure never blocks server startup.
+  // Origin: fork_mp3ziqzn_34ac39, 2026-05-13.
+  const dashNoteObservers = [
+    { name: 'dashboardNotePattern',    path: './services/observers/dashboardNotePatternObserver' },
+    { name: 'dashboardNoteCadence',    path: './services/observers/dashboardNoteCadenceObserver' },
+    { name: 'dashboardNoteConnection', path: './services/observers/dashboardNoteConnectionObserver' },
+    { name: 'dashboardNoteProgress',   path: './services/observers/dashboardNoteProgressObserver' },
+  ]
+  for (const { name, path } of dashNoteObservers) {
+    try {
+      require(path).start()
+    } catch (err) {
+      logger.warn(`${name} observer failed to start (non-fatal)`, { error: err.message })
+    }
+  }
+  process.stderr.write('[boot] post-dashboardNoteObservers\n')
+
+  // ── Boot: Dashboard Notes Cleanup (hourly) ────────────────────────
+  // Purge expired notes so the table stays small and ephemeral.
+  const _dashNotesCleanup = async () => {
+    try {
+      const dbPg = require('./config/db')
+      await dbPg`DELETE FROM dashboard_notes WHERE expires_at < NOW()`
+    } catch (err) {
+      logger.debug('dashboard_notes cleanup error (non-fatal)', { error: err.message })
+    }
+  }
+  // Run once after 5 minutes, then hourly
+  setTimeout(() => {
+    _dashNotesCleanup().catch(() => {})
+    setInterval(() => _dashNotesCleanup().catch(() => {}), 60 * 60 * 1000)
+  }, 5 * 60 * 1000)
 })
 
 // ── Boot: Conditional Auto-wake OS Session ───────────────────────────
