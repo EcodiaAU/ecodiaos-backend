@@ -373,4 +373,5 @@ module.exports = {
   getSessionEpoch,
   getEventsSince,
   subscribe,
+  _deliverForwardedEnvelope,
 }

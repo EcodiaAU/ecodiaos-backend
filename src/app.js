@@ -136,6 +136,11 @@ app.use('/api/context', contextTrackingRoutes)
 app.use('/kg-explorer', kgExplorerRoutes)
 app.use('/api/momentum', momentumRoutes)
 app.use('/internal/cortex-state', internalCortexStateRoutes)
+// /internal/ws-broadcast — bridge from ecodia-conductor (which owns the
+// SDK stream + osSessionService) to ecodia-api's local WS clients. Phase 3
+// of CONDUCTOR_DETACHED orphaned streaming WS events because conductor has
+// no FE-connected sockets. See backend/src/lib/wsBridgeForward.js. 13 May 2026.
+app.use('/internal/ws-broadcast', require('./routes/internalWsBroadcast'))
 app.use('/api/bookkeeping', bookkeepingRoutes)
 app.use('/api/coding', codingRoutes)
 const xeroRoutes = require('./routes/xero')
