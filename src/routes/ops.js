@@ -1,5 +1,9 @@
 'use strict'
 
+const { execSync } = require('child_process')
+const path = require('path')
+const ECODIAOS_DIR = path.resolve(__dirname, '../../')
+
 /**
  * /api/ops - Observability dashboard per docs/OBSERVABILITY_SPEC.md §2.
  *
@@ -347,6 +351,31 @@ async function _securityMetrics() {
 
 function _state() {
   const memUsage = process.memoryUsage()
+
+  // Git last commit (ecodiaos repo)
+  let git = null
+  try {
+    const raw = execSync('git log -1 --format="%h %ct" HEAD', {
+      cwd: ECODIAOS_DIR, timeout: 2000, encoding: 'utf8',
+    }).trim()
+    const parts = raw.split(' ')
+    const sha = parts[0]
+    const ct = parseInt(parts[1], 10)
+    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd: ECODIAOS_DIR, timeout: 1000, encoding: 'utf8',
+    }).trim()
+    git = { sha, age_sec: Math.round(Date.now() / 1000 - ct), branch }
+  } catch (_) { /* non-fatal */ }
+
+  // Disk usage for /
+  let disk = null
+  try {
+    const dfOut = execSync("df / | tail -1 | awk '{print $5}'", {
+      timeout: 2000, encoding: 'utf8',
+    }).trim()
+    disk = { pct: parseInt(dfOut.replace('%', ''), 10) }
+  } catch (_) { /* non-fatal */ }
+
   return {
     conductor_uptime_sec: Math.round(process.uptime()),
     memory_heap_mb: Math.round(memUsage.heapUsed / (1024 * 1024)),
@@ -354,12 +383,36 @@ function _state() {
     node_version: process.version,
     pid: process.pid,
     timestamp_utc: new Date().toISOString(),
+    git,
+    disk,
+  }
+}
+
+// Next scheduled cron to fire
+async function _nextCron() {
+  try {
+    const [row] = await db`
+      SELECT name, next_run_at
+      FROM os_scheduled_tasks
+      WHERE status = 'active' AND next_run_at IS NOT NULL
+      ORDER BY next_run_at
+      LIMIT 1
+    `
+    if (!row) return null
+    return {
+      name: row.name,
+      next_run_at: new Date(row.next_run_at).toISOString(),
+      next_in_sec: Math.max(0, Math.round((new Date(row.next_run_at).getTime() - Date.now()) / 1000)),
+    }
+  } catch (err) {
+    logger.debug('/ops: nextCron unavailable', { error: err.message })
+    return null
   }
 }
 
 router.get('/metrics', async (_req, res) => {
   const started = Date.now()
-  const [state, turnEconomics, forks, claims, security, compaction, costHourly, statusPriorities, energyByAccount] = await Promise.all([
+  const [state, turnEconomics, forks, claims, security, compaction, costHourly, statusPriorities, energyByAccount, nextCron] = await Promise.all([
     Promise.resolve(_state()),
     _turnEconomics(),
     _forkMetrics(),
@@ -369,6 +422,7 @@ router.get('/metrics', async (_req, res) => {
     _costHourly(),
     _statusPriorities(),
     _energyByAccount(),
+    _nextCron(),
   ])
   const durationMs = Date.now() - started
   res.json({
@@ -384,6 +438,7 @@ router.get('/metrics', async (_req, res) => {
     cost_hourly: costHourly,
     status_priorities: statusPriorities,
     energy_by_account: energyByAccount,
+    next_cron: nextCron,
   })
 })
 
