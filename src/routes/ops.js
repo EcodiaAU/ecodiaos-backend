@@ -61,6 +61,7 @@ async function _turnEconomics() {
       SELECT
         COALESCE(SUM(input_tokens)::bigint, 0)                   AS input_tokens,
         COALESCE(SUM(output_tokens)::bigint, 0)                  AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens)::bigint, 0)    AS cache_write_tokens,
         COALESCE(SUM(cache_read_input_tokens)::bigint, 0)        AS cache_read_tokens,
         COALESCE(SUM(cost_usd)::numeric, 0)                      AS cost_usd_total,
         COUNT(*)::int                                            AS turns,
@@ -72,13 +73,16 @@ async function _turnEconomics() {
     const tokensPerTurn = turns > 0
       ? Math.round((Number(row.input_tokens) + Number(row.output_tokens)) / turns)
       : 0
-    // cache_hit_ratio: cache_read / (input_tokens). Input tokens already
-    // include the cached portion per Anthropic's accounting, so this is
-    // the fraction of input that hit cache (not new).
+    // cache_hit_ratio: cache_read / (input + cache_write + cache_read).
+    // Denominator is total context tokens sent to the API — the fraction that
+    // came from cache. Using input_tokens alone gave a ratio >1 (e.g. 52,676x)
+    // because cache_read_tokens (854M) >> raw input_tokens (16k).
     const inputWeek = Number(row?.input_tokens || 0)
-    const cacheHitWeek = inputWeek > 0 ? Number(row?.cache_read_tokens || 0) / inputWeek : null
+    const totalContextWeek = inputWeek + Number(row?.cache_write_tokens || 0) + Number(row?.cache_read_tokens || 0)
+    const cacheHitWeek = totalContextWeek > 0 ? Number(row?.cache_read_tokens || 0) / totalContextWeek : null
     const input24h = Number(row24h?.input_tokens || 0)
-    const cacheHit24h = input24h > 0 ? Number(row24h?.cache_read_tokens || 0) / input24h : null
+    const totalContext24h = input24h + Number(row24h?.cache_write_tokens || 0) + Number(row24h?.cache_read_tokens || 0)
+    const cacheHit24h = totalContext24h > 0 ? Number(row24h?.cache_read_tokens || 0) / totalContext24h : null
     const costTurnsWeek = row?.cost_turns || 0
     const costPerTurnWeek = costTurnsWeek > 0
       ? Number(row.cost_usd_total) / costTurnsWeek
@@ -263,6 +267,7 @@ async function _energyByAccount() {
         COALESCE(provider, 'unknown') AS provider,
         COALESCE(SUM(input_tokens), 0)::bigint AS input_tokens,
         COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0)::bigint AS cache_write_tokens,
         COALESCE(SUM(cache_read_input_tokens), 0)::bigint AS cache_read_tokens,
         COALESCE(SUM(cost_usd), 0)::numeric AS cost_usd
       FROM claude_usage
@@ -275,7 +280,12 @@ async function _energyByAccount() {
       .map((r) => {
         const inputTok = Number(r.input_tokens)
         const outputTok = Number(r.output_tokens)
-        const total = inputTok + outputTok
+        const cacheReadTok = Number(r.cache_read_tokens)
+        const cacheWriteTok = Number(r.cache_write_tokens)
+        // Total context volume: all tokens sent to the API, including cache reads.
+        // Previously only counted input+output (38k), giving 0% of 20B budget.
+        // With cache reads included, reflects actual context load (~905M this week).
+        const total = inputTok + outputTok + cacheReadTok + cacheWriteTok
         return {
           provider: r.provider,
           label: PROVIDER_LABELS[r.provider] ?? r.provider,

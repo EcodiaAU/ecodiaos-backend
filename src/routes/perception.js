@@ -17,9 +17,11 @@ const logger = require('../config/logger')
 
 const router = Router()
 
-// Canonical location per conductorStreamTagWatcher.js + scratchpadService.js
+// dispatch-events.jsonl is written by PreToolUse hooks (conductorStreamTagWatcher).
+// application-events.jsonl was the original target but the writer was never activated.
+// dispatch-events.jsonl has the identical conductorStreamTagWatcher shape and is live.
 const JSONL_PATH = process.env.ECODIAOS_APPLICATION_EVENT_FILE
-  || path.join(process.env.HOME || '/home/tate', 'ecodiaos/logs/telemetry/application-events.jsonl')
+  || path.join(process.env.HOME || '/home/tate', 'ecodiaos/logs/telemetry/dispatch-events.jsonl')
 
 /**
  * Read last N lines of a file without loading the whole thing into memory.
