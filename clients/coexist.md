@@ -92,6 +92,17 @@ Auto-deploys from main branch. Push to GitHub, Vercel handles the rest.
 
 ---
 
+## Pricing & Rates
+
+### Hourly rate (tech assist / out-of-scope work)
+**$60/hr AUD (ex-GST).** 50% off rate-card baseline ($120/hr) — strategic discount reflecting monthly recurring relationship + Kurt-as-distribution-engine.
+- Applies to: tech assist, ad-hoc work, anything outside the in-scope Co-Exist app contract.
+- Does NOT apply to: in-scope app build work (which has its own scoped pricing) or feature work covered by the licence agreement.
+- Logged as billable, added to NEXT month's invoice (Co-Exist bills monthly, no chase needed).
+- Confirmed by Tate 14:57 AEST 13 May 2026.
+
+---
+
 ## Billing Register — READ BEFORE ANY INVOICE WORK
 
 Co-Exist is on a **substrate-tracked recurring billing schedule** (live 7 May 2026). Do NOT render invoices ad-hoc - read the schedule first, generate via `billingScheduleEngine`, persist the run to `client_billing_generations`.
