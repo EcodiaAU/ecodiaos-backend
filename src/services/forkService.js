@@ -1016,7 +1016,8 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       _emitForkStatus(fork_id, 'streaming', { fork_id })
       await _dbUpdate(state)
 
-      for await (const msg of q) {
+      // eslint-disable-next-line no-labels
+      forkLoop: for await (const msg of q) {
         state.last_heartbeat = Date.now()
 
         switch (msg.type) {
@@ -1126,9 +1127,34 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
             // between here and the for-await loop close still leaves a recoverable row.
             // (fork-persistence Option A, fork_mokpm24w_4daefb)
             await _dbUpdate(state)
-            break
+            // FIX (fork_mp41umvg_46586a, 2026-05-13): break out of the for-await loop
+            // immediately. The prior `break` here exited only the switch statement, leaving
+            // the for-await loop awaiting the SDK generator's natural close — which
+            // empirically takes 60-90+ minutes (the SDK does not close its async iterator
+            // promptly after yielding the terminal 'result' event). Every fork therefore
+            // hung in status='reporting' for up to 94 minutes before the loop exited.
+            //
+            // `break forkLoop` exits the outer for-await loop directly, advancing to the
+            // post-loop block (report extraction + status='done' write) in under 1ms.
+            //
+            // Cleanup: the SDK generator `q` may still be open. We close it non-blockingly
+            // below to release any internal SDK resources/connections. The AbortController
+            // (`state.abort`) is NOT signalled here — the fork succeeded, there is nothing
+            // to abort. `_forks.delete(fork_id)` runs 60s after termination (setTimeout in
+            // finally block), releasing the last reference and allowing GC.
+            // eslint-disable-next-line no-labels
+            break forkLoop
           }
         }
+      }
+
+      // Non-blocking cleanup: if we broke out of the loop early (via `break forkLoop`
+      // on the 'result' case), the SDK generator may still be open. Calling .return()
+      // signals it to run any internal finally blocks and release connections.
+      // We do NOT await — the generator's cleanup is best-effort; a slow/hanging
+      // cleanup must not delay the status='done' write. Errors swallowed silently.
+      if (q && typeof q.return === 'function') {
+        try { Promise.resolve(q.return(undefined)).catch(() => {}) } catch {}
       }
 
       // Stream complete — extract [FORK_REPORT] / [NEXT_STEP] from transcript.
