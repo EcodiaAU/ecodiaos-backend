@@ -587,15 +587,30 @@ router.get('/:id', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.patch('/:id', async (req, res) => {
   try {
-    const { title, client_id, project_id } = req.body || {}
-    const [row] = await db`
-      UPDATE meeting_recordings SET
-        title = COALESCE(${title ?? null}, title),
-        client_id = COALESCE(${client_id ?? null}, client_id),
-        project_id = COALESCE(${project_id ?? null}, project_id)
-      WHERE id = ${req.params.id}::uuid AND archived_at IS NULL
-      RETURNING id, title, client_id, project_id, updated_at
-    `
+    const { title, client_id, project_id, attendees } = req.body || {}
+    const hasAttendees = attendees !== undefined
+    const cleanAttendees = hasAttendees
+      ? (typeof attendees === 'string' ? attendees.trim().slice(0, 1000) || null : null)
+      : undefined
+
+    const [row] = hasAttendees
+      ? await db`
+          UPDATE meeting_recordings SET
+            title = COALESCE(${title ?? null}, title),
+            client_id = COALESCE(${client_id ?? null}, client_id),
+            project_id = COALESCE(${project_id ?? null}, project_id),
+            attendees = ${cleanAttendees}
+          WHERE id = ${req.params.id}::uuid AND archived_at IS NULL
+          RETURNING id, title, client_id, project_id, attendees, updated_at
+        `
+      : await db`
+          UPDATE meeting_recordings SET
+            title = COALESCE(${title ?? null}, title),
+            client_id = COALESCE(${client_id ?? null}, client_id),
+            project_id = COALESCE(${project_id ?? null}, project_id)
+          WHERE id = ${req.params.id}::uuid AND archived_at IS NULL
+          RETURNING id, title, client_id, project_id, attendees, updated_at
+        `
     if (!row) return res.status(404).json({ error: 'not_found' })
     return res.json(row)
   } catch (err) {

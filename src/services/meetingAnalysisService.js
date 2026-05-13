@@ -67,18 +67,37 @@ function applySpeakerNames(transcript, speakerNames) {
   return transcript.replace(/Speaker ([A-Z])/g, (_, code) => speakerNames[code] || `Speaker ${code}`)
 }
 
-function buildSpeakerRoster(speakerNames) {
-  const entries = Object.entries(speakerNames || {})
-  if (entries.length === 0) return ''
-  const lines = entries.map(([code, name]) => `- ${name} (was Speaker ${code})`).join('\n')
-  return `## Speakers\nThe speakers in this transcript have been identified. When someone says "I" or "we", attribute it to the named speaker:\n${lines}\n\nCRITICAL: Owner fields must be the names listed above. Do NOT default to one person for everything — attribute each commitment, decision, and action to the actual speaker who took it on.\n\n`
+function buildSpeakerRoster(speakerNames, attendees) {
+  const hasNames = speakerNames && Object.keys(speakerNames).length > 0
+  const hasAttendees = typeof attendees === 'string' && attendees.trim().length > 0
+  if (!hasNames && !hasAttendees) return ''
+
+  let block = `## People in this meeting\n`
+
+  if (hasAttendees) {
+    block += `The following people were present in this meeting:\n${attendees.trim()}\n\n`
+    block += `The transcript may label some speakers as "Speaker A", "Speaker B" etc. (Deepgram diarisation labels). `
+    block += `Figure out from context which speaker is which person — listen for self-introductions, when they're addressed by name, what role/expertise they show, and what they care about. `
+    block += `Then attribute every commitment, decision, action, and quote to the real person, not the letter.\n\n`
+  }
+
+  if (hasNames) {
+    const lines = Object.entries(speakerNames).map(([code, name]) => `- Speaker ${code} = ${name}`).join('\n')
+    block += hasAttendees
+      ? `Known speaker-letter mappings (use these directly, infer the rest from the attendee list and context):\n${lines}\n\n`
+      : `The speakers in this transcript have been identified:\n${lines}\n\n`
+  }
+
+  block += `CRITICAL: Owner fields must be real names from the people list. NEVER use "Speaker A" or letter codes in the final output. Do NOT default to one person for everything — attribute each commitment, decision, and action to the actual speaker who took it on. If you genuinely cannot tell who from context, use "TBD".\n\n`
+
+  return block
 }
 
 /**
  * Build the analysis user prompt. No truncation: we send the full transcript.
  * Opus 4.7 1M-context handles multi-hour meetings without compression.
  */
-function buildAnalysisPrompt(transcript, meetingMeta, speakerNames) {
+function buildAnalysisPrompt(transcript, meetingMeta, speakerNames, attendees) {
   const labelled = applySpeakerNames(transcript, speakerNames)
 
   const metaBlock = [
@@ -87,7 +106,7 @@ function buildAnalysisPrompt(transcript, meetingMeta, speakerNames) {
     meetingMeta.client_name ? `Client: ${meetingMeta.client_name}` : null,
   ].filter(Boolean).join('\n')
 
-  return `${metaBlock ? `## Meeting Context\n${metaBlock}\n\n` : ''}${buildSpeakerRoster(speakerNames)}## Transcript\n\n${labelled}
+  return `${metaBlock ? `## Meeting Context\n${metaBlock}\n\n` : ''}${buildSpeakerRoster(speakerNames, attendees)}## Transcript\n\n${labelled}
 
 ---
 
@@ -135,7 +154,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside the JSON.`
 /**
  * Build the action items prompt.
  */
-function buildActionItemsPrompt(transcript, existingAnalysis, speakerNames) {
+function buildActionItemsPrompt(transcript, existingAnalysis, speakerNames, attendees) {
   // Use the commitments + recommended actions from the analysis as context
   const analysisContext = existingAnalysis ? JSON.stringify({
     commitments: existingAnalysis.commitments,
@@ -146,7 +165,7 @@ function buildActionItemsPrompt(transcript, existingAnalysis, speakerNames) {
   const labelled = applySpeakerNames(transcript, speakerNames)
 
   return `Extract EVERY action item from this meeting transcript. Be exhaustive — capture every commitment, task, follow-up, deliverable, and implied next-step. If the meeting was long and substantive, expect 25+ items; do not stop at 10. Include implicit ones (something clearly needs to happen but wasn't explicitly assigned).
-${buildSpeakerRoster(speakerNames)}${analysisContext ? `\nFor context, the analysis already identified these commitments, recommendations and decisions — your action items should cover these AND any additional ones the analysis missed:\n${analysisContext}\n` : ''}
+${buildSpeakerRoster(speakerNames, attendees)}${analysisContext ? `\nFor context, the analysis already identified these commitments, recommendations and decisions — your action items should cover these AND any additional ones the analysis missed:\n${analysisContext}\n` : ''}
 Transcript:
 ${labelled}
 
@@ -181,9 +200,9 @@ Rules:
  * Call Claude for analysis. Returns parsed JSON object.
  * Throws on API error or JSON parse failure.
  */
-async function callClaudeForAnalysis(transcript, meetingMeta, speakerNames) {
+async function callClaudeForAnalysis(transcript, meetingMeta, speakerNames, attendees) {
   const systemPrompt = buildAnalysisSystemPrompt()
-  const userPrompt = buildAnalysisPrompt(transcript, meetingMeta, speakerNames)
+  const userPrompt = buildAnalysisPrompt(transcript, meetingMeta, speakerNames, attendees)
 
   logger.info('[MeetingAnalysis] calling Claude for analysis', {
     transcriptChars: transcript.length,
@@ -215,9 +234,9 @@ async function callClaudeForAnalysis(transcript, meetingMeta, speakerNames) {
 /**
  * Call Claude for action items. Returns parsed JSON array.
  */
-async function callClaudeForActionItems(transcript, existingAnalysis, speakerNames) {
+async function callClaudeForActionItems(transcript, existingAnalysis, speakerNames, attendees) {
   const systemPrompt = buildAnalysisSystemPrompt()
-  const userPrompt = buildActionItemsPrompt(transcript, existingAnalysis, speakerNames)
+  const userPrompt = buildActionItemsPrompt(transcript, existingAnalysis, speakerNames, attendees)
 
   logger.info('[MeetingAnalysis] calling Claude for action items', {
     transcriptChars: transcript.length,
@@ -269,9 +288,9 @@ async function runAnalysis(meetingId, db) {
   `
 
   try {
-    // Load transcript + meeting metadata + speaker names
+    // Load transcript + meeting metadata + speaker names + attendees
     const [row] = await db`
-      SELECT m.transcript_text, m.title, m.duration_seconds, m.speaker_names,
+      SELECT m.transcript_text, m.title, m.duration_seconds, m.speaker_names, m.attendees,
              c.name AS client_name
       FROM meeting_recordings m
       LEFT JOIN clients c ON c.id = m.client_id
@@ -291,12 +310,13 @@ async function runAnalysis(meetingId, db) {
       client_name: row.client_name,
     }
     const speakerNames = row.speaker_names || {}
+    const attendees = row.attendees || null
 
     // Step 1: Full analysis
-    const analysisJson = await callClaudeForAnalysis(transcript, meetingMeta, speakerNames)
+    const analysisJson = await callClaudeForAnalysis(transcript, meetingMeta, speakerNames, attendees)
 
     // Step 2: Action items (with analysis context for richer extraction)
-    const actionItemsJson = await callClaudeForActionItems(transcript, analysisJson, speakerNames)
+    const actionItemsJson = await callClaudeForActionItems(transcript, analysisJson, speakerNames, attendees)
 
     // Store both
     await db`

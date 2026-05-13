@@ -259,6 +259,7 @@ function _flushDeltas() {
   _addToRing(envelope)
   _sendRaw(JSON.stringify(envelope))
   _fanOut('os-session:output', envelope)
+  _forwardIfConductor(envelope)
 }
 
 // Force-flush the coalescer before turn_complete - retained for backwards
@@ -282,6 +283,45 @@ function _isTerminalEvent(type, payload) {
   if (type === 'os-session:output' && payload?.data?.type &&
       TERMINAL_OUTPUT_INNER_TYPES.has(payload.data.type)) return true
   return false
+}
+
+// ─── Cross-process WS fan-out (CONDUCTOR_DETACHED=true) ───────────────────
+// In conductor mode the WS clients live in ecodia-api. Forward every
+// already-stamped envelope to api via POST /internal/ws-broadcast. The
+// api side calls _deliverForwardedEnvelope() below to bypass seq re-stamp.
+//
+// Why a process flag: we only forward FROM conductor TO api. api forwarding
+// back would loop. Gate on CONDUCTOR_PROCESS=true (set in ecosystem.config.js
+// for ecodia-conductor only).
+const _IS_CONDUCTOR_PROCESS = process.env.CONDUCTOR_PROCESS === 'true'
+let _wsBridgeForward = null
+function _getBridgeForward() {
+  if (_wsBridgeForward !== null) return _wsBridgeForward
+  try {
+    _wsBridgeForward = require('../lib/wsBridgeForward').forwardBroadcast
+  } catch (err) {
+    logger.warn('wsManager: bridge forward module load failed', { error: err.message })
+    _wsBridgeForward = () => {}
+  }
+  return _wsBridgeForward
+}
+
+function _forwardIfConductor(envelope) {
+  if (!_IS_CONDUCTOR_PROCESS) return
+  const fn = _getBridgeForward()
+  // fire-and-forget — failures handled inside forwardBroadcast
+  try { fn(envelope) } catch (err) { logger.debug('wsManager: forward threw', { error: err.message }) }
+}
+
+// Receive an already-stamped envelope from another process. Deliver to
+// local WS clients + ring buffer + in-process subscribers without
+// re-incrementing this process's seq counter (the source process owns
+// numbering for its event stream).
+function _deliverForwardedEnvelope(envelope) {
+  if (!envelope || typeof envelope !== 'object' || !envelope.type) return
+  _addToRing(envelope)
+  _sendRaw(JSON.stringify(envelope))
+  _fanOut(envelope.type, envelope)
 }
 
 function broadcast(type, payload) {
@@ -312,6 +352,7 @@ function broadcast(type, payload) {
   _addToRing(envelope)
   _sendRaw(JSON.stringify(envelope))
   _fanOut(type, envelope)
+  _forwardIfConductor(envelope)
 
   // If this was a terminal event, assert-flush afterwards too - catches the
   // edge case where a late delta lands in the same tick but after us.
