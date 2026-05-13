@@ -186,6 +186,119 @@ async function _claimMetrics() {
   }
 }
 
+// Phase 3 dashboard (fork_mp3p13lp_45faf5): 24h hourly cost buckets for sparkline
+async function _costHourly() {
+  try {
+    // Build a complete 24-slot array for the sparkline even when some hours have zero cost.
+    const rows = await db`
+      SELECT
+        date_trunc('hour', created_at) AS hour,
+        COALESCE(SUM(cost_usd), 0)::numeric AS cost_usd
+      FROM claude_usage
+      WHERE created_at >= NOW() - INTERVAL '24 hours'
+        AND cost_usd IS NOT NULL
+      GROUP BY 1
+      ORDER BY 1
+    `
+    // Build a map keyed by hour-string so we can fill gaps
+    const byHour = {}
+    for (const r of rows) {
+      const k = new Date(r.hour).toISOString()
+      byHour[k] = Number(r.cost_usd)
+    }
+    // Emit exactly 24 buckets, oldest first
+    const buckets = []
+    for (let i = 23; i >= 0; i--) {
+      const d = new Date()
+      d.setMinutes(0, 0, 0)
+      d.setHours(d.getHours() - i)
+      const k = d.toISOString()
+      // Find nearest match (within this hour)
+      const matchKey = Object.keys(byHour).find((h) => {
+        return Math.abs(new Date(h).getTime() - d.getTime()) < 3600000
+      })
+      buckets.push({ hour: k, cost_usd: matchKey ? byHour[matchKey] : 0 })
+    }
+    return buckets
+  } catch (err) {
+    logger.debug('/ops: costHourly unavailable', { error: err.message })
+    return []
+  }
+}
+
+// Phase 3 dashboard: status_board priority histogram
+async function _statusPriorities() {
+  try {
+    const rows = await db`
+      SELECT priority::int AS priority, COUNT(*)::int AS cnt
+      FROM status_board
+      WHERE archived_at IS NULL
+      GROUP BY priority
+      ORDER BY priority
+    `
+    const result = { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 }
+    for (const r of rows) {
+      const key = `P${r.priority}`
+      if (key in result) result[key] = r.cnt
+    }
+    return result
+  } catch (err) {
+    logger.debug('/ops: statusPriorities unavailable', { error: err.message })
+    return { P1: 0, P2: 0, P3: 0, P4: 0, P5: 0 }
+  }
+}
+
+// Phase 3 dashboard: per-account energy breakdown (weekly)
+const PROVIDER_LABELS = {
+  claude_max: 'tate@',
+  claude_max_2: 'code@',
+  claude_max_3: 'money@',
+}
+const WEEKLY_TOKEN_BUDGET = 20_000_000_000 // 20B tokens
+
+async function _energyByAccount() {
+  try {
+    const rows = await db`
+      SELECT
+        COALESCE(provider, 'unknown') AS provider,
+        COALESCE(SUM(input_tokens), 0)::bigint AS input_tokens,
+        COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0)::bigint AS cache_read_tokens,
+        COALESCE(SUM(cost_usd), 0)::numeric AS cost_usd
+      FROM claude_usage
+      WHERE week_start >= date_trunc('week', NOW())
+      GROUP BY 1
+      ORDER BY 1
+    `
+    const perAccount = rows
+      .filter((r) => r.provider !== 'unknown')
+      .map((r) => {
+        const inputTok = Number(r.input_tokens)
+        const outputTok = Number(r.output_tokens)
+        const total = inputTok + outputTok
+        return {
+          provider: r.provider,
+          label: PROVIDER_LABELS[r.provider] ?? r.provider,
+          input_tokens: inputTok,
+          output_tokens: outputTok,
+          total_tokens: total,
+          cost_usd: Number(r.cost_usd),
+          pct_of_budget: WEEKLY_TOKEN_BUDGET > 0 ? Math.min(1, total / WEEKLY_TOKEN_BUDGET) : 0,
+        }
+      })
+    const totalWeekTokens = perAccount.reduce((s, a) => s + a.total_tokens, 0)
+    return {
+      accounts: perAccount,
+      total_tokens_this_week: totalWeekTokens,
+      weekly_budget: WEEKLY_TOKEN_BUDGET,
+      pct_used: Math.min(1, totalWeekTokens / WEEKLY_TOKEN_BUDGET),
+    }
+  } catch (err) {
+    logger.debug('/ops: energyByAccount unavailable', { error: err.message })
+    return { accounts: [], total_tokens_this_week: 0, weekly_budget: WEEKLY_TOKEN_BUDGET, pct_used: 0 }
+  }
+}
+
 async function _securityMetrics() {
   try {
     const [b] = await db`
@@ -236,13 +349,16 @@ function _state() {
 
 router.get('/metrics', async (_req, res) => {
   const started = Date.now()
-  const [state, turnEconomics, forks, claims, security, compaction] = await Promise.all([
+  const [state, turnEconomics, forks, claims, security, compaction, costHourly, statusPriorities, energyByAccount] = await Promise.all([
     Promise.resolve(_state()),
     _turnEconomics(),
     _forkMetrics(),
     _claimMetrics(),
     _securityMetrics(),
     _compactionMetrics(),
+    _costHourly(),
+    _statusPriorities(),
+    _energyByAccount(),
   ])
   const durationMs = Date.now() - started
   res.json({
@@ -255,6 +371,9 @@ router.get('/metrics', async (_req, res) => {
     claims,
     security,
     compaction,
+    cost_hourly: costHourly,
+    status_priorities: statusPriorities,
+    energy_by_account: energyByAccount,
   })
 })
 
