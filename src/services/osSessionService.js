@@ -216,11 +216,10 @@ function buildSubagentConfigs(allConfigs) {
         '- Emails must sound like a sharp, professional business partner -- not a bot or template.',
         '- Report back a concise summary of what you did and any follow-up actions needed.',
       ].join('\n'),
-      // Sonnet default = cheap baseline. Conductor can override per call by
-      // passing `model: 'opus'` (or 'haiku') to the Agent tool when it judges
-      // a specific delegation needs more/less power. Keeping the default low
-      // so routine work doesn't silently burn Opus tokens.
-      model: 'sonnet',
+      // Opus default as of 14 May 2026 (Tate directive: "we have 3 claude code
+      // plans now so we're fine"). Conductor can still override per call by
+      // passing `model: 'haiku'` to the Agent tool for latency-sensitive work.
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.comms),
       permissionMode: 'bypassPermissions',
       maxTurns: 30,
@@ -239,8 +238,8 @@ function buildSubagentConfigs(allConfigs) {
         '- Auto-categorize transactions using rules (bk_list_rules) before falling back to manual categorization.',
         '- Report back concise financial summaries, not raw data dumps.',
       ].join('\n'),
-      // Sonnet default — conductor can override via Agent tool `model` param.
-      model: 'sonnet',
+      // Opus default as of 14 May 2026 (Tate directive, 3 Max accounts).
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.finance),
       permissionMode: 'bypassPermissions',
       maxTurns: 20,
@@ -259,8 +258,8 @@ function buildSubagentConfigs(allConfigs) {
         '- Report service health clearly: what is running, what is not, any error patterns.',
         '- Use db_query via supabase for diagnostic queries when needed.',
       ].join('\n'),
-      // Sonnet default — conductor can override via Agent tool `model` param.
-      model: 'sonnet',
+      // Opus default as of 14 May 2026 (Tate directive, 3 Max accounts).
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.ops),
       permissionMode: 'bypassPermissions',
       maxTurns: 20,
@@ -278,8 +277,8 @@ function buildSubagentConfigs(allConfigs) {
         '- For Vercel deploys, verify the deployment status after triggering.',
         '- Report analytics concisely with key metrics highlighted.',
       ].join('\n'),
-      // Sonnet default — conductor can override via Agent tool `model` param.
-      model: 'sonnet',
+      // Opus default as of 14 May 2026 (Tate directive, 3 Max accounts).
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _mcpForDomain(allConfigs, SUBAGENT_DOMAINS.social),
       permissionMode: 'bypassPermissions',
       maxTurns: 15,

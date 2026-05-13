@@ -528,6 +528,26 @@ Origin: 8 May 2026 P0 incident, fix commit 2980601. Full: `~/ecodiaos/patterns/s
 
 **Related VPS/npm ops:** `~/ecodiaos/patterns/ensure-deps-must-recompute-hash-post-install-not-pre.md` - hash markers for npm-install gating must be written AFTER install returns (not before), because npm can rewrite `package-lock.json` mid-install; pre-install hashes cause permanent lockfile-mismatch restart loops (same restart-storm failure class as the musl/glibc mis-resolution above).
 
+### Model tier assignment (updated 14 May 2026)
+
+**Tate directive 14 May 2026 09:36 AEST:** "i think we can make forks use opus again for the most part... we have 3 claude code plans now so we're fine."
+
+Three Max accounts = 6 independent capacity slots (3 accounts x 2 caps: 5h-session + weekly). Sufficient budget for Opus across all fork tiers.
+
+| Tier | Model | Env var | Notes |
+|---|---|---|---|
+| Conductor (main) | `claude-opus-4-7` | `OS_SESSION_MODEL` | Unchanged |
+| Manager forks | `claude-opus-4-7` | `FORK_MANAGER_MODEL` | Judgment-heavy coordination |
+| Worker forks | `claude-opus-4-7` | `FORK_WORKER_MODEL` | Code-shipping at conductor quality |
+| Subagents (comms/finance/ops/social) | `claude-opus-4-7` | `SUBAGENT_MODEL` | Business-surface work |
+| Observer trio (coherence/action-audit/attention) | `claude-haiku-4-5-20251001` | hardcoded in `_haikuClient.js` | Keep Haiku — cheap, high-volume, intentional |
+| voiceRelay (phone calls) | `haiku` | hardcoded in `voiceRelay.js` | Keep Haiku — voice latency requires fast response |
+| rescueRunner | `claude-opus-4-7` | `RESCUE_MODEL` | Already Opus before this change |
+| Factory CC sessions | account-specific | Factory CLI flags | Separate account budget, unchanged |
+| DeepSeek fallback | `deepseek-v4-pro` | hardcoded | Only fires when all 3 Max accounts capped |
+
+Config surfaces: `.env` (primary), `src/config/env.js` (Zod defaults + validation), `ecosystem.config.js` (PM2 belt-and-braces). Code call sites: `forkService.js` (fork + subagent dispatch), `osSessionService.js` (conductor subagent dispatch).
+
 ### The rule
 
 Factory runs Claude Code CLI in **separate process on separate Claude account**. Every delegated task runs on its own energy budget - does NOT burn your context or weekly tokens.

@@ -19,7 +19,15 @@ const COMMON = {
   restart_delay: 2000,
   exp_backoff_restart_delay: 100,
   kill_timeout: 45000,
-  env: { NODE_ENV: 'production' },
+  env: {
+    NODE_ENV: 'production',
+    // Fork tree model tier — Tate directive 14 May 2026 ("we have 3 claude code
+    // plans now so we're fine"). All tiers upgraded to Opus to match conductor.
+    // Observer trio (haiku) and voiceRelay (haiku) are NOT overridden by these vars.
+    FORK_MANAGER_MODEL: 'claude-opus-4-7',
+    FORK_WORKER_MODEL: 'claude-opus-4-7',
+    SUBAGENT_MODEL: 'claude-opus-4-7',
+  },
 }
 module.exports = {
   apps: [

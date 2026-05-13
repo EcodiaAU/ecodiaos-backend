@@ -552,7 +552,7 @@ function _buildForkAgents(all) {
     comms: {
       description: 'Fork-mode comms specialist: email, calendar, CRM, SMS.',
       prompt: 'You are a fork-mode comms specialist. Same rules as the main comms subagent — keep it tight, professional, CRM-aware.',
-      model: 'sonnet',
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _subagentMcpForDomain(all, FORK_SUBAGENT_DOMAINS.comms),
       permissionMode: 'bypassPermissions',
       maxTurns: 30,
@@ -560,7 +560,7 @@ function _buildForkAgents(all) {
     finance: {
       description: 'Fork-mode finance officer: bookkeeping, P&L, BAS/GST.',
       prompt: 'You are a fork-mode finance officer. Same rules as the main finance subagent.',
-      model: 'sonnet',
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _subagentMcpForDomain(all, FORK_SUBAGENT_DOMAINS.finance),
       permissionMode: 'bypassPermissions',
       maxTurns: 20,
@@ -568,7 +568,7 @@ function _buildForkAgents(all) {
     ops: {
       description: 'Fork-mode ops engineer: VPS, PM2, deployments.',
       prompt: 'You are a fork-mode ops engineer. Diagnose before acting. Stamp git commits and pm2 actions clearly.',
-      model: 'sonnet',
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _subagentMcpForDomain(all, FORK_SUBAGENT_DOMAINS.ops),
       permissionMode: 'bypassPermissions',
       maxTurns: 20,
@@ -576,7 +576,7 @@ function _buildForkAgents(all) {
     social: {
       description: 'Fork-mode social/platform specialist: Vercel, Zernio, Xero.',
       prompt: 'You are a fork-mode social/platform specialist.',
-      model: 'sonnet',
+      model: env.SUBAGENT_MODEL || 'claude-opus-4-7',
       mcpServers: _subagentMcpForDomain(all, FORK_SUBAGENT_DOMAINS.social),
       permissionMode: 'bypassPermissions',
       maxTurns: 15,

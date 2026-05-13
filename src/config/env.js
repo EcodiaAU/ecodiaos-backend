@@ -240,16 +240,22 @@ const envSchema = z.object({
   API_BASE_URL: z.string().default('https://api.admin.ecodia.au'),
   // OS Session tuning
   OS_SESSION_MODEL: z.string().default(''),
-  // Fork model overrides. Workers default to sonnet-4-6; managers default to
-  // sonnet-4-6 but can be bumped to opus via FORK_MANAGER_MODEL=claude-opus-4-7.
+  // Fork model overrides. Workers and managers default to claude-opus-4-7
+  // (Tate directive 14 May 2026: "i think we can make forks use opus again for
+  // the most part... we have 3 claude code plans now so we're fine").
+  // Three Max accounts = 6 independent capacity slots (3 accounts x 2 caps each).
   // DeepSeek forks always use deepseek-v4-pro regardless of these vars.
   // 1M-context mode is GONE — any `[1m]` suffix is stripped on dispatch in
   // forkService + osSessionService (Tate, 2026-05-11). Do not set FORK_*_MODEL
   // or OS_SESSION_MODEL with a `[1m]` suffix; it has no effect.
   // FORK_ENABLE_1M_CONTEXT is retained as a no-op so existing .env files that
   // still set it don't fail Zod validation. Safe to delete from .env.
-  FORK_WORKER_MODEL: z.string().default('claude-sonnet-4-6'),
-  FORK_MANAGER_MODEL: z.string().default('claude-sonnet-4-6'),
+  FORK_WORKER_MODEL: z.string().default('claude-opus-4-7'),
+  FORK_MANAGER_MODEL: z.string().default('claude-opus-4-7'),
+  // Subagent model (comms/finance/ops/social). Defaults to Opus (14 May 2026).
+  // Observer trio uses Haiku directly via _haikuClient — this var does not apply.
+  // voiceRelay stays Haiku for latency reasons.
+  SUBAGENT_MODEL: z.string().default('claude-opus-4-7'),
   FORK_ENABLE_1M_CONTEXT: z.string().default(''),
   OS_SESSION_CWD: z.string().default('/home/tate/ecodiaos'),
   // PROMPT_ASSEMBLY_SPEC §3.5 target. Previous default 800K was a workaround
