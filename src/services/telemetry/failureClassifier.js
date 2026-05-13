@@ -70,7 +70,30 @@ function getEnv() {
 // the conductor already trusts for context surfacing.
 const neo4jRetrieval = require('../neo4jRetrieval')
 
-const DEFAULT_MAX_PER_TICK = 50
+// Per-tick caps split by classification cost:
+//   CHEAP  (success + unverified) — no semantic search, fast DB-only queries.
+//          High cap so a burst of success/unverified rows never starves the
+//          failure/correction path. Origin: Phase G critique #03 (2026-05-13)
+//          diagnosed LIMIT 50 as the primary backlog driver after Critique #5
+//          added 93% of outcome_event population to the processing queue.
+//   SEMANTIC (failure + correction) — Neo4j vector-index probe per row.
+//          Capped conservatively at 50 to stay within embedding budget
+//          (50 × 24 ticks = 1200 embeddings/day max).
+const DEFAULT_MAX_CHEAP_PER_TICK    = 200
+const DEFAULT_MAX_SEMANTIC_PER_TICK = 50
+// Legacy compat alias — CLI `--max=N` and old callers set both caps.
+const DEFAULT_MAX_PER_TICK = DEFAULT_MAX_SEMANTIC_PER_TICK
+
+// Backpressure thresholds (critique #03):
+//   SOFT_THRESHOLD: unclassified count above this for 2 consecutive runs
+//                   → kv_store alert + SMS (soft warning).
+//   HARD_THRESHOLD: unclassified count above this for 4 consecutive runs
+//                   → status_board P2 row + escalated SMS.
+const BACKLOG_SOFT_THRESHOLD = 50
+const BACKLOG_HARD_THRESHOLD = 200
+const BACKLOG_SOFT_CONSECUTIVE = 2
+const BACKLOG_HARD_CONSECUTIVE = 4
+
 // Similarity threshold for "this pattern is relevant to this correction."
 // Tuned conservatively (>=0.70) to avoid spurious doctrine_failure -> usage_failure
 // reclassifications. Below this, the result is treated as "no semantic match"
@@ -502,10 +525,116 @@ async function checkClassificationEntropy(client) {
  * classified data is a no-op. (See
  * ~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md.)
  */
-async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
+/**
+ * Build the SELECT fragment shared across both cheap and semantic queries.
+ */
+const OUTCOME_SELECT_SQL = `
+  SELECT o.id              AS outcome_id,
+         o.dispatch_event_id,
+         o.outcome,
+         o.evidence,
+         o.correction_text,
+         o.ts,
+         d.action_type,
+         d.tool_name,
+         d.context_keywords,
+         d.metadata
+  FROM outcome_event o
+  LEFT JOIN dispatch_event d ON d.id = o.dispatch_event_id`
+
+/**
+ * Classify and persist a single outcome_event row. Shared between the cheap
+ * and semantic passes. Returns true on success, false on error.
+ */
+async function _classifyAndPersistRow(row, client, distribution) {
+  try {
+    const outcome = {
+      id: row.outcome_id,
+      dispatch_event_id: row.dispatch_event_id,
+      outcome: row.outcome,
+      evidence: row.evidence,
+      correction_text: row.correction_text,
+      ts: row.ts,
+    }
+    const dispatch = {
+      action_type: row.action_type,
+      tool_name: row.tool_name,
+      context_keywords: row.context_keywords,
+      metadata: row.metadata,
+    }
+
+    // Route to the appropriate classifier based on outcome class.
+    let result
+    if (row.outcome === 'success') {
+      // Success rows: examine surface/application chain for silent doctrine.
+      // No semantic search needed — the question is whether the conductor
+      // acknowledged patterns that surfaced alongside a successful outcome.
+      result = await classifySuccessOutcome({ outcome, pgClient: client })
+    } else if (row.outcome === 'unverified') {
+      // Unverified rows >24h: dark matter — no ground-truth signal arrived.
+      // Classify as classification_deficit without semantic search.
+      result = classifyUnverifiedOutcome(outcome)
+    } else {
+      // failure / correction: full semantic search + tag-state routing.
+      result = await classifyOutcome({ outcome, dispatch, pgClient: client })
+    }
+
+    await client.query(
+      `UPDATE outcome_event
+           SET classification = $2,
+               classification_evidence = $3::jsonb,
+               classification_at = NOW()
+         WHERE id = $1
+           AND classification IS NULL`,
+      [outcome.id, result.classification, JSON.stringify(result.evidence)]
+    )
+    if (distribution[result.classification] !== undefined) {
+      distribution[result.classification] += 1
+    }
+    return true
+  } catch (err) {
+    console.error('[failureClassifier] error classifying outcome', row.outcome_id, err.message)
+    return false
+  }
+}
+
+/**
+ * Run one classification tick.
+ *
+ * Phase G Critique #03 (2026-05-13, fork_mp3o3hvx_9a7222):
+ * TWO-PASS architecture to prevent cheap rows (success/unverified) from
+ * starving expensive rows (failure/correction) under the old single LIMIT.
+ *
+ * Pass 1 — CHEAP (success, unverified): up to `maxCheap` rows (default 200).
+ *           No semantic search; pure DB queries. Fast.
+ * Pass 2 — SEMANTIC (failure, correction): up to `maxSemantic` rows (default 50).
+ *           Neo4j vector-index probe per row. Budget-capped.
+ *
+ * Legacy compat: passing the old `max` param sets BOTH limits to that value.
+ *
+ * Writes heartbeat to kv_store `health.decision_quality_classifier` after each
+ * tick, including unclassified count and oldest-unclassified age. Implements
+ * backpressure alerting at soft (>50 for 2 runs) and hard (>200 for 4 runs)
+ * thresholds per ~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md
+ *
+ * Verify-before-redo discipline: the SQL filter explicitly excludes rows that
+ * already have a non-NULL classification. Re-running the cron over already-
+ * classified data is a no-op. (See
+ * ~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md.)
+ */
+async function tickClassifier({
+  max           = null,
+  maxCheap      = DEFAULT_MAX_CHEAP_PER_TICK,
+  maxSemantic   = DEFAULT_MAX_SEMANTIC_PER_TICK,
+} = {}) {
+  // Legacy compat: old callers pass `max` — honour it for both caps.
+  if (max !== null) {
+    maxCheap    = max
+    maxSemantic = max
+  }
+
   return withClient(async (client) => {
     let classified = 0
-    let skipped = 0
     let errors = 0
     // Phase D expansion (2026-05-12, fork_mp1fxb9p_9c3390): add success and
     // unverified classification classes so the full outcome_event surface is
@@ -521,87 +650,93 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
       classification_deficit: 0,
     }
 
-    // Pull oldest unclassified rows across ALL outcome classes, capped at `max`.
-    // Phase G Critique #1: failures are real negative ground-truth signals.
-    // Phase G Critique #5 (2026-05-11): success rows (70.5% of population) and
-    // unverified rows (22.6%) were never processed, leaving 93% classification
-    // NULL. Both are now included. Unverified rows gate on a 24h age floor —
-    // newer rows may still receive a signal, so we wait.
-    // Joined with dispatch_event so we have action context for failure/correction.
-    const r = await client.query(
-      `SELECT o.id              AS outcome_id,
-              o.dispatch_event_id,
-              o.outcome,
-              o.evidence,
-              o.correction_text,
-              o.ts,
-              d.action_type,
-              d.tool_name,
-              d.context_keywords,
-              d.metadata
-       FROM outcome_event o
-       LEFT JOIN dispatch_event d ON d.id = o.dispatch_event_id
-       WHERE o.outcome IN ('correction', 'failure', 'success', 'unverified')
+    // ── Pass 1: CHEAP rows (success + unverified >24h) ───────────────────────
+    // These require no semantic search. High cap so a burst of success/unverified
+    // rows never starves the failure/correction path.
+    const cheapR = await client.query(
+      `${OUTCOME_SELECT_SQL}
+       WHERE o.outcome IN ('success', 'unverified')
          AND o.classification IS NULL
          AND (o.outcome != 'unverified' OR o.ts < NOW() - INTERVAL '24 hours')
        ORDER BY o.ts ASC
        LIMIT $1`,
-      [max]
+      [maxCheap]
     )
 
-    for (const row of r.rows) {
-      try {
-        const outcome = {
-          id: row.outcome_id,
-          dispatch_event_id: row.dispatch_event_id,
-          outcome: row.outcome,
-          evidence: row.evidence,
-          correction_text: row.correction_text,
-          ts: row.ts,
-        }
-        const dispatch = {
-          action_type: row.action_type,
-          tool_name: row.tool_name,
-          context_keywords: row.context_keywords,
-          metadata: row.metadata,
-        }
-
-        // Route to the appropriate classifier based on outcome class.
-        let result
-        if (row.outcome === 'success') {
-          // Success rows: examine surface/application chain for silent doctrine.
-          // No semantic search needed — the question is whether the conductor
-          // acknowledged patterns that surfaced alongside a successful outcome.
-          result = await classifySuccessOutcome({ outcome, pgClient: client })
-        } else if (row.outcome === 'unverified') {
-          // Unverified rows >24h: dark matter — no ground-truth signal arrived.
-          // Classify as classification_deficit without semantic search.
-          result = classifyUnverifiedOutcome(outcome)
-        } else {
-          // failure / correction: full semantic search + tag-state routing.
-          result = await classifyOutcome({ outcome, dispatch, pgClient: client })
-        }
-
-        await client.query(
-          `UPDATE outcome_event
-             SET classification = $2,
-                 classification_evidence = $3::jsonb,
-                 classification_at = NOW()
-           WHERE id = $1
-             AND classification IS NULL`,
-          [outcome.id, result.classification, JSON.stringify(result.evidence)]
-        )
-        classified += 1
-        if (distribution[result.classification] !== undefined) {
-          distribution[result.classification] += 1
-        }
-      } catch (err) {
-        errors += 1
-        console.error('[failureClassifier] error classifying outcome', row.outcome_id, err.message)
-      }
+    for (const row of cheapR.rows) {
+      const ok = await _classifyAndPersistRow(row, client, distribution)
+      if (ok) classified += 1; else errors += 1
     }
 
-    skipped = Math.max(0, r.rowCount - classified - errors)
+    // ── Pass 2: SEMANTIC rows (failure + correction) ──────────────────────────
+    // One Neo4j vector-index probe per row. Budget-capped to 50/tick.
+    const semanticR = await client.query(
+      `${OUTCOME_SELECT_SQL}
+       WHERE o.outcome IN ('failure', 'correction')
+         AND o.classification IS NULL
+       ORDER BY o.ts ASC
+       LIMIT $1`,
+      [maxSemantic]
+    )
+
+    for (const row of semanticR.rows) {
+      const ok = await _classifyAndPersistRow(row, client, distribution)
+      if (ok) classified += 1; else errors += 1
+    }
+
+    const totalFetched = cheapR.rowCount + semanticR.rowCount
+    const skipped = Math.max(0, totalFetched - classified - errors)
+
+    // ── Heartbeat: count pending rows + oldest-unclassified age ──────────────
+    // Written on EVERY tick (including zero-work ticks) so health monitoring
+    // can detect starvation without querying outcome_event directly.
+    // Key: health.decision_quality_classifier
+    // Per ~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md
+    let pendingCount = 0
+    let oldestUnclassifiedAgeSec = null
+    try {
+      const pendingR = await client.query(`
+        SELECT COUNT(*)::int AS cnt,
+               MIN(ts)       AS oldest_ts
+        FROM outcome_event
+        WHERE classification IS NULL
+          AND outcome IN ('correction', 'failure', 'success', 'unverified')
+          AND (outcome != 'unverified' OR ts < NOW() - INTERVAL '24 hours')
+      `)
+      pendingCount = pendingR.rows[0]?.cnt ?? 0
+      const oldestTs = pendingR.rows[0]?.oldest_ts
+      if (oldestTs) {
+        oldestUnclassifiedAgeSec = Math.round((Date.now() - new Date(oldestTs).getTime()) / 1000)
+      }
+      await client.query(
+        `INSERT INTO kv_store (key, value, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [
+          'health.decision_quality_classifier',
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            processed: classified,
+            unclassified: pendingCount,
+            oldest_unclassified_age_sec: oldestUnclassifiedAgeSec,
+          }),
+        ]
+      )
+    } catch (err) {
+      console.warn('[failureClassifier] heartbeat write failed:', err.message)
+    }
+
+    // ── Backpressure alerting ─────────────────────────────────────────────────
+    // Soft alert (unclassified > 50 for 2 consecutive runs):
+    //   kv_store alert.dq_classifier.backlog + SMS
+    // Hard alert (unclassified > 200 for 4 consecutive runs):
+    //   status_board P2 row + escalated SMS
+    // Per ~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md
+    try {
+      await _checkBackpressure(client, pendingCount)
+    } catch (err) {
+      console.warn('[failureClassifier] backpressure check failed:', err.message)
+    }
 
     // Side-channel maintenance: refresh the auto-vs-tate accuracy kv_store
     // key (rolling 7d). If accuracy < 70%, surface a P2 status_board row.
@@ -640,8 +775,164 @@ async function tickClassifier({ max = DEFAULT_MAX_PER_TICK } = {}) {
       console.warn('[failureClassifier] entropy check failed:', err.message)
     }
 
-    return { ok: true, classified, skipped, errors, distribution, max, entropy: entropyResult?.entropy ?? null }
+    return {
+      ok: true,
+      classified,
+      skipped,
+      errors,
+      distribution,
+      maxCheap,
+      maxSemantic,
+      unclassified_after: pendingCount,
+      oldest_unclassified_age_sec: oldestUnclassifiedAgeSec,
+      entropy: entropyResult?.entropy ?? null,
+    }
   })
+}
+
+/**
+ * Backpressure checker — fires soft + hard alerts based on consecutive-run
+ * counts stored in kv_store. Called from tickClassifier after each tick.
+ *
+ * Soft threshold: unclassified > BACKLOG_SOFT_THRESHOLD for
+ *                 BACKLOG_SOFT_CONSECUTIVE consecutive runs.
+ * Hard threshold: unclassified > BACKLOG_HARD_THRESHOLD for
+ *                 BACKLOG_HARD_CONSECUTIVE consecutive runs.
+ *
+ * Alerting:
+ *   Soft → kv_store `alert.dq_classifier.backlog` update +
+ *           SMS via osAlertingService (12h dedup on SMS).
+ *   Hard → status_board P2 upsert + escalated SMS.
+ *
+ * Set env DQ_CLASSIFIER_ALERT_DRY_RUN=1 to suppress actual SMS during testing.
+ * kv_store keys are always written regardless of dry-run flag.
+ */
+async function _checkBackpressure(client, pendingCount) {
+  const KV_CONSECUTIVE = 'telemetry.dq_classifier.consecutive_over_threshold'
+  const KV_ALERT       = 'alert.dq_classifier.backlog'
+  const DRY_RUN        = process.env.DQ_CLASSIFIER_ALERT_DRY_RUN === '1'
+
+  // Read current consecutive state.
+  const kvR = await client.query(
+    `SELECT value FROM kv_store WHERE key = $1 LIMIT 1`,
+    [KV_CONSECUTIVE]
+  )
+  let state = { soft: 0, hard: 0 }
+  if (kvR.rowCount > 0) {
+    try { state = JSON.parse(kvR.rows[0].value) } catch { /* use default */ }
+  }
+
+  const overSoft = pendingCount > BACKLOG_SOFT_THRESHOLD
+  const overHard = pendingCount > BACKLOG_HARD_THRESHOLD
+
+  // Increment or reset counters.
+  state.soft = overSoft ? (state.soft || 0) + 1 : 0
+  state.hard = overHard ? (state.hard || 0) + 1 : 0
+  state.last_count = pendingCount
+  state.last_checked = new Date().toISOString()
+
+  // Persist updated state.
+  await client.query(
+    `INSERT INTO kv_store (key, value, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [KV_CONSECUTIVE, JSON.stringify(state)]
+  )
+
+  // ── Hard alert ──────────────────────────────────────────────────────────────
+  if (state.hard >= BACKLOG_HARD_CONSECUTIVE) {
+    const NAME = 'DQ classifier hard backlog alert - unclassified >200 for 4+ runs'
+    const ctx  = `decision-quality-classifier backlog: ${pendingCount} unclassified rows (threshold ${BACKLOG_HARD_THRESHOLD}) sustained for ${state.hard} consecutive runs. Root causes: production rate exceeds classification throughput, or a burst that hasn't cleared. Action: increase DEFAULT_MAX_CHEAP_PER_TICK / DEFAULT_MAX_SEMANTIC_PER_TICK, or investigate why rows aren't being cleared.`
+    const exists = await client.query(
+      `SELECT id FROM status_board WHERE name = $1 AND archived_at IS NULL LIMIT 1`,
+      [NAME]
+    )
+    if (exists.rowCount > 0) {
+      await client.query(
+        `UPDATE status_board SET status = 'in-progress', context = $2, last_touched = NOW() WHERE id = $1`,
+        [exists.rows[0].id, ctx]
+      )
+    } else {
+      await client.query(
+        `INSERT INTO status_board (entity_type, name, status, next_action, next_action_by, priority, context, last_touched)
+         VALUES ('infrastructure', $1, 'open', 'Investigate DQ classifier backlog: check production rate vs classification throughput; consider raising per-tick caps', 'ecodiaos', 2, $2, NOW())`,
+        [NAME, ctx]
+      )
+    }
+
+    // Escalated SMS (hard).
+    const lastSmsR = await client.query(
+      `SELECT updated_at FROM kv_store WHERE key = $1 LIMIT 1`,
+      [KV_ALERT]
+    )
+    const lastSmsAt = lastSmsR.rowCount > 0 ? new Date(lastSmsR.rows[0].updated_at) : null
+    const smsAgeH   = lastSmsAt ? (Date.now() - lastSmsAt.getTime()) / 3600000 : Infinity
+    if (smsAgeH >= 12) {
+      await client.query(
+        `INSERT INTO kv_store (key, value, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [KV_ALERT, JSON.stringify({ level: 'hard', count: pendingCount, ts: new Date().toISOString() })]
+      )
+      if (!DRY_RUN) {
+        try {
+          const alerting = require('../osAlertingService')
+          await alerting.sendSmsToTate(`[HARD] DQ classifier: ${pendingCount} unclassified rows, ${state.hard} runs > threshold. Check status_board.`)
+        } catch (smsErr) {
+          console.warn('[failureClassifier] hard-alert SMS failed:', smsErr.message)
+        }
+      } else {
+        console.log('[failureClassifier][DRY_RUN] would SMS (hard):', `${pendingCount} unclassified, ${state.hard} runs over threshold`)
+      }
+    }
+    return
+  }
+
+  // ── Soft alert ──────────────────────────────────────────────────────────────
+  if (state.soft >= BACKLOG_SOFT_CONSECUTIVE) {
+    // Update alert kv_store key regardless of SMS dedup.
+    await client.query(
+      `INSERT INTO kv_store (key, value, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [KV_ALERT, JSON.stringify({ level: 'soft', count: pendingCount, consecutive: state.soft, ts: new Date().toISOString() })]
+    )
+
+    // SMS with 12h dedup.
+    const lastSmsR = await client.query(
+      `SELECT updated_at FROM kv_store WHERE key = $1 LIMIT 1`,
+      [KV_ALERT]
+    )
+    const lastSmsAt = lastSmsR.rowCount > 0 ? new Date(lastSmsR.rows[0].updated_at) : null
+    // Reuse the same kv value — check parsed ts instead to avoid double-counting.
+    // The alert key was just updated above, so we check the PREVIOUS value's age
+    // by comparing parsed state. Use a separate dedup key.
+    const dedupR = await client.query(
+      `SELECT updated_at FROM kv_store WHERE key = $1 LIMIT 1`,
+      ['alert.dq_classifier.soft_sms_last_sent']
+    )
+    const lastSoftSms = dedupR.rowCount > 0 ? new Date(dedupR.rows[0].updated_at) : null
+    const softSmsAgeH = lastSoftSms ? (Date.now() - lastSoftSms.getTime()) / 3600000 : Infinity
+
+    if (softSmsAgeH >= 12) {
+      await client.query(
+        `INSERT INTO kv_store (key, value, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        ['alert.dq_classifier.soft_sms_last_sent', JSON.stringify({ count: pendingCount, ts: new Date().toISOString() })]
+      )
+      if (!DRY_RUN) {
+        try {
+          const alerting = require('../osAlertingService')
+          await alerting.sendSmsToTate(`[SOFT] DQ classifier: ${pendingCount} unclassified rows for ${state.soft} runs (threshold ${BACKLOG_SOFT_THRESHOLD}). Monitor.`)
+        } catch (smsErr) {
+          console.warn('[failureClassifier] soft-alert SMS failed:', smsErr.message)
+        }
+      } else {
+        console.log('[failureClassifier][DRY_RUN] would SMS (soft):', `${pendingCount} unclassified, ${state.soft} runs over threshold`)
+      }
+    }
+  }
 }
 
 /**
@@ -773,19 +1064,35 @@ async function runOnce(opts = {}) {
 }
 
 if (require.main === module) {
-  // CLI: --once for one-shot, --max=N to override per-tick cap.
+  // CLI:
+  //   --once                     one-shot run with default caps
+  //   --max=N                    legacy: set both maxCheap and maxSemantic to N
+  //   --max-cheap=N              override cheap-rows cap only
+  //   --max-semantic=N           override semantic-rows cap only
+  //   --dry-run                  suppress SMS sends (set DQ_CLASSIFIER_ALERT_DRY_RUN)
   const onceMode = process.argv.includes('--once')
-  const maxArg = process.argv.find(a => a.startsWith('--max='))
-  const max = maxArg ? Math.max(1, parseInt(maxArg.split('=')[1], 10) || DEFAULT_MAX_PER_TICK) : DEFAULT_MAX_PER_TICK
+  const dryRun   = process.argv.includes('--dry-run')
+  if (dryRun) process.env.DQ_CLASSIFIER_ALERT_DRY_RUN = '1'
+
+  const maxArg         = process.argv.find(a => a.startsWith('--max='))
+  const maxCheapArg    = process.argv.find(a => a.startsWith('--max-cheap='))
+  const maxSemanticArg = process.argv.find(a => a.startsWith('--max-semantic='))
+
+  const legacyMax  = maxArg      ? Math.max(1, parseInt(maxArg.split('=')[1], 10)      || DEFAULT_MAX_PER_TICK)       : null
+  const maxCheap   = maxCheapArg ? Math.max(1, parseInt(maxCheapArg.split('=')[1], 10) || DEFAULT_MAX_CHEAP_PER_TICK)  : (legacyMax ?? DEFAULT_MAX_CHEAP_PER_TICK)
+  const maxSemantic= maxSemanticArg ? Math.max(1, parseInt(maxSemanticArg.split('=')[1], 10) || DEFAULT_MAX_SEMANTIC_PER_TICK) : (legacyMax ?? DEFAULT_MAX_SEMANTIC_PER_TICK)
+
+  const opts = { maxCheap, maxSemantic }
+
   if (onceMode) {
-    runOnce({ max })
+    runOnce(opts)
       .then(result => process.exit(result && result.ok ? 0 : 1))
       .catch(err => { console.error(err); process.exit(1) })
   } else {
     // Foreground long-running mode: run every hour, exit on SIGTERM.
-    console.log('[failureClassifier] starting periodic loop, interval=3600s')
-    runOnce({ max })
-    setInterval(() => runOnce({ max }), 60 * 60 * 1000).unref()
+    console.log(`[failureClassifier] starting periodic loop, interval=3600s, maxCheap=${maxCheap}, maxSemantic=${maxSemantic}${dryRun ? ' [DRY_RUN]' : ''}`)
+    runOnce(opts)
+    setInterval(() => runOnce(opts), 60 * 60 * 1000).unref()
     setInterval(() => {}, 60_000).unref()
   }
 }
@@ -804,4 +1111,6 @@ module.exports = {
   SEMANTIC_SIM_THRESHOLD,
   SEMANTIC_TOP_K,
   DEFAULT_MAX_PER_TICK,
+  DEFAULT_MAX_CHEAP_PER_TICK,
+  DEFAULT_MAX_SEMANTIC_PER_TICK,
 }
