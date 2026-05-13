@@ -211,7 +211,11 @@ async function _connect() {
   }
 
   try {
-    _sql = postgres(env.DATABASE_URL, {
+    // Use DATABASE_URL_LISTEN (direct connection, bypasses pgBouncer) when available.
+    // Required since DATABASE_URL now points to the transaction-mode pooler (port 6543)
+    // which does NOT support LISTEN/NOTIFY. Direct connection has no session-slot cap.
+    const listenUrl = process.env.DATABASE_URL_LISTEN || env.DATABASE_URL
+    _sql = postgres(listenUrl, {
       max: 1,
       idle_timeout: 0,    // never close idle - LISTEN connection must stay alive
       connect_timeout: 10,

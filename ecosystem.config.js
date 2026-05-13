@@ -38,7 +38,7 @@ module.exports = {
     // pm2 restart ecodia-api (Phase 3 activation step).  Belt-and-braces alongside
     // the route-level flag read from process.env.CONDUCTOR_DETACHED.
     // Phase 2 bridge: fork_mp1mrgs4_f2ba17, 12 May 2026.
-    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_DETACHED: 'true' } },
+    { ...COMMON, name: 'ecodia-api', script: 'src/server.js', max_memory_restart: '3G', env: { ...COMMON.env, PORT: 3001, OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_DETACHED: 'true', DB_POOL_MAX: '3' } },
     // Meeting recorder - decoupled from ecodia-api so API restarts don't drop
     // in-flight chunk uploads. Handles all /api/meetings/* routes. Nginx routes
     // /api/meetings/* → :3003 before the catch-all → :3001.
@@ -47,7 +47,7 @@ module.exports = {
     // Factory runner - owns all CC session child processes.
     // Runs separately from ecodia-api so CC sessions survive API restarts (e.g. self-modification deploys).
     // Communicates with ecodia-api via Redis pub/sub (factoryBridge).
-    { ...COMMON, name: 'ecodia-factory', script: 'src/workers/factoryRunner.js', max_memory_restart: '3G', max_restarts: 10, restart_delay: 5000 },
+    { ...COMMON, name: 'ecodia-factory', script: 'src/workers/factoryRunner.js', max_memory_restart: '3G', max_restarts: 10, restart_delay: 5000, env: { ...COMMON.env, DB_POOL_MAX: '3' } },
     // Rescue - narrow coding-focused CC session that stays alive when
     // ecodia-api is wedged. Always running but idle until a message is
     // sent via the rescue bridge. See src/rescue/rescueRunner.js.
@@ -79,7 +79,7 @@ module.exports = {
     // streams), killing all in-flight forks. recoverStaleForks() then stamps them
     // abort_reason='api_memory_restart' (misleading label - conductor, not api).
     // VPS has 8GB total / ~4GB available; 3G ceiling is safe in practice.
-    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '3G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true' } },
+    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '3G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true', DB_POOL_MAX: '3' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 - OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.
