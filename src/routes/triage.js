@@ -173,4 +173,64 @@ router.get('/health', async (_req, res) => {
   res.json(out)
 })
 
+// Inbox unread counts by account — powers the INBOX panel in CortexAmbient Phase 2.
+// email_threads has an `inbox` column (tate@ecodia.au / code@ecodia.au) and a
+// `labels` array where 'UNREAD' signals an unread thread. `received_at` is the
+// timestamp we use for age.
+//
+// Origin: fork_mp3ndv83_63898a, 2026-05-13
+router.get('/inbox-counts', async (_req, res, next) => {
+  try {
+    const db = require('../config/db')
+    const now = Date.now()
+
+    // Count unread threads per inbox account.
+    // Unread = 'UNREAD' in labels array AND not archived.
+    const rows = await db`
+      SELECT
+        inbox,
+        COUNT(*)::int                          AS unread_count,
+        MIN(received_at)                       AS oldest_received_at
+      FROM email_threads
+      WHERE
+        'UNREAD' = ANY(labels)
+        AND status NOT IN ('archived')
+      GROUP BY inbox
+    `
+
+    function ageLabel(isoDate) {
+      if (!isoDate) return null
+      const diffMs = now - new Date(isoDate).getTime()
+      const diffSec = Math.floor(diffMs / 1000)
+      if (diffSec < 60) return `${diffSec}s`
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`
+      return `${Math.floor(diffSec / 86400)}d`
+    }
+
+    const byAccount = { 'tate@ecodia.au': null, 'code@ecodia.au': null }
+    for (const r of rows) {
+      byAccount[r.inbox] = {
+        unread: r.unread_count,
+        oldestAge: ageLabel(r.oldest_received_at),
+      }
+    }
+
+    const tate = byAccount['tate@ecodia.au'] ?? { unread: 0, oldestAge: null }
+    const code = byAccount['code@ecodia.au'] ?? { unread: 0, oldestAge: null }
+    const total = tate.unread + code.unread
+
+    res.json({ tate, code, total })
+  } catch (err) {
+    logger.warn('GET /api/triage/inbox-counts failed', { error: err.message })
+    // Graceful degradation
+    res.json({
+      tate: { unread: 0, oldestAge: null },
+      code: { unread: 0, oldestAge: null },
+      total: 0,
+      note: 'query_failed',
+    })
+  }
+})
+
 module.exports = router
