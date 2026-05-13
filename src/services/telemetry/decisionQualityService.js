@@ -202,15 +202,57 @@ async function doctrineCoverage(client, days) {
 
 /**
  * Aggregate summary for the response envelope.
+ *
+ * dispatch_count, outcome_count, and correction_count exclude rows linked to
+ * synthetic dispatches (action_subtype = 'synthetic_pass') so the implied
+ * success_rate reflects real conductor decisions only.
+ *
+ * Background: synthetic dispatches (SMOKE TEST, PONG, healthcheck, ping) always
+ * resolve to outcome='success' by design. Including them inflates the success
+ * numerator and denominator, masking genuine failure signal in the real fleet.
+ *
+ * synthetic_dispatch_count is returned as a diagnostic so callers can verify
+ * how many synthetics were excluded from the window.
+ *
+ * surface_count and application_count are NOT filtered — surface/application
+ * events are hook-level signals independent of brief content; synthetic-pass
+ * filtering is scoped to outcome-linked metrics only.
+ *
+ * Phase G critique-04: fork_mp3opd2q_d44cc8, 13 May 2026.
+ * Migration: 114_dispatch_event_action_subtype.sql.
  */
 async function summary(client, days) {
   const r = await client.query(`
     SELECT
-      (SELECT COUNT(*) FROM dispatch_event WHERE ts > NOW() - ($1 || ' days')::interval) AS dispatch_count,
-      (SELECT COUNT(*) FROM surface_event  WHERE ts > NOW() - ($1 || ' days')::interval) AS surface_count,
-      (SELECT COUNT(*) FROM application_event WHERE ts > NOW() - ($1 || ' days')::interval) AS application_count,
-      (SELECT COUNT(*) FROM outcome_event WHERE ts > NOW() - ($1 || ' days')::interval) AS outcome_count,
-      (SELECT COUNT(*) FROM outcome_event WHERE outcome='correction' AND ts > NOW() - ($1 || ' days')::interval) AS correction_count
+      -- Real conductor decisions only (excludes synthetic_pass).
+      (SELECT COUNT(*) FROM dispatch_event
+        WHERE ts > NOW() - ($1 || ' days')::interval
+          AND (action_subtype IS NULL OR action_subtype != 'synthetic_pass')
+      ) AS dispatch_count,
+      (SELECT COUNT(*) FROM surface_event
+        WHERE ts > NOW() - ($1 || ' days')::interval
+      ) AS surface_count,
+      (SELECT COUNT(*) FROM application_event
+        WHERE ts > NOW() - ($1 || ' days')::interval
+      ) AS application_count,
+      -- outcome_count and correction_count filtered via join to exclude
+      -- outcomes produced by synthetic dispatches.
+      (SELECT COUNT(*) FROM outcome_event o
+        JOIN dispatch_event d ON d.id = o.dispatch_event_id
+        WHERE o.ts > NOW() - ($1 || ' days')::interval
+          AND (d.action_subtype IS NULL OR d.action_subtype != 'synthetic_pass')
+      ) AS outcome_count,
+      (SELECT COUNT(*) FROM outcome_event o
+        JOIN dispatch_event d ON d.id = o.dispatch_event_id
+        WHERE o.outcome = 'correction'
+          AND o.ts > NOW() - ($1 || ' days')::interval
+          AND (d.action_subtype IS NULL OR d.action_subtype != 'synthetic_pass')
+      ) AS correction_count,
+      -- Diagnostic: how many synthetic dispatches were excluded this window.
+      (SELECT COUNT(*) FROM dispatch_event
+        WHERE ts > NOW() - ($1 || ' days')::interval
+          AND action_subtype = 'synthetic_pass'
+      ) AS synthetic_dispatch_count
   `, [String(days)])
   return r.rows[0] || {}
 }

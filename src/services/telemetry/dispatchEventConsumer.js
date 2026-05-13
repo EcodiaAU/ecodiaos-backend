@@ -66,6 +66,35 @@ const RETENTION_DAYS = 7
 const TICK_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
 /**
+ * Classify a brief excerpt as synthetic/test or real conductor decision.
+ *
+ * Returns 'synthetic_pass' when the brief matches known health-check or
+ * smoke-test patterns. Returns null for real conductor decisions (the
+ * action_subtype column remains NULL in the DB row, which is the "real
+ * decision" sentinel).
+ *
+ * Pattern rationale:
+ *   - SMOKE TEST:  explicit CI/integration smoke-test brief prefix
+ *   - ^PONG$:      health-check reply to a PING dispatch — exact match only
+ *                  to avoid false-positives on words like "pinging", "PONG response"
+ *   - healthcheck: any brief containing this substring (cron health-check forks)
+ *   - ^ping$:      exact "ping" dispatch — exact match only to avoid
+ *                  false-positives on "dispatching", "pinging", etc.
+ *
+ * Origin: Phase G critique-04, fork_mp3opd2q_d44cc8, 13 May 2026.
+ * Migration: 114_dispatch_event_action_subtype.sql.
+ */
+function classifySyntheticBrief(ctx) {
+  const brief = (ctx && typeof ctx.brief_excerpt === 'string') ? ctx.brief_excerpt : ''
+  if (!brief) return null
+  if (/SMOKE TEST/i.test(brief)) return 'synthetic_pass'
+  if (/^PONG$/i.test(brief.trim())) return 'synthetic_pass'
+  if (/healthcheck/i.test(brief)) return 'synthetic_pass'
+  if (/^ping$/i.test(brief.trim())) return 'synthetic_pass'
+  return null
+}
+
+/**
  * Translate a hook name to an action_type value for dispatch_event.
  * Maps the hook firing surface to the upstream tool action shape.
  */
@@ -198,12 +227,19 @@ async function consumeFile(filePath, client) {
       // the row already exists - skip this event and its surfaces entirely.
       // Migration: 109_dispatch_event_dedup.sql.
       // Origin: Critique 01 (phase-G-audit-2026-05-12), fork_mp354iyq_3aef74.
+
+      // Classify brief at insert time: 'synthetic_pass' for SMOKE TEST / PONG /
+      // healthcheck / ping patterns; NULL for real conductor decisions.
+      // Migration: 114_dispatch_event_action_subtype.sql.
+      // Origin: Phase G critique-04, fork_mp3opd2q_d44cc8, 13 May 2026.
+      const actionSubtype = classifySyntheticBrief(ctx)
+
       const dispatchResult = await client.query(
-        `INSERT INTO dispatch_event (ts, actor, action_type, tool_name, context_keywords, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO dispatch_event (ts, actor, action_type, tool_name, context_keywords, metadata, action_subtype)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING
          RETURNING id`,
-        [ts, actor, actionType, toolName, keywords, metadata]
+        [ts, actor, actionType, toolName, keywords, metadata, actionSubtype]
       )
       if (dispatchResult.rows.length === 0) {
         // Duplicate blocked by unique constraint - skip this event and surfaces.
@@ -601,4 +637,5 @@ module.exports = {
   actionTypeForHook,
   extractContextKeywords,
   classifyApplicationEventFalsePositive,
+  classifySyntheticBrief,
 }
