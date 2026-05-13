@@ -172,6 +172,9 @@ app.use('/api/restart-requests', require('./routes/restartRequests'))
 app.use('/api/ops', require('./routes/ops'))
 // /api/ops/listener-stats - perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
 app.use('/api/ops/listener-stats', require('./routes/ops/listenerStats'))
+// Phase 4 dashboard endpoints (fork_mp3pkavh_12c438)
+app.use('/api/scheduler', require('./routes/scheduler'))
+app.use('/api/kv-store', require('./routes/kvStore'))
 app.use('/api/dispatch-queue', require('./routes/dispatchQueue'))
 // /api/push - mobile device push token registration (APNs / FCM).
 // fork_mov3s5fq_a7009b 2026-05-07.

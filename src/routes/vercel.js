@@ -32,6 +32,25 @@ router.get('/deployments/:id/logs', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// GET /api/vercel/recent - last 8 deployments across all projects for Ship Board panel
+// Phase 4 dashboard (fork_mp3pkavh_12c438)
+router.get('/recent', async (_req, res, next) => {
+  try {
+    const rows = await vercelService.getDeployments({ limit: 8 })
+    res.json({
+      deploys: rows.map((d) => ({
+        vercel_deployment_id: d.vercel_deployment_id,
+        project_name:         d.project_name ?? 'unknown',
+        url:                  d.url ?? null,
+        state:                d.state ?? 'UNKNOWN',
+        created_at:           d.created_at ? new Date(d.created_at).toISOString() : null,
+        git_commit_sha:       d.git_commit_sha ? String(d.git_commit_sha).slice(0, 7) : null,
+        git_commit_message:   d.git_commit_message ?? null,
+      })),
+    })
+  } catch (err) { next(err) }
+})
+
 // GET /api/vercel/stats
 router.get('/stats', async (_req, res, next) => {
   try {
