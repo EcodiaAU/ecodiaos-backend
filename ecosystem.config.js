@@ -71,7 +71,15 @@ module.exports = {
     //   Phase 2 bridge: fork_mp1mrgs4_f2ba17. Phase 2 follow-up (bearer + worker gate): fork_mp1n7bm3_a5d11f.
     //   Phase 3: conductor now owns all workers (cron poller, os-session queue, listeners).
     //   ecodia-api keeps CONDUCTOR_DETACHED=true and proxies session calls to 127.0.0.1:3002.
-    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '2G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true' } },
+    // max_memory_restart raised 2G -> 3G on 13 May 2026 (fork_mp3blcb9_767722) to
+    // match the same fix applied to ecodia-api on 8 May 2026. After Phase 3
+    // activation (fork_mp1wwwl0_6d2263, 12 May 2026) forks run in ecodia-conductor
+    // (CONDUCTOR_OWNS_WORKERS=true), not ecodia-api. The 2G ceiling was triggering
+    // PM2 max_memory_restart during fork-heavy sessions (4 concurrent Claude SDK
+    // streams), killing all in-flight forks. recoverStaleForks() then stamps them
+    // abort_reason='api_memory_restart' (misleading label - conductor, not api).
+    // VPS has 8GB total / ~4GB available; 3G ceiling is safe in practice.
+    { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '3G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 - OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.
