@@ -117,11 +117,20 @@ usageEnergy.on('claude-available', ({ provider, reason }) => {
 // domain-specific subagents. Each subagent loads only its relevant MCP servers,
 // keeping the conductor's context window lean.
 //
-// Conductor keeps:  neo4j, scheduler, factory, supabase
+// Conductor keeps:  neo4j, scheduler, factory, supabase, vps
 // Subagents:        comms (google-workspace+crm+sms), finance (bookkeeping+supabase),
 //                   ops (vps+supabase), social (business-tools)
+//
+// NOTE: vps added to conductor 2026-05-13 (fork_mp3dzmai_2bc555).
+// Root cause: conductor was trying to call mcp__vps__pm2_restart /
+// mcp__vps__shell_exec directly but vps was NOT in CONDUCTOR_SERVERS,
+// so the SDK rejected every call with "The user doesn't want to proceed."
+// bypassPermissions + allowDangerouslySkipPermissions only bypass the
+// harness permission PROMPTS — they cannot unblock tools absent from
+// allowedTools. The ops subagent still has vps; conductor now has it too
+// for direct PM2 process-control without Agent-tool overhead.
 
-const CONDUCTOR_SERVERS = ['neo4j', 'scheduler', 'factory', 'supabase']
+const CONDUCTOR_SERVERS = ['neo4j', 'scheduler', 'factory', 'supabase', 'vps']
 
 const SUBAGENT_DOMAINS = {
   comms:   ['google-workspace', 'crm', 'sms'],
