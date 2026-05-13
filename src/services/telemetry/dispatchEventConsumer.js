@@ -66,14 +66,16 @@ const RETENTION_DAYS = 7
 const TICK_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
 /**
- * Classify a brief excerpt as synthetic/test or real conductor decision.
+ * Classify a brief excerpt as synthetic/test, infrastructure/cron, or a real
+ * conductor decision.
  *
- * Returns 'synthetic_pass' when the brief matches known health-check or
- * smoke-test patterns. Returns null for real conductor decisions (the
- * action_subtype column remains NULL in the DB row, which is the "real
- * decision" sentinel).
+ * Returns:
+ *   'synthetic_pass'        — known health-check or smoke-test pattern
+ *   'infrastructure_verified' — telemetry/infra cron dispatch, not a user-facing
+ *                              decision (Phase G critique-05 addition)
+ *   null                    — real conductor decision (action_subtype stays NULL)
  *
- * Pattern rationale:
+ * synthetic_pass pattern rationale:
  *   - SMOKE TEST:  explicit CI/integration smoke-test brief prefix
  *   - ^PONG$:      health-check reply to a PING dispatch — exact match only
  *                  to avoid false-positives on words like "pinging", "PONG response"
@@ -81,16 +83,34 @@ const TICK_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
  *   - ^ping$:      exact "ping" dispatch — exact match only to avoid
  *                  false-positives on "dispatching", "pinging", etc.
  *
- * Origin: Phase G critique-04, fork_mp3opd2q_d44cc8, 13 May 2026.
+ * infrastructure_verified pattern rationale (critique-05):
+ *   Telemetry crons (TELEMETRY DISPATCH CONSUMER, TELEMETRY OUTCOME INFERENCE,
+ *   TELEMETRY FAILURE CLASSIFIER) and infrastructure crons (OS_FORKS REAPER,
+ *   KG EMBEDDING, KG CONSOLIDATION, NEO4J AURA KEEP-ALIVE) are DIRECT_EXEC
+ *   class dispatches — system-initiated, not user-facing decisions. Including
+ *   them in success_rate dilutes the denominator with rows that carry no
+ *   real decision-quality signal. The producer stamps these at insert time so
+ *   the inferrer SHORT-CIRCUITs them without semantic analysis.
+ *
+ * Origin: Phase G critique-04, fork_mp3opd2q_d44cc8, 13 May 2026 (synthetic_pass).
+ *         Phase G critique-05, fork_mp3qh8uh_6fce6e, 13 May 2026 (infrastructure_verified).
  * Migration: 114_dispatch_event_action_subtype.sql.
  */
 function classifySyntheticBrief(ctx) {
   const brief = (ctx && typeof ctx.brief_excerpt === 'string') ? ctx.brief_excerpt : ''
   if (!brief) return null
+  // --- synthetic_pass tier (health-checks / smoke-tests) ---
   if (/SMOKE TEST/i.test(brief)) return 'synthetic_pass'
   if (/^PONG$/i.test(brief.trim())) return 'synthetic_pass'
   if (/healthcheck/i.test(brief)) return 'synthetic_pass'
   if (/^ping$/i.test(brief.trim())) return 'synthetic_pass'
+  // --- infrastructure_verified tier (telemetry/infra crons) ---
+  // These are DIRECT_EXEC class system crons, not user-facing decisions.
+  if (/^TELEMETRY/i.test(brief)) return 'infrastructure_verified'
+  if (/DIRECT_EXEC/i.test(brief)) return 'infrastructure_verified'
+  if (/^OS_FORKS REAPER/i.test(brief)) return 'infrastructure_verified'
+  if (/^KG (EMBEDDING|CONSOLIDATION)/i.test(brief)) return 'infrastructure_verified'
+  if (/^NEO4J AURA KEEP-ALIVE/i.test(brief)) return 'infrastructure_verified'
   return null
 }
 

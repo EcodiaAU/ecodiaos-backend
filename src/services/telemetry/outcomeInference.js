@@ -65,9 +65,13 @@
  *        (give the system time to settle; next cron tick will revisit).
  *
  * Schema notes:
- *   outcome_event.outcome ∈ {'success','failure','correction','unverified','partial'}
+ *   outcome_event.outcome ∈ {'success','failure','correction','unverified','partial',
+ *                             'infrastructure_verified'}
  *     ('partial' is reserved for future use; not emitted by the current
- *      heuristics. 'unverified' is the Phase G addition.)
+ *      heuristics. 'unverified' is the Phase G addition.
+ *      'infrastructure_verified' is the Phase G critique-05 addition — telemetry/
+ *      infra cron dispatches that are system-initiated, not user-facing decisions,
+ *      and therefore excluded from success_rate denominator.)
  *   outcome_event.classification is left NULL here; Phase D adds the
  *     usage_failure / surfacing_failure / doctrine_failure label for
  *     correction AND failure rows (per Phase G Critique #1 expansion).
@@ -89,6 +93,45 @@ const SMS_CORRECTION_WINDOW_MS = 30 * 60 * 1000 // 30 minutes after dispatch
 const UNVERIFIED_AGE_MS = 30 * 60 * 1000 // dispatch must be at least this old before defaulting to unverified
 
 /**
+ * Infrastructure/telemetry cron brief patterns — SHORT-CIRCUIT tier.
+ *
+ * Dispatches matching these patterns are system-initiated DIRECT_EXEC class
+ * crons, not user-facing decisions. Classifying them as 'infrastructure_verified'
+ * pulls them out of the success_rate denominator (they don't carry decision-
+ * quality signal) and avoids wasting semantic analysis cycles on them.
+ *
+ * The producer (classifySyntheticBrief in dispatchEventConsumer.js) stamps
+ * action_subtype='infrastructure_verified' at INSERT time for new rows.
+ * This regex set is the fallback for rows that pre-date the producer change.
+ *
+ * Phase G critique-05, fork_mp3qh8uh_6fce6e, 13 May 2026.
+ */
+const INFRA_CRON_PATTERNS = [
+  /^TELEMETRY/i,
+  /DIRECT_EXEC/i,
+  /^OS_FORKS REAPER/i,
+  /^KG (EMBEDDING|CONSOLIDATION)/i,
+  /^NEO4J AURA KEEP-ALIVE/i,
+]
+
+/**
+ * Returns true when the dispatch's brief_excerpt (from metadata) or
+ * action_subtype matches an infrastructure/telemetry cron pattern.
+ *
+ * Used as the SHORT-CIRCUIT guard in inferDispatchOutcome. Checks the
+ * producer-stamped action_subtype first (O(1)), falls back to regex on
+ * metadata.brief_excerpt for pre-migration rows.
+ */
+function isInfrastructureBrief(dispatch) {
+  if (dispatch.action_subtype === 'infrastructure_verified') return true
+  const brief = (dispatch.metadata && typeof dispatch.metadata.brief_excerpt === 'string')
+    ? dispatch.metadata.brief_excerpt
+    : ''
+  if (!brief) return false
+  return INFRA_CRON_PATTERNS.some(re => re.test(brief))
+}
+
+/**
  * Compute inference confidence based on how many substrates were probed.
  * Explicit signals (failure, correction) return 1.0.
  * Inferred outcomes get confidence proportional to triangulation count:
@@ -99,6 +142,8 @@ const UNVERIFIED_AGE_MS = 30 * 60 * 1000 // dispatch must be at least this old b
  */
 function computeConfidence(outcome, substratesChecked) {
   if (outcome === 'failure' || outcome === 'correction') return 1.0
+  // infrastructure_verified: certainty by definition — it's a system cron, not a decision.
+  if (outcome === 'infrastructure_verified') return 1.0
   if (outcome === 'success') {
     if (substratesChecked >= 3) return 0.9
     if (substratesChecked === 2) return 0.7
@@ -720,6 +765,27 @@ async function inferDispatchOutcome(client, dispatch, smsTable) {
   const meta = dispatch.metadata || {}
   let substratesChecked = 0
 
+  // SHORT-CIRCUIT: infrastructure/telemetry cron dispatches.
+  //
+  // These are DIRECT_EXEC class system crons (telemetry consumers, OS_FORKS
+  // REAPER, KG embedding/consolidation, Neo4j keep-alive). They are not
+  // user-facing decisions and carry no decision-quality signal. Classifying
+  // them as 'infrastructure_verified' pulls them out of the success_rate
+  // denominator (Layer 4 dashboard filter) and avoids wasting semantic
+  // analysis cycles on them.
+  //
+  // Check order: action_subtype field first (producer-stamped at INSERT by
+  // classifySyntheticBrief), then regex fallback on metadata.brief_excerpt
+  // for rows that pre-date the critique-05 producer change.
+  //
+  // Phase G critique-05, fork_mp3qh8uh_6fce6e, 13 May 2026.
+  if (isInfrastructureBrief(dispatch)) {
+    return {
+      outcome: 'infrastructure_verified',
+      evidence: 'confidence=1.0|cron-fired telemetry/infrastructure dispatch, not a user-facing decision',
+    }
+  }
+
   // Step 1: type-specific FAILURE signals (highest evidence on the negative side).
   if (dispatch.action_type === 'fork_spawn') {
     const r = await inferForkSpawnOutcome(client, dispatch)
@@ -863,7 +929,7 @@ async function tickInferOutcomes() {
   let inferred = 0
   let skipped = 0
   let errors = 0
-  const distribution = { success: 0, failure: 0, correction: 0, unverified: 0 }
+  const distribution = { success: 0, failure: 0, correction: 0, unverified: 0, infrastructure_verified: 0 }
 
   try {
     // Detect SMS table once per tick.
@@ -887,7 +953,8 @@ async function tickInferOutcomes() {
     // below ensures a dispatch that conflicts on correction_text still gets
     // settled with an 'unverified' row rather than cycling forever.
     const r = await client.query(`
-      SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata
+      SELECT d.id, d.ts, d.actor, d.action_type, d.tool_name, d.metadata,
+             d.action_subtype
       FROM dispatch_event d
       LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
       WHERE o.id IS NULL
@@ -1336,8 +1403,10 @@ module.exports = {
   getForkEndedAt,
   computeConfidence,
   probeExpectedArtefact,
+  isInfrastructureBrief,
   CORRECTION_KEYWORDS,
   CORRECTION_KEYWORDS_WORD_BOUNDARY,
   AFFIRMATION_KEYWORDS,
   UNVERIFIED_AGE_MS,
+  INFRA_CRON_PATTERNS,
 }
