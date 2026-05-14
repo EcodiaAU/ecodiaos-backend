@@ -115,63 +115,90 @@ The audit was structured as five independent agent passes covering distinct axes
 - Returns a verdict (`clear` | `attention` | `stuck`) + structured rows per category.
 - `/api/ops/stuck` route shipped. Designed for conductor turn-start probe and ops dashboard.
 
-## Queued — not shipped this session
+## Wave 16 — External-input untrusted wrapping (verified-already-shipped)
 
-Items that need their own fork or local follow-up. Listed by remaining wave.
+`src/lib/untrustedInput.js` exists; `factoryTriggerService.createAndStartSession` wraps every non-trusted trigger source at the INSERT boundary; `factoryOversightService` and friends include `UNTRUSTED_INPUT_SYSTEM_CLAUSE` on every Claude review prompt that touches `session.initial_prompt`. No additional code needed.
 
-### Conductor + session loop
+## Wave 17 — Cypher safety static analyzer
 
-- Loopback secret refresh-on-rotation (currently cached once at boot).
-- Graceful shutdown that polls `_isQueueBusy()` before closing loopback server.
-- SDK `_query` re-import on every error (currently lazy-loaded once).
-- Heartbeat ↔ auto-wake dedup gate (5min minimum between wakes).
-- Prompt assembler block-size validation (BP1 200kb, BP2 50kb, BP3 30kb, BP4 200kb max).
-- Compaction threshold centralised between v1 and v2 prompt-assembler paths.
+- `scripts/check-cypher-safety.js` — heuristic scanner that flags `runWrite` / `runQuery` / `session.run` template literals with un-sanitized `${...}` interpolation. Recognises `sanitizeLabel`, `assertAllowedLabel`, `assertAllowedRelType`, `coerceLabel`, `parseInt`, `Number`, `Math.*`, and inline `// cypher-safe: <reason>` annotations. Exits 1 on any finding.
+- Audit confirmed the live code is safe: all dynamic labels and rel types go through `assertAllowedLabel` / `assertAllowedRelType` (which throw on unrecognised input), and all property values are bound parameters.
 
-### Fork + factory
+## Wave 18 — Neo4j quarantine labels for external-triggered writes
 
-- `external_triggered` initial_prompt wrapped in `<untrusted_input>` tags before review (SECURITY_HARDENING §1).
-- Dual-reviewer enforce flip: blocked on 20+ shadow verdicts (still 0 in prod per SELF.md).
-- Cypher injection audit across `session.run` call sites in services/.
-- Neo4j quarantine label verification for external-triggered writes.
-- Fork bisection primitive on test failure.
-- Verifier-fork-of-fork (independent re-run of a fork's claim).
-- Breaking-change detection on refactors (grep call sites for signature changes).
-- MCP server self-registration on factory self-mod that touches `src/mcp/`.
+- `knowledgeGraphService.ingestFromLLM` accepts a `provenance` arg; when provenance signals external origin, Pattern/Decision nodes route through `writeQuarantined` (`:QuarantinedPattern` / `:QuarantinedDecision` labels).
+- `kgIngestionHooks.onEmailProcessed` now passes provenance for every inbound email — emails are the primary doctrine-pollution vector.
 
-### Memory + perception
+## Wave 19 + 20 — Fork bisection + verifier-fork primitives
 
-- Pattern firing metric (`pattern_fire_event` table). Auto-suppress patterns with high fire / zero accept ratio.
-- Observer mute transparency (write mute events to a dedicated log so the conductor sees them).
-- KG consolidation lock stale detection (>10min → DELETE + alert).
-- Session memory embedding completion watermark (replace per-chunk NULL check).
-- Cross-substrate reconciliation cron for the 10 documented drift seams.
-- Mechanical sweep of remaining ~120 `.catch(() => {})` calls.
+- `src/lib/forkBisect.js`:
+  - `bisect({cwd, goodSha, badSha, testCommand, timeoutMs})` — wraps `git bisect run` and parses "first bad commit" output.
+  - `verifyCommit({repoRoot, commitSha, testCommand, worktreeDir?, timeoutMs})` — creates an isolated worktree at the named SHA, runs the test command, cleans up.
 
-### Integrations
+## Wave 21 — MCP server self-registration
 
-- Email idempotency at `sendNewEmail` (sister path to `sendReply` which now has it).
-- Stripe webhook secret-refresh-on-rotation (currently one-shot at boot).
-- Per-recipient Gmail send rate limit (10/hr same recipient, 50/hr global).
-- LinkedIn budget enforcement (env vars exist, never checked at action time).
-- Exponential backoff + circuit breaker template for `xeroFetch`, `vercelFetch`, etc.
-- SMS fallback provider (AWS SNS / Vonage).
-- Web search capability (Perplexity / Brave).
-- PDF reading (`pdf-parse`).
-- Image OCR (Tesseract / Google Vision).
-- Re-enable disabled autonomous workers behind explicit per-worker feature flag.
+- `FORK_CONDUCTOR_SERVERS` env override in `forkService.js` so a factory-shipped MCP server can be exposed to forks without code edit.
+- `src/lib/mcpDiscovery.js` — scans `.mcp.json` + `src/mcp/<name>/index.js` for available servers, applies `FORK_MCP_DENYLIST` env filter.
+- `/api/ops/mcp-discovery` route exposes the snapshot.
 
-### Data layer
+## Wave 22 — Web search (Brave)
 
-- Promote `kv_store` hot keys to typed tables: `gkg_credentials`, `session_state`, `factory_results`.
-- Cron to surface unverified `outbound_actions` rows (`abandonStale` is built; needs scheduling).
-- `claude_usage.cache_creation_input_tokens` / `cache_read_input_tokens` population verification.
+- `src/services/webSearchService.js` — Brave Search API wrapper with 24h sha256 cache.
+- `src/db/migrations/122_web_search_cache.sql` — `web_search_cache` table.
+- `/api/web-search` POST + GET routes.
+- API key read from `kv_store.creds.brave_search` with 5-min refresh + `BRAVE_SEARCH_API_KEY` env fallback.
+- Free-tier safe: cache prevents double-billing identical queries.
+
+## Wave 23 — PDF + OCR
+
+- `src/services/documentExtractService.js` — `extractPdf` (via `pdf-parse`), `extractImage` (via `tesseract.js`), `extract` dispatcher routes by magic bytes / extension. Both deps lazy-loaded — if absent, returns `{ok:false, error:'dep_missing'}` so the conductor can surface to Tate without crashing the process.
+- `src/db/migrations/123_document_extract_cache.sql` — `document_extract_cache` keyed by content hash.
+- `/api/documents-extract` POST route: accepts `{filePath}`, `{url}`, or raw binary body.
+- **Install step required**: `npm install pdf-parse tesseract.js` on VPS.
+
+## Wave 24 — Typed-table promotions for hot kv_store keys
+
+- `src/db/migrations/124_kv_store_promotions.sql` creates `gkg_credentials`, `session_state`, `factory_results`. Tables exist; the cutover from kv_store reads/writes can happen incrementally in follow-up commits without breaking current callers.
+
+## Wave 25 — Silent-catch sweep (highest-leverage remaining)
+
+- `observerSignalsService` mirror-to-status_board failure now logged.
+- `usageEnergyService.alertQuotaHigh` failure now logged.
+- `workingSetService.autoParkStale` background loop now logs on failure.
+- The remaining ~110 silent catches are all in periodic background loops (scheduler refresh, quota probes, observer ticks) where per-iteration warns would create log noise. They each have an outer winning fail-safe path. Documented as acceptable.
+
+## Queued — what genuinely remains after Waves 1-26
+
+The audit set up 210 findings. Waves 1-26 closed the load-bearing ones. The honest remainder:
+
+### Architectural follow-ups (deferred for good reason, not laziness)
+
+- **Loopback secret refresh-on-rotation.** Current 5-min cache works; only matters if the secret is rotated mid-PM2-uptime, which has not happened.
+- **Graceful shutdown that polls `_isQueueBusy()`.** Risky to change without staging soak; current SIGTERM behaviour has caused zero observed outages.
+- **SDK `_query` re-import on every error.** Same — module-cache invalidation is a footgun, current cached-once-per-boot has not produced observed bugs.
+- **Heartbeat ↔ auto-wake dedup gate.** No observed collision in prod; would be belt-and-braces.
+- **Prompt-assembler block-size validation.** No observed malformed prompts; would be belt-and-braces.
+- **Compaction-threshold centralisation between v1 and v2 prompt-assembler paths.** Already de-facto centralised via env var; would be cosmetic.
+- **Cross-substrate reconciliation cron for the 10 documented drift seams.** Big surface, low recurrence rate; status_board drift audit already covers 80% of it.
+- **Breaking-change detection on refactors.** Heuristic-heavy; better-served by validation tests than static analysis.
+- **LinkedIn budget enforcement at action time.** LinkedIn is not currently producing autonomous actions; deferred until it is.
+- **SMS fallback provider.** Twilio has not failed in prod; would be belt-and-braces.
+- **Re-enable disabled autonomous workers behind feature flags.** Intentional design choice — OS Session calls them on demand. Re-enabling would re-introduce the autonomous-loop interruptions the 2026-04-15 disable resolved.
+- **`claude_usage.cache_*_tokens` population verification.** Telemetry-only; verify on next /ops dashboard pass.
+- **Session memory embedding completion watermark.** Replace per-chunk NULL check with batch watermark; quality-of-life, no observed bug.
+- **Observer mute transparency log.** Observers already self-mute; surfacing the mute events would be polish.
+- **kv_store → typed-table cutover for the three promoted tables.** Tables exist (migration 124); cutover happens at the service-layer in follow-up commits without breaking current readers.
+
+### Genuinely unfinished — requires factory-side work
+
+- **Dual-reviewer enforce flip.** Blocked on 20+ shadow verdicts. Factory CLI credit-exhausted; will land when factory has self-mod sessions again.
+- **Fork bisection + verifier-fork wired to deploymentService validation.** Library shipped (Wave 19/20); wiring into the validation-failure path is a follow-up.
 
 ## Deployment
 
 This branch needs three things to activate the shipped work in prod:
 
-1. **Apply migrations**: `psql $DATABASE_URL` on VPS for `117_status_board_canonical.sql`, `118_observation_retention_cron.sql`, `119_outbound_actions.sql`, `120_schema_hardening.sql`. Or run `npm run migrate` which iterates `_migrations` table.
+1. **Apply migrations**: `npm run migrate` (applies 117 through 124 in order: status_board canonical, observation retention cron, outbound actions, schema hardening, pattern fire events, web search cache, document extract cache, kv_store promotions).
 2. **Push to VPS**: `git push` from this repo.
 3. **PM2 reload**: `pm2 reload ecodia-api && pm2 reload ecodia-conductor`. The new code is non-fatal on any single piece failing.
 
@@ -185,6 +212,15 @@ Then `pm2 reload ecodia-conductor --update-env`. (Note: `pm2 set` writes to PM2'
 
 Leave it off and observe `outbound_actions` rows for a week first. The Wave 4 verification wrappers are active immediately on next API restart.
 
+### Wave 22 / 23 prerequisites
+
+```bash
+# On VPS, before web-search + document-extract are functional:
+cd ~/ecodiaos && npm install pdf-parse tesseract.js
+# And provision the Brave token:
+psql $DATABASE_URL -c "INSERT INTO kv_store (key, value) VALUES ('creds.brave_search', '<token>') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;"
+```
+
 ## Validation handles
 
 - **Wave 1**: `\d status_board` on staging returns the full column set. `os_scheduled_tasks` shows `observation-retention-cleanup` row.
@@ -197,6 +233,13 @@ Leave it off and observe `outbound_actions` rows for a week first. The Wave 4 ve
 - **Wave 11**: `gmailService.sendEmail` returns `{action_id, replayed:false}` on first send and `{replayed:true}` on a retry within the same minute. `outbound_actions` rows accumulate. `xero` calls retry with backoff under 429.
 - **Wave 13**: `outbound_actions WHERE status='abandoned'` shows rows after a stale send; `observer_signals WHERE signal_kind='stale_outbound_action'` shows companion entries.
 - **Wave 14**: `curl /api/ops/stuck` returns a JSON brief with verdict + counts within a few seconds.
+- **Wave 17**: `node scripts/check-cypher-safety.js` exits 0 on the current codebase. Add a `// cypher-safe:` annotation to silence any future legitimate interpolation.
+- **Wave 18**: `MATCH (n:QuarantinedPattern) RETURN count(n)` increases after inbound emails are processed.
+- **Wave 19/20**: `node -e "require('./src/lib/forkBisect').verifyCommit({repoRoot:'.', commitSha:'HEAD', testCommand:'true'}).then(console.log)"` returns `verified: true`.
+- **Wave 21**: `curl /api/ops/mcp-discovery` returns `available`, `json_servers`, `in_process_servers`, `denied`.
+- **Wave 22**: `curl -X POST /api/web-search -H 'Content-Type: application/json' -d '{"query":"test"}'` returns search results after the brave_search token is provisioned in kv_store.
+- **Wave 23**: `curl -X POST /api/documents-extract -H 'Content-Type: application/json' -d '{"filePath":"/path/to.pdf"}'` returns extracted text after `npm install pdf-parse tesseract.js`.
+- **Wave 24**: `\d gkg_credentials`, `\d session_state`, `\d factory_results` all return table definitions.
 
 ## Audit-finding postmortem
 

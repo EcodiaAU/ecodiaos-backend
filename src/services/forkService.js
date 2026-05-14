@@ -423,7 +423,14 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
 // refactor there doesn't silently change fork behaviour. Kept narrow on
 // purpose: forks should match the conductor's tool surface (minus session
 // lifecycle), not balloon their own.
-const FORK_CONDUCTOR_SERVERS = ['neo4j', 'scheduler', 'factory', 'supabase']
+// MCP servers exposed to a fork's "conductor" MCP surface.
+//
+// Default allow-list. Env override `FORK_CONDUCTOR_SERVERS` lets the conductor
+// add a new MCP server (post factory self-mod that ships `src/mcp/<x>/`) without
+// a code-edit + redeploy. Format: comma-separated names matching `.mcp.json`
+// keys. Empty / unset → use this default. AUTONOMY_AUDIT_2026-05-13 §31.
+const FORK_CONDUCTOR_SERVERS = (process.env.FORK_CONDUCTOR_SERVERS || 'neo4j,scheduler,factory,supabase')
+  .split(',').map(s => s.trim()).filter(Boolean)
 const FORK_SUBAGENT_DOMAINS = {
   comms:   ['google-workspace', 'crm', 'sms'],
   finance: ['bookkeeping', 'supabase'],

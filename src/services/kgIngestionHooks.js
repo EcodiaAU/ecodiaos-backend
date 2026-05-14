@@ -41,6 +41,15 @@ Body: ${(body || snippet || '').slice(0, 2000)}`
       sourceModule: 'gmail',
       sourceId: threadId,
       context,
+      // External trigger: email is attacker-influenced. Pattern/Decision
+      // nodes auto-route to QuarantinedPattern/QuarantinedDecision.
+      // AUTONOMY_AUDIT_2026-05-13 §2.5.
+      provenance: {
+        source: 'gmail',
+        session_id: threadId,
+        trigger: 'inbound_email',
+        external_actor: fromEmail || null,
+      },
     })
   } catch (err) {
     logger.debug('KG email ingestion failed (non-blocking)', { error: err.message })

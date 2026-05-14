@@ -205,11 +205,18 @@ async function writeQuarantined({ label, name, properties = {}, sourceModule, so
 
 // ─── LLM-Driven Ingestion ────────────────────────────────────────────
 
-async function ingestFromLLM(content, { sourceModule, sourceId, context = '' }) {
+async function ingestFromLLM(content, { sourceModule, sourceId, context = '', provenance = null }) {
   if (!env.ANTHROPIC_API_KEY && !env.DEEPSEEK_API_KEY) {
     logger.warn('KG ingestion skipped - no LLM API key (set ANTHROPIC_API_KEY)')
     return
   }
+
+  // External-triggered ingestion → Pattern/Decision nodes route through
+  // writeQuarantined (gets :QuarantinedPattern / :QuarantinedDecision label).
+  // Caller signals "this came from an external trigger" by passing a
+  // provenance object. Conductor/Tate-direct ingestions pass no provenance.
+  // AUTONOMY_AUDIT_2026-05-13 §2.5.
+  const _isExternal = !!(provenance && provenance.source && provenance.trigger)
 
   // Throttle: skip duplicate sourceIds and enforce rate limit
   if (shouldThrottleIngestion(sourceId)) {
@@ -285,13 +292,32 @@ Respond as JSON:
         logger.debug('KG node label rejected', { rawLabel: node.label, name: node.name })
         continue
       }
-      await ensureNode({
-        label: coercedLabel,
-        name: node.name,
-        properties: node.properties || {},
-        sourceModule,
-        sourceId,
-      }).catch(err => logger.warn(`KG node failed: ${node.name}`, { error: err.message }))
+      // Route Pattern/Decision through quarantine when ingestion is
+      // external-triggered. Doctrine pollution by attacker is the threat:
+      // a Pattern node created in an external-triggered session must not
+      // surface in conductor retrieval until promoted. See SECURITY_HARDENING.md §2.5.
+      const useQuarantine = _isExternal && (coercedLabel === 'Pattern' || coercedLabel === 'Decision')
+      const writeFn = useQuarantine
+        ? () => writeQuarantined({
+            label: coercedLabel,
+            name: node.name,
+            properties: node.properties || {},
+            sourceModule,
+            sourceId,
+            provenance,
+          })
+        : () => ensureNode({
+            label: coercedLabel,
+            name: node.name,
+            properties: node.properties || {},
+            sourceModule,
+            sourceId,
+            provenance: provenance || undefined,
+          })
+      await writeFn().catch(err => logger.warn(`KG node failed: ${node.name}`, {
+        error: err.message,
+        quarantined: useQuarantine,
+      }))
     }
 
     // Write all relationships

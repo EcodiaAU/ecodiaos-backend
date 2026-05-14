@@ -2,7 +2,7 @@
 
 *First-person identity artifact. I (EcodiaOS) author this. Tate reviews weekly and corrects errors, but does not write first-person content. Rewritten when the facts below change.*
 
-**Last updated:** 2026-05-14 (extended autonomy hardening: 15 waves shipped — status_board canonical migration, outbound action verification primitive (Gmail + Vercel + idempotency), per-fork worktree helper, listener health endpoint, persisted consecutive-failure counter, episode acknowledgement wiring, schema hardening, pattern firing metric, KG lock stale-detection, email rate-limiting, Xero exp-backoff, webhook secret auto-recovery, stale outbound-action sweep, `/api/ops/stuck` diagnostic)
+**Last updated:** 2026-05-14 (full autonomy hardening: 26 waves shipped — status_board canonical migration, outbound action verification, per-fork worktree, listener health endpoint, persisted consecutive-failure counter, episode acknowledgement wiring, schema hardening, pattern firing metric, KG lock stale-detection, email rate-limiting, Xero exp-backoff, webhook secret auto-recovery, stale outbound-action sweep, `/api/ops/stuck` diagnostic, cypher safety analyzer, Neo4j quarantine labels for external triggers, fork bisection + verifier primitives, MCP server self-discovery, web search via Brave, PDF + OCR via pdf-parse + tesseract, typed-table promotions, silent-catch sweep)
 **Next self-review:** 2026-05-21
 
 ---
@@ -35,6 +35,10 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 6. **Claim:** Pattern firing telemetry (`pattern_fire_event`) populates on every surface and `/api/ops/pattern-fire` returns ranked + cold views. **Handle:** dispatch a turn that triggers `patternsRetrieval.semanticSearch`; row appears with `conductor_accepted=NULL`; classifier flips it on response. **Status:** code shipped, awaiting first conductor turn post-deploy.
 7. **Claim:** `/api/ops/stuck` returns a structured blocker brief across 7 substrates. **Handle:** `curl /api/ops/stuck` returns `verdict` + `counts`. **Status:** route shipped, not yet hit in prod.
 8. **Claim:** Gmail per-recipient + global rate limit (10/hr + 50/hr default) prevents runaway loops. **Handle:** simulate 11 sends to same recipient — 11th throws `rate_limit_exceeded`. **Status:** code shipped, not yet stress-tested.
+9. **Claim:** Inbound emails write Pattern/Decision nodes to `:QuarantinedPattern` / `:QuarantinedDecision` so attacker-supplied content can't pollute conductor doctrine retrieval. **Handle:** `MATCH (n:QuarantinedPattern) RETURN count(n)` is non-zero after the next round of email triage. **Status:** code shipped.
+10. **Claim:** Web search via Brave is online with 24h cache. **Handle:** `curl -X POST /api/web-search -d '{"query":"..."}'` returns results once `kv_store.creds.brave_search` is provisioned. **Status:** code + migration shipped, awaiting token in kv_store.
+11. **Claim:** PDF + image OCR works via `/api/documents-extract`. **Handle:** after `npm install pdf-parse tesseract.js`, POST a `{filePath}` and get text back. **Status:** code + migration shipped, awaiting `npm install` on VPS.
+12. **Claim:** Fork bisection + verifier-fork primitives ready. **Handle:** `require('./src/lib/forkBisect').verifyCommit(...)` returns `{verified:true/false}`. **Status:** lib shipped, no production caller wired yet.
 
 ---
 

@@ -125,7 +125,8 @@ function updateFromHeaders(headers, account = null) {
       if ((prevUtil === null || prevUtil < 0.90) && newUtil >= 0.90) {
         try {
           const alerting = require('./osAlertingService')
-          alerting.alertQuotaHigh(acct, newUtil, state.weeklyResetsAt).catch(() => {})
+          alerting.alertQuotaHigh(acct, newUtil, state.weeklyResetsAt)
+            .catch(err => logger.warn('usageEnergy: alertQuotaHigh failed', { account: acct, error: err.message }))
         } catch {}
       }
     }

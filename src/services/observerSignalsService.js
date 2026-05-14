@@ -297,7 +297,7 @@ async function writeSignal({ observer_name, signal_kind, message, reason, confid
         signal_kind,
         message,
         priority: inserted.priority,
-      }).catch(() => {})
+      }).catch(err => logger.debug('observerSignals: status_board mirror failed', { error: err.message, signal_id: inserted.id }))
     }
 
     return { written: true, id: inserted?.id, signal_kind, priority: inserted?.priority }

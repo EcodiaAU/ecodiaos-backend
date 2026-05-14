@@ -305,7 +305,7 @@ let _autoParkInterval = null
 function startAutoParkLoop() {
   if (_autoParkInterval) return  // idempotent
   _autoParkInterval = setInterval(() => {
-    autoParkStale().catch(() => {})
+    autoParkStale().catch(err => logger.warn('workingSet: autoParkStale failed', { error: err.message }))
   }, 5 * 60 * 1000)
   // Don't block Node exit
   if (_autoParkInterval.unref) _autoParkInterval.unref()
