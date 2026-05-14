@@ -37,7 +37,7 @@ jest.mock('../../websocket/wsManager', () => ({
 }))
 
 const forkService = require('../forkService')
-const { FALLBACK_MARKER } = forkService
+const { FALLBACK_MARKER, SYNTH_MARKER, _isPhantomBail, _isSynthReport } = forkService
 
 beforeEach(() => {
   forkService._resetForTest()
@@ -473,6 +473,92 @@ describe('parser regex: same-line body capture (7 May 2026 root-cause fix)', () 
     expect(out.report).toContain('commit abc123')
     expect(out.report).toContain('14 tests pass')
     expect(out.nextStep).toBe('No action needed; verify deploy lands on Vercel.')
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+describe('synth-report markers (14 May 2026, fork_mp529rfj_48564d)', () => {
+  // Synthesis path: when a fork closes WITHOUT a [FORK_REPORT] tag but the final
+  // assistant turn was a substantive natural-language summary, the post-loop
+  // block in spawnFork now reuses that summary verbatim as the report body and
+  // tags it SYNTH_MARKER. Phantom_bail detection (_isPhantomBail) keys off
+  // FALLBACK_MARKER and must NOT match synth bodies. Conversely _isSynthReport
+  // matches synth bodies and not phantom-bail bodies.
+  //
+  // Origin: Tate verbatim 15:40 AEST 14 May 2026 "would be great to figure out a
+  // way for forks to NEVER phantom bail unless for some reason they should".
+  // Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+
+  test('SYNTH_MARKER and FALLBACK_MARKER are distinct prefixes', () => {
+    expect(SYNTH_MARKER).toBeTruthy()
+    expect(FALLBACK_MARKER).toBeTruthy()
+    expect(SYNTH_MARKER).not.toBe(FALLBACK_MARKER)
+    expect(SYNTH_MARKER.startsWith(FALLBACK_MARKER)).toBe(false)
+    expect(FALLBACK_MARKER.startsWith(SYNTH_MARKER)).toBe(false)
+  })
+
+  test('_isPhantomBail returns false for synth bodies (key invariant)', () => {
+    const synthBody = `${SYNTH_MARKER} — fork closed without [FORK_REPORT] tag; final assistant turn used as body)\n\nAll 5 PM2 procs online, ecodia-api 132min uptime`
+    expect(_isPhantomBail(synthBody)).toBe(false)
+    // And synth marker check fires.
+    expect(_isSynthReport(synthBody)).toBe(true)
+  })
+
+  test('_isPhantomBail returns true for FALLBACK_MARKER bodies (unchanged)', () => {
+    const fallbackBody = `${FALLBACK_MARKER}; last 500 chars of transcript follow)\n\ntail content`
+    expect(_isPhantomBail(fallbackBody)).toBe(true)
+    expect(_isSynthReport(fallbackBody)).toBe(false)
+  })
+
+  test('_isPhantomBail returns false for clean reports', () => {
+    const cleanBody = 'Built X. Tests pass 11/11. Pushed deadbeef.'
+    expect(_isPhantomBail(cleanBody)).toBe(false)
+    expect(_isSynthReport(cleanBody)).toBe(false)
+  })
+
+  test('_buildForkReportBody clean path renders synth body verbatim (no phantom_bail tag)', () => {
+    // When the spawnFork post-loop assigns report = `${SYNTH_MARKER}...` and
+    // passes it into _buildForkReportBody as the `report` arg, the body shape
+    // should look like a clean report (no no_report_emitted=true tag). The
+    // synth prefix lives inside the report body itself for telemetry.
+    const synthReport = `${SYNTH_MARKER} — fork closed without [FORK_REPORT] tag; final assistant turn used as body)\n\nAll 5 PM2 procs online. Backend at HEAD. FE prod-serves from Vercel.`
+    const body = forkService._buildForkReportBody({
+      fork_id: 'fork_test_synth_001',
+      brief: 'audit VPS',
+      report: synthReport,
+      nextStep: 'verify fork artefacts on disk/DB — synthesised body may omit detail',
+      fallbackResult: null,
+    })
+    // Must NOT carry phantom-bail tag.
+    expect(body).not.toMatch(/no_report_emitted=true/)
+    expect(body).not.toMatch(/empty_body=true/)
+    // Synth marker survives inside the rendered report body.
+    expect(body).toContain('synthesised from final assistant turn')
+    // Original transcript content surfaces.
+    expect(body).toContain('All 5 PM2 procs online')
+    // Next step line renders.
+    expect(body).toMatch(/Next step suggested: verify fork artefacts/)
+  })
+
+  test('forkPhantomBail.matcher would NOT classify synth as phantom_bail (downstream invariant)', () => {
+    // The matcher at src/services/matchers/forkPhantomBail.js checks
+    // event.data.report_head.startsWith('(no [FORK_REPORT] emitted'). We
+    // simulate the report_head shape spawnFork publishes (see perceptionBus
+    // .publish at line ~1309 of forkService.js).
+    const synthReport = `${SYNTH_MARKER} — fork closed without [FORK_REPORT] tag; final assistant turn used as body)\n\nWork complete.`
+    const reportHead = synthReport.slice(0, 200)
+    // Replicate the matcher's gate exactly.
+    const wouldClassify = reportHead.startsWith('(no [FORK_REPORT] emitted')
+      || reportHead.includes('no_report_emitted=true')
+    expect(wouldClassify).toBe(false)
+  })
+
+  test('forkPhantomBail.matcher DOES classify FALLBACK_MARKER body as phantom_bail (unchanged)', () => {
+    const fallbackBody = `${FALLBACK_MARKER}; last 500 chars of transcript follow)\n\ntail content`
+    const reportHead = fallbackBody.slice(0, 200)
+    const wouldClassify = reportHead.startsWith('(no [FORK_REPORT] emitted')
+      || reportHead.includes('no_report_emitted=true')
+    expect(wouldClassify).toBe(true)
   })
 })
 

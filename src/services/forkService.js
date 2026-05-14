@@ -105,8 +105,32 @@ const ENERGY_FORK_CAPS = {
 // the readers (forksRollup, future classifiers) stay in sync.
 const FALLBACK_MARKER = '(no [FORK_REPORT] emitted'
 
+// ── Synth marker (added 2026-05-14, fork_mp529rfj_48564d) ───────────────────
+// When a fork closes WITHOUT a [FORK_REPORT] tag but DID emit a substantive
+// final assistant turn (the model summarised its own work in natural language
+// without wrapping in the closing tags), the post-loop block synthesises a
+// report body from that final turn. We tag synth bodies with SYNTH_MARKER so
+// downstream consumers can distinguish them from real reports (lossier — model
+// may have omitted detail) AND from FALLBACK_MARKER (no useful body at all,
+// genuine phantom_bail). Phantom_bail detection (_isPhantomBail, forksRollup,
+// forkPhantomBail matcher) keys off FALLBACK_MARKER, so synth bodies do NOT
+// surface as phantom_bail.
+// Origin: Tate verbatim 15:40 AEST 14 May 2026 "would be great to figure out a
+// way for forks to NEVER phantom bail unless for some reason they should".
+// Doctrine: ~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md
+const SYNTH_MARKER = '(synthesised from final assistant turn'
+
+// Minimum length of the final assistant turn before we treat it as a synth
+// report body. Below this it's likely a tool-call narration fragment ("Running
+// build…") rather than a wrap-up summary, and FALLBACK_MARKER is more honest.
+const SYNTH_MIN_CHARS = 80
+
 function _isPhantomBail(result) {
   return typeof result === 'string' && result.startsWith(FALLBACK_MARKER)
+}
+
+function _isSynthReport(result) {
+  return typeof result === 'string' && result.startsWith(SYNTH_MARKER)
 }
 
 // ── [FORK_REPORT] / [NEXT_STEP] transcript extractor ────────────────────────
@@ -696,6 +720,11 @@ Failure modes to avoid:
 - Emitting only [FORK_REPORT] without [NEXT_STEP] → next_step missing in inbox
 - Burying the block 5 paragraphs up in a longer narrative → still parsed but harder
   to read; put it at the end
+- **Writing a natural-language summary instead of the tagged block.** "All five
+  services online, no restart needed, work complete" reads like a summary but is
+  NOT a [FORK_REPORT]. The parser will synthesise a body from your final turn
+  as a fallback (better than phantom_bail) but the synth body is tagged
+  SYNTH_MARKER so the conductor knows detail may be lost. Always wrap.
 
 # Manager forks (only if brief contains MANAGER: true)
 If your brief marks you as a MANAGER fork, you are the project manager for your subtree.
@@ -1218,7 +1247,16 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // (root-cause patch 7 May 2026 commit 58bb87a, retro-fixer in
       // scripts/retro-fix-fork-result-fallback-extraction.js, contract test
       // in tests/forkReportExtraction.test.js).
-      const { fullText, reportMatch, report, nextStep } = _extractForkReport(state.transcript)
+      const { fullText, reportMatch, report: extractedReport, nextStep: extractedNextStep } = _extractForkReport(state.transcript)
+      // Mutable copies — the synthesis path (added 14 May 2026) may reassign
+      // report/nextStep to surface a final-assistant-turn body as the fork's
+      // report, which downstream uses for had_report, report_head, enqueue
+      // routing, and forksRollup. Without reassignment those downstream sites
+      // would see report=null and the fork would still surface as phantom_bail
+      // even though we replaced state.result with a usable body.
+      let report = extractedReport
+      let nextStep = extractedNextStep
+      let isSynth = false
 
       // If fork emitted [FORK_REPORT], use the captured report verbatim. Otherwise
       // fall back to the tail of the transcript. PRE-2026-05-02 the fallback was
@@ -1251,15 +1289,55 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
           }
         }
       } else if (fullText.length > 0) {
-        const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
-        state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
+        // SYNTHESIS PATH (added 14 May 2026, fork_mp529rfj_48564d).
+        // No [FORK_REPORT] tag in transcript. Recover by treating the LAST
+        // substantive assistant turn as the report body. Most "phantom_bail"
+        // forks today fall here: the model summarises its own work in plain
+        // prose (e.g. "All 5 PM2 procs online... no API restart needed") but
+        // never wraps the summary in [FORK_REPORT] / [NEXT_STEP] tags.
+        // Synthesis gives the conductor a usable body verbatim, marks it
+        // SYNTH_MARKER so it's distinguishable from a real report, and avoids
+        // the noise of phantom_bail rollup flags on forks that shipped real
+        // work. Phantom_bail is reserved for the genuinely-no-substantive-
+        // -final-turn case (insufficient tokens, hard crash, etc.) where
+        // FALLBACK_MARKER + transcript tail remains the honest answer.
+        //
+        // Empirical anchor: fork_mp51yvl0_9dfa61 (VPS audit, 14 May 2026,
+        // tokens_out=85, tool_calls=13) closed status=done with a clean
+        // natural-language summary as the final assistant message and zero
+        // [FORK_REPORT] tag. Pre-fix → phantom_bail rollup line, work invisible
+        // to conductor. Post-fix → synth body wraps the summary verbatim,
+        // conductor sees clean done.
+        //
+        // Origin: Tate verbatim 15:40 AEST 14 May 2026 "would be great to
+        // figure out a way for forks to NEVER phantom bail unless for some
+        // reason they should".
+        const lastAssistant = state.transcript.length > 0
+          ? (state.transcript[state.transcript.length - 1] || '').trim()
+          : ''
+        if (lastAssistant.length >= SYNTH_MIN_CHARS) {
+          isSynth = true
+          report = `${SYNTH_MARKER} — fork closed without [FORK_REPORT] tag; final assistant turn used as body)\n\n${lastAssistant}`
+          state.result = report
+          // Default next_step so the rollup's next_step line surfaces something
+          // actionable. Reminds conductor that synth bodies may omit detail
+          // a real wrap-up would have included.
+          if (!nextStep) {
+            nextStep = 'verify fork artefacts on disk/DB — synthesised body may omit detail'
+          }
+        } else {
+          const tail = fullText.length > 2000 ? fullText.slice(-2000) : fullText
+          state.result = `${FALLBACK_MARKER}; last ${tail.length} chars of transcript follow)\n\n${tail}`
+        }
       } else {
         state.result = '(no output)'
       }
       state.next_step = nextStep
       state.status = 'done'
       state.ended_at = Date.now()
-      state.position = report ? `done: ${report.slice(0, 100)}` : (reportMatch ? 'done (empty FORK_REPORT body)' : 'done')
+      state.position = report
+        ? `done${isSynth ? ' (synth)' : ''}: ${report.slice(0, 100)}`
+        : (reportMatch ? 'done (empty FORK_REPORT body)' : 'done')
       _emitForkEvent('done', state)
       _emitForkStatus(fork_id, 'complete', { fork_id })
       await _dbUpdate(state)
@@ -1292,6 +1370,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         tool_calls: state.tool_calls,
         had_report: !!report,
         had_next_step: !!nextStep,
+        synth_report: isSynth,
       })
 
       // Publish to perception bus — universal domain-reactive dispatch.
@@ -1962,7 +2041,10 @@ module.exports = {
   HARD_FORK_CAP,
   ENERGY_FORK_CAPS,
   FALLBACK_MARKER,
+  SYNTH_MARKER,
+  SYNTH_MIN_CHARS,
   _isPhantomBail,
+  _isSynthReport,
   _extractForkReport,
   _buildForkReportBody,
   _enqueueForkReport,
