@@ -422,7 +422,12 @@ function _tryRuleMatch(tx, rules) {
     try {
       if (new RegExp(rule.pattern, 'i').test(desc)) {
         const amountAbs = Math.abs(tx.amount_cents)
-        const gst = rule.gst_treatment === 'gst_inclusive' ? Math.floor(amountAbs / 11) : 0
+        // Audit 2026-05-13 P2: previously `Math.floor(amountAbs / 11)`.
+        // AU GST inclusive is exactly 1/11; floor introduced 1-2¢ drift
+        // per line that doesn't reconcile against Xero's banker-rounded
+        // total/11. Use Math.round so multi-line invoices stay within
+        // ±1¢ of the totals BAS reconciliation expects.
+        const gst = rule.gst_treatment === 'gst_inclusive' ? Math.round(amountAbs / 11) : 0
         const tags = typeof rule.tags === 'string' ? JSON.parse(rule.tags) : (rule.tags || [])
         return {
           source_ref: tx.source_ref,

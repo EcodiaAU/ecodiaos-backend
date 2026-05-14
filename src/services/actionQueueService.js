@@ -34,7 +34,8 @@ function getRedis() {
 function publishRedis(event, data) {
   const r = getRedis()
   if (!r) return
-  r.publish('ecodiaos:action_events', JSON.stringify({ event, ...data, timestamp: new Date().toISOString() })).catch(() => {})
+  r.publish('ecodiaos:action_events', JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }))
+    .catch(err => logger.warn('actionQueueService: redis publish failed', { event, error: err.message }))
 }
 
 function emitEvent(type, payload) {
@@ -855,7 +856,7 @@ async function expireStale() {
   await db`
     UPDATE action_queue SET expires_at = created_at + interval '1 hour' * ${DEFAULT_EXPIRY_HOURS}
     WHERE status = 'pending' AND expires_at IS NULL
-  `.catch(() => {})
+  `.catch(err => logger.warn('actionQueue.expireStale: expiry backfill failed', { error: err.message }))
 
   const expired = await db`
     UPDATE action_queue SET status = 'expired'

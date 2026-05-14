@@ -451,7 +451,7 @@ async function embedStaleNodes(batchSize = 100) {
         `MATCH (n) WHERE elementId(n) = $nodeId
          SET n.embedding = $embedding, n.embedding_stale = false, n.embedding_text = $text, n:\`__Embedded__\``,
         u
-      ).catch(() => {})
+      ).catch(err => logger.warn('KG embedding sequential write failed', { nodeId: u.nodeId, error: err.message }))
       stored++
     }
   }

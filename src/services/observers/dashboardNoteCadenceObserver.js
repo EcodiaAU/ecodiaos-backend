@@ -36,18 +36,36 @@ let _running = false
 
 async function _readCadenceData() {
   try {
-    // Turn rate: conductor messages per 30-min bucket over last 2h
+    // Turn rate: conductor messages per 30-min bucket over last 2h.
+    // Audit 2026-05-13 P2: canonical user/assistant turn store is
+    // os_conversation (not os_session_messages, which doesn't exist as a
+    // direct turn table). Try the canonical {role, content} shape first
+    // and fall back to {turn_role, turn_text} for older migrations.
     const turnBuckets = await db`
       SELECT
         date_trunc('hour', created_at) +
           INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM created_at) / 30) AS bucket,
         COUNT(*)::int AS turns
-      FROM os_session_messages
+      FROM os_conversation
       WHERE role = 'assistant'
         AND created_at > NOW() - INTERVAL '2 hours'
       GROUP BY bucket
       ORDER BY bucket
-    `.catch(() => [])
+    `.catch(async () => {
+      try {
+        return await db`
+          SELECT
+            date_trunc('hour', created_at) +
+              INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM created_at) / 30) AS bucket,
+            COUNT(*)::int AS turns
+          FROM os_conversation
+          WHERE turn_role = 'assistant'
+            AND created_at > NOW() - INTERVAL '2 hours'
+          GROUP BY bucket
+          ORDER BY bucket
+        `
+      } catch { return [] }
+    })
 
     // Fork spawn rate per 30-min bucket over last 2h
     const forkBuckets = await db`
@@ -105,7 +123,7 @@ async function _poll() {
     await db`
       INSERT INTO dashboard_notes (listener_name, note_text, related_entity)
       VALUES (${NAME}, ${noteText.slice(0, 300)}, ${JSON.stringify({
-        source: 'os_session_messages+os_forks',
+        source: 'os_conversation+os_forks',
         turn_buckets: turnBuckets.length,
         fork_buckets: forkBuckets.length,
       })}::jsonb)

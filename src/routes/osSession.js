@@ -414,12 +414,27 @@ router.post('/upload', uploadJson, async (req, res, next) => {
     const { data } = sb.storage.from('os-attachments').getPublicUrl(slug)
     const extracted = await extractText(buffer, contentType, name)
 
+    // Audit 2026-05-13 P2: per SECURITY_HARDENING §2.1 the extracted
+    // text from an upload is external content and must be wrapped in
+    // <untrusted_input> before reaching the model. Return both the
+    // raw `extracted_text` (for FE display where wrapping would be
+    // visual noise) AND a model-safe `wrapped_text` the FE should
+    // use when stitching the upload into a conductor message. The FE
+    // SHOULD always pass `wrapped_text`; the raw field is retained for
+    // display compatibility.
+    let wrapped = ''
+    try {
+      const { wrapUntrusted } = require('../lib/untrustedInput')
+      wrapped = wrapUntrusted(extracted || '', { source: 'upload', name, type: contentType })
+    } catch { wrapped = extracted || '' }
+
     res.json({
       url: data.publicUrl,
       name,
       type: contentType,
       size: buffer.length,
       extracted_text: extracted,
+      wrapped_text: wrapped,
     })
   } catch (err) { next(err) }
 })

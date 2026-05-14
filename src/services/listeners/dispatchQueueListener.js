@@ -23,11 +23,18 @@ const logger = require('../../config/logger')
 const db = require('../../config/db')
 
 // Map trigger_event_type → which os_forks row transitions match it.
+//
+// Audit 2026-05-13 P0 #16: 'crashed' (set by recoverStaleForks on api
+// restart) is now treated as terminal. Previously this matcher only saw
+// done|aborted|error, so dispatch_queue rows dependent on fork_complete
+// were silently orphaned when their fork was recovered as crashed. We
+// treat crashed as completed-with-failure for both fork_complete and
+// fork_failed; only fork_done_clean still requires a clean 'done'.
 function _eventMatchesTrigger(triggerType, row) {
   if (!row || !row.status) return false
   switch (triggerType) {
     case 'fork_complete':
-      return row.status === 'done' || row.status === 'aborted' || row.status === 'error'
+      return row.status === 'done' || row.status === 'aborted' || row.status === 'error' || row.status === 'crashed'
     case 'fork_done_clean': {
       if (row.status !== 'done') return false
       // Heuristic: result text or next_step doesn't carry the phantom_bail/error markers.
@@ -36,7 +43,7 @@ function _eventMatchesTrigger(triggerType, row) {
       return true
     }
     case 'fork_failed':
-      return row.status === 'aborted' || row.status === 'error'
+      return row.status === 'aborted' || row.status === 'error' || row.status === 'crashed'
     default:
       return false
   }
@@ -142,13 +149,37 @@ async function _processMatchingRows(triggerType, row, sourceEventId) {
     `
     if (claimed.length === 0) continue // someone else got it
 
-    const result = await _executeDispatch(qrow, sourceEventId)
-    await db`
-      UPDATE dispatch_queue
-      SET fired_result = ${JSON.stringify(result)}::jsonb,
-          status = ${result.ok ? 'fired' : 'failed'}
-      WHERE id = ${qrow.id}
-    `
+    // Audit 2026-05-13 P1: previously _executeDispatch was awaited bare.
+    // If it THREW (vs returning {ok:false}) — e.g. require('../forkService')
+    // fails — the row stayed at status='fired' with fired_result=NULL
+    // (since the second UPDATE never ran), AND the outer handle()'s
+    // try/catch just logged. We then had orphaned 'fired' rows that
+    // /api/dispatch-queue/list?status=queued couldn't see — they looked
+    // done but the dispatch hadn't happened. Wrap in try/catch and
+    // explicitly write status='failed' with the error message.
+    let result
+    try {
+      result = await _executeDispatch(qrow, sourceEventId)
+    } catch (err) {
+      result = { ok: false, error: 'execute_threw', message: err.message || String(err) }
+      logger.error('dispatchQueueListener: _executeDispatch threw', {
+        id: qrow.id, dispatch: qrow.dispatch_type, error: err.message,
+      })
+    }
+    try {
+      await db`
+        UPDATE dispatch_queue
+        SET fired_result = ${JSON.stringify(result)}::jsonb,
+            status = ${result.ok ? 'fired' : 'failed'}
+        WHERE id = ${qrow.id}
+      `
+    } catch (updateErr) {
+      // Final-state write itself failed. Worst case: row stays at
+      // 'fired' with NULL fired_result. Log loud so the operator sees it.
+      logger.error('dispatchQueueListener: final-state UPDATE failed', {
+        id: qrow.id, error: updateErr.message,
+      })
+    }
     logger.info('dispatchQueueListener: fired row', {
       id: qrow.id,
       trigger: qrow.trigger_event_type,

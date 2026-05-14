@@ -110,6 +110,34 @@ function _flushWakeBatch() {
 }
 
 async function _wakeOsSession(message, forkId) {
+  // Audit 2026-05-13 P1: durability shadow. In addition to the in-memory
+  // 20s batch (which loses parts on PM2 SIGTERM mid-window), also
+  // enqueue the message into the durable messageQueue substrate so that
+  // a process restart can drain pending wake messages on next boot.
+  // messageQueue is idempotent on (body, source) so a successful batch
+  // flush followed by drain doesn't double-fire — drainIntoDirectMessage
+  // prepends queued messages onto the next direct send. Fire-and-forget;
+  // the in-memory path is still the fast happy path. Mark this entry
+  // with a short max_age so it expires if the batch flushed successfully.
+  try {
+    const mq = require('../messageQueue')
+    if (mq && typeof mq.enqueueMessage === 'function') {
+      // Best-effort persist; do not block the in-memory batch path.
+      // Synthetic source 'fork_wake_recovery' so the drain logic can
+      // distinguish these from normal queued user messages.
+      mq.enqueueMessage({
+        body: String(message),
+        source: 'fork_wake_recovery',
+        mode: 'queue',
+        max_age_hours: 1,
+      }).catch((err) => {
+        logger.debug('forkComplete: wake recovery enqueue failed (non-fatal)', {
+          forkId, error: err && err.message,
+        })
+      })
+    }
+  } catch { /* messageQueue not available; in-memory batch still runs */ }
+
   if (!_wakeBatch) {
     _wakeBatch = { parts: [{ forkId, message, ts: Date.now() }], started_at: Date.now() }
     _wakeBatch.timer = setTimeout(_flushWakeBatch, WAKE_BATCH_WINDOW_MS)
@@ -122,6 +150,26 @@ async function _wakeOsSession(message, forkId) {
     forkId,
     batchSize: _wakeBatch.parts.length,
   })
+}
+
+// Audit 2026-05-13 P1: called from server.js gracefulShutdown so an
+// in-flight 20s batch is flushed synchronously before the process exits.
+// Cancels the pending timer and runs the flush right now; combined with
+// the messageQueue durability shadow above, this is belt-and-braces:
+// the batch usually delivers; if not, the durable queue replays on
+// next boot.
+async function flushPendingWakes() {
+  if (!_wakeBatch) return { flushed: 0 }
+  const count = _wakeBatch.parts.length
+  try {
+    if (_wakeBatch.timer) clearTimeout(_wakeBatch.timer)
+  } catch { /* swallow */ }
+  try {
+    _flushWakeBatch()
+  } catch (err) {
+    logger.warn('forkComplete: flushPendingWakes threw (non-fatal)', { error: err && err.message })
+  }
+  return { flushed: count }
 }
 
 module.exports = {
@@ -305,4 +353,8 @@ module.exports = {
   },
 
   ownsWriteSurface: ['os-session-message'],
+
+  // Audit 2026-05-13 P1: called from server.js gracefulShutdown so the
+  // 20s wake batch is drained before PM2 sends SIGKILL.
+  flushPendingWakes,
 }

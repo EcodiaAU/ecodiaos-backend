@@ -51,6 +51,18 @@ async function gracefulShutdown(signal) {
   shuttingDown = true
   logger.info(`${signal} received - shutting down`)
 
+  // Audit 2026-05-13 P1: drain the forkComplete wake-batch window
+  // BEFORE everything else. The 20s batch holds fork_report wakes in
+  // process memory; if SIGTERM lands mid-window the batch is GC'd and
+  // those wakes are lost (the messageQueue durability shadow recovers
+  // most cases but the synchronous flush here is belt-and-braces).
+  try {
+    const forkComplete = require('./services/listeners/forkComplete')
+    if (forkComplete && typeof forkComplete.flushPendingWakes === 'function') {
+      await forkComplete.flushPendingWakes()
+    }
+  } catch {}
+
   // CC sessions now run in the separate ecodia-factory process.
   // No session drain needed - that's the entire point of the separation.
   // Shutdown the bridge subscriber cleanly.
@@ -82,6 +94,11 @@ async function gracefulShutdown(signal) {
   try {
     const claimVerifier = require('./workers/claimVerifierWorker')
     claimVerifier.stop()
+  } catch {}
+
+  try {
+    const delayQueueWorker = require('./workers/outboundEmailDelayQueueWorker')
+    delayQueueWorker.stop()
   } catch {}
 
   try {
@@ -119,10 +136,40 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
 // Crash handlers - without these, uncaught errors kill the process
 // without triggering SIGTERM/SIGINT, leaving sessions orphaned in DB.
-process.on('uncaughtException', async (err) => {
-  logger.error('Uncaught exception - triggering graceful shutdown', { error: err.message, stack: err.stack })
-  await gracefulShutdown('uncaughtException').catch(() => {})
-  process.exit(1)
+//
+// Audit 2026-05-13 P0 #36: previously this handler awaited the full
+// gracefulShutdown chain (up to 11s of timers, db.end, factoryBridge
+// shutdown, etc.) BEFORE process.exit(1). An uncaught at a non-
+// recoverable point thus extended hung time by up to 11s and blocked
+// PM2's restart. Standard practice on uncaughtException is fast-exit
+// and let PM2 restart cleanly. We still flush the wake-batch + DB
+// close synchronously (fire-and-forget short timeout) so the most
+// urgent recovery substrates aren't abandoned, but the process exits
+// within ~2s regardless.
+const UNCAUGHT_FLUSH_TIMEOUT_MS = 2000
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception - fast-exiting (PM2 will restart)', {
+    error: err.message, stack: err.stack,
+  })
+  // Best-effort flush of fork-wake batch + db pool close, but capped.
+  const flushPromise = (async () => {
+    try {
+      const forkComplete = require('./services/listeners/forkComplete')
+      if (forkComplete && typeof forkComplete.flushPendingWakes === 'function') {
+        await forkComplete.flushPendingWakes()
+      }
+    } catch {}
+    try { await db.end({ timeout: 1 }) } catch {}
+  })()
+  Promise.race([
+    flushPromise,
+    new Promise((r) => setTimeout(r, UNCAUGHT_FLUSH_TIMEOUT_MS)),
+  ]).finally(() => {
+    process.exit(1)
+  })
+  // Also schedule a hard exit in case the flushPromise hangs in a way
+  // that defeats Promise.race (shouldn't happen, but be paranoid).
+  setTimeout(() => process.exit(1), UNCAUGHT_FLUSH_TIMEOUT_MS + 500).unref()
 })
 // Track unhandled rejections - crash only on repeated rapid-fire failures
 // (a sign of systemic breakage, not transient hiccups during shutdown/restart).
@@ -389,6 +436,19 @@ server.listen(env.PORT, async () => {
       claimVerifier.start()
     } catch (err) {
       logger.warn('Claim verifier worker failed to start', { error: err.message })
+    }
+  }
+
+  // ── Boot: Outbound Email Delay Queue Worker ─────────────────────────
+  // Closes the 24h delay-queue safety net: Tate-approved rows ready to
+  // send get atomically claimed and dispatched. Audit 2026-05-13 P0 #21
+  // (the only consumer for outboundEmailDelayQueue.listReadyToSend).
+  if (!CONDUCTOR_DETACHED) {
+    try {
+      const delayQueueWorker = require('./workers/outboundEmailDelayQueueWorker')
+      delayQueueWorker.start()
+    } catch (err) {
+      logger.warn('Delay queue worker failed to start', { error: err.message })
     }
   }
 
@@ -678,6 +738,21 @@ server.listen(env.PORT, async () => {
     logger.warn('Attention economy observer failed to start (non-fatal)', { error: err.message })
   }
   process.stderr.write('[boot] post-attentionEconomyObserver\n')
+
+  // ── Boot: systemPulse observer (Observer Framework v2) ───────────────
+  // Firehose observer that ingests perceptionBus events + Pino warn+error
+  // entries + frontend POSTs into pulseEventBuffer, and runs a rolling
+  // Haiku state-summary every 5min with anomaly detection. Anomalies
+  // surface to the conductor via the standard observer_signals channel.
+  // Non-fatal: failure here never blocks boot.
+  // Origin: Observer Framework v2, 13 May 2026.
+  try {
+    const systemPulse = require('./services/observers/systemPulseObserver')
+    systemPulse.start()
+  } catch (err) {
+    logger.warn('systemPulse observer failed to start (non-fatal)', { error: err.message })
+  }
+  process.stderr.write('[boot] post-systemPulseObserver\n')
 
   // ── Boot: Dashboard Note Observers (Phase 11) ─────────────────────
   // Four Haiku-powered polling observers that write ambient notes to

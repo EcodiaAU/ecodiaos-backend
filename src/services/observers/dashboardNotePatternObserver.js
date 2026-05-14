@@ -47,12 +47,15 @@ async function _readRecentEvents() {
       LIMIT 30
     `.catch(() => [])
 
-    // perception_events: what the system perceived
+    // os_observations: canonical perception substrate (perceptionBus.js
+    // writes here). Audit 2026-05-13 P2: previous query used the wrong
+    // table name `perception_events`, which doesn't exist — query landed
+    // in the .catch and silently returned empty.
     const perceptions = await db`
-      SELECT type, created_at
-      FROM perception_events
-      WHERE created_at > NOW() - INTERVAL '30 minutes'
-      ORDER BY created_at DESC
+      SELECT kind AS type, observed_at AS created_at
+      FROM os_observations
+      WHERE observed_at > NOW() - INTERVAL '30 minutes'
+      ORDER BY observed_at DESC
       LIMIT 30
     `.catch(() => [])
 

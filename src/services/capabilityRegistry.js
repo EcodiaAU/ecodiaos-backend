@@ -31,13 +31,40 @@ let _recoveryAttempted = false     // prevent infinite reload loops
 // Services call this at require-time (lazy registration pattern).
 // Multiple capabilities per service, called individually or in batch.
 
+// Audit 2026-05-13 P0 #13: register() silently overwrote on duplicate
+// with only a debug log. Combined with attemptRecovery() clearing
+// require.cache for ../capabilities/${domain}, ANY module on the require
+// graph could swap a production capability handler (e.g. run_shell_command,
+// execute_database). Tighten: refuse re-registration unless the caller
+// EXPLICITLY passes `force: true` AND the existing entry's handler
+// matches reference-equality with the new one (i.e. hot-reload of the
+// same module file re-emits the same captured handler). Anything else
+// is rejected with an error logged loudly. Tests can call
+// `_resetRegistryForTest()` if they need a clean slate.
 function register(capability) {
   if (!capability.name || !capability.handler) {
     throw new Error(`Capability registration requires name and handler: ${JSON.stringify(Object.keys(capability))}`)
   }
   if (registry.has(capability.name)) {
-    // Allow re-registration (hot reload) - last write wins
-    logger.debug(`CapabilityRegistry: re-registering ${capability.name}`)
+    const existing = registry.get(capability.name)
+    if (capability.force === true) {
+      logger.warn(`CapabilityRegistry: forced re-registration of "${capability.name}"`, {
+        existingDomain: existing.domain, newDomain: capability.domain,
+      })
+    } else if (existing.handler === capability.handler) {
+      // Same handler object — hot-reloaded module emitting the same
+      // closure. Treat as no-op (the underlying logic hasn't changed).
+      logger.debug(`CapabilityRegistry: idempotent re-register "${capability.name}"`)
+      return
+    } else {
+      logger.error(`CapabilityRegistry: refused duplicate register "${capability.name}"`, {
+        existingDomain: existing.domain,
+        attemptedDomain: capability.domain,
+      })
+      throw new Error(
+        `CapabilityRegistry: capability "${capability.name}" already registered (domain=${existing.domain}). Pass { force: true } to override; this gate prevents silent handler hijack.`
+      )
+    }
   }
   registry.set(capability.name, {
     description: 'No description',
@@ -47,6 +74,11 @@ function register(capability) {
     enabled: () => true,
     ...capability,
   })
+}
+
+function _resetRegistryForTest() {
+  registry.clear()
+  failedDomains.clear()
 }
 
 function registerMany(capabilities) {
@@ -263,9 +295,59 @@ function getFailedDomains() {
 // management policy. The organism's Oikos drives the pressure signal;
 // we only block when it's genuinely critical.
 
+// Audit 2026-05-13 P0 #14: previously `pressure = 0` hardcoded — the
+// gate was wired but inert, so every write-tier capability bypassed
+// the throttle even under genuine credit-budget pressure. Wire to
+// usageEnergyService: when the weekly Claude Max budget burns down
+// toward critical, raise pressure proportionally. Critical-priority
+// capabilities still bypass; only non-critical writes get deferred.
+//
+// Heuristic pressure derivation (deliberately conservative):
+//   energy 'healthy'  → 0.0
+//   energy 'conserve' → 0.5
+//   energy 'low'      → 0.85
+//   energy 'critical' → 0.98
+// Default gate is 0.95, so non-critical writes get throttled only at
+// energy='critical'. Operators tighten via SURVIVAL_PRESSURE_GATE.
+const _ENERGY_PRESSURE_MAP = { full: 0.0, healthy: 0.0, conserve: 0.5, low: 0.85, critical: 0.98 }
+// Cache last energy snapshot for ~30s so the pressure-gate check doesn't
+// hammer the underlying usage-energy substrate on every write capability.
+let _pressureCache = { value: 0, fetchedAt: 0 }
+const _PRESSURE_CACHE_TTL_MS = 30_000
+
+function _derivePressure() {
+  const now = Date.now()
+  if (now - _pressureCache.fetchedAt < _PRESSURE_CACHE_TTL_MS) {
+    return _pressureCache.value
+  }
+  let value = 0
+  try {
+    const usageEnergy = require('./usageEnergyService')
+    if (usageEnergy && typeof usageEnergy.getEnergy === 'function') {
+      // getEnergy is async; we can't await synchronously here without
+      // restructuring checkPressureGate. Best-effort sync read via
+      // .then(...) and fall through to the cached value. The cache
+      // refresh is best-effort: first call returns 0, subsequent calls
+      // see the refreshed value.
+      const p = usageEnergy.getEnergy()
+      if (p && typeof p.then === 'function') {
+        p.then((snap) => {
+          if (snap && snap.level && typeof _ENERGY_PRESSURE_MAP[snap.level] === 'number') {
+            _pressureCache = { value: _ENERGY_PRESSURE_MAP[snap.level], fetchedAt: Date.now() }
+          }
+        }).catch(() => { /* keep previous value */ })
+      } else if (p && p.level && typeof _ENERGY_PRESSURE_MAP[p.level] === 'number') {
+        value = _ENERGY_PRESSURE_MAP[p.level]
+      }
+    }
+  } catch { /* usageEnergy not loadable — treat as no pressure */ }
+  _pressureCache = { value, fetchedAt: now }
+  return value
+}
+
 function checkPressureGate(name, cap) {
   try {
-    const pressure = 0 // metabolismBridge removed (organism decoupled)
+    const pressure = _derivePressure()
     const gate = parseFloat(env.SURVIVAL_PRESSURE_GATE || '0.95') || 0.95
     if (gate <= 0 || pressure < gate) return null
     if (cap?.priority === 'critical') return null

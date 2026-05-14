@@ -28,10 +28,16 @@ function _signOutbound(body) {
   return { ts, sig }
 }
 
+// Replay window: 5 minutes — matches Twilio's window and the GKG validator
+// (audit 2026-05-13 P1: inconsistency across webhooks was the gap). The 60s
+// window was over-tight given Tailscale + busy laptop-agent latency.
+const HANDS_REPLAY_WINDOW_MS = 5 * 60 * 1000
 function verifyInbound(rawBody, headerTs, headerSig) {
+  if (!HANDS_SECRET) return false
   if (!headerTs || !headerSig) return false
   const tsNum = Number(headerTs)
-  if (!Number.isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 60_000) return false
+  if (!Number.isFinite(tsNum)) return false
+  if (Math.abs(Date.now() - tsNum) > HANDS_REPLAY_WINDOW_MS) return false
   const expected = crypto.createHmac('sha256', HANDS_SECRET).update(`${headerTs}.${rawBody}`).digest()
   let got
   try { got = Buffer.from(headerSig, 'hex') } catch { return false }

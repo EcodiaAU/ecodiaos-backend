@@ -94,14 +94,16 @@ const CONDUCTOR_CRONS = new Set([
 const DIRECT_EXEC_CRONS = new Set([
   'telemetry-dispatch-consumer',  // every 15m — JSONL→Postgres consumer (Layer 4 decision-quality)
   'telemetry-perf-consumer',      // every 15m — JSONL→Postgres consumer for perf events (Layer 6 Phase E)
+  'observation-retention-cleanup',// daily 02:00 AEST — purge observer_*, os_observations, session_memory_chunks, gkg_events. Deterministic SQL, no agentic decisions. Migration 118.
 ])
 
 // Shell commands for each direct-exec cron. Keyed by task name (must match
 // os_scheduled_tasks.name). spawnSync runs these via `bash -c <cmd>`.
 // IMPORTANT: keep in sync with DIRECT_EXEC_CRONS membership.
 const DIRECT_EXEC_COMMANDS = new Map([
-  ['telemetry-dispatch-consumer', 'cd /home/tate/ecodiaos && node src/services/telemetry/dispatchEventConsumer.js --once'],
-  ['telemetry-perf-consumer',     'cd /home/tate/ecodiaos && node src/services/telemetry/perfEventConsumer.js --once'],
+  ['telemetry-dispatch-consumer',   'cd /home/tate/ecodiaos && node src/services/telemetry/dispatchEventConsumer.js --once'],
+  ['telemetry-perf-consumer',       'cd /home/tate/ecodiaos && node src/services/telemetry/perfEventConsumer.js --once'],
+  ['observation-retention-cleanup', 'cd /home/tate/ecodiaos && node src/db/cron/observationRetention.js --once'],
 ])
 
 // ─── Route 3: HIGH-priority forks (always run, never budget-gated) ──────────

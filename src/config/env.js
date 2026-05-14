@@ -2,7 +2,7 @@ require('dotenv').config()
 const { z } = require('zod')
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().regex(/^\d+$/).transform(Number).default('3001'),
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
@@ -306,7 +306,19 @@ const envSchema = z.object({
   // clean rows (zero semantic_equivalent=false).
   // Reconciled with .env.production override 2026-05-01: prompt assembler
   // is live, doctrineSurface deleted, skillsSurfaceService is sole surface.
-  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('live'),
+  //
+  // Audit 2026-05-13 P0 #24/#25: reverted default from 'live' to 'shadow'.
+  // The live path is missing three load-bearing pieces:
+  //   #24 per-turn <untrusted_input> envelope plumbing
+  //   #25 tokenBudget.allocate self-documents "will be wired in PR 6" —
+  //       under 'live' the prompt runs with no global budget enforcement
+  //   v2 dispatch drops the kv_store dedupe (turnInjectionService) so
+  //       identical continuity blocks re-stitch every turn and BP4 blows
+  //       past spec §3.4's ~65K budget.
+  // Production deployments that have explicitly set PROMPT_ASSEMBLY_V2 in
+  // their env are unaffected. Flip the default back to 'canary' or 'live'
+  // once the three pieces above are wired and observed for 48h.
+  PROMPT_ASSEMBLY_V2: z.enum(['off', 'shadow', 'canary', 'live']).default('shadow'),
   // ANTHROPIC_NATIVE_LEVERAGE §1 - shadow/swap doctrineSurface (keyword
   // grep of patterns/*.md) with skillsSurfaceService (description-driven
   // retrieval over .claude/skills/*/SKILL.md). '0' = doctrineSurface only,
@@ -321,6 +333,15 @@ const parsed = envSchema.safeParse(process.env)
 if (!parsed.success) {
   console.error('Missing or invalid environment variables:')
   console.error(parsed.error.flatten().fieldErrors)
+  // Audit 2026-05-13: in jest workers, `process.exit(1)` killed the worker
+  // before the caller's try/catch (e.g. promptAssembler's defensive
+  // `try { env = require('../config/env') } catch { env = {} }`) could
+  // catch. Throw in test contexts so the defensive try/catch works and
+  // unit tests don't need full env wiring; preserve hard-exit in non-
+  // test runtimes so the API process fails loud on misconfiguration.
+  if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+    throw new Error('env: missing or invalid environment variables (see console)')
+  }
   process.exit(1)
 }
 

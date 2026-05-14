@@ -316,10 +316,17 @@ const MATCHERS = [
                 // capped. Unknown lanes count as not-exhausted (we don't have
                 // evidence). The active_provider lane is treated as healthy
                 // even if its snapshot is null (it's serving by definition).
+                //
+                // Audit 2026-05-13 P1 safety belt: require at least 2
+                // distinct exhausted_accounts before claiming chain
+                // exhaustion. A single fork erroring with credit text
+                // proves ONE lane is capped — never the whole chain.
+                // Per CLAUDE.md: "Perception must not claim chain-
+                // exhausted from a single fork error."
                 chain_exhausted =
                   healthy_accounts.length === 0
                   && unknown_accounts.length === 0
-                  && exhausted_accounts.length > 0
+                  && exhausted_accounts.length >= 2
               } catch (energyErr) {
                 logger.debug('perceptionDispatcher: getEnergy lookup failed (publishing without lane truth)', {
                   error: energyErr.message,

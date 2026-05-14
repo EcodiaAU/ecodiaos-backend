@@ -183,7 +183,13 @@ async function _postOnce({ provider, payload, signal, requestTimeoutMs }) {
       }
     }
     headers['Authorization'] = `Bearer ${bearer}`
-    headers['anthropic-beta'] = 'oauth-2025-04-20'
+    // Audit 2026-05-13 P0 #26: previously only 'oauth-2025-04-20' was set,
+    // missing the prompt-caching beta. Every one-shot call burned the full
+    // prefix on every request — pure cache-defeat for the non-SDK provider
+    // chain. _haikuClient already includes the prompt-caching beta; align
+    // here so the createMessage path picks up cache reads when callers
+    // mark system blocks with cache_control (see payload below).
+    headers['anthropic-beta'] = 'oauth-2025-04-20,prompt-caching-2024-07-31'
   }
 
   // Per-attempt timeout. Caller signal still wins if aborted earlier.
@@ -329,7 +335,21 @@ async function createMessage({
       max_tokens,
       messages,
     }
-    if (system) payload.system = system
+    // Audit 2026-05-13 P0 #26: turn a plain string system prompt into a
+    // single content block with cache_control: ephemeral so the prefix
+    // gets a real cache slot. Callers that already pass structured
+    // system blocks are left alone (they manage their own cache_control).
+    // DeepSeek's proxy strips cache_control at the wire boundary, so
+    // emit the cache_control only on Anthropic-bound calls.
+    if (system) {
+      if (typeof system === 'string' && system.length > 0 && provider !== 'deepseek') {
+        payload.system = [
+          { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+        ]
+      } else {
+        payload.system = system
+      }
+    }
 
     let perProviderError = null
     for (let attempt = 1; attempt <= maxAttemptsPerProvider; attempt += 1) {

@@ -170,6 +170,18 @@ const _path = require('path')
 let _lastDumpAt = 0
 const RETRO_DUMP_COOLDOWN_MS = 10_000 // one retro dump per 10s max
 
+// Observer Framework v2: subscribers to warn+error log stream. systemPulse
+// reads from here to fold runtime warnings/errors into its rolling state.
+// Subscribers are called synchronously inside log() so a slow consumer can
+// stall logging — keep callbacks fast and non-throwing.
+const _streamSubscribers = []
+function _emitToStreamSubscribers(level, entry) {
+  if (level !== 'warn' && level !== 'error') return
+  for (const fn of _streamSubscribers) {
+    try { fn(entry) } catch { /* swallow */ }
+  }
+}
+
 class RingBufferTransport extends Transport {
   constructor(opts) {
     super(opts)
@@ -195,6 +207,9 @@ class RingBufferTransport extends Transport {
     this._buf[this._head] = entry
     this._head = (this._head + 1) % RING_BUFFER_SIZE
     if (this._len < RING_BUFFER_SIZE) this._len++
+
+    // Observer Framework v2 stream fan-out — warn+error only.
+    _emitToStreamSubscribers(info.level, entry)
 
     // On error: dump the ring buffer to disk (cooldown-gated) so there's a
     // persistent debug trail around every error. Fire-and-forget.
@@ -272,5 +287,13 @@ const logger = createLogger({
 
 // Expose programmatic access to the ring buffer for triage tooling.
 logger.getRecentLogs = (limit) => _ringTransport.getRecent(limit)
+
+// Observer Framework v2: subscribe to warn+error log entries.
+// fn(entry) is called synchronously inside log() so it MUST be fast and must
+// not throw. systemPulseObserver uses this to fold runtime warnings/errors
+// into its rolling Haiku state.
+logger.subscribeToLogStream = (fn) => {
+  if (typeof fn === 'function') _streamSubscribers.push(fn)
+}
 
 module.exports = logger

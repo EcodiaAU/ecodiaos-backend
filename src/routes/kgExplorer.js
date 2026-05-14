@@ -31,10 +31,47 @@ router.post('/query', async (req, res, next) => {
       return res.status(400).json({ error: 'cypher query string required' })
     }
 
-    // Read-only guard: block obvious write operations
-    const upper = cypher.toUpperCase().trim()
-    if (/^(CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|CALL\s+\{)/.test(upper)) {
-      return res.status(403).json({ error: 'Write operations not allowed in explorer. Use read-only queries (MATCH, RETURN, etc.).' })
+    // Audit 2026-05-13 P0 #12: previous guard only checked the FIRST
+    // keyword. Bypassable via:
+    //   MATCH (n) WITH n CALL { CREATE (m:X) RETURN m } RETURN n
+    //   MATCH (n) FOREACH (i IN [1] | DELETE n)
+    //   /* anything */ MATCH (n) DELETE n     (comment before MATCH)
+    //   UNION chains, multi-clause statements, etc.
+    // Tighten: strip comments and string literals, then refuse if ANY
+    // write keyword appears anywhere in the cleaned text. Plus a strict
+    // single-clause shape check (must START with MATCH/RETURN/WITH/
+    // CALL_<read>/UNWIND, no semicolons that would chain statements).
+    const _stripCypherCommentsAndStrings = (s) => String(s)
+      // Block comments /* ... */ (non-greedy, multi-line)
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      // Single-line comments // …
+      .replace(/\/\/[^\n\r]*/g, ' ')
+      // Double-quoted strings
+      .replace(/"(?:\\.|[^"\\])*"/g, '""')
+      // Single-quoted strings
+      .replace(/'(?:\\.|[^'\\])*'/g, "''")
+    const cleaned = _stripCypherCommentsAndStrings(cypher).toUpperCase()
+    // Reject explicit statement chains.
+    if (/;[\s]*\S/.test(cleaned)) {
+      return res.status(403).json({ error: 'Multiple statements not allowed in explorer.' })
+    }
+    // Reject any write keyword anywhere in the (cleaned) query body.
+    // Word-boundary so MATCHED/CREATED-in-strings don't false-positive
+    // (strings were already nuked above).
+    const writeKeywordPattern = /\b(CREATE|MERGE|DELETE|DETACH\s+DELETE|SET|REMOVE|DROP|FOREACH)\b/
+    if (writeKeywordPattern.test(cleaned)) {
+      return res.status(403).json({ error: 'Write operations not allowed in explorer. Use read-only queries (MATCH, RETURN, WITH, CALL <procedure>, UNWIND).' })
+    }
+    // Reject CALL { ... } subqueries entirely (they can contain writes).
+    // Whitelisted CALL surface: CALL db.<procedure>(...) and CALL apoc.<proc>(...)
+    // — these are read-only procedure calls, never subqueries.
+    if (/\bCALL\s*\{/.test(cleaned)) {
+      return res.status(403).json({ error: 'CALL { ... } subqueries not allowed in explorer.' })
+    }
+    // Must start with a known read keyword (after stripping leading whitespace).
+    const upper = cleaned.trim()
+    if (!/^(MATCH|WITH|RETURN|UNWIND|CALL\s+\w)/.test(upper)) {
+      return res.status(403).json({ error: 'Query must begin with MATCH, WITH, RETURN, UNWIND, or a CALL <procedure> invocation.' })
     }
 
     const start = Date.now()

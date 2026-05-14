@@ -37,11 +37,18 @@ const ALLOWED_ACTION_TYPES = Object.freeze([
 
 function _getHmacKey() {
   const raw = process.env.AUDIT_LOG_HMAC_KEY
-  if (!raw || raw.length < 32) {
-    logger.warn('AUDIT_LOG_HMAC_KEY missing or short - using dev default (INSECURE outside tests)')
-    return 'dev-only-insecure-audit-log-hmac-key-replace-in-production-64'
+  if (raw && raw.length >= 32) return raw
+  // Audit 2026-05-13 P0 #42: previously this silently fell back to a
+  // hardcoded dev key with `logger.warn`. If AUDIT_LOG_HMAC_KEY went
+  // missing in prod (env edit, deploy slip), the entire append-only
+  // audit chain weakened to known-key forgery. Hard-fail in production
+  // so the misconfiguration surfaces loud at the call site; the dev
+  // fallback survives only in non-prod environments.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUDIT_LOG_HMAC_KEY is required in production (>=32 chars). Refusing to fall back to dev default.')
   }
-  return raw
+  logger.warn('AUDIT_LOG_HMAC_KEY missing or short - using dev default (INSECURE outside tests/dev)')
+  return 'dev-only-insecure-audit-log-hmac-key-replace-in-production-64'
 }
 
 function _canonical(obj) {

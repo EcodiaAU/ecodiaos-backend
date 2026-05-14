@@ -436,8 +436,16 @@ async function refreshAllAccounts({ force = false } = {}) {
 
   results.claude_max = await refreshAccount('claude_max', { force })
 
-  if (process.env.CLAUDE_CONFIG_DIR_2) {
+  if (process.env.CLAUDE_CONFIG_DIR_2 || process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE) {
     results.claude_max_2 = await refreshAccount('claude_max_2', { force })
+  }
+
+  // Audit 2026-05-13 P1: claude_max_3 (money@) was added to the chain
+  // (and to getTokenHealth's enumeration) but refreshAllAccounts never
+  // iterated to it. If money@ ever uses a non-long-lived token it would
+  // silently expire while account 1 and 2 stayed fresh.
+  if (process.env.CLAUDE_CONFIG_DIR_3 || process.env.CLAUDE_CODE_OAUTH_TOKEN_MONEY) {
+    results.claude_max_3 = await refreshAccount('claude_max_3', { force })
   }
 
   return results

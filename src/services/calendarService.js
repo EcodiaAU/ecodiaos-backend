@@ -324,13 +324,20 @@ async function deleteEvent(calendarEmail, googleEventId) {
 // ─── Quick Actions for Cortex ───────────────────────────────────────────
 
 async function getUpcoming({ hours = 24, limit = 10 } = {}) {
+  // Audit 2026-05-13 P1: previously `interval '${db.unsafe(hours)} hours'`
+  // interpolated the raw value into the SQL string. A non-integer
+  // `hours` from a route handler or AI tool param would have been a
+  // SQL-injection vector. Coerce to a clamped integer first, then bind
+  // as a typed parameter via `make_interval`.
+  const hoursInt = Math.max(0, Math.min(24 * 365, Math.trunc(Number(hours) || 0)))
+  const limitInt = Math.max(1, Math.min(500, Math.trunc(Number(limit) || 10)))
   const events = await db`
     SELECT * FROM calendar_events
     WHERE start_time >= now()
-      AND start_time <= now() + interval '${db.unsafe(hours)} hours'
+      AND start_time <= now() + make_interval(hours => ${hoursInt})
       AND status = 'confirmed'
     ORDER BY start_time ASC
-    LIMIT ${limit}
+    LIMIT ${limitInt}
   `
   return events
 }

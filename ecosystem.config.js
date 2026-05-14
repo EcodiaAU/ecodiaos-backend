@@ -60,6 +60,14 @@ module.exports = {
     // ecodia-api is wedged. Always running but idle until a message is
     // sent via the rescue bridge. See src/rescue/rescueRunner.js.
     { ...COMMON, name: 'ecodia-rescue', script: 'src/rescue/rescueRunner.js', max_memory_restart: '1G', max_restarts: 50, restart_delay: 3000, env: { ...COMMON.env, RESCUE_REPO_PATH: '/home/tate/ecodiaos' } },
+    // Observer Watchdog - independent failure-domain process whose ONLY job
+    // is probing ecodia-api + ecodia-conductor health and writing a P1
+    // observer_signals row + best-effort SMS if either goes unreachable.
+    // Designed to survive ecodia-api/conductor death because it doesn't
+    // require any app modules to function (uses raw http + postgres only).
+    // Tiny footprint: ~5MB resident, ~10s probe interval.
+    // Origin: Observer Framework v2, 13 May 2026.
+    { ...COMMON, name: 'ecodia-observer-watchdog', script: 'src/workers/observerWatchdog.js', max_memory_restart: '128M', max_restarts: 500, restart_delay: 1000, env: { ...COMMON.env, OBSERVER_WATCHDOG_INTERVAL_MS: '10000', OBSERVER_WATCHDOG_FAILURE_THRESHOLD: '4' } },
     // Conductor - owns the Claude Agent SDK stream + cron poller +
     // os-session message queue + OS heartbeat + Claude token refresh +
     // nightly restart. Detached from ecodia-api so api hot-reloads

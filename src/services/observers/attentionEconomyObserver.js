@@ -37,10 +37,30 @@ const NAME = 'attentionEconomy'
 const POLL_INTERVAL_MS = 5 * 60 * 1000   // 5 minutes
 const INITIAL_DELAY_MS = 30_000           // 30s after boot before first poll
 
-const SYSTEM_PROMPT = `You are the Attention Economy Observer for EcodiaOS. Your one job: at each fire, compute whether the conductor is currently working on the highest-leverage thing available. Consider: active working_set rows, P1/P2 status_board items assigned to ecodiaos, any user-blocking items ageing > 1h, and any user message in the last 4h that hasn't been addressed.
+const SYSTEM_PROMPT = `You are the Attention Economy Observer for EcodiaOS. You poll every 5 minutes and assess whether the conductor is currently working on the highest-leverage thing available.
+
+INPUTS PER FIRE:
+  - Active and blocked working_set rows (live conductor threads).
+  - P1/P2 status_board items assigned to ecodiaos.
+  - Recent user (Tate) messages in the last 4h.
+
+INTERVENE only when ALL of these hold:
+  1. You can name a SPECIFIC higher-priority task by row name or topic.
+  2. That task is actionable NOW (not blocked by external dependency, not waiting on Tate).
+  3. The current working_set's top thread is materially lower-leverage than the candidate.
+  4. The named task is older / more time-sensitive than the conductor's current focus.
+
+DO NOT intervene if:
+  - The working_set is empty (the conductor may be between tasks; that's fine).
+  - The candidate task is blocked on Tate / external (next_action_by != 'ecodiaos').
+  - The current work might be preparation for the candidate task.
+  - The data inputs say P1/P2 count = 0 AND working_set is non-empty (current work is at least the top of the queue).
+
+Confidence: state your confidence in [0.0, 1.0]. ONLY intervene at confidence >= 0.85. Priority 1 (P1 interrupt-eligible) only when the higher-leverage item is itself P1 AND user-blocking AND aging.
+
 Always return JSON only:
-  { "intervene": bool, "reason": "<one line>", "highest_leverage_now": "<task name>", "message_for_conductor": "<= 200 chars or null" }
-Threshold: intervene only when the conductor is clearly off-priority AND a higher-priority task is actionable now. Don't intervene if the current work is reasonable even if not optimal.`
+  { "intervene": bool, "confidence": number, "priority": 1|3, "reason": "<one line, quote the row names>", "highest_leverage_now": "<task name>", "message_for_conductor": "<= 200 chars or null" }
+Default: { "intervene": false, "confidence": <your read>, "reason": "on highest-leverage work" }.`
 
 const rateLimiter = _makeRateLimiter(4)
 const deduper = _makeDeduper(10 * 60 * 1000)
@@ -102,20 +122,40 @@ async function _readStatusBoard() {
 }
 
 async function _readRecentTateMessages() {
+  // Audit 2026-05-13 P0 #29: the canonical user-message store is
+  // `os_conversation` (per outcomeInference.js + osConversationLog.js).
+  // The previous query against `os_session_messages` silently returned
+  // empty under .catch, so "what's Tate said in the last 4h" was always
+  // empty — observer decisions were made on stale working_set +
+  // status_board only. Read from os_conversation now.
   try {
     const db = require('../../config/db')
-    // Try os_session_messages table (may or may not exist)
-    const rows = await db`
-      SELECT content, created_at
-      FROM os_session_messages
-      WHERE role = 'user'
-        AND created_at > NOW() - INTERVAL '4 hours'
-      ORDER BY created_at DESC
-      LIMIT 20
-    `
-    return rows
+    // os_conversation may have either {role,content} or {turn_role,
+    // turn_text} shape depending on migration generation. Try the
+    // canonical shape first; fall back if the columns aren't there.
+    try {
+      const rows = await db`
+        SELECT turn_text AS content, created_at
+        FROM os_conversation
+        WHERE turn_role = 'user'
+          AND created_at > NOW() - INTERVAL '4 hours'
+        ORDER BY created_at DESC
+        LIMIT 20
+      `
+      return rows
+    } catch {
+      const rows = await db`
+        SELECT content, created_at
+        FROM os_conversation
+        WHERE role = 'user'
+          AND created_at > NOW() - INTERVAL '4 hours'
+        ORDER BY created_at DESC
+        LIMIT 20
+      `
+      return rows
+    }
   } catch {
-    // Table absent — try kv_store fallback for last known tate message
+    // Both shapes failed — fall back to kv_store last_tate_message marker.
     try {
       const db = require('../../config/db')
       const rows = await db`
@@ -219,6 +259,16 @@ async function _poll() {
       return
     }
 
+    const confidence = typeof result.confidence === 'number' ? result.confidence : 0.5
+    if (confidence < 0.85) {
+      await _writeHeartbeat(NAME, {
+        ...heartbeat,
+        last_decision: 'confidence_floor_dropped',
+        last_reason: `confidence=${confidence.toFixed(2)} < 0.85`,
+      })
+      return
+    }
+
     const msg = result?.message_for_conductor
     if (!msg) {
       await _writeHeartbeat(NAME, { ...heartbeat, last_decision: 'intervene_no_message' })
@@ -237,13 +287,21 @@ async function _poll() {
       return
     }
 
-    await _postIntervention(NAME, String(msg).slice(0, 200))
+    const priority = result.priority === 1 ? 1 : 3
+    await _postIntervention(NAME, String(msg).slice(0, 200), {
+      signal_kind: 'leverage_misalignment',
+      reason: result.reason || null,
+      confidence,
+      priority,
+    })
     deduper.record(msg)
     await _writeHeartbeat(NAME, {
       ...heartbeat,
       last_decision: 'intervened',
       highest_leverage_now: result.highest_leverage_now,
       last_reason: result.reason,
+      confidence,
+      priority,
     })
   } catch (err) {
     logger.warn(`${NAME}: poll cycle threw`, { error: err.message })

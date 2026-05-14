@@ -295,6 +295,47 @@ async function _enqueueForkReport({ fork_id, parent_id, brief, report, nextStep,
   // Doctrine: ~/ecodiaos/patterns/cron-fork-reports-route-to-substrate-not-conductor-turn.md
   // Origin: Migration 088, fork_mouofp9r_72cd3a, 7 May 2026.
   if (is_cron) {
+    // Audit 2026-05-13 P0 #17: cron forks have no inbox/wake — that's
+    // intended for clean cron runs. But a cron fork that PHANTOM-BAILS
+    // (closed without [FORK_REPORT]) or otherwise had a degraded outcome
+    // previously vanished completely after the 15-min <forks_rollup>
+    // window — no substrate landing, no status_board row, no inbox.
+    // Land a durable kv_store row for the degraded subset so the
+    // conductor can probe `cron.fork_outcome.*` keys instead of relying
+    // on the volatile rollup. Clean cron runs (real report present)
+    // continue to surface only via the rollup as before.
+    const isPhantomBail = report === null || (typeof report === 'string' && _isPhantomBail(report))
+    const isEmpty = typeof report === 'string' && report.trim().length === 0
+    if (isPhantomBail || isEmpty) {
+      try {
+        const db = require('../config/db')
+        // Encode the cron name from the brief head when possible; fall
+        // back to fork_id. The conductor uses this prefix to enumerate
+        // recent degraded cron outcomes via kvStore.list.
+        const briefHead = String(brief || '').slice(0, 80).replace(/[^\w.-]+/g, '_').slice(0, 64) || 'unknown'
+        const key = `cron.fork_outcome.${briefHead}.${fork_id}`
+        const payload = JSON.stringify({
+          fork_id,
+          brief_head: briefHead,
+          outcome: isPhantomBail ? 'phantom_bail' : 'empty_report',
+          fallback_result: fallbackResult || null,
+          transcript_tail: typeof transcriptTail === 'string' ? transcriptTail.slice(0, 1200) : null,
+          observed_at: new Date().toISOString(),
+        })
+        await db`
+          INSERT INTO kv_store (key, value, updated_at)
+          VALUES (${key}, ${payload}::jsonb, NOW())
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        `
+        logger.warn('forkService: cron fork degraded outcome landed in kv_store', {
+          key, fork_id, outcome: isPhantomBail ? 'phantom_bail' : 'empty_report',
+        })
+      } catch (kvErr) {
+        logger.warn('forkService: failed to land cron degraded outcome to kv_store', {
+          fork_id, error: kvErr.message,
+        })
+      }
+    }
     logger.info('forkService: cron-routed fork_report substrate-only (no messageQueue enqueue)', {
       fork_id, parent_id, had_report: report !== null,
     })
@@ -493,13 +534,12 @@ async function _dbUpdate(state) {
 }
 
 // ── Cap enforcement (spec §1.5) ─────────────────────────────────────────────
-function _activeCount() {
-  let n = 0
-  for (const s of _forks.values()) {
-    if (s.status === 'spawning' || s.status === 'running' || s.status === 'reporting') n++
-  }
-  return n
-}
+// _activeCount() was the in-memory count used by the pre-atomic-cap path. After
+// migration to tryReserveForkSlot (forkCapAtomic.js, FORK_ATOMICITY_SPEC §2),
+// cap enforcement reads from the DB inside the same transaction as the INSERT.
+// The in-memory Map is now purely cosmetic (frontend rendering linger). This
+// function is deleted to prevent future drift between "what the cap thinks" and
+// "what the DB knows". If you need a count, call forkCapAtomic.liveForkCount().
 
 async function _energyCap() {
   try {
@@ -816,7 +856,15 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     is_cron: !!is_cron,
   })
 
-  const cwd = env.OS_SESSION_CWD || '/home/tate/ecodiaos'
+  // Per-fork worktree isolation (FORK_ATOMICITY_SPEC §3, AUTONOMY_AUDIT_2026-05-13).
+  // Default: shared cwd (legacy). Activated by FORK_WORKTREE_ISOLATION=true env.
+  // If creation fails, fall back to shared cwd so spawn does not break.
+  const forkWorktree = require('../lib/forkWorktree')
+  let _worktreePath = null
+  if (forkWorktree.isEnabled({ is_cron: !!is_cron })) {
+    _worktreePath = await forkWorktree.createWorktree(fork_id)
+  }
+  const cwd = _worktreePath || env.OS_SESSION_CWD || '/home/tate/ecodiaos'
   const { provider, env: sessionEnv, model, isDeepseek } = _resolveProviderForFork()
   const abort = new AbortController()
   const startedAt = Date.now()
@@ -878,6 +926,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
     pendingMessages:  [],
     pendingResolvers: [],
     input_closed:     false,
+    worktree_path: _worktreePath || null,
   }
   _forks.set(fork_id, state)
   _emitForkEvent('spawned', state)
@@ -1330,6 +1379,12 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
         await forkFinalizer.finalize(fork_id, finalStatus, finalResult)
       } catch (err) {
         logger.warn('forkService: finalizer guarantor failed (non-fatal)', { fork_id, error: err.message })
+      }
+      // Cleanup isolated worktree (if any). Best-effort, non-fatal on failure.
+      if (state.worktree_path) {
+        forkWorktree.removeWorktree(fork_id, state.worktree_path).catch(err =>
+          logger.warn('forkService: worktree cleanup failed (non-fatal)', { fork_id, error: err.message })
+        )
       }
       // Keep the entry for ~1min after termination so the frontend can render
       // its final state, then evict to keep the Map small.

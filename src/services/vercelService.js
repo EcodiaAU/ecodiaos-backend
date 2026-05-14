@@ -225,17 +225,51 @@ async function triggerDeploy(projectId) {
     `
     if (!project) throw new Error(`No Vercel project found with id ${projectId}`)
 
-    const result = await vercelFetch(`/v13/deployments`, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: project.name,
-        project: project.vercel_project_id,
-        target: 'production',
-      }),
-    })
+    // Verified deploy: records the action, triggers via Vercel API, polls the
+    // deployment until state=READY (or ERROR/CANCELED). AUTONOMY_AUDIT_2026-05-13.
+    const actionVerification = require('../lib/actionVerification')
+    const action_key = `vercel_deploy:${project.vercel_project_id}:${Math.floor(Date.now() / 60000)}`
 
-    logger.info(`Vercel deploy triggered for ${project.name}`, { deploymentId: result.id })
-    return { triggered: true, project: project.name, deploymentId: result.id, url: result.url }
+    const wrapped = await actionVerification.withVerification(
+      {
+        action_type: 'vercel_deploy',
+        action_key,
+        target: project.name,
+        payload: { vercel_project_id: project.vercel_project_id, target: 'production' },
+        metadata: { source: 'triggerDeploy(projectId)' },
+      },
+      async () => {
+        const r = await vercelFetch(`/v13/deployments`, {
+          method: 'POST',
+          body: JSON.stringify({
+            name: project.name,
+            project: project.vercel_project_id,
+            target: 'production',
+          }),
+        })
+        return { external_id: r.id, metadata: { url: r.url } }
+      },
+      async ({ external_id }) => {
+        if (!external_id) return { ok: false, detail: 'no deployment id' }
+        try {
+          const d = await vercelFetch(`/v13/deployments/${external_id}`)
+          if (d.readyState === 'READY' || d.state === 'READY') return { ok: true, detail: `state=READY url=${d.url}` }
+          if (d.readyState === 'ERROR' || d.state === 'ERROR') return { ok: false, detail: `state=ERROR` }
+          if (d.readyState === 'CANCELED' || d.state === 'CANCELED') return { ok: false, detail: `state=CANCELED` }
+          return { ok: false, detail: `state=${d.readyState || d.state}` }
+        } catch (err) {
+          return { ok: false, detail: `GET deployment failed: ${err.message}` }
+        }
+      },
+      { timeoutMs: 10 * 60 * 1000, initialDelayMs: 5000, maxDelayMs: 30_000 }
+    )
+
+    if (wrapped.replayed) {
+      logger.info('Vercel triggerDeploy: replayed (idempotency match)', { project: project.name, action_id: wrapped.id })
+    } else {
+      logger.info(`Vercel deploy triggered for ${project.name}`, { deploymentId: wrapped.external_id, action_id: wrapped.id })
+    }
+    return { triggered: true, project: project.name, deploymentId: wrapped.external_id, action_id: wrapped.id }
   }
 
   // No projectId - trigger all projects

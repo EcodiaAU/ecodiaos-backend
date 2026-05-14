@@ -15,11 +15,34 @@ const { recordHeartbeat } = require('./heartbeat')
 // - Post performance:   4–24 hours (adaptive to engagement signals)
 // ═══════════════════════════════════════════════════════════════════════
 
-let running = false
+// Audit 2026-05-13 P1: previously a single module-scoped `running` flag
+// served as the lock for every job. The header comment describes
+// "Adaptive loops" running independently, but the global lock made them
+// mutually exclusive — DM check (30s) blocked every other loop. Use a
+// per-job Map so different jobs run independently while a same-job
+// re-entry is still skipped (the desired idempotency). The serial-
+// access constraint that DOES exist — a single Puppeteer profile dir
+// can only host one Chromium at a time — is enforced by an additional
+// global `_browserBusy` flag held only across the Chromium-driving
+// window, NOT for the full job duration.
+const _runningJobs = new Set()
+let _browserBusy = false
+// Sentinel used by the adaptive loops to decide whether to re-arm.
+// Set to false in stop() to break the loop chain on shutdown.
+let _loopActive = true
+
+// Jobs that drive the headless browser need the global serial lock.
+// Read-only DB-only loops (analytics, performance) can run in parallel.
+const _BROWSER_JOBS = new Set(['check_dms', 'publish_posts', 'connections', 'scrape_profile'])
 
 async function runJob(jobName, fn) {
-  if (running) {
-    logger.debug(`LinkedIn worker busy, skipping ${jobName}`)
+  if (_runningJobs.has(jobName)) {
+    logger.debug(`LinkedIn worker: ${jobName} already running, skipping re-entry`)
+    return null
+  }
+  const needsBrowser = _BROWSER_JOBS.has(jobName)
+  if (needsBrowser && _browserBusy) {
+    logger.debug(`LinkedIn worker: browser busy, deferring ${jobName}`)
     return null
   }
 
@@ -35,7 +58,8 @@ async function runJob(jobName, fn) {
     return null
   }
 
-  running = true
+  _runningJobs.add(jobName)
+  if (needsBrowser) _browserBusy = true
   logger.info(`LinkedIn worker starting: ${jobName}`)
 
   try {
@@ -53,7 +77,8 @@ async function runJob(jobName, fn) {
     `.catch(e => logger.error('Failed to create failure notification', { error: e.message }))
     return null
   } finally {
-    running = false
+    _runningJobs.delete(jobName)
+    if (needsBrowser) _browserBusy = false
   }
 }
 
@@ -71,7 +96,7 @@ function startDMLoop() {
     const result = await runJob('dm_check', linkedinService.checkDMs)
     const hasNew = result?.newDMs ?? result?.count ?? 0
     const delay = hasNew > 0 ? jitter(60 * 60_000) : jitter(4 * 60 * 60_000)
-    if (running !== undefined) timer = setTimeout(loop, delay)
+    if (_loopActive) timer = setTimeout(loop, delay)
   }
   timer = setTimeout(loop, jitter(5 * 60_000))  // first run 5 min after boot
   return () => clearTimeout(timer)
@@ -83,7 +108,7 @@ function startPostPublishLoop() {
     const result = await runJob('post_publish', linkedinService.publishDuePosts)
     const queued = result?.queued ?? result?.remaining ?? 0
     const delay = queued > 0 ? jitter(15 * 60_000) : jitter(60 * 60_000)
-    if (running !== undefined) timer = setTimeout(loop, delay)
+    if (_loopActive) timer = setTimeout(loop, delay)
   }
   timer = setTimeout(loop, jitter(2 * 60_000))  // first run 2 min after boot
   return () => clearTimeout(timer)

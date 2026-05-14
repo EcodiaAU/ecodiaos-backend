@@ -52,14 +52,19 @@ const NONCE_BYTES = 32                       // 256 bits
 
 function _getHmacKey() {
   const raw = process.env.TIER3_TOKEN_HMAC_KEY
-  if (!raw || raw.length < 32) {
-    // Production MUST set this. Dev gets a warning-with-a-stable-default
-    // so local tests don't fail on cold-start, but that key is NOT safe
-    // for any real deployment.
-    logger.warn('TIER3_TOKEN_HMAC_KEY missing or short - using dev-only default (INSECURE outside tests)')
-    return 'dev-only-insecure-tier3-hmac-key-replace-in-production-64'
+  if (raw && raw.length >= 32) return raw
+  // Audit 2026-05-13 P0 #41: previously this silently fell back to a
+  // hardcoded dev key with `logger.warn`. The Tier-3 gate is what
+  // protects external email/SMS dispatch and authorised-action token
+  // verification; if the env var goes missing in prod the gate runs
+  // with a publicly-known key and authorisation tokens become
+  // spoofable by anyone who reads the source. Hard-fail in production
+  // so misconfiguration surfaces at the call site, not at the breach.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('TIER3_TOKEN_HMAC_KEY is required in production (>=32 chars). Refusing to fall back to dev default.')
   }
-  return raw
+  logger.warn('TIER3_TOKEN_HMAC_KEY missing or short - using dev-only default (INSECURE outside tests/dev)')
+  return 'dev-only-insecure-tier3-hmac-key-replace-in-production-64'
 }
 
 function _canonicalTarget(target) {

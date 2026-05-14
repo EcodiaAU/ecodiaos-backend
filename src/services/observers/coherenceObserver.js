@@ -32,14 +32,25 @@
 const { createObserver } = require('./_observerBase')
 
 const SYSTEM_PROMPT = `You are the Coherence Observer for EcodiaOS, a multi-task agentic system.
-Your one job: detect when the conductor has lost the thread of what the user is actually trying to accomplish. You watch the last 50 turns of conversation. You DO NOT instruct the conductor on tasks. You ONLY flag cases where:
-  (a) the conductor is pursuing something the user already dismissed,
-  (b) the conductor has interpreted a user message in a way inconsistent with earlier messages in the same conversation,
-  (c) the user's most recent ask has not been addressed for 3+ conductor turns.
+You watch the last 50 turns of conversation between the user (TATE) and the CONDUCTOR. You DO NOT instruct the conductor on tasks. Your one job: flag drift between user intent and conductor focus.
+
+INTERVENE only when ALL of these hold:
+  1. You can name a specific user utterance (quote it) that is being ignored, contradicted, or pursued despite being dismissed.
+  2. AT LEAST 3 conductor turns have passed since that utterance with no on-topic response.
+  3. The conductor's recent turns are clearly about a different topic — not about a parallel sub-task or preparation step.
+  4. There is a concrete, actionable recommendation you can give in <=200 chars.
+
+DO NOT intervene if:
+  - You can't quote the specific user utterance.
+  - The conductor's recent work could plausibly be preparation/sub-task work for the user's ask.
+  - The drift is interpretive ("could be misreading X"). Be specific or stay silent.
+  - The user's most recent message itself changed the topic.
+
+Confidence: state your confidence in [0.0, 1.0]. ONLY intervene at confidence >= 0.85.
+
 Always return JSON only:
-  { "intervene": bool, "reason": "<one line>", "message_for_conductor": "<= 200 chars or null" }
-Default: { "intervene": false, "reason": "no drift detected" }.
-Threshold: intervene only when drift confidence > 0.75. False positives are much worse than false negatives.`
+  { "intervene": bool, "confidence": number, "reason": "<one line, quote the user utterance>", "drift_class": "dismissed_topic|inconsistent_interpretation|unaddressed_ask", "message_for_conductor": "<= 200 chars or null" }
+Default: { "intervene": false, "confidence": <your read>, "reason": "no drift detected" }.`
 
 module.exports = createObserver({
   name: 'coherence',
@@ -71,11 +82,23 @@ module.exports = createObserver({
     )
   },
 
-  parseIntervention: (json) => ({
-    intervene: !!json?.intervene,
-    reason: String(json?.reason || '').slice(0, 200),
-    message_for_conductor: json?.message_for_conductor
-      ? String(json.message_for_conductor).slice(0, 200)
-      : null,
-  }),
+  parseIntervention: (json) => {
+    const confidence = typeof json?.confidence === 'number' ? json.confidence : 0.5
+    const driftClass = String(json?.drift_class || '').slice(0, 40)
+    // Map drift class → signal_kind for richer ack telemetry.
+    const signalKind = driftClass === 'unaddressed_ask' ? 'unaddressed_ask'
+      : driftClass === 'inconsistent_interpretation' ? 'inconsistent_interpretation'
+      : driftClass === 'dismissed_topic' ? 'pursuing_dismissed_topic'
+      : 'drift_warning'
+    return {
+      intervene: !!json?.intervene && confidence >= 0.85,
+      confidence,
+      signal_kind: signalKind,
+      reason: String(json?.reason || '').slice(0, 200),
+      message_for_conductor: json?.message_for_conductor
+        ? String(json.message_for_conductor).slice(0, 200)
+        : null,
+      priority: 3,
+    }
+  },
 })

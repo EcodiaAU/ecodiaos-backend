@@ -75,25 +75,55 @@ async function pollInbox() {
 // ─── Full Sync ───────────────────────────────────────────────────────────────
 
 async function fullSync(gmail, inbox) {
-  // Sync all mail, not just INBOX - captures archived, read, sent, everything
-  const res = await gmail.users.threads.list({
-    userId: 'me',
-    maxResults: 200,
-  })
+  // Audit 2026-05-13 P0 #22: previously fetched 200 threads and stamped
+  // historyId as if the sync were complete. Any inbox >200 threads
+  // silently lost everything older forever. Paginate via nextPageToken
+  // and capture the profile.historyId BEFORE the first page so the
+  // stamped cursor doesn't skip anything that arrives during sync.
+  // Cap at a generous safety ceiling (env-configurable) so a truly
+  // unbounded inbox doesn't run forever on first boot.
+  const FULL_SYNC_MAX_THREADS = parseInt(process.env.GMAIL_FULL_SYNC_MAX_THREADS || '10000', 10)
+  const FULL_SYNC_PAGE_SIZE = 200
+  const profileBefore = await gmail.users.getProfile({ userId: 'me' })
+  const historyIdAnchor = profileBefore.data.historyId
+  let pageToken
+  let totalProcessed = 0
+  do {
+    const res = await gmail.users.threads.list({
+      userId: 'me',
+      maxResults: FULL_SYNC_PAGE_SIZE,
+      pageToken,
+    })
+    const threads = res.data.threads || []
+    if (threads.length === 0) break
+    for (const thread of threads) {
+      if (totalProcessed >= FULL_SYNC_MAX_THREADS) break
+      await processThread(gmail, inbox, thread.id)
+      totalProcessed++
+    }
+    pageToken = res.data.nextPageToken || null
+    logger.info(`Full sync [${inbox}]: page processed`, {
+      threadsThisPage: threads.length,
+      totalProcessed,
+      hasMore: !!pageToken,
+    })
+    if (totalProcessed >= FULL_SYNC_MAX_THREADS) {
+      logger.warn(`Full sync [${inbox}]: hit FULL_SYNC_MAX_THREADS cap`, {
+        cap: FULL_SYNC_MAX_THREADS, hasMore: !!pageToken,
+      })
+      break
+    }
+  } while (pageToken)
 
-  const threads = res.data.threads || []
-  logger.info(`Full sync [${inbox}]: found ${threads.length} threads`)
-
-  for (const thread of threads) {
-    await processThread(gmail, inbox, thread.id)
-  }
-
-  const profile = await gmail.users.getProfile({ userId: 'me' })
+  // Use the historyId captured BEFORE the paginated walk so any thread
+  // that arrived during the walk is picked up by the next incremental
+  // sync (Gmail's historyId is monotonic).
   await db`
     INSERT INTO gmail_sync_state (id, history_id)
-    VALUES (${inbox}, ${profile.data.historyId})
-    ON CONFLICT (id) DO UPDATE SET history_id = ${profile.data.historyId}, updated_at = now()
+    VALUES (${inbox}, ${historyIdAnchor})
+    ON CONFLICT (id) DO UPDATE SET history_id = ${historyIdAnchor}, updated_at = now()
   `
+  logger.info(`Full sync [${inbox}]: complete`, { totalProcessed })
 }
 
 // ─── Incremental Sync ────────────────────────────────────────────────────────
@@ -716,13 +746,48 @@ async function sendReply(threadId, body) {
     inReplyTo: thread.gmail_message_ids?.[thread.gmail_message_ids.length - 1],
   })
 
-  await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: { raw, threadId },
-  })
+  // Verified send: records the action, sends via Gmail, verifies the message is
+  // visible in the SENT label, marks the audit row accordingly. Idempotency
+  // key dedupes accidental double-fires within the same minute.
+  const actionVerification = require('../lib/actionVerification')
+  const bodyHash = require('crypto').createHash('sha256').update(String(body || '')).digest('hex').slice(0, 16)
+  const action_key = `gmail:${threadId}:${bodyHash}:${Math.floor(Date.now() / 60000)}`
+
+  const result = await actionVerification.withVerification(
+    {
+      action_type: 'email_send',
+      action_key,
+      target: thread.from_email,
+      payload: { threadId, to: thread.from_email, subject: thread.subject || '', body_chars: (body || '').length },
+      metadata: { inbox, kind: 'reply' },
+    },
+    async () => {
+      const r = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw, threadId },
+      })
+      return { external_id: r?.data?.id || null, metadata: { gmail_thread_id: r?.data?.threadId || threadId } }
+    },
+    async ({ external_id }) => {
+      if (!external_id) return { ok: false, detail: 'no message id returned' }
+      try {
+        const meta = await gmail.users.messages.get({ userId: 'me', id: external_id, format: 'metadata' })
+        const labels = meta?.data?.labelIds || []
+        return { ok: labels.includes('SENT'), detail: `labels=${labels.join(',')}` }
+      } catch (err) {
+        return { ok: false, detail: `messages.get failed: ${err.message}` }
+      }
+    },
+    { timeoutMs: 60_000, initialDelayMs: 2000, maxDelayMs: 15_000 }
+  )
+
+  if (result.replayed) {
+    logger.info('sendReply: replayed (idempotency key matched), skipping re-send', { threadId, action_id: result.id })
+    return
+  }
 
   await db`UPDATE email_threads SET status = 'replied', updated_at = now() WHERE gmail_thread_id = ${threadId}`
-  logger.info(`Reply sent from ${inbox} to ${thread.from_email}`)
+  logger.info(`Reply sent from ${inbox} to ${thread.from_email}`, { action_id: result.id, external_id: result.external_id })
 }
 
 // ─── Listener Producer ──────────────────────────────────────────────────────
@@ -1008,17 +1073,100 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
   const fromInbox = from || (await getInboxes())[0]
   const gmail = getGmailClient(fromInbox)
 
+  // Per-recipient rate limiter — AUTONOMY_AUDIT_2026-05-13 finding 16.
+  // Protects against runaway loops re-sending to the same address.
+  await _checkEmailRateLimit(Array.isArray(to) ? to : [to])
+
   const raw = createRawEmail({ to, from: fromInbox, cc, bcc, subject, body })
   const requestBody = { raw }
   if (threadId) requestBody.threadId = threadId
-  const result = await gmail.users.messages.send({ userId: 'me', requestBody })
-  logger.info(`Email sent from ${fromInbox} to ${Array.isArray(to) ? to.join(',') : to}: ${subject}`)
+
+  // Verified send with idempotency. The action_key collapses re-fires within
+  // the same minute (recipient + subject + body hash) so accidental double-
+  // dispatches return the original message_id instead of duplicating.
+  const actionVerification = require('../lib/actionVerification')
+  const crypto = require('crypto')
+  const recipientHash = crypto.createHash('sha256')
+    .update(JSON.stringify({ to, cc, bcc })).digest('hex').slice(0, 12)
+  const bodyHash = crypto.createHash('sha256')
+    .update(String(body || '') + '|' + String(subject || '')).digest('hex').slice(0, 16)
+  const action_key = `gmail_new:${recipientHash}:${bodyHash}:${Math.floor(Date.now() / 60000)}`
+
+  const wrapped = await actionVerification.withVerification(
+    {
+      action_type: 'email_send',
+      action_key,
+      target: Array.isArray(to) ? to[0] : to,
+      payload: { to, cc, bcc, subject, body_chars: (body || '').length, threadId: threadId || null },
+      metadata: { kind: threadId ? 'thread' : 'new', from: fromInbox },
+    },
+    async () => {
+      const r = await gmail.users.messages.send({ userId: 'me', requestBody })
+      return {
+        external_id: r?.data?.id || null,
+        metadata: { gmail_thread_id: r?.data?.threadId || null },
+      }
+    },
+    async ({ external_id }) => {
+      if (!external_id) return { ok: false, detail: 'no message id returned' }
+      try {
+        const meta = await gmail.users.messages.get({ userId: 'me', id: external_id, format: 'metadata' })
+        const labels = meta?.data?.labelIds || []
+        return { ok: labels.includes('SENT'), detail: `labels=${labels.join(',')}` }
+      } catch (err) {
+        return { ok: false, detail: `messages.get failed: ${err.message}` }
+      }
+    },
+    { timeoutMs: 60_000, initialDelayMs: 2000, maxDelayMs: 15_000 }
+  )
+
+  if (wrapped.replayed) {
+    logger.info('sendEmail: replayed (idempotency match), skipping re-send', { to, action_id: wrapped.id })
+  } else {
+    logger.info(`Email sent from ${fromInbox} to ${Array.isArray(to) ? to.join(',') : to}: ${subject}`, {
+      action_id: wrapped.id, external_id: wrapped.external_id,
+    })
+  }
   return {
-    sent: true,
-    message_id: result.data?.id || null,
-    gmail_thread_id: result.data?.threadId || null,
+    sent: !wrapped.replayed,
+    replayed: !!wrapped.replayed,
+    message_id: wrapped.external_id || null,
+    action_id: wrapped.id,
     from: fromInbox,
   }
+}
+
+// ─── Per-recipient send rate limiter ────────────────────────────────────
+// Sliding 1-hour window. Default caps: 10 sends per recipient per hour,
+// 50 sends total per hour across all recipients. Configurable via env.
+// AUTONOMY_AUDIT_2026-05-13 finding 16.
+const _EMAIL_RATE_PER_RECIPIENT = parseInt(process.env.GMAIL_RATE_LIMIT_PER_RECIPIENT_PER_HOUR, 10) || 10
+const _EMAIL_RATE_GLOBAL = parseInt(process.env.GMAIL_RATE_LIMIT_GLOBAL_PER_HOUR, 10) || 50
+const _emailSendBuckets = new Map()      // recipient -> [timestamp_ms]
+const _emailSendGlobal = []              // [timestamp_ms]
+
+async function _checkEmailRateLimit(recipients) {
+  const now = Date.now()
+  const cutoff = now - 60 * 60 * 1000
+  // Prune global
+  while (_emailSendGlobal.length > 0 && _emailSendGlobal[0] < cutoff) _emailSendGlobal.shift()
+  if (_emailSendGlobal.length >= _EMAIL_RATE_GLOBAL) {
+    const err = new Error(`gmail rate limit: global cap ${_EMAIL_RATE_GLOBAL}/hr reached`)
+    err.code = 'rate_limit_exceeded'
+    throw err
+  }
+  for (const recipient of (recipients || []).filter(Boolean)) {
+    let arr = _emailSendBuckets.get(recipient)
+    if (!arr) { arr = []; _emailSendBuckets.set(recipient, arr) }
+    while (arr.length > 0 && arr[0] < cutoff) arr.shift()
+    if (arr.length >= _EMAIL_RATE_PER_RECIPIENT) {
+      const err = new Error(`gmail rate limit: ${_EMAIL_RATE_PER_RECIPIENT}/hr cap reached for ${recipient}`)
+      err.code = 'rate_limit_exceeded'
+      throw err
+    }
+    arr.push(now)
+  }
+  _emailSendGlobal.push(now)
 }
 
 /**

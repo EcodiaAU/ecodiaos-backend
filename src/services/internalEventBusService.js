@@ -82,7 +82,8 @@ function emit(type, payload = {}, { persist, fromRedis } = {}) {
 
   // Publish to Redis if available and not already from Redis
   if (redis && !fromRedis) {
-    redis.publish(REDIS_CHANNEL, JSON.stringify({ type, payload, _source: process.pid })).catch(() => {})
+    redis.publish(REDIS_CHANNEL, JSON.stringify({ type, payload, _source: process.pid }))
+      .catch(err => logger.warn('internalEventBus: redis publish failed', { type, error: err.message }))
   }
 
   // Persist to DB if requested (or if default is on)
@@ -91,7 +92,7 @@ function emit(type, payload = {}, { persist, fromRedis } = {}) {
     db`
       INSERT INTO event_bus_log (event_type, payload, source_service)
       VALUES (${type}, ${JSON.stringify(payload)}, ${payload._source || 'unknown'})
-    `.catch(() => {})
+    `.catch(err => logger.warn('internalEventBus: event_bus_log insert failed', { type, error: err.message }))
   }
 
   logger.debug(`Event bus: ${type}`, { payloadKeys: Object.keys(payload) })

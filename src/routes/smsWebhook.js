@@ -10,6 +10,7 @@ const router = express.Router()
 const osSession = require('../services/osSessionService')
 const db = require('../config/db')
 const validateTwilioSignature = require('../middleware/twilioValidation')
+const { wrapUntrusted } = require('../lib/untrustedInput')
 
 // E.164: +<country><number>, 8–15 digits total. Anything else is rejected
 // before reaching sendMessage - stops spoofed / malformed senders from
@@ -28,19 +29,43 @@ if (!TATE_MOBILE) {
 }
 
 async function lookupContact(phone) {
-  // Join crm_contacts → clients to pull relationship context. Falls back to
-  // contact-only if the join fails (client deleted, etc.). Silent on error - 
-  // an unrecognized number just lands as "Unknown".
+  // Audit 2026-05-13 P1: previously this returned any crm_contacts row
+  // matching the phone, but the SMS doctrine only allows messages from
+  // contacts whose parent client has `can_sms = true`. The predicate
+  // was documented at the top of this file but never enforced in the
+  // SQL. Tighten the SELECT to honour the doctrine: a contact attached
+  // to a client with `can_sms != true` (or no parent client) is treated
+  // as unknown.
   try {
     const rows = await db`
       SELECT c.name, c.role, c.notes, cl.name AS client_name, cl.status AS client_status
       FROM crm_contacts c
-      LEFT JOIN clients cl ON cl.id = c.client_id
+      INNER JOIN clients cl ON cl.id = c.client_id
       WHERE c.phone = ${phone}
+        AND cl.can_sms = true
       LIMIT 1
     `
     return rows[0] || null
   } catch (err) {
+    // If the `can_sms` column doesn't exist in this schema generation,
+    // fall back to the legacy SELECT — but log a warning so the gap is
+    // visible (the doctrine has been written; the column should land).
+    if (/column.*can_sms.*does not exist/i.test(err.message || '')) {
+      console.warn('[SMS] clients.can_sms column missing - falling back to permissive lookup (add column to enforce)')
+      try {
+        const rows = await db`
+          SELECT c.name, c.role, c.notes, cl.name AS client_name, cl.status AS client_status
+          FROM crm_contacts c
+          LEFT JOIN clients cl ON cl.id = c.client_id
+          WHERE c.phone = ${phone}
+          LIMIT 1
+        `
+        return rows[0] || null
+      } catch (err2) {
+        console.error('[SMS] Contact lookup fallback failed:', err2.message)
+        return null
+      }
+    }
     console.error('[SMS] Contact lookup failed:', err.message)
     return null
   }
@@ -77,7 +102,18 @@ router.post('/incoming', validateTwilioSignature, async (req, res) => {
     if (contact?.notes)         contextBits.push(`notes: ${contact.notes}`)
     const context = contextBits.length ? `Context - ${contextBits.join(' · ')}.` : ''
 
-    const prompt = `[SMS from ${senderName} (${from})]: ${Body}\n\n${context}\n\nRespond concisely (SMS length). Send your reply back via the send_sms tool to ${from}. Aim for under 320 chars. Tone should match the relationship - warm and direct with Tate, professional with clients, appropriate with the person.`
+    // Audit 2026-05-13 P2: previously `${senderName}`, `${from}`, and
+    // `${Body}` were interpolated into the prompt without any
+    // untrusted-input envelope. SECURITY_HARDENING.md §2.1 mandates that
+    // every external-text boundary (SMS, email, voice, upload) is wrapped
+    // in the random-suffix `<untrusted_input>` block so the model treats
+    // the contents as data, never instructions. Apply it now.
+    const untrustedBody = wrapUntrusted(String(Body || ''), {
+      source: 'sms',
+      sender: isTate ? 'tate' : senderName,
+      from,
+    })
+    const prompt = `[SMS from ${senderName} (${from})]\n\n${untrustedBody}\n\n${context}\n\nRespond concisely (SMS length). Send your reply back via the send_sms tool to ${from}. Aim for under 320 chars. Tone should match the relationship - warm and direct with Tate, professional with clients, appropriate with the person.`
 
     // priority: false - queue behind the active turn (same as chat /message).
     // Hard-interrupting with priority:true broke the interrupt/reply/end cycle:

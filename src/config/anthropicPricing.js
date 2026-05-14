@@ -87,19 +87,40 @@ function resolveRates(model) {
  * Returns a number (USD, six-decimal precision) or null if the model is
  * unrecognised. Caller should persist null cost rather than fabricating one.
  */
-function estimateCostUsd({ model, inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0 } = {}) {
+// Anthropic 1M-context-tier surcharge. For Sonnet/Opus, input that crosses
+// the 200K-token threshold is billed at 2x the base input rate, and cache
+// reads of cached prefixes above 200K likewise at 2x. Audit 2026-05-13 P1:
+// previous pricing treated all input as base rate, so any turn crossing
+// the 200K threshold was under-costed by ~50%. Callers that ship 1M
+// requests should pass `useLongContext: true` so we apply the multiplier.
+const LONG_CONTEXT_THRESHOLD_TOKENS = 200_000
+const LONG_CONTEXT_MULTIPLIER = 2
+
+function estimateCostUsd({ model, inputTokens = 0, outputTokens = 0, cacheCreationTokens = 0, cacheReadTokens = 0, useLongContext = false } = {}) {
   const rates = resolveRates(model)
   if (!rates) return null
-  // Standard input tokens are reduced by cache_read + cache_creation (the
-  // SDK reports them as separate fields but they are mutually exclusive
-  // slices of the same prompt). Compute the residual non-cached input.
-  const cachedSum = (cacheReadTokens || 0) + (cacheCreationTokens || 0)
-  const residualInput = Math.max(0, (inputTokens || 0) - cachedSum)
+  // Audit 2026-05-13 P0 #37: Anthropic's `usage.input_tokens` is ALREADY
+  // exclusive of `cache_read_input_tokens` and `cache_creation_input_tokens`
+  // (they are separate top-level fields in the usage object, not subsets
+  // of input_tokens). The previous formula subtracted both from input_tokens
+  // before computing the residual — double-counting the cached discount
+  // and under-reporting cost by the cached fraction. For a turn with 90%
+  // cache hit, the formula produced ~zero base cost (clamped to 0) while
+  // the real cost was 10% of base input + the cache_read rate. Fixed:
+  // input_tokens IS the residual non-cached input. Do not subtract again.
+  const residualInput = Math.max(0, inputTokens || 0)
+  // 1M-context surcharge: applies when the residual non-cached input
+  // crosses the threshold (the cached prefix is independently priced and
+  // the threshold sees only the cumulative on-wire request size; the
+  // simplest correct treatment is to apply the multiplier when the SDK
+  // call was sent under the 1M beta header — caller signals via
+  // useLongContext). Cache rates likewise get the surcharge.
+  const inputMult = useLongContext && residualInput > LONG_CONTEXT_THRESHOLD_TOKENS ? LONG_CONTEXT_MULTIPLIER : 1
   const cost =
-      (residualInput        / 1_000_000) * rates.input_per_mtok
+      (residualInput        / 1_000_000) * rates.input_per_mtok        * inputMult
     + (outputTokens         / 1_000_000) * rates.output_per_mtok
-    + (cacheCreationTokens  / 1_000_000) * rates.cache_write_per_mtok
-    + (cacheReadTokens      / 1_000_000) * rates.cache_read_per_mtok
+    + (cacheCreationTokens  / 1_000_000) * rates.cache_write_per_mtok  * inputMult
+    + (cacheReadTokens      / 1_000_000) * rates.cache_read_per_mtok   * inputMult
   // 6-decimal precision matches claude_usage.cost_usd NUMERIC(12,6) shape.
   return Math.round(cost * 1_000_000) / 1_000_000
 }

@@ -34,10 +34,14 @@ const KNOWN_RECIPIENT_WINDOW_DAYS = 30
 async function isKnownRecipient(emailAddress) {
   if (!emailAddress || typeof emailAddress !== 'string') return false
   const lowered = emailAddress.toLowerCase()
+  // Audit 2026-05-13 P1: previous query used `email_threads.last_message_at`
+  // — but the canonical column on email_threads is `received_at`. The
+  // primary query silently failed via the .catch, fallback used the same
+  // (broken) column. Net: isKnownRecipient returned `false` for ~everyone,
+  // every email got queued including replies to known clients. Use
+  // COALESCE(last_message_at, received_at, updated_at) so the query works
+  // across both observed schemas.
   try {
-    // Check email_threads.participants (text[]) and from_email within the
-    // last N days. email_threads is the primary source of truth for
-    // Gmail-side activity.
     const rows = await db`
       SELECT 1
       FROM email_threads
@@ -46,7 +50,7 @@ async function isKnownRecipient(emailAddress) {
         OR LOWER(to_email) = ${lowered}
         OR ${lowered} = ANY(ARRAY(SELECT LOWER(unnest(COALESCE(participants, ARRAY[]::text[])))))
       )
-        AND last_message_at >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
+        AND COALESCE(received_at, updated_at) >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
       LIMIT 1
     `
     if (rows.length > 0) return true
@@ -58,7 +62,7 @@ async function isKnownRecipient(emailAddress) {
       const rows2 = await db`
         SELECT 1 FROM email_threads
         WHERE (LOWER(from_email) = ${lowered} OR LOWER(to_email) = ${lowered})
-          AND last_message_at >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
+          AND COALESCE(received_at, updated_at) >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
         LIMIT 1
       `
       if (rows2.length > 0) return true
@@ -171,6 +175,56 @@ async function listReadyToSend() {
   return rows
 }
 
+/**
+ * Audit 2026-05-13 P0 #21: listReadyToSend existed but had no consumer.
+ * Approved rows sat forever and the 24h safety net silently never
+ * delivered. The new outboundDelayQueueWorker calls this primitive
+ * (claimNextReady) to atomically transition `approved` → `sending`,
+ * preventing duplicate dispatch if multiple workers run.
+ * Returns the claimed row (or null if nothing is ready).
+ */
+async function claimNextReady() {
+  // CTE with FOR UPDATE SKIP LOCKED: pick one approved+ready row, lock
+  // it, and update its status atomically. Concurrent workers each get a
+  // different row (or null).
+  const [row] = await db`
+    WITH next_row AS (
+      SELECT id
+      FROM outbound_email_delay_queue
+      WHERE status = 'approved' AND release_at <= NOW()
+      ORDER BY release_at ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE outbound_email_delay_queue oe
+    SET status = 'sending', sending_started_at = NOW()
+    FROM next_row
+    WHERE oe.id = next_row.id
+    RETURNING oe.*
+  `
+  return row || null
+}
+
+/**
+ * If the dispatch fails AND the row should be retried later (transient
+ * network/gmail failure), flip back to 'approved' so the next sweep
+ * picks it up. Bumps attempt count; after 5 attempts the row is left
+ * at status='error' for human review (audit M-medium: no max-retry).
+ */
+async function _releaseClaimForRetry({ id, error_message }) {
+  await db`
+    UPDATE outbound_email_delay_queue
+    SET status = CASE
+          WHEN COALESCE(attempts, 0) + 1 >= 5 THEN 'error'
+          ELSE 'approved'
+        END,
+        attempts = COALESCE(attempts, 0) + 1,
+        error_message = ${String(error_message || '').slice(0, 500)},
+        sending_started_at = NULL
+    WHERE id = ${id}
+  `
+}
+
 async function markSent({ id, message_id }) {
   await db`
     UPDATE outbound_email_delay_queue
@@ -225,6 +279,8 @@ module.exports = {
   listPending,
   decide,
   listReadyToSend,
+  claimNextReady,
+  _releaseClaimForRetry,
   markSent,
   markError,
   routeOutbound,

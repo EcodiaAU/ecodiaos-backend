@@ -102,7 +102,36 @@ async function _postIntervention(name, message, opts = {}) {
       message,
       reason: opts.reason,
       confidence: opts.confidence,
+      priority: opts.priority,
+      correlation_id: opts.correlation_id,
+      evidence_event_ids: opts.evidence_event_ids,
     })
+
+    // Observer Framework v2: P1 broadcast. When a critical signal lands,
+    // emit an immediate websocket event so the FE (and tools watching the
+    // stream) can react before the conductor's next turn. This is the
+    // "interrupt" path — the conductor itself picks the signal up via the
+    // <observer_signals> block at next turn-start (between tool calls is
+    // not achievable without SDK re-architecture, but the next-turn
+    // boundary is fast in practice).
+    if (result?.written === true && (opts.priority === 1 || result?.priority === 1)) {
+      try {
+        const { broadcast } = require('../../websocket/wsManager')
+        broadcast('os-session:output', {
+          data: {
+            type: 'observer_signal_p1',
+            id: result.id,
+            observer_name: name,
+            signal_kind: opts.signal_kind || 'drift_warning',
+            message: String(message).slice(0, 400),
+            confidence: opts.confidence,
+            correlation_id: opts.correlation_id || null,
+          },
+        })
+      } catch (err) {
+        logger.debug(`observer ${name}: P1 broadcast failed (non-fatal)`, { error: err.message })
+      }
+    }
     if (result.written === true) {
       logger.info(`observer ${name}: signal written id=${result.id}`)
     } else if (result.written === 'conflict_resolved') {
@@ -184,14 +213,19 @@ function createObserver({
   async function _evaluate() {
     if (buffer.length === 0) return
 
-    const prompt = buildPromptFromBuffer(buffer)
+    // Audit 2026-05-13 P0 #27: buffer was being read inside this function
+    // while `handle()` continued to push/shift entries during the ~15s
+    // Haiku call. The model saw partial/interleaved state — plausibly the
+    // dominant trio hallucination root cause. Snapshot first.
+    const bufferSnapshot = buffer.slice()
+    const prompt = buildPromptFromBuffer(bufferSnapshot)
     if (!prompt || !prompt.trim()) return
 
     const result = await haikuClient.call({ systemPrompt, userMessage: prompt, observerName: name })
 
     const heartbeat = {
       last_run: new Date().toISOString(),
-      buffer_size: buffer.length,
+      buffer_size: bufferSnapshot.length,
       intervene_rate_24h: rateLimiter.count(),
     }
 
@@ -235,6 +269,9 @@ function createObserver({
       signal_kind: decision.signal_kind || 'drift_warning',
       reason: decision.reason,
       confidence: inferredConfidence,
+      priority: decision.priority,             // optional; coerced by writeSignal
+      correlation_id: decision.correlation_id, // optional event-chain linker
+      evidence_event_ids: decision.evidence_event_ids,
     })
     deduper.record(msg)
 

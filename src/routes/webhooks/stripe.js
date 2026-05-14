@@ -57,6 +57,13 @@ async function _loadSecret() {
     logger.warn('stripe webhook: kv_store secret read failed', { error: err.message })
   }
   _secretCache = { value, expiresAt: now + 5 * 60 * 1000 }
+  // If the secret has now been provisioned (was missing, now present), archive
+  // the status_board row that warned about it. AUTONOMY_AUDIT_2026-05-13.
+  if (value && _missingSecretRowEnsured) {
+    db`UPDATE status_board SET archived_at = NOW() WHERE name = ${STATUS_ROW_NAME} AND archived_at IS NULL`
+      .catch(err => logger.debug('stripe webhook: failed to archive missing-secret row (non-fatal)', { error: err.message }))
+    _missingSecretRowEnsured = false
+  }
   return value
 }
 

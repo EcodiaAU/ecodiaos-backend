@@ -1001,19 +1001,67 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
           httpStatus: 403, code: 'tier3_gate_denied',
         })
       }
-      // Shadow mode: log the bypass so we can see which callers still need
-      // token wiring, then fall through to the legacy internal sender.
-      logger.warn('gmail.send shadow-mode bypass (no gate_token)', {
+      // Audit 2026-05-13 P0 #20: the previous "shadow mode" bypass called
+      // gmailService.sendEmail directly, which performs no Tier-3 gate,
+      // no delay-queue routing, no commitment detection, no calendar
+      // gate, and no audit. Anyone able to call gmail.send (or anyone
+      // who reached the cowork bearer) could send mail to arbitrary
+      // recipients with zero scrutiny. Fix: route through sendEmailAuto
+      // which:
+      //   - runs the calendar gate
+      //   - issues a tier-3 token (auto-pattern match for ecodia.au;
+      //     SMS-OTP pending for unknown recipients)
+      //   - hands off to sendEmailGated which runs commitment detection
+      //     and the outbound-email-delay-queue routing
+      // This preserves the "shadow" intent (the legacy callers that
+      // don't pass an explicit gate_token still work for ecodia.au
+      // internal addressees), but external sends without a matching
+      // pattern now return `pending_otp` instead of silently going out.
+      const sessionForAuto = sessionId || `cowork-shadow-${Date.now()}`
+      logger.warn('gmail.send shadow-mode → sendEmailAuto', {
         cowork_session_id: b.cowork_session_id,
+        sessionForAuto,
         to: Array.isArray(b.to) ? b.to.join(',') : b.to,
         subject: b.subject,
       })
-      result = await gmailService.sendEmail({
+      result = await gmailService.sendEmailAuto({
         from: fromInbox,
         to: b.to, cc: b.cc, bcc: b.bcc,
         subject: b.subject, body: b.body,
         threadId: b.thread_id,
+        sessionId: sessionForAuto,
+        context: { source: 'cowork_mcp_shadow' },
       })
+      if (result && result.queued) {
+        audit.logWrite(req, 'gmail.send', {
+          scope_used: 'write.gmail.send',
+          cowork_session_id: b.cowork_session_id,
+          affected_substrate: 'gmail',
+          affected_row_ref: null,
+          request_summary: {
+            from: fromInbox,
+            to: Array.isArray(b.to) ? b.to.join(',') : b.to,
+            subject: b.subject,
+            body_chars: b.body.length,
+            queued: true,
+          },
+          response_summary: { queued: true, row_id: result.row?.id || null },
+        })
+        return { queued: true, delay_queue_id: result.row?.id || null }
+      }
+      if (result && result.pending_otp) {
+        // External recipient with no matching authorized_action_patterns
+        // row — SMS-OTP challenge has been issued. Surface to caller so
+        // it can prompt Tate or wait.
+        return {
+          pending_otp: true,
+          otp_id: result.otp_id,
+          expires_at: result.expires_at,
+        }
+      }
+      if (result && result.deferred) {
+        return { deferred: true, reason: result.reason, defer_until: result.defer_until }
+      }
     }
 
     const toSummary = Array.isArray(b.to) ? b.to.join(',') : b.to

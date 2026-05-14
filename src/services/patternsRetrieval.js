@@ -83,17 +83,19 @@ async function semanticSearch(query, opts = {}) {
         triggers: meta.triggers,
         snippet: meta.snippet,
         score,
+        source: 'filesystem',
       })
     }
   }
 
   matches.sort((a, b) => b.score - a.score)
 
+  let results
   if (matches.length === 0) {
     try {
       const neo = await neo4jRetrieval.semanticSearch(query, { labels: ['Pattern'], limit })
-      return neo.map(n => ({
-        path: null,
+      results = neo.map(n => ({
+        path: n.name || null,
         title: n.name,
         triggers: [],
         snippet: n.description || '',
@@ -102,11 +104,29 @@ async function semanticSearch(query, opts = {}) {
       }))
     } catch (err) {
       logger.warn('patternsRetrieval: neo4j fallback failed', { error: err.message })
-      return []
+      results = []
+    }
+  } else {
+    results = matches.slice(0, limit)
+  }
+
+  // Fire-and-forget: record every surface for telemetry. Caller may supply
+  // {turnId, dispatchEventId} via opts.tracker. AUTONOMY_AUDIT_2026-05-13 §8.
+  if (results.length > 0 && opts.tracker !== false) {
+    try {
+      const tracker = require('./patternFireTracker')
+      tracker.recordFire({
+        patterns: results,
+        turnId: opts.turnId || null,
+        queryText: typeof query === 'string' ? query : null,
+        dispatchEventId: opts.dispatchEventId || null,
+      }).catch(err => logger.debug('patternFireTracker.recordFire failed (non-fatal)', { error: err.message }))
+    } catch (err) {
+      logger.debug('patternFireTracker import failed (non-fatal)', { error: err.message })
     }
   }
 
-  return matches.slice(0, limit)
+  return results
 }
 
 module.exports = { semanticSearch, _tokenise, _readPatternMeta, PATTERNS_DIR }

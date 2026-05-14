@@ -66,8 +66,19 @@ function _expandHome(p) {
  * Returns { key_id, team_id, p8_path } where p8_path is absolute.
  * Throws if missing.
  */
+// Audit 2026-05-13 P1: previously _credCache had no TTL and no rotation
+// detection, so a .p8 rotation pushed via kv_store wouldn't be picked
+// up until process restart — and the JWT cache (50min TTL) was keyed
+// only on (key_id, team_id) so a same-id rotation went undetected even
+// after the next sign cycle. Add a short TTL on the cred cache so
+// rotations propagate within a minute, and key the JWT cache on the
+// p8_path mtime so a key-content swap forces a fresh JWT immediately.
+const CRED_CACHE_TTL_MS = 60_000
+let _credCacheFetchedAt = 0
 async function _loadCred() {
-  if (_credCache) return _credCache
+  if (_credCache && Date.now() - _credCacheFetchedAt < CRED_CACHE_TTL_MS) {
+    return _credCache
+  }
   const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.apple'`
   if (!rows || !rows.length) {
     throw new Error('apns_cred_missing: creds.apple row not found in kv_store')
@@ -89,7 +100,15 @@ async function _loadCred() {
   if (!fs.existsSync(p8Path)) {
     throw new Error(`apns_p8_not_on_disk: ${p8Path}`)
   }
-  _credCache = { key_id: sub.key_id, team_id: sub.team_id, p8_path: p8Path }
+  // Capture the .p8 mtime so the JWT cache can detect a key-content
+  // rotation even when key_id/team_id stay the same.
+  let p8Mtime = 0
+  try {
+    const stat = fs.statSync(p8Path)
+    p8Mtime = stat.mtimeMs || 0
+  } catch { /* mtime not critical; default 0 */ }
+  _credCache = { key_id: sub.key_id, team_id: sub.team_id, p8_path: p8Path, p8_mtime: p8Mtime }
+  _credCacheFetchedAt = Date.now()
   return _credCache
 }
 
@@ -119,11 +138,16 @@ function _signJwt({ key_id, team_id, p8_path }) {
  */
 async function _getJwt() {
   const cred = await _loadCred()
+  // Audit 2026-05-13 P1: also key on p8_mtime so a key-content swap
+  // (kv_store update + on-disk .p8 replace with same key_id/team_id)
+  // forces a fresh JWT immediately rather than running with the old
+  // signing key for up to 50min.
   if (
     _jwtCache &&
     _jwtCache.token &&
     _jwtCache.keyId === cred.key_id &&
     _jwtCache.teamId === cred.team_id &&
+    _jwtCache.p8Mtime === cred.p8_mtime &&
     Date.now() - _jwtCache.generatedAt < JWT_TTL_MS
   ) {
     return { jwt: _jwtCache.token, cred }
@@ -134,6 +158,7 @@ async function _getJwt() {
     generatedAt: Date.now(),
     keyId: cred.key_id,
     teamId: cred.team_id,
+    p8Mtime: cred.p8_mtime,
   }
   return { jwt: token, cred }
 }
@@ -144,6 +169,7 @@ async function _getJwt() {
 function _resetCachesForTest() {
   _jwtCache = null
   _credCache = null
+  _credCacheFetchedAt = 0
 }
 
 /**
@@ -284,7 +310,15 @@ async function pushApns({ device_token, payload, _h2override } = {}) {
     _h2override,
   })
   // Token-revoked / invalid → mark in DB so we stop targeting it.
-  if (!result.ok && (result.status_code === 410 || result.error === 'BadDeviceToken' || result.error === 'Unregistered')) {
+  // Audit 2026-05-13 P1: previously only matched three exact strings;
+  // Apple also emits ExpiredToken, DeviceTokenNotForTopic, and casing
+  // variants. Normalise to a Set; treat any status_code 410 as token-
+  // gone regardless of the reason string.
+  const _TOKEN_GONE_REASONS = new Set([
+    'baddevicetoken', 'unregistered', 'expiredtoken', 'devicetokennotfortopic',
+  ])
+  const _normalisedReason = String(result && result.error || '').replace(/[^a-zA-Z]/g, '').toLowerCase()
+  if (!result.ok && (result.status_code === 410 || _TOKEN_GONE_REASONS.has(_normalisedReason))) {
     try {
       await db`UPDATE push_tokens SET revoked_at = now() WHERE device_token = ${device_token} AND revoked_at IS NULL`
     } catch (err) {

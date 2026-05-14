@@ -93,11 +93,32 @@ async function _snapshotHandoff() {
   }
 }
 
+// Audit 2026-05-13 P0 #35: previously _isBusy() only consulted the OS
+// session queue. forkService.listForks() — which is what the
+// `no-pm2-restart-during-active-factory-queue.md` pattern explicitly
+// names — was never queried. A nightly restart would fire while live
+// SDK forks were running and kill them. Also check fork hierarchy:
+// any non-terminal fork (spawning / running / reporting) holds the
+// restart back until grace exhausts.
+const _NON_TERMINAL_FORK_STATUSES = new Set(['spawning', 'running', 'reporting'])
+
+function _hasActiveForks() {
+  try {
+    const forkService = require('./forkService')
+    if (typeof forkService.listForks === 'function') {
+      const live = forkService.listForks() || []
+      return live.some((f) => _NON_TERMINAL_FORK_STATUSES.has(f && f.status))
+    }
+  } catch {}
+  return false
+}
+
 function _isBusy() {
   try {
     const osSession = require('./osSessionService')
-    if (typeof osSession._isQueueBusy === 'function') return !!osSession._isQueueBusy()
+    if (typeof osSession._isQueueBusy === 'function' && osSession._isQueueBusy()) return true
   } catch {}
+  if (_hasActiveForks()) return true
   return false
 }
 
@@ -120,8 +141,39 @@ function _doRestart(reason) {
       detached: true, stdio: 'ignore',
     })
     child.unref()
+    // Audit 2026-05-13 P1: previously a spawn failure was logged and
+    // forgotten; the nightly restart cron silently no-op'd until the
+    // next 24h window. Record a kv_store + status_board breadcrumb on
+    // the dispatch so post-mortem can correlate the restart with the
+    // reason classification.
+    try {
+      const db = require('../config/db')
+      db`
+        INSERT INTO kv_store (key, value, updated_at)
+        VALUES ('nightly_restart.last_fire', ${JSON.stringify({
+          fired_at: new Date().toISOString(),
+          process: PM2_PROCESS,
+          reason,
+          pid_at_dispatch: process.pid,
+        })}::jsonb, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+      `.catch(() => {})
+    } catch { /* db not loadable — skip breadcrumb */ }
   } catch (err) {
-    logger.error('nightlyRestart: spawn pm2 restart failed', { error: err.message })
+    // Spawn failure: alert + record so the next run can see this didn't
+    // land. (Audit 2026-05-13 P1: previously no retry / no alert.)
+    logger.error('nightlyRestart: spawn pm2 restart failed', { error: err.message, reason })
+    try {
+      const alerting = require('./osAlertingService')
+      if (alerting && typeof alerting._send === 'function') {
+        alerting._send({
+          kind: 'process_restart',
+          severity: 'urgent',
+          subject: 'nightlyRestart: pm2 restart spawn FAILED',
+          body: `Tried to restart ${PM2_PROCESS} (reason=${reason}) but spawn errored: ${err.message}. Manual intervention may be required.`,
+        }).catch(() => {})
+      }
+    } catch { /* alerting not loadable */ }
   }
 }
 

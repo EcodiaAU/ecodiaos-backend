@@ -6,6 +6,13 @@ const db = require('../config/db')
 const router = Router()
 
 // ─── Auth: JWT only ──────────────────────────────────────────────────
+// Audit 2026-05-13 C-3/C-4: this endpoint returns first 150 chars of every
+// cc_sessions.initial_prompt (which routinely contains client emails / CRM
+// activity / external text — exactly the data SECURITY_HARDENING §1 wraps
+// as untrusted on ingress, leaked on egress). The original verify-only
+// check accepted ANY signed token including 7-day refresh tokens. Tighten:
+//   1. Refresh tokens rejected explicitly.
+//   2. Only admin role accepted (the single-user-admin posture).
 router.use((req, res, next) => {
   const header = req.headers.authorization
   if (!header || !header.startsWith('Bearer ')) {
@@ -15,7 +22,13 @@ router.use((req, res, next) => {
 
   try {
     const jwt = require('jsonwebtoken')
-    jwt.verify(token, env.JWT_SECRET)
+    const decoded = jwt.verify(token, env.JWT_SECRET)
+    if (decoded && decoded.type === 'refresh') {
+      return res.status(401).json({ error: 'Refresh token cannot be used for access' })
+    }
+    if (!decoded || decoded.userId !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
     return next()
   } catch {
     return res.status(401).json({ error: 'Unauthorized' })

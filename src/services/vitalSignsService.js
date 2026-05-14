@@ -84,14 +84,29 @@ async function getPM2Processes() {
 }
 
 // ─── Restart Storm Detection ─────────────────────────────────────────
+//
+// Audit 2026-05-13 P0 #40: previously the first call after a fresh
+// process started would see `prev = 0` for every PM2 entry (the Map
+// was empty), so `delta = p.restarts - 0 = lifetime restarts`. Any
+// process with ≥3 lifetime restarts (basically all of them) fired a
+// fake `restart_storm:<name>` anomaly on first tick. That violates the
+// `pm2-restart-count-is-lifetime-not-rate.md` pattern. Fix: on first
+// tick, initialise the baseline from the observed counts and return
+// no storms; compute deltas only from the SECOND tick onward.
 let _prevRestartCounts = new Map() // name → restarts
+let _restartBaselineInitialised = false
 
 function detectRestartStorms(pm2Processes) {
+  if (!_restartBaselineInitialised) {
+    for (const p of pm2Processes) _prevRestartCounts.set(p.name, p.restarts || 0)
+    _restartBaselineInitialised = true
+    return [] // First tick is baseline-only — never a storm.
+  }
   const storms = []
   for (const p of pm2Processes) {
-    const prev = _prevRestartCounts.get(p.name) || 0
-    const delta = p.restarts - prev
-    _prevRestartCounts.set(p.name, p.restarts)
+    const prev = _prevRestartCounts.has(p.name) ? _prevRestartCounts.get(p.name) : (p.restarts || 0)
+    const delta = (p.restarts || 0) - prev
+    _prevRestartCounts.set(p.name, p.restarts || 0)
     if (delta >= 3) {
       storms.push({ name: p.name, restartsDelta: delta, totalRestarts: p.restarts })
     }

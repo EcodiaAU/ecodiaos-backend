@@ -2,8 +2,8 @@
 
 *First-person identity artifact. I (EcodiaOS) author this. Tate reviews weekly and corrects errors, but does not write first-person content. Rewritten when the facts below change.*
 
-**Last updated:** 2026-05-01 (third revision of the day - Tier A audit remediation: env.js defaults reconciled, observability metrics shipped, /ops dashboard surfaces cache_hit_ratio + cost_per_turn_usd + compaction_events)
-**Next self-review:** 2026-05-08
+**Last updated:** 2026-05-14 (extended autonomy hardening: 15 waves shipped — status_board canonical migration, outbound action verification primitive (Gmail + Vercel + idempotency), per-fork worktree helper, listener health endpoint, persisted consecutive-failure counter, episode acknowledgement wiring, schema hardening, pattern firing metric, KG lock stale-detection, email rate-limiting, Xero exp-backoff, webhook secret auto-recovery, stale outbound-action sweep, `/api/ops/stuck` diagnostic)
+**Next self-review:** 2026-05-21
 
 ---
 
@@ -27,20 +27,24 @@ I am a conductor, not a solo operator. I have four subagents -- comms, finance, 
 
 ## Top 5 unverified claims
 
-1. **Claim:** Fork atomicity TOCTOU race is closed end-to-end. **Handle:** node scripts/test-fork-cap-race.js on VPS under concurrent load. **Status:** verified PASS by fork_momlilgp_34d36f on 2026-05-01. Three back-to-back runs at concurrency=50 (150 total concurrent reservations), zero cap-violations sampled at 100ms cadence, all rejections correctly classified `fork_cap_reached`. Deliverable: ~/ecodiaos/drafts/fork-cap-load-test-2026-05-01.md.
-2. **Claim:** Compact threshold flip stable at 120K under production load. **Handle:** Monitor /api/ops/metrics for `turn_economics.cache_hit_ratio_24h` holding at or above pre-flip baseline AND `compaction.count_24h` showing a healthy 1-5/day sawtooth (not >12/day, not 0 across multiple days). **Status:** Activated on pm2 restart (2026-05-01). env.js default 800K → 120K + osSessionService hardcoded fallbacks. Monitor /ops for 48h. ROLLBACK: `git revert <commit_a908282>` if degradation observed.
-3. **Claim:** The email-to-factory-to-deploy RCE chain is closed. **Handle:** end-to-end attack-sim integration test. **Status:** unverified -- unit tests exist per layer, no kill-chain test yet.
-4. **Claim:** credentialFilter.redact() is wired into all three emit paths. **Handle:** credential_redactions_bootstrap_done on /api/ops/metrics flips to true after 2h. **Status:** bootstrap timer running.
-5. **Claim:** Calendar gate correctly defers sends outside AEST hours. **Handle:** send a test email outside hours and verify deferral. **Status:** code shipped, untested in production.
+1. **Claim:** `status_board` now has a canonical migration (117) so fresh DBs no longer silently fail. **Handle:** `\d status_board` on staging returns the full column set after running `npm run migrate`. **Status:** migration shipped, idempotent on live prod, not yet applied on a fresh DB.
+2. **Claim:** Layer-7 `repeated_failure_rate` will populate now that `episodeResurface.markAcknowledgement()` is wired to `_recordTurnOutcome(true)`. **Handle:** `SELECT count(*) FROM episode_resurface_event WHERE acknowledged_in_response IS NOT NULL` is 0 today; should be non-zero within 48h of conductor turns post-deploy. **Status:** code shipped, not yet observed firing.
+3. **Claim:** Outbound action verification wrapper closes the "claims-success-without-checking" gap for Gmail replies and Vercel deploys. **Handle:** `SELECT status, count(*) FROM outbound_actions GROUP BY status` shows transitions pending → dispatched → verified after any send. **Status:** wrapper shipped + wired into `gmailService.sendReply` and `vercelService.triggerDeploy`. `sendNewEmail` and other paths not yet wrapped.
+4. **Claim:** Per-fork worktree isolation closes the shared-cwd race documented in FORK_ATOMICITY_SPEC §3. **Handle:** with `FORK_WORKTREE_ISOLATION=true` on ecodia-conductor, `ls /home/tate/fork_worktrees` shows live fork-id directories. **Status:** helper shipped + wired behind feature flag (default off). Flag should flip to true after staging canary.
+5. **Claim:** `_consecutiveFailures` survives PM2 restart so the auto-restart gate is no longer amnesic. **Handle:** induce a failure, restart api, induce another failure, confirm counter reads 2 not 1. **Status:** kv_store row writes on every increment, restore on boot. Not yet observed restoring in prod.
+6. **Claim:** Pattern firing telemetry (`pattern_fire_event`) populates on every surface and `/api/ops/pattern-fire` returns ranked + cold views. **Handle:** dispatch a turn that triggers `patternsRetrieval.semanticSearch`; row appears with `conductor_accepted=NULL`; classifier flips it on response. **Status:** code shipped, awaiting first conductor turn post-deploy.
+7. **Claim:** `/api/ops/stuck` returns a structured blocker brief across 7 substrates. **Handle:** `curl /api/ops/stuck` returns `verdict` + `counts`. **Status:** route shipped, not yet hit in prod.
+8. **Claim:** Gmail per-recipient + global rate limit (10/hr + 50/hr default) prevents runaway loops. **Handle:** simulate 11 sends to same recipient — 11th throws `rate_limit_exceeded`. **Status:** code shipped, not yet stress-tested.
 
 ---
 
 ## Current operational concerns
 
-- **Dual-reviewer has 0 data points.** Factory has not had self-mod sessions since S2.2 deployed. Guard is present but unexercised.
-- **Prompt assembler shadow data showed 100% divergence** at a fixed byte offset (block ordering: v1 puts `<now>` before doctrineSurface, v2 puts doctrineSurface in BP3 before `<now>` in BP4). Content identical, order different. Benign for live operation since v2 structured blocks go to the API directly.
-- **Factory CLI fully credit-exhausted.** 736 sessions, 0 active, all recent error in ~15s. Both Claude Max accounts (tate@, code@) hit weekly token cap. SDK forks bypass this. Factory resumes after weekly reset.
-- **Auto-restart loop is fixed.** Root cause: background turn failures (heartbeat, scheduled tasks running on credit-exhausted provider) were incrementing `_consecutiveFailures`, triggering `pm2 restart ecodia-api` every 3-7 minutes. All 4 `_recordTurnOutcome` call sites in `_sendMessageImpl` now guarded behind `!suppressOutput` - only user-facing turn failures count toward auto-restart.
+- **Dual-reviewer has 0 data points.** Factory has not had self-mod sessions since S2.2 deployed. Guard is present but unexercised. Tracked in AUTONOMY_AUDIT_2026-05-13 queued list.
+- **Observation tables had no retention until 2026-05-14.** Migration 118 + `src/db/cron/observationRetention.js` now purge `observer_signals`, `os_observations`, `observer_pulse_events`, `session_memory_chunks`, `gkg_events`, `compaction_events` daily at 02:00 AEST. First firing pending VPS deploy.
+- **124 fire-and-forget `.catch(() => {})` blocks across services/ dir.** Top callers in `internalEventBusService` and `perceptionBus` now log at warn/debug instead of swallowing. The remaining ~120 are mostly low-value telemetry writes; queued as a mechanical sweep fork.
+- **Factory CLI credit exhaustion.** Status unchanged from 2026-05-01: both Claude Max accounts at weekly cap. SDK forks bypass. Three-account chain (`claude_max_3` added) gives six independent capacity slots.
+- **Auto-restart loop fix from 2026-05-01 reinforced.** Per-failure persistence to `kv_store.os_session.consecutive_failures` (added 2026-05-14) means the counter no longer resets to zero on PM2 restart, so the threshold gate behaves as designed across restarts.
 
 ---
 

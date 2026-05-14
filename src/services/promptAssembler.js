@@ -100,12 +100,20 @@ function _buildBp1(cwd) {
 }
 
 function _buildBp2(cwd) {
-  const today = new Date().toISOString().slice(0, 10)
+  // Audit 2026-05-13 P0 #23: previously the env block embedded a
+  // `Date: YYYY-MM-DD` line. BP2 is the ~15K-token stable-doctrine cache
+  // breakpoint with a 1-hour TTL on Anthropic's side; the per-day line
+  // invalidated the slot every UTC midnight (and the per-turn capture
+  // could flip mid-conversation across the boundary), wiping the cache
+  // win the whole spec is built on. The conductor already gets the
+  // real per-turn time via the `<now>...</now>` continuity block at
+  // user-message level (osSessionService injects this every turn) so
+  // BP2 doesn't need to carry the date at all. Removed.
   const envBlock = `# Environment
 Working directory: ${cwd}
 Platform: linux
-Date: ${today}
-You are powered by Claude (Anthropic's model). Running inside the EcodiaOS conductor via the Claude Agent SDK.`
+You are powered by Claude (Anthropic's model). Running inside the EcodiaOS conductor via the Claude Agent SDK.
+(The current date/time is provided per-turn via the <now>...</now> block; do not infer it from this prompt.)`
 
   const behaviorBlock = `# Behavior
 - You are a conductor. Delegate domain work (email, finance, ops, social) to the subagent with the right tools via the Agent tool. Do not try to do that work yourself - you don't have those tools.

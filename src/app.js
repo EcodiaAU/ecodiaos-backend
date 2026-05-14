@@ -3,6 +3,7 @@ const helmet = require('helmet')
 const cors = require('cors')
 const compression = require('compression')
 const errorHandler = require('./middleware/errorHandler')
+const auth = require('./middleware/auth')
 const logger = require('./config/logger')
 
 const authRoutes = require('./routes/auth')
@@ -32,19 +33,24 @@ const app = express()
 app.use(helmet())
 app.use(cors({
   origin: (origin, callback) => {
+    // Single-operator admin posture. CORS is the FIRST gate, not the only
+    // one — every /api/* route is auth-gated below by appAuth (unless on
+    // PUBLIC_PATH_ALLOWLIST). Specific subdomains only; no wildcard
+    // *.vercel.app / *.claude.ai (those let any free preview deploy carry
+    // credentialled requests cross-origin against admin.ecodia.au).
     const allowed = [
       'https://admin.ecodia.au',
+      'https://ecodia.au',
       'http://localhost:5173',
-      // Anthropic - claude.ai custom MCP connector + general Anthropic surfaces.
-      // Bare + subdomain forms (mcp.claude.ai, etc.) per Anthropic's MCP fetcher.
+      // Anthropic claude.ai MCP custom connector (bare host only).
       'https://claude.ai',
       'https://anthropic.com',
     ]
     if (!origin) return callback(null, true)
     if (allowed.includes(origin)) return callback(null, true)
-    if (origin.endsWith('.vercel.app')) return callback(null, true)
-    if (origin.endsWith('.claude.ai')) return callback(null, true)
-    if (origin.endsWith('.anthropic.com')) return callback(null, true)
+    // Tight subdomain allowlist for Ecodia's own Vercel deploys only.
+    if (origin === 'https://ecodia-admin-frontend.vercel.app') return callback(null, true)
+    if (/^https:\/\/ecodia-admin-frontend(-[\w-]+)?\.vercel\.app$/.test(origin)) return callback(null, true)
     return callback(new Error('Not allowed by CORS'))
   },
   credentials: true,
@@ -116,6 +122,115 @@ app.get('/api/healthz', (_req, res) => {
 const path = require('path')
 app.use('/api/files', express.static(path.join(__dirname, '../public')))
 
+// ── App-level auth gate ───────────────────────────────────────────────
+// Single source of truth for who can hit which route. Every /api/* path
+// requires a JWT (or the MCP_INTERNAL_TOKEN long-lived bearer) unless its
+// path is on PUBLIC_PATH_ALLOWLIST below. Public paths are: OAuth callbacks
+// (canva/xero), webhook handlers that authenticate via their own HMAC/
+// signature, the loopback ingestion endpoints, healthchecks, MCP discovery
+// endpoints (per MCP spec — tools/call is still gated inside the router),
+// and a handful of ambient read-only dashboards Tate's FE relies on.
+//
+// Anything NOT on this list (including /api/os-session/*, /api/dispatch-
+// queue, /api/rescue, /api/meetings, /api/voice/*, /api/triage, /api/
+// dashboard, /api/message-queue, /api/voice/chunk, /internal/cortex-state)
+// REQUIRES auth. The previous audit (2026-05-13) found those routes were
+// fully unauthenticated and reachable via internet, with CORS allowing
+// any vercel.app preview deploy to drive the conductor cross-origin.
+//
+// IMPORTANT: webhooks raw-body routes (/api/webhooks/vercel, /api/webhooks/
+// stripe, /api/gkg) were mounted BEFORE express.json(). Those auth-via-
+// HMAC paths are also explicitly public here (defence in depth).
+const PUBLIC_PATH_PATTERNS = [
+  // Healthchecks
+  /^\/api\/healthz?(\/|$)/,
+  // Static files (already mounted above; listed for clarity)
+  /^\/api\/files(\/|$)/,
+  // Auth itself: login + refresh + ws-ticket are intentionally pre-auth
+  // (the route is the path to GET a token). ws-ticket internally
+  // re-checks the JWT — see routes/auth.js.
+  /^\/api\/auth\/(login|refresh|ws-ticket)$/,
+  // OAuth callbacks (must be unauthenticated; vendor POSTs back here)
+  /^\/api\/canva\/oauth\/callback$/,
+  /^\/api\/xero\/callback$/,
+  // Webhooks — verified by HMAC at the route layer
+  /^\/api\/webhooks\/(stripe|vercel)(\/|$)/,
+  /^\/api\/sms(\/|$)/, // Twilio request signature validated by twilioValidation middleware
+  /^\/api\/gkg(\/|$)/, // HMAC validated by validateGkgSignature
+  /^\/api\/hands(\/|$)/, // HMAC validated inside the route by handsBridge.verifyInbound
+  // MCP cowork discovery (initialize/tools/list/prompts/list/resources/list)
+  // — auth on tools/call is enforced inside the router. Discovery must be
+  // public per MCP spec so claude.ai can enumerate the surface.
+  /^\/api\/mcp\/cowork(\/|$)/,
+  // Internal loopback endpoints — authenticated by their own bearer secret
+  // (CONDUCTOR_LOOPBACK_SECRET) inside the route handler. These are
+  // mounted at /internal/* on purpose; nginx should be configured to
+  // refuse external traffic to /internal/* but we don't trust that alone.
+  /^\/internal\/ws-broadcast(\/|$)/,
+  /^\/internal\/cortex-state(\/|$)/,
+  // Conductor-internal loopback (sessionAutoWake et al). These call
+  // /api/os-session/message from localhost. We honour them via a
+  // localhost + loopback-secret check inside appAuth (NOT a blanket
+  // allowlist) — see code path below.
+]
+
+const REQUIRE_LOOPBACK_BEARER_PATTERNS = [
+  // Endpoints that conductor-internal services hit on loopback. We accept
+  // either a normal JWT (admin UI) OR the loopback secret.
+  /^\/api\/os-session\/message$/,
+]
+
+function isPublicPath(p) {
+  for (const re of PUBLIC_PATH_PATTERNS) if (re.test(p)) return true
+  return false
+}
+
+function isLoopbackAuthorisedRequest(req) {
+  // Conductor-internal callers (sessionAutoWake, schedulerPollerService
+  // _fireDirectExecTask, etc.) POST to /api/os-session/message from
+  // localhost. Accept either:
+  //   (a) Authorization: Bearer <CONDUCTOR_LOOPBACK_SECRET>, OR
+  //   (b) X-Internal-Loopback-Secret header == CONDUCTOR_LOOPBACK_SECRET
+  // Both compared with crypto.timingSafeEqual.
+  const env = require('./config/env')
+  const expected = env.CONDUCTOR_LOOPBACK_SECRET
+  if (!expected) return false
+  const auth = req.headers.authorization || ''
+  const headerToken = req.headers['x-internal-loopback-secret'] || ''
+  let provided = ''
+  if (auth.startsWith('Bearer ')) provided = auth.slice(7)
+  else if (headerToken) provided = String(headerToken)
+  if (!provided) return false
+  try {
+    const crypto = require('crypto')
+    const a = Buffer.from(provided)
+    const b = Buffer.from(expected)
+    if (a.length !== b.length) return false
+    return crypto.timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
+
+function appAuth(req, res, next) {
+  const reqPath = req.path
+  // OPTIONS pre-flight requests pass through (cors middleware handled it)
+  if (req.method === 'OPTIONS') return next()
+  // Allowlisted public paths
+  if (isPublicPath(reqPath)) return next()
+  // Loopback-authorised endpoints (conductor self-fire)
+  for (const re of REQUIRE_LOOPBACK_BEARER_PATTERNS) {
+    if (re.test(reqPath) && isLoopbackAuthorisedRequest(req)) {
+      req.user = { id: 'loopback', role: 'loopback' }
+      return next()
+    }
+  }
+  // Everything else gets full JWT auth
+  return auth(req, res, next)
+}
+
+app.use(appAuth)
+
 // Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/finance', financeRoutes)
@@ -167,11 +282,19 @@ app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
 // CortexAmbient Phase 2 live panels (fork_mp3ndv83_63898a, 2026-05-13)
 app.use('/api/working-set', require('./routes/workingSet'))
 app.use('/api/observer-signals', require('./routes/observerSignals'))
+// Observer Framework v2: firehose ingestion + state read for systemPulse.
+app.use('/api/observer-pulse', require('./routes/observerPulse'))
 app.use('/api/perception', require('./routes/perception'))
 app.use('/api/restart-requests', require('./routes/restartRequests'))
 app.use('/api/ops', require('./routes/ops'))
 // /api/ops/listener-stats - perception-bus matcher + listener telemetry (B3, fork_mosmjqi4_20c41a)
 app.use('/api/ops/listener-stats', require('./routes/ops/listenerStats'))
+// /api/ops/listener-health - per-listener fires/drops/errors + derived status (AUTONOMY_AUDIT_2026-05-13)
+app.use('/api/ops/listener-health', require('./routes/ops/listenerHealth'))
+// /api/ops/pattern-fire - pattern surfacing telemetry, ranked + cold views (AUTONOMY_AUDIT_2026-05-13)
+app.use('/api/ops/pattern-fire', require('./routes/ops/patternFire'))
+// /api/ops/stuck - "what is the conductor stuck on?" diagnostic (AUTONOMY_AUDIT_2026-05-13)
+app.use('/api/ops/stuck', require('./routes/ops/stuck'))
 // Phase 4 dashboard endpoints (fork_mp3pkavh_12c438)
 app.use('/api/scheduler', require('./routes/scheduler'))
 app.use('/api/kv-store', require('./routes/kvStore'))

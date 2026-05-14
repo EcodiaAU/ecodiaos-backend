@@ -54,7 +54,16 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
 
-const TERMINAL_STATES = new Set(['done', 'aborted', 'error'])
+// Audit 2026-05-13 P0 #16: TERMINAL_STATES now ALSO contains 'crashed'
+// so recovered rows (forkService.recoverStaleForks) are seen as terminal
+// by downstream consumers (the dispatchQueueListener's fork_complete
+// trigger), instead of orphaning dispatch_queue work that depends on a
+// crashed fork. finalize() itself still refuses 'crashed' as an INPUT —
+// only recoverStaleForks writes that status; callers using finalize()
+// must pick one of {done,aborted,error}. FINALIZE_INPUT_STATES is the
+// input gate; TERMINAL_STATES is the read gate used by consumers.
+const FINALIZE_INPUT_STATES = new Set(['done', 'aborted', 'error'])
+const TERMINAL_STATES = new Set(['done', 'aborted', 'error', 'crashed'])
 
 /**
  * Idempotent terminal-state write for an os_forks row.
@@ -68,7 +77,7 @@ async function finalize(forkId, terminalStatus, result = null) {
   if (!forkId || typeof forkId !== 'string') {
     throw new Error('forkFinalizer.finalize: forkId is required (string)')
   }
-  if (!TERMINAL_STATES.has(terminalStatus)) {
+  if (!FINALIZE_INPUT_STATES.has(terminalStatus)) {
     throw new Error(
       `forkFinalizer.finalize: invalid terminalStatus "${terminalStatus}" - must be one of: done, aborted, error`
     )
@@ -79,13 +88,19 @@ async function finalize(forkId, terminalStatus, result = null) {
   // terminal OR not found, distinguished by the probe below).
   let updatedRows
   try {
+    // Audit 2026-05-13 P0 #16: WHERE-clause now also excludes 'crashed'
+    // so a row left terminal by recoverStaleForks isn't silently
+    // overwritten by a late finalize() call (recovery may have run
+    // because the api was restarted under the fork's feet; the fork's
+    // in-memory state machine might still attempt to write a finalize
+    // on next startup).
     updatedRows = await db`
       UPDATE os_forks
       SET status   = ${terminalStatus},
           ended_at = COALESCE(ended_at, now()),
           result   = COALESCE(result, ${result})
       WHERE fork_id = ${forkId}
-        AND status NOT IN ('done', 'aborted', 'error')
+        AND status NOT IN ('done', 'aborted', 'error', 'crashed')
       RETURNING fork_id, status
     `
   } catch (err) {

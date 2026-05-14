@@ -76,7 +76,19 @@ async function flushNow(sessionId) {
   s.parts = []
   s.lastFlushAt = Date.now()
   if (!joined) return
-  await postFlush(sessionId, `[VOICE] ${joined}`)
+  // Audit 2026-05-13 P2: per SECURITY_HARDENING §2.1 voice transcripts
+  // are external text and must be wrapped in <untrusted_input>. Whisper
+  // is well-behaved but Whisper transcripts have included literal
+  // command-injection-shaped strings (anything Tate said aloud) which
+  // the model should treat as DATA, not instructions.
+  let body
+  try {
+    const { wrapUntrusted } = require('../lib/untrustedInput')
+    body = `[VOICE]\n${wrapUntrusted(joined, { source: 'voice', session_id: sessionId })}`
+  } catch {
+    body = `[VOICE] ${joined}`
+  }
+  await postFlush(sessionId, body)
 }
 
 async function appendAndMaybeFlush(sessionId, text) {

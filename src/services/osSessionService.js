@@ -291,6 +291,37 @@ function buildSubagentConfigs(allConfigs) {
  * These replace the shell-based hooks in vps-hooks/settings-account1.json
  * with native JS callbacks -- faster, more reliable, guaranteed to fire.
  */
+// Audit 2026-05-13 P0 #29: `_preToolSeenKeys` was declared INSIDE
+// buildProgrammaticHooks(), which is called fresh on every _sendMessageImpl
+// invocation. The documented "100-entry per-session dedup" was silently
+// false — every turn started with an empty map and re-surfaced the same
+// Neo4j node on every tool call. Hoisted to module scope. Bound the outer
+// map at 200 sessions to avoid unbounded growth across long-lived
+// processes; oldest session entry evicted on overflow (insertion-order
+// Map iteration).
+const _preToolSeenKeys = new Map()
+const _PRE_TOOL_MAX_SESSIONS = 200
+const _PRE_TOOL_MAX_KEYS_PER_SESSION = 100
+
+function _getSeenKeys(sessionId) {
+  if (!_preToolSeenKeys.has(sessionId)) {
+    _preToolSeenKeys.set(sessionId, [])
+    if (_preToolSeenKeys.size > _PRE_TOOL_MAX_SESSIONS) {
+      const oldestKey = _preToolSeenKeys.keys().next().value
+      _preToolSeenKeys.delete(oldestKey)
+    }
+  }
+  return _preToolSeenKeys.get(sessionId)
+}
+
+function _recordSeen(sessionId, keys) {
+  const seen = _getSeenKeys(sessionId)
+  for (const k of keys) seen.push(k)
+  if (seen.length > _PRE_TOOL_MAX_KEYS_PER_SESSION) {
+    seen.splice(0, seen.length - _PRE_TOOL_MAX_KEYS_PER_SESSION)
+  }
+}
+
 function buildProgrammaticHooks() {
   // NOTE: UserPromptSubmit hook removed 2026-04-11.
   // Reason: it injected "Think like a CEO..." every turn, which (a) is redundant
@@ -308,28 +339,8 @@ function buildProgrammaticHooks() {
   // and graph_create_relationship in active sessions). Local d:/.code/EcodiaOS/.mcp.json
   // is drifted and missing neo4j; the VPS copy is authoritative. If you edit
   // the local .mcp.json, scp to VPS or copy from VPS before pushing.
-  // Per-session dedup: tracks injected node keys so the same node isn't
-  // surfaced more than once per session. Map<sessionId, Set<nodeKey>>.
-  // Cap per session at 100 entries; evict oldest on overflow.
-  const _preToolSeenKeys = new Map()
-
-  function _getSeenKeys(sessionId) {
-    if (!_preToolSeenKeys.has(sessionId)) {
-      _preToolSeenKeys.set(sessionId, [])
-    }
-    return _preToolSeenKeys.get(sessionId)
-  }
-
-  function _recordSeen(sessionId, keys) {
-    const seen = _getSeenKeys(sessionId)
-    for (const k of keys) {
-      seen.push(k)
-    }
-    // Evict oldest if over cap
-    if (seen.length > 100) {
-      seen.splice(0, seen.length - 100)
-    }
-  }
+  // (_preToolSeenKeys + _getSeenKeys + _recordSeen hoisted to module scope —
+  // see comment above buildProgrammaticHooks)
 
   return {
     PreToolUse: [
@@ -466,7 +477,32 @@ function buildCustomSystemPrompt(cwd) {
   if (_cachedSystemPrompt && _cachedSystemPromptCwd === cwd) {
     return _cachedSystemPrompt
   }
-  // Read project CLAUDE.md (the OS's operational identity)
+  // Audit 2026-05-13 P0 #23 follow-on: the v1 forkBlock + behaviorBlock
+  // text was diverging from promptAssembler._buildBp2 (em-dash strip
+  // commit 6d4ab0aa only touched one of the two surfaces; the manager-
+  // fork doctrine update only landed in the assembler). Delegate to the
+  // assembler so there is ONE source of truth for the system-prompt
+  // text the SDK sees. This also propagates the BP2-Date-strip fix
+  // (audit P0 #23) to every caller without duplicating the change.
+  try {
+    const promptAssembler = require('./promptAssembler')
+    const assembled = promptAssembler.assemble({ cwd })
+    if (assembled && typeof assembled.systemPrompt === 'string') {
+      _cachedSystemPrompt = assembled.systemPrompt
+      _cachedSystemPromptCwd = cwd
+      logger.info('Custom system prompt built (via assembler)', {
+        bytes: _cachedSystemPrompt.length,
+      })
+      return _cachedSystemPrompt
+    }
+  } catch (err) {
+    logger.warn('buildCustomSystemPrompt: assembler delegate failed, falling back to legacy path', {
+      error: err.message,
+    })
+  }
+  // Legacy fallback path (kept verbatim from before the delegation so a
+  // broken assembler doesn't take the OS down). Reads project CLAUDE.md
+  // (the OS's operational identity).
   let claudeMd = ''
   try {
     const claudeMdPath = path.join(cwd, 'CLAUDE.md')
@@ -513,13 +549,16 @@ function buildCustomSystemPrompt(cwd) {
     })
   }
 
-  // Minimal environment context — replaces the SDK's verbose default env block
-  const today = new Date().toISOString().slice(0, 10)
+  // Minimal environment context — replaces the SDK's verbose default env
+  // block. Audit 2026-05-13 P0 #23: Date previously embedded here too;
+  // removed so this block stays byte-stable across days (the conductor
+  // reads the current date/time from the per-turn <now>...</now>
+  // continuity block injected at user-message level by _injectTemporalStamp).
   const envBlock = `# Environment
 Working directory: ${cwd}
 Platform: linux
-Date: ${today}
-You are powered by Claude (Anthropic's model). Running inside the EcodiaOS conductor via the Claude Agent SDK.`
+You are powered by Claude (Anthropic's model). Running inside the EcodiaOS conductor via the Claude Agent SDK.
+(The current date/time is provided per-turn via the <now>...</now> block; do not infer it from this prompt.)`
 
   // Minimal tone/behavior rules — only the non-obvious things the model needs.
   // Everything else is either in CLAUDE.md or is default model behavior.
@@ -673,6 +712,77 @@ let _lastFailureAt = 0
 const AUTO_RESTART_COOLDOWN_MS = 15 * 60 * 1000
 const FAILURE_WINDOW_MS = 5 * 60 * 1000
 
+// Pending episode-resurface acknowledgements, keyed by turnId. Populated when
+// _injectRelevantMemory records a resurface, drained on successful turn outcome
+// so episode_resurface_event.acknowledged_in_response flips to TRUE. Until this
+// landed (AUTONOMY_AUDIT_2026-05-13), markAcknowledgement() was defined but
+// never called from production paths, which left Layer-7 repeated_failure_rate
+// permanently NULL. Capping the Map at 32 entries protects against turn leaks.
+const _pendingEpisodeAcks = new Map()
+const _PENDING_EPISODE_ACKS_CAP = 32
+
+function _stashPendingEpisodeAcks(turnId, ids) {
+  if (!turnId || !Array.isArray(ids) || ids.length === 0) return
+  _pendingEpisodeAcks.set(turnId, ids)
+  // Drop oldest if cap exceeded — failure to ack is non-fatal (the row just
+  // stays with acknowledged_in_response = NULL).
+  while (_pendingEpisodeAcks.size > _PENDING_EPISODE_ACKS_CAP) {
+    const oldest = _pendingEpisodeAcks.keys().next().value
+    _pendingEpisodeAcks.delete(oldest)
+  }
+}
+
+async function _flushPendingEpisodeAcks(turnId) {
+  const ids = _pendingEpisodeAcks.get(turnId)
+  if (!ids || ids.length === 0) return
+  _pendingEpisodeAcks.delete(turnId)
+  for (const id of ids) {
+    try {
+      await episodeResurface.markAcknowledgement({ id, ack: true })
+    } catch (err) {
+      logger.debug('episodeResurface ack failed (non-fatal)', { id, error: err.message })
+    }
+  }
+}
+
+// Persisted consecutive-failure counter — survives PM2 restart so the
+// failure-threshold gate is not amnesic. Loaded once at boot.
+const _CONSEC_FAILURES_KEY = 'os_session.consecutive_failures'
+
+async function _loadConsecutiveFailures() {
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${_CONSEC_FAILURES_KEY}`
+    if (!rows.length) return
+    const v = rows[0].value
+    const parsed = typeof v === 'string' ? JSON.parse(v) : v
+    const n = Number(parsed?.count ?? parsed)
+    if (Number.isFinite(n) && n >= 0) {
+      _consecutiveFailures = Math.min(n, 10) // clamp; avoid runaway state from corrupt row
+      logger.info('os_session: restored _consecutiveFailures from kv_store', { count: _consecutiveFailures })
+    }
+  } catch (err) {
+    logger.warn('os_session: failed to load _consecutiveFailures (defaulting to 0)', { error: err.message })
+  }
+}
+
+async function _persistConsecutiveFailures() {
+  try {
+    const payload = JSON.stringify({ count: _consecutiveFailures, ts: Date.now() })
+    await db`
+      INSERT INTO kv_store (key, value)
+      VALUES (${_CONSEC_FAILURES_KEY}, ${payload})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+    `
+  } catch (err) {
+    logger.debug('os_session: failed to persist _consecutiveFailures', { error: err.message })
+  }
+}
+
+// Boot-time restore. Non-blocking so it does not delay module load; if a turn
+// fires before this completes, the worst case is one extra retry before the
+// host-restart gate kicks in.
+_loadConsecutiveFailures().catch(() => {})
+
 function _isProviderSideError(errMsg) {
   if (!errMsg) return false
   const t = String(errMsg).toLowerCase()
@@ -754,8 +864,15 @@ async function _markAutoRestart(reason) {
 
 function _recordTurnOutcome(ok, errorMsg) {
   if (ok) {
+    const wasNonZero = _consecutiveFailures !== 0
     _consecutiveFailures = 0
     _lastFailureAt = 0
+    if (wasNonZero) _persistConsecutiveFailures().catch(() => {})
+    // Flush pending episode acks (Layer 7) for whatever turn just succeeded.
+    try {
+      const turnId = currentTurnId()
+      if (turnId) _flushPendingEpisodeAcks(turnId).catch(() => {})
+    } catch { /* non-fatal */ }
     return
   }
   // Guard (b)+(c): provider-side errors don't count toward host-restart trigger
@@ -778,6 +895,8 @@ function _recordTurnOutcome(ok, errorMsg) {
   }
   _lastFailureAt = now
   _consecutiveFailures += 1
+  // Persist so a PM2 restart between failures does not amnesia-reset the gate.
+  _persistConsecutiveFailures().catch(() => {})
   if (_consecutiveFailures >= 3) {
     // Fire-and-forget async restart; caller returns immediately.
     ;(async () => {
@@ -954,81 +1073,11 @@ function _isUsageExhausted(text) {
   return false
 }
 
-// Detect auth failures that a token refresh might fix.
-// The Claude CLI is annoying about this — sometimes the message is rich
-// ("Failed to authenticate. API Error: 401 ..."), sometimes it's just
-// "claude CLI exit 1: " with empty stderr. We treat any empty/cryptic
-// CLI exit as *suspect* — the caller will then live-validate the token
-// to confirm before paying for a full refresh round-trip.
-function _DEAD_isAuthFailure(text) {
-  const t = (text || '').toLowerCase()
-  if (t.includes('401') || t.includes('unauthorized') || t.includes('not logged in') ||
-      t.includes('invalid token') || t.includes('token expired') ||
-      t.includes('invalid authentication') || t.includes('authentication_error') ||
-      t.includes('failed to authenticate') ||
-      (t.includes('oauth') && t.includes('error'))) {
-    return true
-  }
-  return false
-}
-
-// Heuristic: the SDK / CLI silently failed before producing usable output.
-// Triggers a token validation as a likely root cause — auth is the #1 reason
-// the CLI exits early without explanation on this VPS.
-function _DEAD_isSuspectSilentFailure({ collectedText, errMsg, hadResultMessage }) {
-  if (errMsg && /claude cli exit \d+\s*:?\s*$/i.test(errMsg)) return true
-  if (errMsg && errMsg.length > 0 && errMsg.length < 5) return true
-  // SDK exited the for-await loop with no result message AND no text — something
-  // ate the response before we could see it. Auth is the prime suspect.
-  if (!hadResultMessage && (!collectedText || collectedText.length === 0)) return true
-  return false
-}
-
-// Attempt token refresh for the current provider. Returns true if refresh
-// produced a working token, false otherwise.
-//
-// `mode` controls how we decide to refresh:
-//   - 'force'     : refresh unconditionally (caller already saw a 401)
-//   - 'validate'  : live-check the current token first; only refresh if API rejects it
-//                   (used for *suspect* failures like empty CLI exits where auth is
-//                   plausible but unconfirmed — avoids wasting a refresh on a healthy
-//                   token when the real bug was something else)
-async function _DEAD_tryTokenRefresh(mode = 'force') {
-  // Bedrock branch removed Tate 5 May 2026 12:40 AEST.
-  try {
-    const tokenRefresh = require('./claudeTokenRefreshService')
-    const account = _currentProvider === 'claude_max_2' ? 'claude_max_2' : 'claude_max'
-
-    if (mode === 'validate') {
-      const check = await tokenRefresh.validateAccount(account)
-      if (check.valid) {
-        logger.warn('OS Session: silent CLI failure but token validates — not auth', { account })
-        return false  // not an auth issue; caller should treat as generic error
-      }
-      logger.warn('OS Session: silent CLI failure + token rejected by API — refreshing', {
-        account, status: check.status, reason: check.reason,
-      })
-    } else {
-      logger.warn('OS Session: auth failure detected — forcing token refresh', { account })
-    }
-
-    const result = await tokenRefresh.refreshAccount(account, { force: true })
-    if (result.refreshed) {
-      logger.info('OS Session: token refresh succeeded — retrying', { account })
-      return true
-    }
-    if (result.deadOnArrival) {
-      logger.error('OS Session: refresh produced a dead token — refresh_token may be on the way out', { account })
-    }
-    if (result.isRevoked) {
-      logger.error('OS Session: REFRESH TOKEN REVOKED — manual login required', { account })
-    }
-    return false
-  } catch (err) {
-    logger.warn('OS Session: token refresh attempt failed', { error: err.message })
-    return false
-  }
-}
+// Audit 2026-05-13 P1: removed three _DEAD_ functions (isAuthFailure,
+// isSuspectSilentFailure, tryTokenRefresh). They had no callers and were
+// holding 70+ lines that obscured the live auth-failure handling path.
+// The auth-recovery story now lives in claudeTokenRefreshService +
+// the long-lived-token doctrine in CLAUDE.md.
 
 // After an exhaustion event on the current provider, mark it rejected and pick the next best.
 // Returns { provider, reason, isDeepseekFallback } or null if no alternative.
@@ -1273,9 +1322,20 @@ async function _injectRelevantMemory(userMessage, lastAssistantTail, dispatchEve
             wired_by: 'fork_mp1fy0e6_76f2f9',
           },
         }
-        // Don't await: keep the user turn unblocked. The Promise resolves to
-        // {inserted, ids}; we don't need it here. Logger swallows rejection.
+        // Fire-and-forget for the turn (keep user unblocked), but capture the
+        // inserted ids so _recordTurnOutcome(ok=true) can flip
+        // acknowledged_in_response = TRUE for each. This is the wiring that
+        // unblocks Layer-7 repeated_failure_rate, which was permanently NULL
+        // before AUTONOMY_AUDIT_2026-05-13 because nothing called
+        // markAcknowledgement() from production paths.
         Promise.resolve(episodeResurface.recordResurfaces(ctx, episodeHits))
+          .then(result => {
+            try {
+              const ids = Array.isArray(result?.ids) ? result.ids.filter(Boolean) : []
+              const turnId = currentTurnId()
+              if (turnId && ids.length > 0) _stashPendingEpisodeAcks(turnId, ids)
+            } catch { /* non-fatal */ }
+          })
           .catch(err => logger.debug('Layer 7 resurface recordResurfaces failed (non-fatal)', { error: err.message }))
       }
     } catch (recordErr) {
@@ -1495,29 +1555,50 @@ async function _injectScratchpadRecent() {
 // chat and polluting the os context". Hard cap: 2000 bytes. Placed after
 // <scratchpad_recent> in ORDER. Signals auto-expire after 30min if
 // unacknowledged, and observers self-mute when fingerprints loop.
+// Observer Framework v2: the surfaced-ids array is captured per turn so we
+// can implicit-ack signals after the conductor takes substantive action.
+// _lastSurfacedSignalIds is module-level and reset at the start of every
+// _sendMessageImpl call.
+let _lastSurfacedSignalIds = []
+
 async function _injectObserverSignals() {
   try {
     const observerSignals = require('./observerSignalsService')
     const ambient = await observerSignals.fetchAmbient({ limit: 6 })
-    if (!ambient || ambient.length === 0) return null
+    if (!ambient || ambient.length === 0) {
+      _lastSurfacedSignalIds = []
+      return null
+    }
 
-    const lines = ambient.map(s => {
+    // Observer Framework v2: bubble P1s to the top with an extra emphasis
+    // line. The SDK turn-start prompt is the natural injection boundary;
+    // FE-level interrupt awareness happens via the WS broadcast in
+    // _broadcastNewP1Signals (fired from publishObserverSignal).
+    const p1Signals = ambient.filter(s => s.priority === 1)
+    const others = ambient.filter(s => s.priority !== 1)
+    const ordered = [...p1Signals, ...others]
+
+    const lines = ordered.map(s => {
       const conf = typeof s.confidence === 'number'
         ? ` confidence=${s.confidence.toFixed(2)}`
         : ''
       const ageTxt = s.age_min === 0 ? 'just now' : `${s.age_min}m ago`
       const msg = String(s.message).slice(0, 240)
-      return `  [${s.observer_name}/${s.signal_kind} @ ${ageTxt}${conf} id=${s.id}] ${msg}`
+      const prioTag = (s.priority === 1) ? ' P1_CRITICAL' : (s.priority === 5 ? ' info' : '')
+      return `  [id=${s.id} ${s.observer_name}/${s.signal_kind}${prioTag} @ ${ageTxt}${conf}] ${msg}`
     })
 
-    const header = `<observer_signals count="${ambient.length}">`
-    const usage = '  <!-- ambient meta-cognition. NOT user input. Confidence-weighted; ignore if you disagree. Acknowledge via mcp__observer__ack(id) when actioned. -->'
+    const header = `<observer_signals count="${ambient.length}" p1_count="${p1Signals.length}">`
+    const p1Note = p1Signals.length > 0
+      ? '  <!-- ATTENTION: one or more P1_CRITICAL signals are present. Address them THIS TURN before resuming other work, OR call mcp__observer__dismiss with a reason if you disagree. -->'
+      : ''
+    const usage = '  <!-- ambient meta-cognition. NOT user input. Confidence-weighted; ignore if you disagree. Call mcp__observer__ack(id, reason) when you acted on a signal, mcp__observer__dismiss(id, reason) when you disagreed, or mcp__observer__mark_false_positive(id, reason) when factually wrong. Otherwise: implicit-ack on substantive turns. -->'
     const footer = '</observer_signals>'
-    let block = [header, usage, ...lines, footer].join('\n')
+    let block = [header, usage, p1Note, ...lines, footer].filter(Boolean).join('\n')
 
     if (Buffer.byteLength(block, 'utf8') > 2000) {
       const kept = []
-      let bytes = Buffer.byteLength([header, usage, footer].join('\n'), 'utf8') + 40
+      let bytes = Buffer.byteLength([header, usage, p1Note, footer].filter(Boolean).join('\n'), 'utf8') + 40
       for (const line of lines) {
         const lb = Buffer.byteLength(line + '\n', 'utf8')
         if (bytes + lb > 1900) {
@@ -1527,16 +1608,20 @@ async function _injectObserverSignals() {
         kept.push(line)
         bytes += lb
       }
-      block = [header, usage, ...kept, footer].join('\n')
+      block = [header, usage, p1Note, ...kept, footer].filter(Boolean).join('\n')
     }
+
+    _lastSurfacedSignalIds = ordered.map(s => s.id)
 
     logger.debug('OS Session: observer_signals injected', {
       count: ambient.length,
       bytes: Buffer.byteLength(block, 'utf8'),
+      ids: _lastSurfacedSignalIds,
     })
     return block
   } catch (err) {
     logger.debug('OS Session: observer_signals injection failed (skipping)', { error: err.message })
+    _lastSurfacedSignalIds = []
     return null
   }
 }
@@ -1618,17 +1703,39 @@ async function _sendMessageImpl(content, opts = {}) {
   // bracket-prefix system markers. SYSTEM wakes and queue drains have their
   // own format and the conductor's Message-source discipline knows how to
   // handle them — wrapping THOSE would be redundant and confusing.
-  let promptWithMemory = content
-  const _trimmedHead = (content || '').trimStart().slice(0, 80)
-  const _isSystemWake =
-    _trimmedHead.startsWith('[SYSTEM:') ||
-    _trimmedHead.startsWith('[Pending queued messages') ||
-    _trimmedHead.startsWith('⚡ Back. Handoff state') ||
-    _trimmedHead.startsWith('[AUTO_WAKE]') ||
-    _trimmedHead.startsWith('AUTO_WAKE') ||
-    _trimmedHead.startsWith('<observer source=')  // legacy guard
-  if (!_isSystemWake && content && content.trim().length > 0) {
-    promptWithMemory = `<tate_typed>\n${content}\n</tate_typed>`
+  // Audit 2026-05-13 P2: scrub credentials BEFORE wrapping. Tate-typed
+  // content (and synthetic wake content) flows straight to the SDK and
+  // gets logged via osConversationLog.logTurn. Anything Tate accidentally
+  // pastes (API keys, OAuth tokens, .env snippets) was being persisted
+  // verbatim to os_conversation and forwarded to the model. Run the
+  // existing credential filter at this chokepoint so the redaction
+  // happens once for every downstream consumer.
+  let scrubbedContent = content
+  try {
+    const credentialFilter = require('../lib/credentialFilter')
+    if (credentialFilter && typeof credentialFilter.redact === 'function' && typeof content === 'string') {
+      scrubbedContent = credentialFilter.redact(content)
+    }
+  } catch { /* credentialFilter not loadable — pass through */ }
+
+  let promptWithMemory = scrubbedContent
+  const _trimmedHead = (scrubbedContent || '').trimStart().slice(0, 80)
+  // Audit 2026-05-13 P2: also trust an explicit `opts.source` if the
+  // caller supplied it. Trusting the HTTP source field over positional
+  // heuristics avoids the edge case where a Tate-typed message
+  // legitimately starts with "[SYSTEM:" (e.g. quoting one).
+  const _explicitSource = opts && typeof opts.source === 'string' ? opts.source : null
+  const _isSystemWake = _explicitSource === 'scheduler' || _explicitSource === 'system' || _explicitSource === 'auto_wake'
+    ? true
+    : (_explicitSource === 'typed' || _explicitSource === 'tate' ? false :
+      (_trimmedHead.startsWith('[SYSTEM:') ||
+       _trimmedHead.startsWith('[Pending queued messages') ||
+       _trimmedHead.startsWith('⚡ Back. Handoff state') ||
+       _trimmedHead.startsWith('[AUTO_WAKE]') ||
+       _trimmedHead.startsWith('AUTO_WAKE') ||
+       _trimmedHead.startsWith('<observer source=')))
+  if (!_isSystemWake && scrubbedContent && scrubbedContent.trim().length > 0) {
+    promptWithMemory = `<tate_typed>\n${scrubbedContent}\n</tate_typed>`
   }
 
   // ─── Build SDK options (conductor architecture) ────────────────────────────
@@ -1671,6 +1778,20 @@ async function _sendMessageImpl(content, opts = {}) {
     if (scratchpadServer) mcpServers.scratchpad = scratchpadServer
   } catch (err) {
     logger.warn('OS Session: scratchpad MCP server unavailable for this turn', { error: err.message })
+  }
+
+  // Observer (Framework v2): conductor calls mcp__observer__ack /
+  // mcp__observer__dismiss / mcp__observer__list_recent /
+  // mcp__observer__mark_false_positive. Closes the ack loop left open by
+  // v1 (the <observer_signals> block referenced a tool that didn't exist).
+  // Per-query rebuild per sdk-mcp-server-instances-must-be-per-query-not-singleton.
+  // Non-fatal.
+  try {
+    const { getObserverMcpServer } = require('./observerMcpTool')
+    const observerServer = await getObserverMcpServer()
+    if (observerServer) mcpServers.observer = observerServer
+  } catch (err) {
+    logger.warn('OS Session: observer MCP server unavailable for this turn', { error: err.message })
   }
 
   // Energy level is still tracked for logging + provider routing, but no longer
@@ -1833,9 +1954,18 @@ async function _sendMessageImpl(content, opts = {}) {
     if (prevProvider !== 'deepseek') {
       ccSessionId = null  // can't resume across providers
       // Clear the DB session ID so the next turn doesn't read the old Claude
-      // cc_cli_session_id back and try to resume a session that has thinking blocks.
+      // cc_cli_session_id back and try to resume a session that has thinking
+      // blocks. Audit 2026-05-13 P0 #39: previously fire-and-forget — the
+      // next turn could read the stale value before this write landed and
+      // hit a 400 invalid_signature storm on the new provider.
       if (dbSessionId) {
-        db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+        try {
+          await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`
+        } catch (clearErr) {
+          logger.error('OS Session: failed to clear cc_cli_session_id on provider switch', {
+            err: clearErr.message, dbSessionId,
+          })
+        }
       }
       delete options.resume
       emitOutput({ type: 'system', content: `⚡ Both Claude Max accounts exhausted — falling back to DeepSeek V4 Pro.` })
@@ -1955,6 +2085,25 @@ async function _sendMessageImpl(content, opts = {}) {
   let _compactBoundaryTimer = null     // 60s safety timeout for stuck compact_boundary start
   let _compactionEventOpenId = null    // compaction_events row id awaiting end-marker (audit Tier A 2026-05-01)
   let _compactionEventStartedAt = null // wallclock ms when compact_boundary 'start' fired
+
+  // Observer Framework v2: per-turn telemetry for implicit-ack of surfaced
+  // signals. We count substantive tool calls (anything that isn't a pure
+  // read/observability call). On turn_complete, if substantive > 0 and the
+  // <observer_signals> block surfaced signals this turn, those signals are
+  // implicit-acked (acknowledged=true, ack_mode='implicit').
+  let _turnSubstantiveToolCount = 0
+  const _turnToolNames = []
+  const _OBSERVER_NON_SUBSTANTIVE_TOOLS = new Set([
+    'mcp__supabase__db_query',
+    'mcp__supabase__list_tables',
+    'Read', 'Glob', 'Grep',
+    'mcp__observer__list_recent',
+    'mcp__scratchpad__write',
+  ])
+  const _isSubstantiveTool = (name) => {
+    if (!name) return false
+    return !_OBSERVER_NON_SUBSTANTIVE_TOOLS.has(name)
+  }
 
   // ─── Per-tool watchdog ─────────────────────────────────────────────────
   // An MCP server can crash mid-tool-call (stdio pipe breaks, process dies,
@@ -2734,7 +2883,11 @@ async function _sendMessageImpl(content, opts = {}) {
             // of suppressOutput — we still want to protect against MCP hangs
             // on background turns.
             const toolUses = blocks.filter(b => b.type === 'tool_use')
-            for (const t of toolUses) _markToolStarted(t.id, t.name)
+            for (const t of toolUses) {
+              _markToolStarted(t.id, t.name)
+              _turnToolNames.push(t.name)
+              if (_isSubstantiveTool(t.name)) _turnSubstantiveToolCount += 1
+            }
 
             if (!suppressOutput) {
               // Also broadcast tool_use blocks so frontend knows about tool calls
@@ -2946,15 +3099,35 @@ async function _sendMessageImpl(content, opts = {}) {
               const errTexts = (msg.errors || []).join(' ') + ' ' + (msg.result || '') + ' ' + (msg.stop_reason || '')
 
               // Stale resume ID or thinking-block mismatch — clear and retry fresh, once.
-              if (!opts._staleCleaned && (
+              // Audit 2026-05-13 P0 #18: the prior matcher had three traps:
+              //   (a) `includes('session') && includes('not found')`
+              //       evaluated by precedence as a single sub-clause but
+              //       still trips on ANY text containing both substrings
+              //       anywhere (user prose "session and now not found",
+              //       assistant result mentioning "session... not found").
+              //       Tightened to the literal Anthropic error fragments.
+              //   (b) `includes('thinking_mode')` trips when the model
+              //       discusses the SDK feature by name — a session can
+              //       kill its own continuity by talking about itself.
+              //       Replaced with the exact API-error fragment.
+              //   (c) `includes('thinking in the thinking mode...')` is
+              //       still useful but anchored to the upstream API
+              //       phrasing only.
+              //
+              // `errTexts` is `(msg.errors||[]).join(' ') + ' ' + (msg.result||'') + ' ' + (msg.stop_reason||'')`
+              // so it can carry assistant text. All matchers MUST therefore
+              // be specific Anthropic API error shapes, never generic words.
+              const looksLikeStaleResume =
                 errTexts.includes('No conversation found') ||
-                errTexts.includes('session') && errTexts.includes('not found') ||
+                errTexts.includes('session not found') ||
+                errTexts.includes('Session not found') ||
+                errTexts.includes('"session"') && errTexts.includes('not found') ||
                 errTexts.includes('Invalid session') ||
                 errTexts.includes('Invalid signature in thinking block') ||
-                errTexts.includes('invalid_signature') ||
-                errTexts.includes('thinking in the thinking mode must be passed back') ||
-                errTexts.includes('thinking_mode')
-              )) {
+                errTexts.includes('"type":"invalid_request_error"') && errTexts.includes('invalid_signature') ||
+                errTexts.includes('thinking in the thinking mode must be passed back to the API') ||
+                errTexts.includes('"thinking_mode"')
+              if (!opts._staleCleaned && looksLikeStaleResume) {
                 logger.warn('OS Session: stale resume ID in result, starting fresh', { staleCcSessionId: ccSessionId })
                 osIncident.log({
                   kind: 'context_reset',
@@ -2966,7 +3139,13 @@ async function _sendMessageImpl(content, opts = {}) {
                 ccSessionId = null
                 activeQuery = null
                 activeAbort = null
-                await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`.catch(() => {})
+                try {
+                  await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${dbSessionId}`
+                } catch (clearErr) {
+                  logger.error('OS Session: failed to clear cc_cli_session_id (stale_retry)', {
+                    err: clearErr.message, dbSessionId,
+                  })
+                }
                 throw { _staleRetry: true, message: content }
               }
 
@@ -3007,6 +3186,22 @@ async function _sendMessageImpl(content, opts = {}) {
                 total: totalTokens,
               })
             }
+            // Observer Framework v2: implicit-ack surfaced signals when the
+            // conductor took substantive action this turn. Fire-and-forget.
+            // Explicit acks (via mcp__observer__ack) already flipped
+            // acknowledged=true, so the WHERE acknowledged=FALSE filter in
+            // acknowledgeImplicit() naturally avoids double-acking.
+            try {
+              if (_lastSurfacedSignalIds.length > 0 && _turnSubstantiveToolCount > 0) {
+                const observerSignals = require('./observerSignalsService')
+                const actionSummary = `implicit-ack: ${_turnSubstantiveToolCount} substantive tool call(s) — [${_turnToolNames.slice(0, 5).join(', ')}${_turnToolNames.length > 5 ? '…' : ''}]`
+                observerSignals.acknowledgeImplicit(_lastSurfacedSignalIds, {
+                  turn_id: dbSessionId ? `${dbSessionId}:${Date.now()}` : null,
+                  action_summary: actionSummary,
+                }).catch(() => {})
+              }
+            } catch { /* non-fatal */ }
+
             // Pinnacle P1: flush coalescer then emit turn_complete with full telemetry.
             // Must happen after token broadcast so seq ordering is: tokens -> turn_complete.
             if (!suppressOutput) {
@@ -3262,7 +3457,13 @@ async function _sendMessageImpl(content, opts = {}) {
         })
         ccSessionId = null
         if (session?.id) {
-          await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${session.id}`.catch(() => {})
+          try {
+            await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${session.id}`
+          } catch (clearErr) {
+            logger.error('OS Session: failed to clear cc_cli_session_id (empty_stream_retry)', {
+              err: clearErr.message, sessionId: session.id,
+            })
+          }
         }
         return _sendMessageImpl(content, { ...opts, _retryDepth: retryDepth + 1 })
       }
@@ -3522,15 +3723,21 @@ async function _sendMessageImpl(content, opts = {}) {
     // Clear our stored ID and retry fresh exactly ONCE. This is cheap, safe,
     // and the only automatic retry we still do. All other failure modes
     // (auth, network, model errors) surface immediately and visibly.
-    if (!opts._staleCleaned && retryDepth < MAX_RETRY_DEPTH && (
+    //
+    // Audit 2026-05-13 P0 #18: tightened matchers to specific Anthropic API
+    // error fragments (was tripping on generic words "session"/"thinking_mode"
+    // that the assistant text could contain).
+    const looksLikeStaleResumeException =
       errMsg.includes('No conversation found') ||
-      (errMsg.includes('session') && errMsg.includes('not found')) ||
+      errMsg.includes('session not found') ||
+      errMsg.includes('Session not found') ||
+      (errMsg.includes('"session"') && errMsg.includes('not found')) ||
       errMsg.includes('Invalid session') ||
       errMsg.includes('Invalid signature in thinking block') ||
-      errMsg.includes('invalid_signature') ||
-      errMsg.includes('thinking in the thinking mode must be passed back') ||
-      errMsg.includes('thinking_mode')
-    )) {
+      (errMsg.includes('"type":"invalid_request_error"') && errMsg.includes('invalid_signature')) ||
+      errMsg.includes('thinking in the thinking mode must be passed back to the API') ||
+      errMsg.includes('"thinking_mode"')
+    if (!opts._staleCleaned && retryDepth < MAX_RETRY_DEPTH && looksLikeStaleResumeException) {
       logger.warn('OS Session: stale resume ID — starting fresh', { staleCcSessionId: ccSessionId })
       osIncident.log({
         kind: 'context_reset',
@@ -3540,8 +3747,20 @@ async function _sendMessageImpl(content, opts = {}) {
         context: { trigger: 'stale_retry_outer_catch', errMsg: errMsg.slice(0, 200) },
       })
       ccSessionId = null
+      // Audit P0 #39: this used to be `.catch(() => {})` fire-and-forget.
+      // Next turn would call getOSSession() which reads cc_cli_session_id;
+      // if the UPDATE was still in flight (or had failed silently), the
+      // read returned the stale ID and we tried to .resume() a Claude
+      // session while running on a different provider. Await it and log
+      // failure visibly.
       if (session?.id) {
-        await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${session.id}`.catch(() => {})
+        try {
+          await db`UPDATE cc_sessions SET cc_cli_session_id = NULL WHERE id = ${session.id}`
+        } catch (clearErr) {
+          logger.error('OS Session: failed to clear stale cc_cli_session_id', {
+            err: clearErr.message, sessionId: session.id,
+          })
+        }
       }
       return _sendMessageImpl(content, { ...opts, _staleCleaned: true, _retryDepth: retryDepth + 1 })
     }
@@ -4235,5 +4454,11 @@ function _setActiveQueryForTest(q) { activeQuery = q }
 function _resetAbortStateForTest() { activeAbort = null; activeQuery = null; _abortInProgress = false; if (abortGraceTimer) { clearTimeout(abortGraceTimer); abortGraceTimer = null } }
 
 function currentDbSessionId() { return _currentDbSessionId }
+function currentTurnId() {
+  // Lightweight turn-id approximation for ack telemetry. Real turn IDs are
+  // not tracked yet (see osConversationLog.logTurn); this is good enough
+  // for "which conductor turn acknowledged the signal" attribution.
+  return _currentDbSessionId ? `${_currentDbSessionId}:${Date.now()}` : null
+}
 
-module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, getMessagesSinceTimestamp, autoHandover, abort, buildCustomSystemPrompt, currentDbSessionId, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }
+module.exports = { sendMessage, getStatus, restart, getHistory, compact, getTokenUsage, recoverResponse, getMessagesSinceTimestamp, autoHandover, abort, buildCustomSystemPrompt, currentDbSessionId, currentTurnId, _isQueueBusy, _abortActiveQuery, _getAbortGraceTimerForTest, _isAbortInProgressForTest, _setActiveAbortForTest, _setActiveQueryForTest, _resetAbortStateForTest }

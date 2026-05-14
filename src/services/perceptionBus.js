@@ -68,14 +68,51 @@ function _checkRateCap(source) {
 // start() is idempotent (guarded by _started flag in perceptionDispatcher.js)
 // so the explicit call from server.js stays safe; this just ensures
 // subscription happens via either path.
-let _dispatcherEnsured = false
+// Audit 2026-05-13 P0 #31: this was permanently latched on first call.
+// If `require('./perceptionDispatcher').start()` threw, _dispatcherEnsured
+// stayed true and no retry was ever attempted — and the comment above
+// already documented "ZERO `source = 'perception_dispatcher'` rows ever
+// appeared." Now: retry up to N times with exponential backoff, surface a
+// perception event when it gives up so the bus self-reports its own
+// dispatcher-unwired state.
+let _dispatcherStarted = false
+let _dispatcherAttempts = 0
+const _DISPATCHER_MAX_ATTEMPTS = 5
 function _ensureDispatcher() {
-  if (_dispatcherEnsured) return
-  _dispatcherEnsured = true
+  if (_dispatcherStarted) return
+  if (_dispatcherAttempts >= _DISPATCHER_MAX_ATTEMPTS) return
+  _dispatcherAttempts++
   try {
     require('./perceptionDispatcher').start()
+    _dispatcherStarted = true
+    if (_dispatcherAttempts > 1) {
+      logger.info('perceptionBus: dispatcher autostart succeeded after retries', {
+        attempts: _dispatcherAttempts,
+      })
+    }
   } catch (err) {
-    logger.warn('perceptionBus: dispatcher autostart failed', { error: err.message })
+    logger.warn('perceptionBus: dispatcher autostart failed (will retry)', {
+      attempt: _dispatcherAttempts,
+      max: _DISPATCHER_MAX_ATTEMPTS,
+      error: err.message,
+    })
+    if (_dispatcherAttempts >= _DISPATCHER_MAX_ATTEMPTS) {
+      logger.error('perceptionBus: dispatcher autostart EXHAUSTED — matchers will not fire', {
+        attempts: _dispatcherAttempts,
+      })
+      // Re-publish ourselves so the bus's own consumers see the broken state.
+      // Use setImmediate so we don't recurse synchronously inside publish().
+      setImmediate(() => {
+        try {
+          publish({
+            source: 'perception_bus',
+            kind: 'dispatcher_autostart_failed',
+            data: { attempts: _dispatcherAttempts, last_error: err.message },
+            confidence: 1.0,
+          }).catch(() => {})
+        } catch { /* swallow */ }
+      })
+    }
   }
 }
 
@@ -112,14 +149,31 @@ async function publish({ source, kind, data, ts, confidence = 1.0 }) {
     logger.warn('perceptionBus: failed to persist observation', { error: err.message, source, kind })
   }
 
+  // Audit 2026-05-13 P0 #30: previously this catch only handled
+  // SYNCHRONOUS throws. perceptionDispatcher._onEvent is async and
+  // returned a promise that was detached — async rejections were
+  // invisible. Now: also attach a .catch on the return value so async
+  // failures surface as debug log lines. Subscribers are not awaited
+  // (publish() returns before they finish, by design — we don't want to
+  // block ingestion on slow matchers), but their rejections must not
+  // float as unhandledPromiseRejection.
   for (const fn of _subscribers) {
-    try { fn(event) } catch (err) {
-      logger.debug('perceptionBus: subscriber threw', { error: err.message })
+    try {
+      const ret = fn(event)
+      if (ret && typeof ret.then === 'function') {
+        ret.catch((err) => {
+          logger.debug('perceptionBus: subscriber rejected (async)', { error: err && err.message })
+        })
+      }
+    } catch (err) {
+      logger.debug('perceptionBus: subscriber threw (sync)', { error: err.message })
     }
   }
 
-  // Async promotion check - fire-and-forget
-  setImmediate(() => _tryPromote(event).catch(() => {}))
+  // Async promotion check - fire-and-forget but with visibility on failure.
+  setImmediate(() => _tryPromote(event).catch(err =>
+    logger.debug('perceptionBus: _tryPromote failed (non-fatal)', { error: err.message, eventId: event.id })
+  ))
 
   return event
 }
@@ -186,7 +240,9 @@ async function _tryPromote(event) {
         UPDATE os_observations
         SET promoted_to_kg = true, kg_node_id = ${String(nodeId)}
         WHERE id = ${event.id}
-      `.catch(() => {})
+      `.catch(err => logger.warn('perceptionBus: promoted_to_kg flag flip failed', {
+        error: err.message, eventId: event.id, nodeId: String(nodeId),
+      }))
     }
   } catch (err) {
     logger.debug('perceptionBus: promotion to KG failed (non-fatal)', { error: err.message })

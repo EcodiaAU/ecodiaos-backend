@@ -539,6 +539,31 @@ process.on('unhandledRejection', (reason) => {
     logger.warn(`${BOOT_TAG} proactivity engine failed to start (non-fatal)`, { error: err.message })
   }
 
+  // -- Boot: systemPulse observer (Observer Framework v2) ----------------
+  // Firehose observer: perceptionBus + Pino warn/error + FE proxy events.
+  // Haiku compaction every 5min; anomalies surface via observer_signals.
+  // Started in BOTH ecodia-api (server.js) and ecodia-conductor (here) so
+  // the in-process subscriber wiring catches events in whichever process
+  // emits them. Non-fatal.
+  try {
+    const systemPulse = require('./services/observers/systemPulseObserver')
+    systemPulse.start()
+    logger.info(`${BOOT_TAG} systemPulse observer started`)
+  } catch (err) {
+    logger.warn(`${BOOT_TAG} systemPulse observer failed to start (non-fatal)`, { error: err.message })
+  }
+
+  // -- Boot: observer tuning service (Observer Framework v2) -------------
+  // Daily rollup of observer_signals → observer_outcomes + weekly tuning
+  // pass that flags narrow/archive candidates as a P3 status_board row.
+  try {
+    const observerTuning = require('./services/observerTuningService')
+    observerTuning.start()
+    logger.info(`${BOOT_TAG} observer tuning service started`)
+  } catch (err) {
+    logger.warn(`${BOOT_TAG} observer tuning service failed to start (non-fatal)`, { error: err.message })
+  }
+
   } // end if (ownsWorkers)
 
   // -- Boot: HTTP Loopback Server ---------------------------------------

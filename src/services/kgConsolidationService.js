@@ -35,6 +35,10 @@ const { coerceRelType, assertAllowedRelType, coerceLabel, isAllowedLabel } = req
 // Uses a Neo4j node as a distributed lock (works across processes).
 
 async function acquireConsolidationLock(phase = 'dedup', ttlMs = 5 * 60 * 1000) {
+  // Opportunistic sweep: clears stale locks left by a crashed acquire. Cheap
+  // (a single MATCH ... WHERE expires_at < datetime() DELETE) and self-healing.
+  // AUTONOMY_AUDIT_2026-05-13 audit-3 §4.1.
+  await sweepExpiredConsolidationLocks().catch(() => {})
   try {
     const result = await runWrite(`
       MERGE (lock:__ConsolidationLock__ {phase: $phase})
@@ -61,6 +65,40 @@ async function releaseConsolidationLock(phase = 'dedup') {
     MATCH (lock:__ConsolidationLock__ {phase: $phase})
     DELETE lock
   `, { phase }).catch(() => {})
+}
+
+/**
+ * Sweep expired __ConsolidationLock__ nodes.
+ *
+ * Closes the audit-3 §4.1 gap: a Neo4j connection death mid-acquire leaves
+ * lock.expires_at unset (or set to a future timestamp the process never
+ * reached). Without this sweep, the lock persists until something else
+ * fires releaseConsolidationLock() — which never happens for a crashed
+ * acquire. Result: dedup starves for hours.
+ *
+ * Run as a cron (every 10 min) OR opportunistically before acquire attempts.
+ */
+async function sweepExpiredConsolidationLocks() {
+  try {
+    const result = await runWrite(`
+      MATCH (lock:__ConsolidationLock__)
+      WHERE lock.expires_at IS NOT NULL AND lock.expires_at < datetime()
+      WITH lock, lock.phase AS phase, lock.acquired_at AS acquired_at
+      DELETE lock
+      RETURN phase, acquired_at
+    `)
+    const cleared = result?.length || 0
+    if (cleared > 0) {
+      logger.warn('KG consolidation: cleared stale locks', {
+        cleared,
+        phases: result.map(r => r.get?.('phase') || r.phase),
+      })
+    }
+    return cleared
+  } catch (err) {
+    logger.debug('sweepExpiredConsolidationLocks failed (non-fatal)', { error: err.message })
+    return 0
+  }
 }
 
 // ─── Phase 1: Deduplication ─────────────────────────────────────────────
@@ -2355,4 +2393,8 @@ module.exports = {
   getConsolidationStats,
   countStaleNodes,
   countDedupCandidates,
+
+  // AUTONOMY_AUDIT_2026-05-13: sweep expired __ConsolidationLock__ nodes so a
+  // crashed acquire does not starve the next 6h cron cycle.
+  sweepExpiredConsolidationLocks,
 }

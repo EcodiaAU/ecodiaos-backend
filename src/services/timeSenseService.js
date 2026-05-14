@@ -3,21 +3,64 @@
 const db = require('../config/db')
 const logger = require('../config/logger')
 
-// ─── AEST time helpers ──────────────────────────────────────────────────────
+// ─── Brisbane (AEST/AEDT-free) local-time helpers ──────────────────────────
+//
+// Audit 2026-05-13 P2: previously this used a hardcoded `+10` offset. AEST
+// is UTC+10 but most of eastern AU observes DST (AEDT = UTC+11) Oct→Apr;
+// Tate's locale is Brisbane (QLD) which does NOT observe DST, so AEST=+10
+// holds year-round there — but the gate was being applied to *every* user
+// of the API and the original comment ("7am-9pm AEST") was the relevant
+// rule for Tate's actual local hours. Use Intl.DateTimeFormat with
+// `Australia/Brisbane` so the gate is correct both year-round in QLD AND
+// would work for any future user-local timezone we wire (TATE_TIMEZONE
+// env var lets operators override).
+//
+// Brisbane is the canonical choice per CLAUDE.md "Output rule - UTC for
+// machines, AEST for Tate" — Tate is in QLD; AEST=+10 year-round there.
+const TATE_TIMEZONE = process.env.TATE_TIMEZONE || 'Australia/Brisbane'
+const _tatePartsFmt = new Intl.DateTimeFormat('en-AU', {
+  timeZone: TATE_TIMEZONE,
+  weekday: 'short',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hour12: false,
+})
 
-const AEST_OFFSET_HOURS = 10
+function _tateParts(now = new Date()) {
+  const parts = {}
+  for (const p of _tatePartsFmt.formatToParts(now)) {
+    parts[p.type] = p.value
+  }
+  return parts
+}
 
 function _nowAest() {
-  const now = new Date()
-  return new Date(now.getTime() + AEST_OFFSET_HOURS * 60 * 60 * 1000)
+  // Kept as a back-compat alias for callers that still expect a Date
+  // already shifted into the Tate-local wall-clock. Internally we
+  // reconstruct from Intl parts so DST/no-DST is correct.
+  const p = _tateParts()
+  // Construct a Date whose UTC fields equal Tate's wall-clock fields —
+  // matches the previous semantics callers rely on (getUTCHours,
+  // getUTCDay return Tate-local hour/day).
+  return new Date(Date.UTC(
+    parseInt(p.year, 10),
+    parseInt(p.month, 10) - 1,
+    parseInt(p.day, 10),
+    parseInt(p.hour, 10),
+    parseInt(p.minute, 10),
+    parseInt(p.second, 10),
+  ))
 }
 
 function _aestHour() {
-  return _nowAest().getUTCHours()
+  return parseInt(_tateParts().hour, 10)
 }
 
 function _aestDayOfWeek() {
-  return _nowAest().getUTCDay() // 0=Sun, 6=Sat
+  // Map weekday short name to 0..6 (0=Sun, 6=Sat) to preserve the prior
+  // shape that .getUTCDay() returned.
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return map[_tateParts().weekday] ?? 0
 }
 
 // ─── Tempo awareness ────────────────────────────────────────────────────────

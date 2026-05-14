@@ -66,6 +66,8 @@ let _listeners = []
 const _inFlight = new Map()    // listener name -> boolean (currently processing)
 const _pending = new Map()     // listener name -> [{event, ctx}, ...] (queued, FIFO)
 const _drops = new Map()       // listener name -> drop count (counter for /api/ops/listener-stats)
+const _fires = new Map()       // listener name -> { count, lastAt, lastError }
+const _errors = new Map()      // listener name -> error count since boot
 // Per-listener queue cap. Empirically 5-event fork-burst observed in the
 // wild; 10 = 2× headroom. Bigger = more memory, smaller = more drops on burst.
 // Memory cost: 8 listeners × 10 events × ~1KB envelope ≈ 80KB worst case.
@@ -199,6 +201,7 @@ async function dispatch(event, _testListeners) {
     _inFlight.set(listener.name, true)
     try {
       await listener.handle(event, ctx)
+      _recordFire(listener.name)
       // Drain queue: one event at a time, preserves FIFO order. Drains
       // until empty or until a queued handler throws (logged, then continues).
       while (true) {
@@ -207,11 +210,14 @@ async function dispatch(event, _testListeners) {
         const { event: nextEvent, ctx: nextCtx } = q.shift()
         try {
           await listener.handle(nextEvent, nextCtx)
+          _recordFire(listener.name)
         } catch (err) {
+          _recordError(listener.name, err)
           logger.warn(`listener ${listener.name}: queued handler threw`, { error: err.message })
         }
       }
     } catch (err) {
+      _recordError(listener.name, err)
       logger.warn(`listener ${listener.name}: handler threw`, { error: err.message })
     } finally {
       _inFlight.delete(listener.name)
@@ -267,13 +273,76 @@ function getListeners() {
   return _listeners
 }
 
+function _recordFire(name) {
+  const prev = _fires.get(name) || { count: 0, lastAt: 0 }
+  _fires.set(name, { count: prev.count + 1, lastAt: Date.now() })
+}
+
+function _recordError(name, err) {
+  _errors.set(name, (_errors.get(name) || 0) + 1)
+  const prev = _fires.get(name) || { count: 0, lastAt: 0 }
+  _fires.set(name, { ...prev, lastError: err?.message || String(err) })
+}
+
+/**
+ * Per-listener health snapshot for /api/ops/listener-health.
+ * Returns: [{ name, subscribesTo, fires, drops, errors, lastFireAt, lastFireAgeMs,
+ *            queueDepth, inFlight, lastError, status }]
+ * where status is one of: 'healthy' | 'idle' | 'erroring' | 'dropping' | 'unknown'.
+ *
+ * Heuristics:
+ *   - 'erroring'  → errors > 0 in last hour OR error_rate > 5% of fires
+ *   - 'dropping'  → drops > 0
+ *   - 'idle'      → no fires in the last 24h AND no errors AND no drops
+ *   - 'healthy'   → has fired recently with no errors/drops
+ *   - 'unknown'   → never fired since boot (boot < 60s ago is normal)
+ */
+function getHealth() {
+  const now = Date.now()
+  const out = []
+  for (const listener of _listeners) {
+    const fires = _fires.get(listener.name) || { count: 0, lastAt: 0 }
+    const drops = _drops.get(listener.name) || 0
+    const errors = _errors.get(listener.name) || 0
+    const queueDepth = (_pending.get(listener.name) || []).length
+    const inFlight = !!_inFlight.get(listener.name)
+    const lastFireAgeMs = fires.lastAt ? now - fires.lastAt : null
+
+    let status = 'unknown'
+    if (drops > 0) status = 'dropping'
+    else if (errors > 0 && fires.count > 0 && errors / fires.count > 0.05) status = 'erroring'
+    else if (errors > 0) status = 'erroring'
+    else if (fires.count === 0) status = 'unknown'
+    else if (lastFireAgeMs != null && lastFireAgeMs > 24 * 60 * 60 * 1000) status = 'idle'
+    else status = 'healthy'
+
+    out.push({
+      name: listener.name,
+      subscribesTo: listener.subscribesTo,
+      fires: fires.count,
+      drops,
+      errors,
+      lastFireAt: fires.lastAt || null,
+      lastFireAgeMs,
+      queueDepth,
+      inFlight,
+      lastError: fires.lastError || null,
+      status,
+    })
+  }
+  return out
+}
+
 module.exports = {
   loadListeners,
   registerAll,
   dispatch,
   getListeners,
+  getHealth,
   // Telemetry exports for /api/ops/listener-stats (B3)
   _drops,
+  _fires,
+  _errors,
   _pending,
   _inFlight,
   QUEUE_LIMIT,
