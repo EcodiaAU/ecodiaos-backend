@@ -199,6 +199,17 @@ The audit set up 210 findings. Waves 1-26 closed the load-bearing ones. The hone
 This branch needs three things to activate the shipped work in prod:
 
 1. **Apply migrations**: `npm run migrate` (applies 117 through 124 in order: status_board canonical, observation retention cron, outbound actions, schema hardening, pattern fire events, web search cache, document extract cache, kv_store promotions).
+
+   **If a migration halts with `relation "<name>" already exists`** (happens when the table was hand-created on prod before its migration shipped — see 108 incident 2026-05-14), recover with:
+
+   ```bash
+   # one-time: pretend the stuck migrations succeeded (verify schema by hand after).
+   node src/db/migrate.js --skip-on-already-exists
+   # OR mark specific files as applied without running them:
+   node src/db/migrate.js --mark-applied=108_observer_signals.sql,116_observer_framework_v2.sql
+   ```
+
+   After the runner clears, re-run normally: `npm run migrate`.
 2. **Push to VPS**: `git push` from this repo.
 3. **PM2 reload**: `pm2 reload ecodia-api && pm2 reload ecodia-conductor`. The new code is non-fatal on any single piece failing.
 

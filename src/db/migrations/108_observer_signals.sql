@@ -12,7 +12,10 @@
 -- which is the same wire the human user types into. Architectural fix: move
 -- observer output to a dedicated substrate with explicit consumer semantics.
 
-CREATE TABLE observer_signals (
+-- Made idempotent 2026-05-14: prod had observer_signals hand-created before
+-- this migration shipped, so the unguarded CREATE blocked the runner. Same
+-- pattern as 117_status_board_canonical.sql.
+CREATE TABLE IF NOT EXISTS observer_signals (
   id BIGSERIAL PRIMARY KEY,
   observer_name TEXT NOT NULL,          -- 'coherence' | 'actionAudit' | 'attentionEconomy' | future
   signal_kind TEXT NOT NULL,            -- 'drift_warning' | 'action_skipped' | 'leverage_misalignment' | 'mute_self' | 'conflict_resolved'
@@ -26,21 +29,33 @@ CREATE TABLE observer_signals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Belt-and-braces if the live table was hand-created without one of these columns.
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS observer_name TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS signal_kind TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS reason TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS confidence NUMERIC(4,3);
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS fingerprint TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS consumed_at_turn TEXT;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN DEFAULT FALSE;
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 minutes');
+ALTER TABLE observer_signals ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Fast lookup: ambient signals visible to next turn = unacknowledged.
 -- Note: we cannot put `expires_at > NOW()` in the predicate (NOW() is not
 -- immutable in index predicates). The fetchAmbient() service filters by
 -- expires_at > NOW() in the WHERE clause and the planner uses this index +
 -- a heap filter for the time check.
-CREATE INDEX observer_signals_ambient_idx
+CREATE INDEX IF NOT EXISTS observer_signals_ambient_idx
   ON observer_signals (created_at DESC)
   WHERE acknowledged = FALSE;
 
 -- Self-mute detection: same fingerprint fired N times = observer is in a loop
-CREATE INDEX observer_signals_fingerprint_recent_idx
+CREATE INDEX IF NOT EXISTS observer_signals_fingerprint_recent_idx
   ON observer_signals (observer_name, fingerprint, created_at DESC);
 
 -- Lifecycle prune (kept light — observers can produce volume)
-CREATE INDEX observer_signals_expired_idx
+CREATE INDEX IF NOT EXISTS observer_signals_expired_idx
   ON observer_signals (expires_at)
   WHERE acknowledged = FALSE;
 
@@ -48,7 +63,7 @@ COMMENT ON TABLE observer_signals IS
   'Haiku observer interventions. Read into <observer_signals> continuity block at turn-start. NEVER routed through /api/os-session/message (that path is for human + scheduler + listener wakes only).';
 
 -- Observer mute state: per-observer cooldown when self-detected loop.
-CREATE TABLE observer_mute_state (
+CREATE TABLE IF NOT EXISTS observer_mute_state (
   observer_name TEXT PRIMARY KEY,
   muted_until TIMESTAMPTZ NOT NULL,
   mute_reason TEXT NOT NULL,

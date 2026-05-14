@@ -19,37 +19,33 @@
 --
 -- Origin: AUTONOMY_AUDIT_2026-05-13 (data layer audit, finding 42 of 44).
 
-INSERT INTO os_scheduled_tasks (name, type, status, priority, cron_expression, next_run_at, payload)
-VALUES (
+-- os_scheduled_tasks live schema (prod, May 2026): (id uuid, type, name, prompt,
+-- cron_expression, run_at, chain_after, status, last_run_at, next_run_at,
+-- run_count, max_runs, result, created_at, updated_at, last_deferred_at,
+-- last_dispatched_fork_id, session_mode). NOTE: drift from migration 057's
+-- declared shape. This INSERT matches prod.
+INSERT INTO os_scheduled_tasks (name, type, status, prompt, cron_expression, next_run_at)
+SELECT
   'observation-retention-cleanup',
   'cron',
   'active',
-  'normal',
+  'Daily purge of observation tables. Pure SQL via direct-exec. Wires through DIRECT_EXEC_CRONS / DIRECT_EXEC_COMMANDS in src/config/cronPriority.js → src/db/cron/observationRetention.js.',
   '0 16 * * *',                              -- 02:00 AEST (16:00 UTC)
-  date_trunc('day', NOW() AT TIME ZONE 'UTC') + INTERVAL '16 hours',
-  jsonb_build_object(
-    'description', 'Daily purge of observation tables. Pure SQL via direct-exec.',
-    'tables', jsonb_build_array(
-      'observer_signals',
-      'os_observations',
-      'observer_pulse_events',
-      'session_memory_chunks',
-      'gkg_events',
-      'compaction_events'
-    )
-  )
-)
-ON CONFLICT DO NOTHING;
+  date_trunc('day', NOW() AT TIME ZONE 'UTC') + INTERVAL '16 hours'
+WHERE NOT EXISTS (
+  SELECT 1 FROM os_scheduled_tasks
+  WHERE name = 'observation-retention-cleanup' AND status <> 'completed'
+);
 
--- Defensive: if observer_pulse_events table from migration 116 has no expires_at
--- check, ensure the partial index for the 1h retention is present so the DELETE
--- runs in O(log n).
+-- Defensive: ensure observer_pulse_events has a btree index on ts for the
+-- retention DELETE. NOT a partial index — partial-index predicates must use
+-- IMMUTABLE functions, and NOW() is not immutable. The full index is small
+-- (single timestamp column) and the planner will use it for the < cutoff scan.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'observer_pulse_events') THEN
     CREATE INDEX IF NOT EXISTS observer_pulse_events_ts_purge_idx
-      ON observer_pulse_events (ts)
-      WHERE ts < NOW() - INTERVAL '1 hour';
+      ON observer_pulse_events (ts);
   END IF;
 END $$;
 

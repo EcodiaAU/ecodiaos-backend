@@ -22,16 +22,39 @@ const crypto = require('crypto')
 const db = require('../config/db')
 const logger = require('../config/logger')
 
-let _pdfParse, _pdfParseAttempted = false
-function _getPdfParse() {
-  if (_pdfParseAttempted) return _pdfParse
+// pdf-parse v2.x exports { PDFParse } class; legacy v1 exported a function
+// directly. Probe both shapes so a future version downgrade still works.
+let _pdfExtract, _pdfParseAttempted = false
+function _getPdfExtractor() {
+  if (_pdfParseAttempted) return _pdfExtract
   _pdfParseAttempted = true
-  try { _pdfParse = require('pdf-parse') }
-  catch (err) {
+  try {
+    const mod = require('pdf-parse')
+    if (typeof mod === 'function') {
+      // v1 shape: pdfParse(buffer) → {text, numpages}
+      _pdfExtract = async (buf) => {
+        const r = await mod(buf)
+        return { text: String(r.text || '').trim(), page_count: r.numpages || 0 }
+      }
+    } else if (mod && typeof mod.PDFParse === 'function') {
+      // v2 shape: new PDFParse({data: buf}).getText() → {text, pages: [{num}]}
+      _pdfExtract = async (buf) => {
+        const parser = new mod.PDFParse({ data: buf })
+        const r = await parser.getText()
+        return {
+          text: String(r.text || '').trim(),
+          page_count: Array.isArray(r.pages) ? r.pages.length : (r.numpages || 0),
+        }
+      }
+    } else {
+      _pdfExtract = null
+      logger.warn('documentExtract: pdf-parse loaded but neither v1 nor v2 shape detected')
+    }
+  } catch (err) {
     logger.info('documentExtract: pdf-parse not installed — PDF extraction disabled', { error: err.message })
-    _pdfParse = null
+    _pdfExtract = null
   }
-  return _pdfParse
+  return _pdfExtract
 }
 
 let _tesseract, _tesseractAttempted = false
@@ -82,8 +105,8 @@ async function _setCached(hash, kind, text, pageCount) {
  */
 async function extractPdf({ buffer, filePath }) {
   if (!buffer && !filePath) return { ok: false, error: 'buffer or filePath required' }
-  const pdfParse = _getPdfParse()
-  if (!pdfParse) return { ok: false, error: 'dep_missing', missing: 'pdf-parse' }
+  const extractor = _getPdfExtractor()
+  if (!extractor) return { ok: false, error: 'dep_missing', missing: 'pdf-parse' }
   let buf = buffer
   if (!buf) {
     try { buf = fs.readFileSync(filePath) }
@@ -93,11 +116,9 @@ async function extractPdf({ buffer, filePath }) {
   const cached = await _getCached(hash)
   if (cached) return { ok: true, cached: true, text: cached.text, page_count: cached.page_count }
   try {
-    const parsed = await pdfParse(buf)
-    const text = String(parsed.text || '').trim()
-    const pageCount = parsed.numpages || 0
-    await _setCached(hash, 'pdf', text, pageCount)
-    return { ok: true, cached: false, text, page_count: pageCount }
+    const { text, page_count } = await extractor(buf)
+    await _setCached(hash, 'pdf', text, page_count)
+    return { ok: true, cached: false, text, page_count }
   } catch (err) {
     return { ok: false, error: `pdf parse failed: ${err.message}` }
   }

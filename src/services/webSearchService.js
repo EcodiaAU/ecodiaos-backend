@@ -30,7 +30,15 @@ async function _loadToken() {
   let value = null
   try {
     const rows = await db`SELECT value FROM kv_store WHERE key = ${KV_KEY}`
-    const raw = rows?.[0]?.value
+    let raw = rows?.[0]?.value
+    // kv_store.value is a TEXT column. If we stored a JSON object via
+    // jsonb_build_object(...)::text, raw is a JSON-shaped string. Parse it
+    // first so the object-branch below can resolve {token: '...'} correctly.
+    // Without this, the whole 200+ char JSON blob was sent to Brave as the
+    // "token" and Brave rejected it with SUBSCRIPTION_TOKEN_INVALID.
+    if (typeof raw === 'string' && raw.length > 0 && raw[0] === '{') {
+      try { raw = JSON.parse(raw) } catch { /* not JSON — keep as string */ }
+    }
     if (typeof raw === 'string') value = raw
     else if (raw && typeof raw === 'object') value = raw.token || raw.api_key || raw.value || null
   } catch (err) {
@@ -68,9 +76,13 @@ async function _getCached(qHash) {
 
 async function _setCached(qHash, query, result) {
   try {
+    // postgres-js serialises objects into jsonb columns natively. Avoid the
+    // JSON.stringify(...)::jsonb shape because that double-encodes (the
+    // stringified JSON gets stored as a JSON-string-value rather than a
+    // JSON-object-value, breaking the read path's `cached.results` spread).
     await db`
       INSERT INTO web_search_cache (query_hash, query, result, fetched_at)
-      VALUES (${qHash}, ${query.slice(0, 500)}, ${JSON.stringify(result)}::jsonb, NOW())
+      VALUES (${qHash}, ${query.slice(0, 500)}, ${db.json(result)}, NOW())
       ON CONFLICT (query_hash) DO UPDATE
         SET result = EXCLUDED.result, fetched_at = EXCLUDED.fetched_at
     `
