@@ -4,6 +4,11 @@ const logger = require('../config/logger')
 const KV_KEY = 'session.handoff_state'
 const MAX_AGE_MS = 6 * 60 * 60 * 1000 // 6 hours
 
+// Sentinel session_id used for the migration-124 session_state typed-table double-write.
+// There is one active handoff state at a time, so a fixed key keeps the UPSERT simple.
+// Source of truth for READS remains kv_store until the cutover PR flips the read path.
+const SESSION_STATE_ID = 'active'
+
 // Guard: emit deprecation warning at most once per process lifetime
 let _deprecationWarned = false
 
@@ -129,6 +134,23 @@ async function saveHandoffState({ current_work, active_plan, tate_last_direction
     VALUES (${KV_KEY}, ${JSON.stringify(value)})
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
   `
+
+  // Double-write to typed session_state table (migration 124 follow-up).
+  // Fire-and-forget: kv_store remains source of truth for reads until cutover.
+  db`
+    INSERT INTO session_state
+      (session_id, current_work, active_plan, tate_last_direction, deliverables_status, saved_at)
+    VALUES
+      (${SESSION_STATE_ID}, ${value.current_work}, ${value.active_plan},
+       ${value.tate_last_direction}, ${value.deliverables_status}, ${new Date(value.saved_at)})
+    ON CONFLICT (session_id) DO UPDATE SET
+      current_work          = EXCLUDED.current_work,
+      active_plan           = EXCLUDED.active_plan,
+      tate_last_direction   = EXCLUDED.tate_last_direction,
+      deliverables_status   = EXCLUDED.deliverables_status,
+      saved_at              = EXCLUDED.saved_at
+  `.catch(err => logger.warn('[sessionHandoff] session_state double-write failed', { err: err.message }))
+
   return value
 }
 

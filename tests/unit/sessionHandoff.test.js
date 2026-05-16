@@ -143,4 +143,57 @@ describe('sessionHandoff consume-vs-peek separation', () => {
     expect(second).toEqual(first)
     expect(third).toEqual(first)
   })
+
+  test('7. session_state double-write failure does not break saveHandoffState', async () => {
+    const db = require('../../src/config/db')
+    const logger = require('../../src/config/logger')
+
+    // Override mock: reject session_state inserts, pass everything else through
+    const origImpl = db.getMockImplementation()
+    db.mockImplementation(async (strings, ...values) => {
+      const sql = Array.from(strings).join('').trim().toLowerCase()
+      if (sql.includes('insert into session_state')) {
+        throw new Error('relation "session_state" does not exist')
+      }
+      // Replay original kv_store logic inline (closure over db._store)
+      if (sql.includes('insert into kv_store')) {
+        const key = values[0]; const val = values[1]
+        db._store[key] = typeof val === 'string' ? JSON.parse(val) : val
+        return []
+      }
+      if (sql.includes('select value from kv_store')) {
+        const key = values[0]
+        return db._store[key] ? [{ value: db._store[key] }] : []
+      }
+      if (sql.includes('update kv_store') && sql.includes('returning')) {
+        const consumedAt = values[0]; const key = values[1]
+        if (!db._store[key]) return []
+        const s = db._store[key]
+        if (s.consumed_at && new Date(s.consumed_at) >= new Date(s.saved_at)) return []
+        db._store[key] = { ...s, consumed_at: consumedAt }
+        return [{ value: db._store[key] }]
+      }
+      return []
+    })
+
+    try {
+      // saveHandoffState must not throw - fire-and-forget double-write failure is swallowed
+      const saved = await saveHandoffState({ current_work: 'degradation test' })
+      expect(saved.current_work).toBe('degradation test')
+
+      // kv_store read path still works correctly
+      const peeked = await peekHandoffState()
+      expect(peeked).not.toBeNull()
+      expect(peeked).toContain('degradation test')
+
+      // Let the fire-and-forget promise settle so the catch block fires
+      await new Promise(resolve => setImmediate(resolve))
+      expect(logger.warn).toHaveBeenCalledWith(
+        '[sessionHandoff] session_state double-write failed',
+        expect.objectContaining({ err: 'relation "session_state" does not exist' })
+      )
+    } finally {
+      if (origImpl) db.mockImplementation(origImpl)
+    }
+  })
 })
