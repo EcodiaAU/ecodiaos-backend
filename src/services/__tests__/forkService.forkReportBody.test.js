@@ -371,6 +371,37 @@ describe('forkService._enqueueForkReport (mq integration)', () => {
     // (Queue failure must not take the fork into the outer catch error path.)
   })
 
+  test('synth-report path - treated as clean (wake_on_done sufficient, NOT double-enqueued)', async () => {
+    // Regression guard for the 14 May 2026 synthesis path (fork_mp529rfj_48564d).
+    // A synth report is a non-null, non-empty string starting with SYNTH_MARKER.
+    // _enqueueForkReport.isCleanReport = true for synth bodies, so wake_on_done
+    // via forkComplete listener is the sole delivery surface. Enqueueing on top
+    // would produce the same double-delivery that prompted the clean-report gate
+    // in the first place (Tate verbatim 7 May 2026: "shouldnt be giving you the
+    // body twice"). Doctrine: fork-error-events-do-not-surface-to-conductor-chat.md
+    const mq = makeMq()
+    forkService._setMessageQueueForTest(mq)
+
+    const synthReport = `${SYNTH_MARKER} — fork closed without [FORK_REPORT] tag; final assistant turn used as body)\n\nAll 5 PM2 procs online. ecodia-api uptime 132min. No restarts needed.`
+
+    const out = await forkService._enqueueForkReport({
+      fork_id: 'fork_e_synth',
+      brief: 'audit VPS health',
+      report: synthReport,
+      nextStep: 'verify fork artefacts on disk/DB — synthesised body may omit detail',
+      fallbackResult: null,
+    })
+
+    // Synth report is a non-empty string: isCleanReport gate fires, queue skipped.
+    expect(out).toEqual({
+      enqueued: false,
+      reason: 'clean_report_wake_on_done_sufficient',
+      had_report: true,
+    })
+    expect(mq.enqueueMessage).not.toHaveBeenCalled()
+    expect(mq.enqueued).toHaveLength(0)
+  })
+
   test('exports the helpers for downstream callers / tests', () => {
     expect(typeof forkService._buildForkReportBody).toBe('function')
     expect(typeof forkService._enqueueForkReport).toBe('function')
