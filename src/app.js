@@ -70,6 +70,28 @@ app.use(compression())
 app.use('/api/webhooks/vercel', require('./routes/webhooks/vercel'))
 app.use('/api/webhooks/stripe', require('./routes/webhooks/stripe'))
 
+// Lane D fire-shim webhooks (2026-05-15) - parallel-mounted alongside the
+// existing handlers during Phase 2 side-by-side validation. Each shim
+// verifies its source-specific signature, dedupes via kv_store, and forwards
+// the parsed payload to the corresponding Routine's /fire endpoint via
+// kv_store.cowork.routine_registry.<account>.<routine_name>. After Phase 3
+// cutover the existing /api/webhooks/{vercel,stripe} mounts are removed and
+// these shims become the sole entry points. See backend/patterns/
+// webhook-fire-shim-architecture-2026-05-15.md.
+app.use('/api/webhooks/resend', require('./routes/webhooks/resend-fire-shim'))
+app.use('/api/webhooks/stripe-fire', require('./routes/webhooks/stripe-fire-shim'))
+app.use('/api/webhooks/vercel-fire', require('./routes/webhooks/vercel-fire-shim'))
+app.use('/api/webhooks/github-fire', require('./routes/webhooks/github-fire-shim'))
+app.use('/api/webhooks/apple-asn', require('./routes/webhooks/apple-asn-fire-shim'))
+
+// Telegram Bot webhook -> Corazon reflex (Phase 2 Lane 05 ext, 2026-05-16).
+// Replaces / runs alongside Twilio SMS path for $0/msg + native threading.
+// Auth: URL-path secret + optional X-Telegram-Bot-Api-Secret-Token header.
+// Allowlist: kv_store.creds.telegram_bot.allowed_user_ids (Tate's TG id).
+// Mounted before express.json() ONLY for consistency; route declares its
+// own json parser scoped to itself.
+app.use('/api/webhooks/telegram', require('./routes/webhooks/telegram-bot'))
+
 // GKG (GUI Knowledge Graph) ingest - capture daemon on Corazon POSTs
 // HMAC-signed NDJSON. MUST mount before express.json() so the raw body
 // the daemon HMACed is the body we verify. See src/routes/gkg.js +
@@ -154,7 +176,7 @@ const PUBLIC_PATH_PATTERNS = [
   /^\/api\/canva\/oauth\/callback$/,
   /^\/api\/xero\/callback$/,
   // Webhooks — verified by HMAC at the route layer
-  /^\/api\/webhooks\/(stripe|vercel)(\/|$)/,
+  /^\/api\/webhooks\/(stripe|vercel|telegram)(\/|$)/, // telegram: URL-path secret + header secret check inside route
   /^\/api\/sms(\/|$)/, // Twilio request signature validated by twilioValidation middleware
   /^\/api\/gkg(\/|$)/, // HMAC validated by validateGkgSignature
   /^\/api\/hands(\/|$)/, // HMAC validated inside the route by handsBridge.verifyInbound
@@ -162,6 +184,28 @@ const PUBLIC_PATH_PATTERNS = [
   // — auth on tools/call is enforced inside the router. Discovery must be
   // public per MCP spec so claude.ai can enumerate the surface.
   /^\/api\/mcp\/cowork(\/|$)/,
+  // MCP ecodia-full discovery (Lane E, 2026-05-15). Same MCP-spec
+  // public-discovery contract as cowork. Auth on tools/call enforced inside.
+  /^\/api\/mcp\/ecodia-full(\/|$)/,
+  // Phase 2 Lane 10 (2026-05-15): the 10 domain-scoped MCP connectors.
+  // Same MCP-spec public-discovery contract; auth on tools/call enforced
+  // inside connectorMcpShim via the per-connector bearer middleware.
+  /^\/api\/mcp\/ecodia-core(\/|$)/,
+  /^\/api\/mcp\/ecodia-comms(\/|$)/,
+  /^\/api\/mcp\/ecodia-code(\/|$)/,
+  /^\/api\/mcp\/ecodia-money(\/|$)/,
+  /^\/api\/mcp\/ecodia-shell(\/|$)/,
+  /^\/api\/mcp\/ecodia-supabase(\/|$)/,
+  /^\/api\/mcp\/ecodia-scheduler(\/|$)/,
+  /^\/api\/mcp\/ecodia-crm(\/|$)/,
+  /^\/api\/mcp\/ecodia-graph(\/|$)/,
+  /^\/api\/mcp\/ecodia-factory(\/|$)/,
+  // OAuth wrapper for ecodia-full (Lane E). Flow-internal auth: PKCE +
+  // pre-registered client_id with locked redirect_uri.
+  /^\/api\/oauth\/mcp(\/|$)/,
+  // Streaming substrate (Phase 2 Lane 06, 2026-05-15). Bearer auth
+  // enforced inside the router via ecodiaFullAuth.
+  /^\/api\/stream(\/|$)/,
   // Internal loopback endpoints — authenticated by their own bearer secret
   // (CONDUCTOR_LOOPBACK_SECRET) inside the route handler. These are
   // mounted at /internal/* on purpose; nginx should be configured to
@@ -279,6 +323,28 @@ app.use('/api/triage', require('./routes/triage'))
 app.use('/api/telemetry', require('./routes/telemetry'))
 app.use('/api/hands', require('./routes/hands'))
 app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
+// /api/mcp/ecodia-full - wider bearer, proxies 10 stdio MCP servers +
+// re-exposes cowork V2 tools. Authored as Lane E of the VPS-to-local
+// migration (2026-05-15). See backend/docs/MIGRATION_FULL_ARCHITECTURE_2026-05-15.md.
+app.use('/api/mcp/ecodia-full', require('./routes/mcp/ecodiaFull'))
+// Phase 2 Lane 10 (2026-05-15) - 10 domain-scoped MCP connectors. Each is a
+// narrow HTTP endpoint with its own bearer + OAuth client_id + scope subset.
+// See: migration-lanes/phase2/10-domain-scoped-mcp-connectors.md
+// ecodia-full above is kept alive for 30d as a migration alias.
+;(function mountDomainScopedConnectors() {
+  const mountConnector = require('./routes/mcp/mountConnector')
+  const { CONNECTORS } = require('./services/connectorManifests')
+  for (const name of Object.keys(CONNECTORS)) {
+    const connector = CONNECTORS[name]
+    app.use('/api/mcp/' + connector.mountPath, mountConnector(connector))
+  }
+})()
+// /api/oauth/mcp/* - OAuth 2.0 PKCE wrapper around the ecodia-full bearer,
+// defensive ship in case claude.ai Custom Connectors require OAuth (Lane E).
+app.use('/api/oauth/mcp', require('./routes/oauth/mcpOauth'))
+// /api/stream/* - streaming substrate (Phase 2 Lane 06, 2026-05-15). SSE
+// channel hub complementing MCP. Channel registry at backend/streaming/channels.json.
+app.use('/api/stream', require('./routes/streaming'))
 // CortexAmbient Phase 2 live panels (fork_mp3ndv83_63898a, 2026-05-13)
 app.use('/api/working-set', require('./routes/workingSet'))
 app.use('/api/observer-signals', require('./routes/observerSignals'))

@@ -30,12 +30,30 @@ const router = express.Router()
 const db = require('../config/db')
 const logger = require('../config/logger')
 const validateTwilioSignature = require('../middleware/twilioValidation')
-const { isDuplicate, markSeen, appendAudit } = require('./webhooks/_fireShimHelpers')
+
+// 2026-05-16: dropped the _fireShimHelpers dedupe/audit layer for the SMS
+// path. Live trace caught it hanging on markSeen because that helper INSERTs
+// into kv_store with columns (key, value, expires_at) and ::jsonb casts -
+// but kv_store actually has (key, value, updated_at) with value as text.
+// The Corazon reflex.js maintains its own 24h dedupe log on disk, so VPS-
+// side dedupe was double-dedupe anyway. Twilio also retries on the same
+// MessageSid which the Corazon side will catch. Removing the broken layer
+// rather than fixing it because the fix would just be a column rename and
+// the duplicate dedupe was overkill in the first place.
 
 const SOURCE = 'twilio-sms'
 const REFLEX_TOOL_NAME = 'reflex.fire'
 const REFLEX_TARGET_LABEL = 'corazon-vscode-claude-code-tab'
 const DEFAULT_REFLEX_URL = 'http://100.114.219.69:7456/api/tool'
+
+// SMS thread continuity (Option 1, 2026-05-17 sleep-shift): each new chat
+// session is technically fresh but receives the last N exchanges in the
+// prompt so the conversation feels continuous. Stored at
+// kv_store.cowork.sms_thread.<phone> as a JSON string of {exchanges, last_at}.
+// Auto-expires (treated as cold-start) after SMS_THREAD_STALE_HOURS.
+const SMS_THREAD_KEY_PREFIX = 'cowork.sms_thread.'
+const SMS_THREAD_MAX_EXCHANGES = 10
+const SMS_THREAD_STALE_HOURS = 4
 
 // E.164: +<country><number>, 8-15 digits total. Anything else is rejected
 // before reaching the reflex - stops spoofed / malformed senders from
@@ -72,6 +90,60 @@ async function loadAgentToken() {
   return token
 }
 
+/**
+ * Read prior SMS thread context for this phone number. Returns the recent
+ * exchanges array (capped at SMS_THREAD_MAX_EXCHANGES) if the thread is
+ * still warm (last_at within SMS_THREAD_STALE_HOURS); otherwise returns
+ * [] meaning cold-start. Each exchange is `{from: 'tate'|'reply', body, at}`.
+ *
+ * Storage: kv_store text value containing JSON string. kv_store.value is text,
+ * not jsonb, so we JSON.parse on read.
+ */
+async function loadSmsThread(phone) {
+  const key = `${SMS_THREAD_KEY_PREFIX}${phone}`
+  try {
+    const rows = await db`SELECT value, updated_at FROM kv_store WHERE key = ${key} LIMIT 1`
+    if (rows.length === 0) return { exchanges: [], cold_start: true, key }
+    const raw = rows[0].value
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const exchanges = Array.isArray(parsed?.exchanges) ? parsed.exchanges : []
+    const lastAtIso = parsed?.last_at || rows[0].updated_at
+    const lastAtMs = lastAtIso ? new Date(lastAtIso).getTime() : 0
+    const ageHours = (Date.now() - lastAtMs) / 3600000
+    if (ageHours > SMS_THREAD_STALE_HOURS) {
+      return { exchanges: [], cold_start: true, prior_ended_at: lastAtIso, prior_age_hours: ageHours, key }
+    }
+    return { exchanges: exchanges.slice(-SMS_THREAD_MAX_EXCHANGES), cold_start: false, last_at: lastAtIso, key }
+  } catch (err) {
+    console.warn('[SMS Thread] load failed (treating as cold):', err.message)
+    return { exchanges: [], cold_start: true, error: err.message, key }
+  }
+}
+
+/**
+ * Append an inbound message to the thread. Capped + last_at refreshed.
+ * Outbound replies aren't appended here - the chat session that handles
+ * the SMS is instructed to append its own reply via a tool call once sent
+ * (so the reply text matches what actually went out, not what we guessed).
+ */
+async function appendInboundToThread(phone, body, at) {
+  const key = `${SMS_THREAD_KEY_PREFIX}${phone}`
+  try {
+    const current = await loadSmsThread(phone)
+    const newEntry = { from: 'tate', body: String(body || '').slice(0, 1000), at }
+    const exchanges = (current.exchanges || []).concat([newEntry]).slice(-SMS_THREAD_MAX_EXCHANGES)
+    const value = JSON.stringify({ exchanges, last_at: at, phone })
+    await db`
+      INSERT INTO kv_store (key, value, updated_at)
+      VALUES (${key}, ${value}, NOW())
+      ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value, updated_at = NOW()
+    `
+  } catch (err) {
+    console.warn('[SMS Thread] append failed (non-fatal):', err.message)
+  }
+}
+
 async function lookupContact(phone) {
   try {
     const rows = await db`
@@ -105,7 +177,25 @@ async function lookupContact(phone) {
   }
 }
 
-function buildReflexPrompt({ from, body, isTate, senderName, contact, messageSid, receivedAt }) {
+function formatPriorThread(thread) {
+  if (!thread || !Array.isArray(thread.exchanges) || thread.exchanges.length === 0) {
+    if (thread?.cold_start && thread?.prior_ended_at) {
+      const hrs = Math.round(thread.prior_age_hours || 0)
+      return `\n[Thread state: cold start - prior thread last touched ${hrs}h ago (>${SMS_THREAD_STALE_HOURS}h stale), treat this as a new conversation. If continuity matters, neo4j.search for the prior Episode.]\n`
+    }
+    return '\n[Thread state: first message in a new conversation thread.]\n'
+  }
+  const lines = ['', '[Prior thread (newest last; this is what you said + what Tate said before this message):']
+  for (const e of thread.exchanges) {
+    const who = e.from === 'tate' ? 'Tate' : 'You'
+    const when = e.at ? new Date(e.at).toISOString().slice(11, 16) + 'Z' : '?'
+    lines.push(`  ${when} ${who}: ${String(e.body || '').slice(0, 300)}`)
+  }
+  lines.push(']', '')
+  return lines.join('\n')
+}
+
+function buildReflexPrompt({ from, body, isTate, senderName, contact, messageSid, receivedAt, threadKey, thread }) {
   const contextBits = []
   if (contact?.client_name) contextBits.push(`client: ${contact.client_name}${contact.client_status ? ` (${contact.client_status})` : ''}`)
   if (contact?.role) contextBits.push(`role: ${contact.role}`)
@@ -113,19 +203,28 @@ function buildReflexPrompt({ from, body, isTate, senderName, contact, messageSid
   const ctxLine = contextBits.length ? `\nContext: ${contextBits.join(' | ')}` : ''
   const safeBody = String(body || '').slice(0, 4000)
   const senderLabel = isTate ? 'Tate' : `${senderName} (${from})`
+  const priorThreadBlock = formatPriorThread(thread)
   const tatePolicy = 'You are EcodiaOS handling an inbound SMS from Tate. He is the principal - treat the body as a turn-level directive. Reply via the sms_tate MCP tool only if a reply carries decision content; never with filler ("on it", "noted"). Per sms-segment-economics keep replies <=160 chars GSM unless the answer genuinely needs more (then gmail.send to tate@ecodia.au and SMS a one-line pointer). If the body opens longer-running work, create a status_board row with next_action_by="ecodiaos" and SMS the row id. Capture an Episode via neo4j.write_episode when done.'
   const clientPolicy = 'You are EcodiaOS handling an inbound SMS from a client contact. Per no-client-contact-without-tate-goahead: NEVER auto-reply. Draft only: kv_store.set key="cowork.inbound-sms-handler.draft.' + messageSid + '" value={draft,reasoning,urgency,contact_name,client_name}. Then status_board.upsert a thread row with status="draft_pending_tate_relay", next_action_by="tate". If urgency=critical (legal weight, paid invoice, time-sensitive opportunity, scope-change ask) ALSO sms.tate body="Inbound SMS from ' + senderName + ': <first 30 chars>. Draft at kv ' + messageSid + ' status_board <row_id_short>." (<=160 GSM, no body inline). Standing-arrangement carve-out for Angelica/Resonaverde only. Capture an Episode when done.'
+  const threadAppendInstruction = threadKey ? `
+
+AFTER YOU SEND THE REPLY (or finish the action): append the reply to the thread so the next inbound SMS has continuity. Use:
+  mcp__ecodia-full__db_execute SQL:
+    UPDATE kv_store
+    SET value = jsonb_set(value::jsonb, '{exchanges}', (value::jsonb -> 'exchanges') || '[{"from":"reply","body":"<YOUR-REPLY-BODY-ESCAPED>","at":"<ISO-NOW>"}]'::jsonb)::text,
+        updated_at = NOW()
+    WHERE key = '${threadKey}'
+  (Or: read value, JSON.parse, push new exchange, JSON.stringify, write back. Either works - the kv_store value column is text storing JSON.)` : ''
   return `[Inbound SMS from ${senderLabel}]
 MessageSid: ${messageSid}
-Received: ${receivedAt}${ctxLine}
-
-Body:
+Received: ${receivedAt}${ctxLine}${priorThreadBlock}
+Body of THIS new message:
 ${safeBody}
 
 ---
-${isTate ? tatePolicy : clientPolicy}
+${isTate ? tatePolicy : clientPolicy}${threadAppendInstruction}
 
-Per cron-fire-must-have-deliverable-not-just-narration: this fire MUST produce a substrate write before exit (sms send OR draft kv_store OR status_board row OR Episode). A fire that only narrates is a P1 failure. Idempotency: check kv_store key "cowork.inbound-sms-handler.seen.${messageSid}" first; if present, exit silently with a duplicate-Episode. Otherwise kv_store.set that key TTL 24h before acting.`
+Per cron-fire-must-have-deliverable-not-just-narration: this fire MUST produce a substrate write before exit (sms send OR draft kv_store OR status_board row OR Episode). A fire that only narrates is a P1 failure.`
 }
 
 async function fireReflex({ prompt, idempotencyKey }) {
@@ -198,16 +297,21 @@ router.post('/incoming', validateTwilioSignature, async (req, res) => {
   const idempotencyKey = MessageSid || `nosid-${from}-${Date.now()}`
   const receivedAt = new Date().toISOString()
 
+  // Always respond OK to Twilio first; the reflex fire is async to the response.
+  // Twilio's 15s webhook timeout is much shorter than the worst-case Corazon
+  // round trip (Tailscale RTT + AHK macro 3s + buffer). Decoupling means
+  // Twilio never times out and never retries on slow fires.
+  respondOk()
+
   try {
-    if (await isDuplicate({ source: SOURCE, idempotencyKey })) {
-      await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'duplicate_skipped', routineName: REFLEX_TARGET_LABEL, account: REFLEX_TARGET_LABEL })
-      respondOk()
-      return
-    }
+    // Load prior thread context (Option 1: prompt-prepending continuity).
+    // Read BEFORE appending the new inbound so we don't include this message
+    // in the "prior thread" block - it appears as the new message below it.
+    console.log(`[SMS Webhook TRACE] step=1 loadSmsThread phone=${from}`)
+    const thread = await loadSmsThread(from)
+    console.log(`[SMS Webhook TRACE] step=1.thread cold_start=${thread.cold_start} prior_exchanges=${(thread.exchanges || []).length}`)
 
-    await markSeen({ source: SOURCE, idempotencyKey })
-    respondOk()
-
+    console.log(`[SMS Webhook TRACE] step=2 buildReflexPrompt key=${idempotencyKey}`)
     const prompt = buildReflexPrompt({
       from,
       body: Body,
@@ -216,28 +320,27 @@ router.post('/incoming', validateTwilioSignature, async (req, res) => {
       contact,
       messageSid: idempotencyKey,
       receivedAt,
+      threadKey: thread.key,
+      thread,
     })
 
+    // Persist the inbound to the thread. Outbound reply is appended by the
+    // chat session that handles this (per instruction embedded in the prompt).
+    console.log(`[SMS Webhook TRACE] step=3 appendInboundToThread`)
+    await appendInboundToThread(from, Body, receivedAt)
+
+    console.log(`[SMS Webhook TRACE] step=4 fireReflex (prompt_chars=${prompt.length}) url=${process.env.REFLEX_AGENT_URL || DEFAULT_REFLEX_URL}`)
     const result = await fireReflex({ prompt, idempotencyKey })
-
-    await appendAudit({
-      source: SOURCE,
-      idempotencyKey,
-      fireStatus: result.ok ? `reflex_${result.status}` : `reflex_failed_${result.status}`,
-      routineName: REFLEX_TARGET_LABEL,
-      account: REFLEX_TARGET_LABEL,
-      errorMessage: result.error,
-    })
+    console.log(`[SMS Webhook TRACE] step=5 fireReflex returned ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
 
     if (!result.ok) {
       logger.error('sms reflex fire failed', { idempotencyKey, status: result.status, error: result.error })
     } else {
-      logger.info('sms reflex fired', { idempotencyKey, senderName, isTate, reflex_result: result.result })
+      logger.info('sms reflex fired', { idempotencyKey, senderName, isTate, cold_start: thread.cold_start, prior_exchanges: (thread.exchanges || []).length, reflex_result: result.result })
     }
   } catch (err) {
+    console.log(`[SMS Webhook TRACE] step=err ${err.message}`)
     logger.error('sms reflex shim: unhandled error', { error: err.message, stack: err.stack })
-    await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'shim_error', routineName: REFLEX_TARGET_LABEL, account: REFLEX_TARGET_LABEL, errorMessage: err.message }).catch(() => {})
-    respondOk()
   }
 })
 

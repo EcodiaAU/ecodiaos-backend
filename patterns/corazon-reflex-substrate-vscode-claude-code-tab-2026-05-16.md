@@ -88,9 +88,11 @@ The Windows `vscode://` URL protocol is a single OS-level handler pointing at on
 
 | Account | Editor | Window title hint | Exe path |
 |---|---|---|---|
-| tate@ecodia.au | VS Code stable | "Visual Studio Code" | `C:\Users\tjdTa\AppData\Local\Programs\Microsoft VS Code\Code.exe` |
-| code@ecodia.au | VS Code Insiders | "Visual Studio Code - Insiders" | `C:\Users\tjdTa\AppData\Local\Programs\Microsoft VS Code Insiders\Code - Insiders.exe` |
-| money@ecodia.au | Cursor | "Cursor" | `C:\Users\tjdTa\AppData\Local\Programs\cursor\Cursor.exe` |
+| tate@ecodia.au | VS Code stable | "backend - Visual Studio Code" (workspace-specific to avoid hitting other VS Code windows) | `C:\Users\tjdTa\AppData\Local\Programs\Microsoft VS Code\Code.exe` |
+| money@ecodia.au | VS Code Insiders | "Visual Studio Code - Insiders" | `D:\SSD_Turbo\Microsoft VS Code Insiders\Code - Insiders.exe` |
+| code@ecodia.au | Cursor | "Cursor" | `D:\SSD_Turbo\Cursor\Cursor.exe` |
+
+(Account mapping per Tate's actual install 2026-05-16 - Cursor=code@ is natural since Cursor is the AI-coding fork; Insiders=money@ is functional but slightly arbitrary. The routing keys `vscode` / `vscode-insiders` / `cursor` in `reflex.fire` are just labels for window targeting; the account-to-editor binding is doctrine, not code-enforced, and Tate's swap doesn't break anything.)
 
 Each editor signs in to its own Anthropic account via the Claude Code extension's account-link flow (one-time setup). Cursor has its own fork of the Claude Code extension architecture; if it does not register the same `claude-vscode.*` commands, fall back to VS Code Insiders + a second user-data-dir or accept two-account-only V1.
 
