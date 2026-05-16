@@ -97,8 +97,8 @@ async function _tick() {
 function start() {
   if (_timer) return
   // First fire after a short delay so DB pool / migrations are settled.
-  setTimeout(() => { _tick().catch(() => {}) }, 5_000)
-  _timer = setInterval(() => { _tick().catch(() => {}) }, POLL_INTERVAL_MS)
+  setTimeout(() => { _tick().catch(err => logger.debug('bg task error', { err: err.message })) }, 5_000)
+  _timer = setInterval(() => { _tick().catch(err => logger.debug('bg task error', { err: err.message })) }, POLL_INTERVAL_MS)
   if (_timer.unref) _timer.unref()
   logger.info('delay-queue-worker: started', { pollMs: POLL_INTERVAL_MS })
 }

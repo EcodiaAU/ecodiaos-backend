@@ -126,7 +126,7 @@ function start() {
   logger.info('AutonomousMaintenanceWorker: started')
 
   // Restore volatile state from DB - picks up where we left off after restart
-  _restoreCycleState().catch(() => {})
+  _restoreCycleState().catch(err => logger.debug('bg task error', { err: err.message }))
 
   // Delay first cycle to let the system stabilise after restart
   if (STARTUP_COOLDOWN_MS > 0) {
@@ -413,7 +413,7 @@ async function runCycle() {
       await db`
         INSERT INTO notifications (type, message, metadata)
         VALUES ('inner_monologue', ${ref.text}, ${JSON.stringify(metadata)})
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
 
       if (kgHooks.onSystemEvent) {
         kgHooks.onSystemEvent({
@@ -424,7 +424,7 @@ async function runCycle() {
           actioned,
           pressure: state.pressure,
           timestamp: new Date().toISOString(),
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       console.log(JSON.stringify({
@@ -538,7 +538,7 @@ async function checkStaleEscalations() {
                 ${'Factory review stale (' + ageHours + 'h): ' + (s.initial_prompt || '').slice(0, 100)},
                 ${null},
                 ${JSON.stringify({ sessionId: s.id, ageHours, confidence: s.confidence_score })})
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
 
       broadcast('notification', {
         type: 'escalation_stale',
@@ -1432,12 +1432,12 @@ const _origPollGmail = pollRegistry.get('poll_gmail')
 if (_origPollGmail) {
   pollRegistry.set('poll_gmail', async () => {
     await _origPollGmail()
-    recordHeartbeat('poll_gmail', 'active').catch(() => {})
+    recordHeartbeat('poll_gmail', 'active').catch(err => logger.debug('bg task error', { err: err.message }))
   })
 }
 
 // Restore on load
-_restoreLastPolled().catch(() => {})
+_restoreLastPolled().catch(err => logger.debug('bg task error', { err: err.message }))
 
 // ═══════════════════════════════════════════════════════════════════════
 // OUTCOME VERIFICATION - the feedback loop that makes learning REAL

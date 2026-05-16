@@ -39,7 +39,7 @@ async function checkDMs() {
       }
 
       // Fire-and-forget KG ingestion for new DMs
-      kgHooks.onLinkedInDMProcessed({ dm }).catch(() => {})
+      kgHooks.onLinkedInDMProcessed({ dm }).catch(err => logger.debug('bg task error', { err: err.message }))
 
       upserted++
     }
@@ -123,7 +123,7 @@ async function triagePendingDMs() {
           preparedData: { draft: triage.draftReply },
           context: { from: dm.participant_name, email: dm.participant_email || null, participantName: dm.participant_name, company: dm.participant_company, headline: dm.participant_headline, leadScore: triage.leadScore },
           priority: triage.priority === 'spam' ? 'low' : triage.priority,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       // Surface lead creation if it's a lead
@@ -137,7 +137,7 @@ async function triagePendingDMs() {
           preparedData: { name: dm.participant_name, company: dm.participant_company, linkedinUrl: dm.participant_linkedin_url, leadScore: triage.leadScore, notes: triage.summary },
           context: { from: dm.participant_name, email: dm.participant_email || null, leadScore: triage.leadScore, signals: triage.leadSignals },
           priority: triage.priority,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       // Code work detection - if the DM contains a code/feature request, bridge to Factory
@@ -260,7 +260,7 @@ async function scrapeAndSaveProfile(profileUrl) {
   const profile = await queries.upsertProfile(data)
 
   // Fire-and-forget KG ingestion
-  kgHooks.onLinkedInProfileProcessed({ profile: { ...data, id: profile?.id } }).catch(() => {})
+  kgHooks.onLinkedInProfileProcessed({ profile: { ...data, id: profile?.id } }).catch(err => logger.debug('bg task error', { err: err.message }))
 
   return profile
 }

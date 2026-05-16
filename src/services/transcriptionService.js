@@ -437,7 +437,7 @@ async function transcribeWithChunking({ buffer, mimeType, filename }) {
     buffer = null // eslint-disable-line no-param-reassign
 
     voiceMp3 = await compressToVoiceMp3(tmpIn)
-    await fs.unlink(tmpIn).catch(() => {})
+    await fs.unlink(tmpIn).catch(err => logger.debug('bg task error', { err: err.message }))
 
     const { size: mp3Size } = await fs.stat(voiceMp3)
     logger.info('[Transcription] voice MP3 ready', { bytes: mp3Size })
@@ -465,14 +465,14 @@ async function transcribeWithChunking({ buffer, mimeType, filename }) {
         filename: path.basename(seg.path),
       })
       parts.push({ result: chunkResult, startSecs: seg.startSecs })
-      await fs.unlink(seg.path).catch(() => {})
+      await fs.unlink(seg.path).catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     return stitchTranscripts(parts)
   } finally {
-    await fs.unlink(tmpIn).catch(() => {})
-    if (voiceMp3) await fs.unlink(voiceMp3).catch(() => {})
-    if (segDir) await fs.rm(segDir, { recursive: true, force: true }).catch(() => {})
+    await fs.unlink(tmpIn).catch(err => logger.debug('bg task error', { err: err.message }))
+    if (voiceMp3) await fs.unlink(voiceMp3).catch(err => logger.debug('bg task error', { err: err.message }))
+    if (segDir) await fs.rm(segDir, { recursive: true, force: true }).catch(err => logger.debug('bg task error', { err: err.message }))
   }
 }
 

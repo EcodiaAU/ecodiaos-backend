@@ -280,7 +280,7 @@ async function _weeklyCronTick() {
 
 function start() {
   // Run backfill on startup (idempotent)
-  setImmediate(() => backfillLegacyPatterns().catch(() => {}))
+  setImmediate(() => backfillLegacyPatterns().catch(err => logger.debug('bg task error', { err: err.message })))
 
   // Schedule weekly cron
   _scheduleWeekly()

@@ -283,7 +283,7 @@ async function extractContent(batchSize = 20) {
         // Fire KG hook
         kgHooks.onDriveFileProcessed({
           file: { ...file, content_text: text },
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
 
         extracted++
       } else {

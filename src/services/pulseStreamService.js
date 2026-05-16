@@ -220,8 +220,8 @@ function start() {
   })
   _initialDelay = setTimeout(() => {
     _initialDelay = null
-    _cycle().catch(() => {})
-    _timer = setInterval(() => _cycle().catch(() => {}), COMPACT_INTERVAL_MS)
+    _cycle().catch(err => logger.debug('bg task error', { err: err.message }))
+    _timer = setInterval(() => _cycle().catch(err => logger.debug('bg task error', { err: err.message })), COMPACT_INTERVAL_MS)
     if (_timer.unref) _timer.unref()
   }, INITIAL_DELAY_MS)
   if (_initialDelay.unref) _initialDelay.unref()

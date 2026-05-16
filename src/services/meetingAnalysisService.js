@@ -342,7 +342,7 @@ async function runAnalysis(meetingId, db) {
         analysis_status = 'error',
         analysis_error = ${err.message}
       WHERE id = ${meetingId}::uuid
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
     throw err
   }
 }

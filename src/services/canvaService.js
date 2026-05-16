@@ -96,7 +96,7 @@ async function exchangeCode(code, codeVerifier) {
         `
       }
     })
-    .catch(() => {})
+    .catch(err => logger.debug('bg task error', { err: err.message }))
 
   logger.info('Canva OAuth tokens stored successfully')
 }

@@ -1,3 +1,4 @@
+const logger = require('../config/logger')
 const registry = require('../services/capabilityRegistry')
 
 // Resolve a client by UUID or name - lets capabilities accept either
@@ -151,7 +152,7 @@ registry.registerMany([
       // Fire KG hook
       try {
         const kgHooks = require('../services/kgIngestionHooks')
-        kgHooks.onClientUpdated({ client: { ...current, id: clientId }, previousStage: current.status }).catch(() => {})
+        kgHooks.onClientUpdated({ client: { ...current, id: clientId }, previousStage: current.status }).catch(err => logger.debug('bg task error', { err: err.message }))
       } catch {}
 
       return { message: `${current.name} moved from ${current.status} to ${params.status}` }
@@ -483,7 +484,7 @@ registry.registerMany([
           await db`
             UPDATE clients SET total_revenue_aud = COALESCE(total_revenue_aud, 0) + ${params.dealValue}, updated_at = now()
             WHERE id = ${project.client_id}
-          `.catch(() => {})
+          `.catch(err => logger.debug('bg task error', { err: err.message }))
         }
       }
 

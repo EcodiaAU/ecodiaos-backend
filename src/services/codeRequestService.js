@@ -192,7 +192,7 @@ async function createFromEmail({ threadId, clientId, summary, factoryPrompt, cod
         codeRequestId: request.id, error: err.message,
       })
       // Mark it as needing attention so it shows up in dashboard queries
-      db`UPDATE code_requests SET metadata = metadata || '{"actionQueueFailed": true}'::jsonb WHERE id = ${request.id}`.catch(() => {})
+      db`UPDATE code_requests SET metadata = metadata || '{"actionQueueFailed": true}'::jsonb WHERE id = ${request.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
     })
   } else {
     await _dispatch(request)
@@ -315,7 +315,7 @@ async function createFromSocial({ source, sourceRefId, clientId, summary, factor
   })
 
   // KG ingestion for code request creation
-  kgHooks.onCodeRequestCreated({ request, source }).catch(() => {})
+  kgHooks.onCodeRequestCreated({ request, source }).catch(err => logger.debug('bg task error', { err: err.message }))
 
   if (needsConfirmation) {
     const actionQueue = require('./actionQueueService')
@@ -340,7 +340,7 @@ async function createFromSocial({ source, sourceRefId, clientId, summary, factor
       logger.error('CRITICAL: Failed to enqueue social code request for human review', {
         codeRequestId: request.id, error: err.message,
       })
-      db`UPDATE code_requests SET metadata = metadata || '{"actionQueueFailed": true}'::jsonb WHERE id = ${request.id}`.catch(() => {})
+      db`UPDATE code_requests SET metadata = metadata || '{"actionQueueFailed": true}'::jsonb WHERE id = ${request.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
     })
   } else {
     await _dispatch(request)
@@ -610,7 +610,7 @@ async function _dispatch(request) {
       UPDATE code_requests
       SET dispatch_attempts = COALESCE(dispatch_attempts, 0) + 1
       WHERE id = ${request.id}
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
 
     // Check max attempts
     const currentAttempts = (request.dispatch_attempts || 0) + 1
@@ -677,7 +677,7 @@ async function _dispatch(request) {
       SET status = 'pending', needs_confirmation = true,
           last_error = ${errorMsg.slice(0, 500)}
       WHERE id = ${request.id}
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
 
     // Surface the failure to human review so it doesn't get lost
     await _enqueueDispatchFailure(request, errorMsg)

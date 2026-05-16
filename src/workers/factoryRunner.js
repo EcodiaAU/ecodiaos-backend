@@ -738,9 +738,9 @@ async function startSession(session) {
   activeSessions.set(session.id, sessionData)
   _updateActiveCount()
 
-  db`UPDATE cc_sessions SET last_heartbeat_at = now() WHERE id = ${session.id}`.catch(() => {})
+  db`UPDATE cc_sessions SET last_heartbeat_at = now() WHERE id = ${session.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
   sessionData.heartbeatTimer = setInterval(() => {
-    db`UPDATE cc_sessions SET last_heartbeat_at = now() WHERE id = ${session.id}`.catch(() => {})
+    db`UPDATE cc_sessions SET last_heartbeat_at = now() WHERE id = ${session.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
   }, 60_000)
   sessionData.heartbeatTimer.unref()
 
@@ -813,7 +813,7 @@ async function startSession(session) {
     if (_closeHandled) return
     _closeHandled = true
 
-    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${session.id} AND status IN ('running', 'initializing')`.catch(() => {})
+    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${session.id} AND status IN ('running', 'initializing')`.catch(err => logger.debug('bg task error', { err: err.message }))
 
     const RL_DRAIN_TIMEOUT = 5000
     await Promise.race([
@@ -841,11 +841,11 @@ async function startSession(session) {
 
       if (hasCliId) {
         logger.info(`CC session ${session.id} killed by signal - marking paused (resumable)`, { signal: signal || null })
-        await updateSessionStatus(session.id, 'paused', { error_message: msg }).catch(() => {})
+        await updateSessionStatus(session.id, 'paused', { error_message: msg }).catch(err => logger.debug('bg task error', { err: err.message }))
       } else {
         logger.warn(`CC session ${session.id} killed by signal - no CLI ID, marking error`, { signal: signal || null })
-        await updateSessionStatus(session.id, 'error', { error_message: msg }).catch(() => {})
-        await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${session.id}`.catch(() => {})
+        await updateSessionStatus(session.id, 'error', { error_message: msg }).catch(err => logger.debug('bg task error', { err: err.message }))
+        await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${session.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       broadcastToSession(session.id, 'cc:status', { status: hasCliId ? 'paused' : 'error', code, signal })
@@ -886,7 +886,7 @@ async function startSession(session) {
       errorMessage = `Rate limited (${rateLimitEvent.rate_limit_info.rateLimitType})${resetsAt ? ` - resets ${resetsAt.toISOString()}` : ''}`
       _lastRateLimitReset = resetsAt
       // Publish rate limit to Redis so ecodia-api can read it
-      bridge.setRateLimitStatus({ limited: true, resetsAt: resetsAt?.toISOString() }).catch(() => {})
+      bridge.setRateLimitStatus({ limited: true, resetsAt: resetsAt?.toISOString() }).catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     try {
@@ -937,7 +937,7 @@ async function startSession(session) {
     kgHooks.onCCSessionCompleted({
       session: { ...session, status },
       projectName: session.project_name || null,
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
 
 
     logger.info(`CC session ${session.id} completed`, { code, status })
@@ -953,7 +953,7 @@ async function startSession(session) {
     if (_closeHandled) return
     _closeHandled = true
 
-    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${session.id} AND status IN ('running', 'initializing')`.catch(() => {})
+    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${session.id} AND status IN ('running', 'initializing')`.catch(err => logger.debug('bg task error', { err: err.message }))
 
     rl.close()
     stderrRl.close()
@@ -1048,8 +1048,8 @@ async function resumeSession(sessionId, message) {
         const fk = setTimeout(() => { if (!proc.killed) proc.kill('SIGKILL') }, 10_000)
         fk.unref()
       } catch {}
-      await updateSessionStatus(sessionId, 'error', { error_message: 'Resumed session timed out' }).catch(() => {})
-      await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(() => {})
+      await updateSessionStatus(sessionId, 'error', { error_message: 'Resumed session timed out' }).catch(err => logger.debug('bg task error', { err: err.message }))
+      await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(err => logger.debug('bg task error', { err: err.message }))
       clearInterval(sessionData.heartbeatTimer)
       activeSessions.delete(sessionId)
       _updateActiveCount()
@@ -1087,7 +1087,7 @@ async function resumeSession(sessionId, message) {
     if (_closeHandled) return
     _closeHandled = true
 
-    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${sessionId} AND status IN ('running', 'initializing')`.catch(() => {})
+    db`UPDATE cc_sessions SET status = 'completing' WHERE id = ${sessionId} AND status IN ('running', 'initializing')`.catch(err => logger.debug('bg task error', { err: err.message }))
 
     await Promise.race([
       Promise.all([rlClosed, stderrRlClosed]),
@@ -1108,7 +1108,7 @@ async function resumeSession(sessionId, message) {
         : signal === 'SIGTERM' ? 'PM2 restart or graceful shutdown'
         : signal ? `signal ${signal}` : 'parent process killed'
       const msg = `Resumed session killed (exit code null, ${signal || 'no signal'}) - ${signalDesc}`
-      await updateSessionStatus(sessionId, 'paused', { error_message: msg }).catch(() => {})
+      await updateSessionStatus(sessionId, 'paused', { error_message: msg }).catch(err => logger.debug('bg task error', { err: err.message }))
       broadcastToSession(sessionId, 'cc:status', { status: 'paused', code, signal, resumed: true })
       return
     }
@@ -1131,8 +1131,8 @@ async function resumeSession(sessionId, message) {
       if (!errorMessage) errorMessage = `Exit code ${code}`
     }
 
-    await updateSessionStatus(sessionId, status, { error_message: errorMessage }).catch(() => {})
-    if (!success) await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(() => {})
+    await updateSessionStatus(sessionId, status, { error_message: errorMessage }).catch(err => logger.debug('bg task error', { err: err.message }))
+    if (!success) await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(err => logger.debug('bg task error', { err: err.message }))
     broadcastToSession(sessionId, 'cc:status', { status, code, resumed: true })
     logger.info(`CC resumed session ${sessionId} completed`, { code, status })
 
@@ -1146,8 +1146,8 @@ async function resumeSession(sessionId, message) {
     clearInterval(sessionData.heartbeatTimer)
     activeSessions.delete(sessionId)
     _updateActiveCount()
-    await updateSessionStatus(sessionId, 'error', { error_message: `Resume process error: ${err.message}` }).catch(() => {})
-    await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(() => {})
+    await updateSessionStatus(sessionId, 'error', { error_message: `Resume process error: ${err.message}` }).catch(err => logger.debug('bg task error', { err: err.message }))
+    await db`UPDATE cc_sessions SET pipeline_stage = 'failed' WHERE id = ${sessionId}`.catch(err => logger.debug('bg task error', { err: err.message }))
     broadcastToSession(sessionId, 'cc:status', { status: 'error', error: err.message })
     bridge.publishSessionComplete(sessionId, 'error', { errorMessage: err.message })
   })
@@ -1323,7 +1323,7 @@ function startWatchdog() {
             startSession(newSession).catch(err => {
               logger.error(`Watchdog: failed to restart stalled session`, { originalId: sessionId, newId: newSession.id, error: err.message })
               db`UPDATE cc_sessions SET status = 'error', error_message = ${err.message}, completed_at = now()
-                 WHERE id = ${newSession.id}`.catch(() => {})
+                 WHERE id = ${newSession.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
             })
           }
         } catch (err) {
@@ -1388,7 +1388,7 @@ async function _publishHealthSnapshot() {
 // ─── Helpers ────────────────────────────────────────────────────────
 
 function _updateActiveCount() {
-  bridge.setActiveSessionCount(activeSessions.size).catch(() => {})
+  bridge.setActiveSessionCount(activeSessions.size).catch(err => logger.debug('bg task error', { err: err.message }))
 }
 
 function getActiveSessionCount() {
@@ -1553,9 +1553,9 @@ async function boot() {
   startWatchdog()
 
   // 4. Runner heartbeat to Redis (every 30s)
-  await bridge.setRunnerHeartbeat().catch(() => {})
+  await bridge.setRunnerHeartbeat().catch(err => logger.debug('bg task error', { err: err.message }))
   _runnerHeartbeatTimer = setInterval(() => {
-    bridge.setRunnerHeartbeat().catch(() => {})
+    bridge.setRunnerHeartbeat().catch(err => logger.debug('bg task error', { err: err.message }))
   }, 30_000)
   _runnerHeartbeatTimer.unref()
 
@@ -1569,7 +1569,7 @@ async function boot() {
       } catch (err) {
         logger.error(`[factoryRunner] Failed to start session ${data.id}`, { error: err.message })
         db`UPDATE cc_sessions SET status = 'error', error_message = ${err.message}, completed_at = now(), pipeline_stage = 'failed'
-           WHERE id = ${data.id}`.catch(() => {})
+           WHERE id = ${data.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
         bridge.publishSessionComplete(data.id, 'error', { errorMessage: err.message })
       }
     },

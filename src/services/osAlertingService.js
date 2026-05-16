@@ -152,7 +152,7 @@ async function _fire(alertType, subject, body) {
   // SMS first for urgent alert types - so Tate gets it even if email fails
   if (SMS_ALERT_TYPES.has(alertType)) {
     const smsBody = `[EcodiaOS] ${subject}\n${body.split('\n')[0]}`
-    _sendSms(smsBody).catch(() => {})
+    _sendSms(smsBody).catch(err => logger.debug('bg task error', { err: err.message }))
   }
   const ok = await _send(subject, body)
   if (ok) {

@@ -171,9 +171,9 @@ function start() {
   // down before the first fire lands.
   _bootTimer = setTimeout(() => {
     _bootTimer = null
-    fireRefresh().catch(() => {})
+    fireRefresh().catch(err => logger.debug('bg task error', { err: err.message }))
   }, 30_000)
-  _timer = setInterval(() => { fireRefresh().catch(() => {}) }, INTERVAL_MS)
+  _timer = setInterval(() => { fireRefresh().catch(err => logger.debug('bg task error', { err: err.message })) }, INTERVAL_MS)
   // Use unref() so the timers don't block process exit on SIGINT. PM2's
   // graceful-shutdown window (~1.5s) is not long enough for a 30s boot
   // timer to resolve organically; unref() lets node exit when nothing

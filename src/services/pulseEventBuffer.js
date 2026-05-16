@@ -39,13 +39,13 @@ const _subscribers = [] // synchronous in-process consumers (systemPulse listens
 function _enqueuePersist(event) {
   _persistQueue.push(event)
   if (_persistQueue.length >= PERSIST_MAX_BATCH) {
-    _flushPersist().catch(() => {})
+    _flushPersist().catch(err => logger.debug('bg task error', { err: err.message }))
     return
   }
   if (!_persistTimer) {
     _persistTimer = setTimeout(() => {
       _persistTimer = null
-      _flushPersist().catch(() => {})
+      _flushPersist().catch(err => logger.debug('bg task error', { err: err.message }))
     }, PERSIST_BATCH_MS)
     if (_persistTimer.unref) _persistTimer.unref()
   }

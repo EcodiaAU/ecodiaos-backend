@@ -98,7 +98,7 @@ async function _writeP1Signal({ target, detail, failureStreak }) {
         ('observerWatchdog', 'process_death', ${message.slice(0, 400)},
          ${'watchdog probe failure'}, 0.99, ${fp},
          NOW() + INTERVAL '30 minutes', 1)
-    `.catch(() => {})
+    `.catch(err => console.warn('[watchdog] observer_signals insert failed', err.message))
     await sql.end({ timeout: 2 }).catch(() => {})
     return true
   } catch (err) {
@@ -160,7 +160,7 @@ function start() {
   console.log('[watchdog] starting', { INTERVAL_MS, FAILURE_THRESHOLD, API_URL, CONDUCTOR_URL })
   setInterval(() => { _tick().catch(err => console.error('[watchdog] tick threw:', err.message)) }, INTERVAL_MS)
   // Run an immediate probe for fast feedback.
-  _tick().catch(() => {})
+  _tick().catch(err => console.warn('[watchdog] initial tick failed:', err.message))
 }
 
 if (require.main === module) {

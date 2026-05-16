@@ -39,7 +39,7 @@ async function logActivity({ clientId, projectId, activityType, title, descripti
     await db`
       UPDATE clients SET last_contact_at = now(), updated_at = now()
       WHERE id = ${clientId}
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
 
     return activity
   } catch (err) {
@@ -217,7 +217,7 @@ async function computeClientHealth(clientId) {
 
   score = Math.max(0, Math.min(1, score))
 
-  await db`UPDATE clients SET health_score = ${score}, updated_at = now() WHERE id = ${clientId}`.catch(() => {})
+  await db`UPDATE clients SET health_score = ${score}, updated_at = now() WHERE id = ${clientId}`.catch(err => logger.debug('bg task error', { err: err.message }))
 
   return { score, metrics }
 }
@@ -302,7 +302,7 @@ async function addContact({ clientId, name, role, email, phone, linkedinUrl, isP
     await db`
       UPDATE clients SET contact_email = ${email}, updated_at = now()
       WHERE id = ${clientId} AND (contact_email IS NULL OR contact_email = '')
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
   }
 
   return contact

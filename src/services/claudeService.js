@@ -45,7 +45,7 @@ async function callClaude(messages, { module: mod = 'general', system = null } =
     VALUES (${mod}, 'factory-bg', 'sonnet', ${Math.ceil(prompt.length / 4)}, ${Math.ceil(content.length / 4)},
             date_trunc('week', now()))
     ON CONFLICT DO NOTHING
-  `.catch(() => {})
+  `.catch(err => logger.debug('bg task error', { err: err.message }))
 
   return content
 }

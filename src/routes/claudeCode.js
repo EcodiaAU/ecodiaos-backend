@@ -1,3 +1,4 @@
+const logger = require('../config/logger')
 const { Router } = require('express')
 const { z } = require('zod')
 const auth = require('../middleware/auth')
@@ -93,7 +94,7 @@ router.post('/sessions', validate(createSessionSchema), async (req, res, next) =
     const published = bridge.publishSessionRequest(session)
     if (!published) {
       db`UPDATE cc_sessions SET status = 'error', error_message = 'Failed to publish to factory runner (no Redis)', completed_at = now()
-         WHERE id = ${session.id}`.catch(() => {})
+         WHERE id = ${session.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     res.status(201).json(session)

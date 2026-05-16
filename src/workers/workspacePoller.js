@@ -30,7 +30,7 @@ async function pollDrive() {
       type: 'system',
       message: `Google Drive poller failed: ${err.message}`,
       metadata: { error: err.message, worker: 'workspacePoller:drive' },
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
   }
 }
 

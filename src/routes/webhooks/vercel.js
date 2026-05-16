@@ -166,7 +166,7 @@ router.post(
 
     const secret = await _loadSecret()
     if (!secret) {
-      _ensureMissingSecretRow().catch(() => {})
+      _ensureMissingSecretRow().catch(err => logger.debug('bg task error', { err: err.message }))
       logger.warn('vercel webhook: secret not provisioned, rejecting unsigned request')
       return res.status(401).json({ ok: false, error: 'webhook secret not provisioned' })
     }

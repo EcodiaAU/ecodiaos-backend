@@ -98,7 +98,7 @@ router.post('/staged/:id/discard', async (req, res, next) => {
     // Optionally auto-learn a DISCARD rule
     if (req.query.learn === 'true') {
       const tx = await bk.getStaged(req.params.id)
-      if (tx) await bk.autoLearnRule(tx.description, 'DISCARD', true, 'manual_discard').catch(() => {})
+      if (tx) await bk.autoLearnRule(tx.description, 'DISCARD', true, 'manual_discard').catch(err => logger.debug('bg task error', { err: err.message }))
     }
     res.json({ status: 'discarded' })
   } catch (err) { next(err) }

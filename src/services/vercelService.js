@@ -114,7 +114,7 @@ async function syncDeployments(limit = 50) {
       kgHooks.onVercelDeployment({
         deployment: dep,
         projectName: dep.name,
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
 
       // Surface errors to action queue (not just notification)
       if (dep.state === 'ERROR') {
@@ -128,7 +128,7 @@ async function syncDeployments(limit = 50) {
             error: dep.errorMessage,
             commitSha: dep.meta?.githubCommitSha,
           },
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
 
         // Enqueue actionable item - human can trigger a CC fix session
         const actionQueue = require('./actionQueueService')
@@ -145,7 +145,7 @@ async function syncDeployments(limit = 50) {
           context: { deploymentId: dep.uid, project: dep.name, branch: dep.meta?.githubCommitRef },
           resourceKey: `vercel:build:${dep.name}`,
           priority: dep.target === 'production' ? 'urgent' : 'high',
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     }
   }

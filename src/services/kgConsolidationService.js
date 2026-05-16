@@ -38,7 +38,7 @@ async function acquireConsolidationLock(phase = 'dedup', ttlMs = 5 * 60 * 1000) 
   // Opportunistic sweep: clears stale locks left by a crashed acquire. Cheap
   // (a single MATCH ... WHERE expires_at < datetime() DELETE) and self-healing.
   // AUTONOMY_AUDIT_2026-05-13 audit-3 §4.1.
-  await sweepExpiredConsolidationLocks().catch(() => {})
+  await sweepExpiredConsolidationLocks().catch(err => logger.debug('bg task error', { err: err.message }))
   try {
     const result = await runWrite(`
       MERGE (lock:__ConsolidationLock__ {phase: $phase})
@@ -64,7 +64,7 @@ async function releaseConsolidationLock(phase = 'dedup') {
   await runWrite(`
     MATCH (lock:__ConsolidationLock__ {phase: $phase})
     DELETE lock
-  `, { phase }).catch(() => {})
+  `, { phase }).catch(err => logger.debug('bg task error', { err: err.message }))
 }
 
 /**
@@ -879,7 +879,7 @@ For each numbered relationship, respond as JSON:
       await runWrite(`
         MATCH ()-[r]->() WHERE elementId(r) = $relId
         SET r.validation_attempts = coalesce(r.validation_attempts, 0) + 1
-      `, { relId }).catch(() => {})
+      `, { relId }).catch(err => logger.debug('bg task error', { err: err.message }))
     }
   }
 
@@ -1418,7 +1418,7 @@ Respond as JSON:
         await runWrite(`
           MATCH (n) WHERE elementId(n) = $nodeId
           SET n.episode_id = $episodeId
-        `, { nodeId: node.id, episodeId }).catch(() => {})
+        `, { nodeId: node.id, episodeId }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       episodes.push({ action: 'episode_created', name: parsed.episode_name, nodes: nodes.length })
@@ -1655,7 +1655,7 @@ Respond as JSON:
       // Mark anchor so we don't re-process it soon
       await runWrite(`
         MATCH (n {name: $name}) SET n.free_associated_at = datetime()
-      `, { name: anchor.name }).catch(() => {})
+      `, { name: anchor.name }).catch(err => logger.debug('bg task error', { err: err.message }))
     } catch (err) {
       logger.warn(`KG free association round ${round} failed`, { error: err.message })
     }
@@ -2198,24 +2198,24 @@ async function readGraphState() {
       state.synthesized = r?.get('synthesized')?.toInt?.() ?? 0
       state.unscored = r?.get('unscored')?.toInt?.() ?? 0
       state.stale = r?.get('stale')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     runQuery(`MATCH ()-[r]->() RETURN count(r) AS total, count(CASE WHEN r.inferred = true THEN r END) AS inferred`).then(([r]) => {
       state.totalRelationships = r?.get('total')?.toInt?.() ?? 0
       state.inferredRelationships = r?.get('inferred')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     runQuery(`MATCH (n:Narrative) RETURN count(n) AS c`).then(([r]) => {
       state.narratives = r?.get('c')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     runQuery(`MATCH (n:Prediction) RETURN count(n) AS c`).then(([r]) => {
       state.predictions = r?.get('c')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     runQuery(`MATCH (n:Episode) RETURN count(n) AS c`).then(([r]) => {
       state.episodes = r?.get('c')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     // Nodes with many connections but no synthesis (abstraction candidates)
     runQuery(`
@@ -2226,7 +2226,7 @@ async function readGraphState() {
       RETURN count(n) AS hubs
     `).then(([r]) => {
       state.unsynthesizedHubs = r?.get('hubs')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     // People/Projects without narratives
     // NARRATES is the rel type created by synthesizeNarratives() - Narrative-[NARRATES]->Subject
@@ -2237,7 +2237,7 @@ async function readGraphState() {
       RETURN count(n) AS c
     `).then(([r]) => {
       state.entitiesWithoutNarrative = r?.get('c')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
 
     // Recent ingestions (last 24h) - freshness signal
     runQuery(`
@@ -2245,7 +2245,7 @@ async function readGraphState() {
       RETURN count(n) AS recent
     `).then(([r]) => {
       state.recentIngestions = r?.get('recent')?.toInt?.() ?? 0
-    }).catch(() => {}),
+    }).catch(err => logger.debug('bg task error', { err: err.message })),
   ])
 
   return state

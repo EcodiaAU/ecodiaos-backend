@@ -94,7 +94,7 @@ async function withIdempotency(req, res, toolName, handler) {
   try {
     const response = await handler()
     if (key && response) {
-      idem.record(key, toolName, response).catch(() => {})
+      idem.record(key, toolName, response).catch(err => logger.debug('bg task error', { err: err.message }))
     }
     return res.json(response)
   } catch (err) {

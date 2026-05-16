@@ -626,7 +626,7 @@ async function dispatchCronAsFork(cronTask) {
     const antiFlood = await _isAntiFloodPaused()
     if (antiFlood.paused) {
       // Best-effort skip log - fire-and-forget, never blocks dispatch path
-      _writeAntiFloodSkipLog(cronTask.name, antiFlood.pauseUntilIso).catch(() => {})
+      _writeAntiFloodSkipLog(cronTask.name, antiFlood.pauseUntilIso).catch(err => logger.debug('bg task error', { err: err.message }))
       logger.info('cronForkDispatcher: LOW_PRIORITY cron suppressed (anti-flood gate)', {
         cron: cronTask.name,
         pause_until: antiFlood.pauseUntilIso,

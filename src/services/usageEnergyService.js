@@ -361,10 +361,10 @@ async function refreshAllAccounts() {
   // Skip acct1 (tate) entirely when its subscription is paused and we're on the code token.
   const skipAcct1 = !!process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE && !process.env.CLAUDE_CODE_OAUTH_TOKEN_TATE
   if (!skipAcct1) {
-    promises.push(refreshQuotaCheck('claude_max').catch(() => {}))
+    promises.push(refreshQuotaCheck('claude_max').catch(err => logger.debug('bg task error', { err: err.message })))
   }
   if (process.env.CLAUDE_CODE_OAUTH_TOKEN_CODE || process.env.CLAUDE_CONFIG_DIR_2) {
-    promises.push(refreshQuotaCheck('claude_max_2').catch(() => {}))
+    promises.push(refreshQuotaCheck('claude_max_2').catch(err => logger.debug('bg task error', { err: err.message })))
   }
   await Promise.allSettled(promises)
 }
@@ -458,7 +458,7 @@ async function _onResetFired() {
     _resetTimer = setTimeout(() => {
       _resetTimer = null
       _resetTimerArmedFor = null
-      _onResetFired().catch(() => {})
+      _onResetFired().catch(err => logger.debug('bg task error', { err: err.message }))
     }, RESET_RETRY_MS)
     if (typeof _resetTimer.unref === 'function') _resetTimer.unref()
     _resetTimerArmedFor = (Date.now() + RESET_RETRY_MS) / 1000
@@ -530,7 +530,7 @@ function _accountHealth(account) {
       state.sessionUtilization = null // clear 5h session too
       state.rejectionClearedAt = Date.now()  // debounce markAccountRejected for 5 min
       // Fire a fresh quota-check in the background (don't await - decision needs a value now)
-      refreshQuotaCheck(account).catch(() => {})
+      refreshQuotaCheck(account).catch(err => logger.debug('bg task error', { err: err.message }))
       // Score 25 (not 30): a just-cleared rejection is UNVERIFIED healthy. If a
       // genuinely no_data lane (score 30) is also available, prefer it — its
       // failure modes are less correlated with this account's recent capping.
@@ -549,7 +549,7 @@ function _accountHealth(account) {
       state.weeklyUtilization = null
       state.sessionUtilization = null
       state.rejectionClearedAt = Date.now()
-      refreshQuotaCheck(account).catch(() => {})
+      refreshQuotaCheck(account).catch(err => logger.debug('bg task error', { err: err.message }))
       // Score 20 (not 30): a stale-wedge clear is even less verified than
       // reset_just_passed. We have NO ground truth this account is healthy.
       // Genuine no_data lanes (score 30) should win, then truly-unknown lanes

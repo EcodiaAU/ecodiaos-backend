@@ -1239,7 +1239,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
       // We do NOT await — the generator's cleanup is best-effort; a slow/hanging
       // cleanup must not delay the status='done' write. Errors swallowed silently.
       if (q && typeof q.return === 'function') {
-        try { Promise.resolve(q.return(undefined)).catch(() => {}) } catch {}
+        try { Promise.resolve(q.return(undefined)).catch(err => logger.debug('bg task error', { err: err.message })) } catch {}
       }
 
       // Stream complete — extract [FORK_REPORT] / [NEXT_STEP] from transcript.
@@ -1393,7 +1393,7 @@ async function spawnFork({ brief, context_mode = 'recent', parent_fork_id = 'mai
             parent_id: state.parent_id,
           },
           confidence: report ? 0.8 : 0.5,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       } catch {}
 
       // Post the report back to main via the message queue. Non-interrupting:

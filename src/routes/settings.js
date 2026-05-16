@@ -78,7 +78,7 @@ router.post('/workers/:name/trigger', async (req, res, next) => {
     if (name === 'maintenance_cycle') {
       // Force one maintenance cycle immediately - useful for testing/debugging
       const maintenance = require('../workers/autonomousMaintenanceWorker')
-      maintenance.runCycle().catch(() => {})
+      maintenance.runCycle().catch(err => logger.debug('bg task error', { err: err.message }))
       logger.info('Manual trigger: autonomous maintenance cycle')
       return res.json({ ok: true, message: 'Maintenance cycle started - the mind will decide what to do' })
     }

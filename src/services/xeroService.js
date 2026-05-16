@@ -199,7 +199,7 @@ async function pollTransactions() {
             category: result.category,
           },
           clientName: tx.Contact?.Name || null,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
 
         // Surface low-confidence categorizations to action queue for human review
         if (result.confidence < parseFloat(env.XERO_CATEGORIZATION_CONFIDENCE_MIN || '0.7')) {
@@ -217,7 +217,7 @@ async function pollTransactions() {
             context: { from: tx.Contact?.Name || null, transactionId: inserted.id, amount: tx.Total, category: result.category },
             resourceKey: `xero:transaction:${inserted.id}`,
             priority: Math.abs(tx.Total) > 500 ? 'high' : 'medium',
-          }).catch(() => {})
+          }).catch(err => logger.debug('bg task error', { err: err.message }))
         }
       } catch (catErr) {
         logger.warn(`Failed to categorize transaction ${inserted.id}`, { error: catErr.message })

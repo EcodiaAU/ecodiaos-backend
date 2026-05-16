@@ -180,7 +180,7 @@ async function tryReserveForkSlot({
         RETURNING fork_budget_remaining
       `
       if (budgetRows.length === 0) {
-        await db`DELETE FROM os_forks WHERE fork_id = ${fork_id}`.catch(() => {})
+        await db`DELETE FROM os_forks WHERE fork_id = ${fork_id}`.catch(err => logger.debug('bg task error', { err: err.message }))
         logger.info('forkCapAtomic: per-goal budget exhausted, spawn rolled back', {
           fork_id, goal_id,
         })

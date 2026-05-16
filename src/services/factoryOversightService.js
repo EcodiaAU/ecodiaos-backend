@@ -310,9 +310,9 @@ async function runPostSessionPipeline(sessionId) {
           confidence: asyncReview.confidence,
           reason: 'async_pressure_review',
           reviewNotes: asyncReview.notes,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
     // Deferred review: don't inject confidence: 0 which would drag down the blend.
     // Pass null so the blending logic knows to skip the review signal entirely.
     // Deferred review: set approved to null (pending), NOT true.
@@ -558,7 +558,7 @@ async function runPostSessionPipeline(sessionId) {
           /(?:fix|investigate|resolve|address)\s+(?:the\s+)?['""]?([^'""\n]{10,80}?)(?:\s+error|\s+issue|\s+bug|['""])/i
         )
         if (errorPatternMatch) {
-          db`UPDATE cc_sessions SET target_error_pattern = ${errorPatternMatch[1].trim()} WHERE id = ${session.id}`.catch(() => {})
+          db`UPDATE cc_sessions SET target_error_pattern = ${errorPatternMatch[1].trim()} WHERE id = ${session.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
         }
 
         // Step 5: Outcome learning
@@ -906,7 +906,7 @@ async function reportToTriggerSource(session, result) {
           codeRequest,
           outcome: result.success ? 'success' : 'failed',
           session,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     } catch (err) {
       logger.debug('Failed to close social code request loop', { error: err.message })
@@ -1077,7 +1077,7 @@ ${details.reason ? `Reason: ${details.reason}` : ''}`
       filesChanged: details.filesChanged || session.files_changed,
       commitSha: details.commitSha,
       error: details.error,
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     // Extract cross-session learning patterns via Claude
     await extractLearningPattern(session, outcome, details)
@@ -1097,7 +1097,7 @@ ${details.reason ? `Reason: ${details.reason}` : ''}`
           AND updated_at < now() - interval '1 day'
           AND pattern_type NOT IN ('failure_pattern', 'dont_try', 'constraint')
           AND times_applied >= 5
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
       // Low-usage learnings (applied <5 times): normal decay (5%/day)
       await db`
         UPDATE factory_learnings
@@ -1107,7 +1107,7 @@ ${details.reason ? `Reason: ${details.reason}` : ''}`
           AND updated_at < now() - interval '1 day'
           AND pattern_type NOT IN ('failure_pattern', 'dont_try', 'constraint')
           AND times_applied < 5
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     // Emit to event bus
@@ -1818,7 +1818,7 @@ async function runDeployFromOSApproval(sessionId, { notes = '', confidence = nul
   emitEvent('factory:session_complete', { sessionId, codebaseName: session.codebase_name, confidence: finalConfidence, outcome: 'deployed' })
 
   // Learning extraction - fire and forget
-  extractLearningPattern(session, 'success', { confidence: finalConfidence, notes }).catch(() => {})
+  extractLearningPattern(session, 'success', { confidence: finalConfidence, notes }).catch(err => logger.debug('bg task error', { err: err.message }))
 
   return { success: true, commitSha: deployResult.commitSha }
 }
@@ -1839,7 +1839,7 @@ async function runRejectFromOS(sessionId, { reason = 'Rejected by OS review', re
   emitEvent('factory:session_complete', { sessionId, codebaseName: session.codebase_name, outcome: 'rejected', reason })
 
   // Learning extraction for the rejection - fire and forget
-  extractLearningPattern(session, 'rejected', { reason }).catch(() => {})
+  extractLearningPattern(session, 'rejected', { reason }).catch(err => logger.debug('bg task error', { err: err.message }))
 
   return { rejected: true, reason, requeued: false }
 }

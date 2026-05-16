@@ -200,7 +200,7 @@ async function _fireDirectExecTask(task, cmd) {
       UPDATE status_board
       SET archived_at = ${now}
       WHERE entity_ref = ${'direct-exec-' + task.name} AND archived_at IS NULL
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
 
     logger.info('Scheduler: direct-exec cron succeeded', {
       name: task.name, exit_code: exitCode, elapsed_ms: elapsed,
@@ -366,7 +366,7 @@ async function fireTask(task) {
       const nextRun = computeNextRun(task.cron_expression)
       if (nextRun) {
         await db`UPDATE os_scheduled_tasks SET next_run_at = ${nextRun}, result = ${err.message} WHERE id = ${task.id}`
-          .catch(() => {})
+          .catch(err => logger.debug('bg task error', { err: err.message }))
       }
     }
   }
@@ -423,7 +423,7 @@ async function pollOnce() {
         for (const t of cronTasks) {
           const deferred = new Date(Date.now() + 5 * 60 * 1000)
           await db`UPDATE os_scheduled_tasks SET next_run_at = ${deferred} WHERE id = ${t.id}`
-            .catch(() => {})
+            .catch(err => logger.debug('bg task error', { err: err.message }))
         }
         logger.info('Scheduler: pay-as-you-go provider, halting crons +5min; delayed tasks still fire', {
           halted_crons: cronTasks.length,
@@ -457,7 +457,7 @@ async function pollOnce() {
       if (t.type === 'cron') {
         const requeue = new Date(Date.now() + 60_000)
         await db`UPDATE os_scheduled_tasks SET next_run_at = ${requeue} WHERE id = ${t.id}`
-          .catch(() => {})
+          .catch(err => logger.debug('bg task error', { err: err.message }))
         logger.debug('Scheduler: requeued overdue cron for next cycle', { name: t.name, requeueAt: requeue })
       }
     }

@@ -5,6 +5,7 @@
  * GET  /api/docs/files/* - serve locally generated files (fallback)
  * GET  /api/docs/preview/:slug - return raw HTML for iframe rendering
  */
+const logger = require('../config/logger')
 const express = require('express')
 const path = require('path')
 const fs = require('fs')
@@ -28,7 +29,7 @@ async function uploadToStorage(slug, buffer, contentType) {
   const sb = getSupabase()
   if (!sb) return null
   try {
-    await sb.storage.createBucket('documents', { public: true }).catch(() => {})
+    await sb.storage.createBucket('documents', { public: true }).catch(err => logger.debug('bg task error', { err: err.message }))
     const { error } = await sb.storage.from('documents').upload(`${slug}`, buffer, { contentType, upsert: true })
     if (error) return null
     const { data } = sb.storage.from('documents').getPublicUrl(`${slug}`)

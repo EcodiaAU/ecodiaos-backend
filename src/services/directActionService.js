@@ -173,7 +173,7 @@ async function execute({ actionType, params = {}, correlationId, requestedBy = '
 
     // KG learning + event bus
     const kgHooks = require('./kgIngestionHooks')
-    kgHooks.onDirectAction({ actionType, params, result, status: 'completed', durationMs }).catch(() => {})
+    kgHooks.onDirectAction({ actionType, params, result, status: 'completed', durationMs }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     try {
       const eventBus = require('./internalEventBusService')

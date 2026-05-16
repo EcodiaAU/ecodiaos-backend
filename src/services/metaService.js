@@ -93,7 +93,7 @@ async function syncPosts(pageDbId, pageId, token, limit = 50) {
 
     if (!existing) {
       newCount++
-      kgHooks.onMetaPostCreated({ post, pageName: null }).catch(() => {})
+      kgHooks.onMetaPostCreated({ post, pageName: null }).catch(err => logger.debug('bg task error', { err: err.message }))
     }
   }
 
@@ -207,7 +207,7 @@ async function syncConversations(pageDbId, pageId, token, platform = 'messenger'
           participantName: participant?.name,
           platform,
           newMessageCount: newMessages,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     } catch (err) {
       logger.debug(`Failed to fetch messages for conversation ${conv.id}`, { error: err.message })
@@ -323,7 +323,7 @@ Respond as JSON:
           },
           context: { from: conv.participant_name, email: conv.participant_id ? `${conv.participant_id}@${conv.platform || 'meta'}` : null, platform: conv.platform, pageName: conv.page_name, participantName: conv.participant_name },
           priority: triage.priority === 'spam' ? 'low' : triage.priority,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
 
       // Code work detection - if the DM contains a code/feature request, bridge to Factory
@@ -355,7 +355,7 @@ Respond as JSON:
       logger.debug(`Meta DM triaged: ${conv.participant_name} → ${triage.priority}/${triage.suggestedAction}`)
     } catch (err) {
       logger.warn(`Meta DM triage failed for ${conv.id}`, { error: err.message })
-      await db`UPDATE meta_conversations SET triage_status = 'pending', updated_at = now() WHERE id = ${conv.id}`.catch(() => {})
+      await db`UPDATE meta_conversations SET triage_status = 'pending', updated_at = now() WHERE id = ${conv.id}`.catch(err => logger.debug('bg task error', { err: err.message }))
     }
   }
 }

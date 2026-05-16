@@ -183,7 +183,7 @@ async function runTranscription(meetingId) {
         mimeType: 'audio/webm',
       })
       if (merged) {
-        deleteChunks(meetingId).catch(() => {})
+        deleteChunks(meetingId).catch(err => logger.debug('bg task error', { err: err.message }))
         logger.info('[Meetings] merged audio uploaded on retry', { meetingId, bytes: buffer.length })
       }
     }
@@ -248,7 +248,7 @@ async function runTranscription(meetingId) {
         transcription_status = 'error',
         transcription_error = ${err.message}
       WHERE id = ${meetingId}::uuid
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
   }
 }
 
@@ -337,7 +337,7 @@ router.post('/upload', uploadAudioToDisk.single('file'), async (req, res) => {
         const ffmpegIn = path.join(os.tmpdir(), `mtg-raw-${Date.now()}.${ext}`)
         await fs.promises.writeFile(ffmpegIn, fileBuffer)
         compressedPath = await compressToVoiceMp3(ffmpegIn)
-        await fs.promises.unlink(ffmpegIn).catch(() => {})
+        await fs.promises.unlink(ffmpegIn).catch(err => logger.debug('bg task error', { err: err.message }))
         uploadBuffer = await fs.promises.readFile(compressedPath)
         uploadMime = 'audio/mpeg'
         uploadExt = 'mp3'
@@ -363,7 +363,7 @@ router.post('/upload', uploadAudioToDisk.single('file'), async (req, res) => {
     if (uploadErr) {
       logger.error('[Meetings] upload: storage upload failed', { id, error: uploadErr.message })
       // Soft-delete the orphaned row so it doesn't pollute the list
-      await db`UPDATE meeting_recordings SET archived_at = NOW() WHERE id = ${id}::uuid`.catch(() => {})
+      await db`UPDATE meeting_recordings SET archived_at = NOW() WHERE id = ${id}::uuid`.catch(err => logger.debug('bg task error', { err: err.message }))
       return res.status(500).json({ error: 'storage_upload_failed', detail: uploadErr.message })
     }
 
@@ -394,8 +394,8 @@ router.post('/upload', uploadAudioToDisk.single('file'), async (req, res) => {
     logger.error('[Meetings] upload: failed', { error: err.message })
     return res.status(500).json({ error: 'upload_failed', detail: err.message })
   } finally {
-    if (tmpPath) fs.promises.unlink(tmpPath).catch(() => {})
-    if (compressedPath) fs.promises.unlink(compressedPath).catch(() => {})
+    if (tmpPath) fs.promises.unlink(tmpPath).catch(err => logger.debug('bg task error', { err: err.message }))
+    if (compressedPath) fs.promises.unlink(compressedPath).catch(err => logger.debug('bg task error', { err: err.message }))
   }
 })
 
@@ -421,7 +421,7 @@ router.post('/:id/chunk', upload.single('chunk'), async (req, res) => {
       await db`
         UPDATE meeting_recordings SET audio_url = ${`meetings/${id}/audio.webm`}
         WHERE id = ${id}::uuid
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     return res.status(200).json({
@@ -462,7 +462,7 @@ router.post('/:id/stop', async (req, res) => {
       })
       if (audioPath) {
         // Merged upload succeeded — safe to remove individual chunks
-        deleteChunks(id).catch(() => {})
+        deleteChunks(id).catch(err => logger.debug('bg task error', { err: err.message }))
       } else {
         // Upload failed (likely exceeded storage limit for large files).
         // KEEP chunks in storage — runTranscription will fall back to them.
@@ -759,7 +759,7 @@ router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, 
         const ffmpegIn = path.join(os.tmpdir(), `mtg-raw-${Date.now()}${path.extname(tmpPath)}`)
         await fs.promises.writeFile(ffmpegIn, fileBuffer)
         compressedPath = await compressToVoiceMp3(ffmpegIn)
-        await fs.promises.unlink(ffmpegIn).catch(() => {})
+        await fs.promises.unlink(ffmpegIn).catch(err => logger.debug('bg task error', { err: err.message }))
         uploadBuffer = await fs.promises.readFile(compressedPath)
         uploadMime = 'audio/mpeg'
         uploadExt = 'mp3'
@@ -829,9 +829,9 @@ router.post('/:id/upload-audio', uploadAudioToDisk.single('audio'), async (req, 
   } finally {
     // Always clean up the temp file multer wrote to disk
     if (tmpPath) {
-      fs.promises.unlink(tmpPath).catch(() => {})
+      fs.promises.unlink(tmpPath).catch(err => logger.debug('bg task error', { err: err.message }))
     }
-    if (compressedPath) fs.promises.unlink(compressedPath).catch(() => {})
+    if (compressedPath) fs.promises.unlink(compressedPath).catch(err => logger.debug('bg task error', { err: err.message }))
   }
 })
 

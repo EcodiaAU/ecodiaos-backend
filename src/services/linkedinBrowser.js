@@ -316,8 +316,8 @@ async function withBrowser(callback) {
   } finally {
     sessionStartedAt = null
     lastSessionEndedAt = Date.now()
-    if (context) await context.close().catch(() => {})
-    if (browser) await browser.close().catch(() => {})
+    if (context) await context.close().catch(err => logger.debug('bg task error', { err: err.message }))
+    if (browser) await browser.close().catch(err => logger.debug('bg task error', { err: err.message }))
   }
 }
 

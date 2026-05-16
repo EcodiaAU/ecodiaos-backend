@@ -191,10 +191,10 @@ function start() {
   if (_initialDelay || _dailyTimer) return
   _initialDelay = setTimeout(() => {
     _initialDelay = null
-    rollupYesterday().catch(() => {})
-    weeklyTuningPass().catch(() => {})
-    _dailyTimer = setInterval(() => rollupYesterday().catch(() => {}), DAILY_INTERVAL_MS)
-    _weeklyTimer = setInterval(() => weeklyTuningPass().catch(() => {}), WEEKLY_INTERVAL_MS)
+    rollupYesterday().catch(err => logger.debug('bg task error', { err: err.message }))
+    weeklyTuningPass().catch(err => logger.debug('bg task error', { err: err.message }))
+    _dailyTimer = setInterval(() => rollupYesterday().catch(err => logger.debug('bg task error', { err: err.message })), DAILY_INTERVAL_MS)
+    _weeklyTimer = setInterval(() => weeklyTuningPass().catch(err => logger.debug('bg task error', { err: err.message })), WEEKLY_INTERVAL_MS)
     if (_dailyTimer.unref) _dailyTimer.unref()
     if (_weeklyTimer.unref) _weeklyTimer.unref()
   }, INITIAL_DELAY_MS)

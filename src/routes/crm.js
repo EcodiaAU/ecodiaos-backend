@@ -57,7 +57,7 @@ router.post('/clients', validate(createClientSchema), async (req, res, next) => 
     `
 
     // Fire-and-forget KG ingestion
-    kgHooks.onClientUpdated({ client }).catch(() => {})
+    kgHooks.onClientUpdated({ client }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     res.status(201).json(client)
   } catch (err) {
@@ -187,7 +187,7 @@ router.patch('/clients/:id/status', validate(statusSchema), async (req, res, nex
     // Fire-and-forget: KG ingestion for stage change
     const [fullClient] = await db`SELECT * FROM clients WHERE id = ${req.params.id}`
     if (fullClient) {
-      kgHooks.onClientUpdated({ client: fullClient, previousStage: fromStage }).catch(() => {})
+      kgHooks.onClientUpdated({ client: fullClient, previousStage: fromStage }).catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     // Fire-and-forget: AI-driven CRM stage automation (CC sessions, follow-up actions)
@@ -310,7 +310,7 @@ router.post('/projects', validate(createProjectSchema), async (req, res, next) =
 
     // Fire-and-forget KG ingestion
     const [ownerClient] = await db`SELECT name FROM clients WHERE id = ${b.clientId}`
-    kgHooks.onProjectCreated({ project, clientName: ownerClient?.name }).catch(() => {})
+    kgHooks.onProjectCreated({ project, clientName: ownerClient?.name }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     res.status(201).json(project)
   } catch (err) {

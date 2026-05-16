@@ -109,7 +109,7 @@ function _ensureDispatcher() {
             kind: 'dispatcher_autostart_failed',
             data: { attempts: _dispatcherAttempts, last_error: err.message },
             confidence: 1.0,
-          }).catch(() => {})
+          }).catch(err => logger.debug('bg task error', { err: err.message }))
         } catch { /* swallow */ }
       })
     }

@@ -167,7 +167,7 @@ async function call({ systemPrompt, userMessage, observerName }) {
     try {
       const parsed = JSON.parse(match[0])
       // Fire-and-forget cost telemetry — never let this block the result
-      _incrementCostTelemetry(observerName, json?.usage).catch(() => {})
+      _incrementCostTelemetry(observerName, json?.usage).catch(err => logger.debug('bg task error', { err: err.message }))
       return parsed
     } catch {
       logger.warn(`haikuClient (${observerName}): JSON.parse failed`, {

@@ -345,7 +345,7 @@ async function runFullIntrospection() {
       UPDATE introspection_logs
       SET self_model_updates = ${selfModelUpdates}
       WHERE id = ${log.id}
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
   }
 
   logger.info(`Introspection: ${overallAssessment} - ${concerns.length} concerns, ${selfModelUpdates.length} self-model updates`)

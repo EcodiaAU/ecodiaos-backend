@@ -247,7 +247,7 @@ async function processThread(gmail, inbox, threadId) {
   `
 
   // Fire-and-forget KG ingestion - only for new threads
-  kgHooks.onEmailProcessed({ threadId, fromEmail, fromName, subject, body, snippet, inbox, clientId: client?.id }).catch(() => {})
+  kgHooks.onEmailProcessed({ threadId, fromEmail, fromName, subject, body, snippet, inbox, clientId: client?.id }).catch(err => logger.debug('bg task error', { err: err.message }))
 
   logger.info(`[${inbox}] Processed: ${subject} from ${fromEmail}`)
 }
@@ -444,7 +444,7 @@ async function triagePendingEmails() {
       kgHooks.onEmailTriaged({
         threadId: thread.id, subject: thread.subject, fromEmail: thread.from_email,
         triageSummary: triage.summary, triageAction: triage.autonomousAction || triage.suggestedAction, triagePriority: triage.priority,
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
 
       // Fire-and-forget CRM activity logging for client-linked emails
       if (thread.client_id) {
@@ -460,7 +460,7 @@ async function triagePendingEmails() {
             sourceRefType: 'email_thread',
             actor: thread.from_name || thread.from_email,
             metadata: { priority: triage.priority, action: triage.autonomousAction || triage.suggestedAction },
-          }).catch(() => {})
+          }).catch(err => logger.debug('bg task error', { err: err.message }))
         } catch {}
       }
 
@@ -523,7 +523,7 @@ async function autoAct(thread, triage) {
           surfacedBecause: 'ai_requested',
         },
         priority,
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
       return
     }
 
@@ -564,7 +564,7 @@ async function autoAct(thread, triage) {
         subject: thread.subject,
         fromEmail: thread.from_email,
         summary: triage.summary,
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
       logger.info(`Snoozed (repeated signal): ${thread.subject}`)
 
     } else {

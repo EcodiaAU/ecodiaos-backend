@@ -781,7 +781,7 @@ async function _persistConsecutiveFailures() {
 // Boot-time restore. Non-blocking so it does not delay module load; if a turn
 // fires before this completes, the worst case is one extra retry before the
 // host-restart gate kicks in.
-_loadConsecutiveFailures().catch(() => {})
+_loadConsecutiveFailures().catch(err => logger.debug('bg task error', { err: err.message }))
 
 function _isProviderSideError(errMsg) {
   if (!errMsg) return false
@@ -867,11 +867,11 @@ function _recordTurnOutcome(ok, errorMsg) {
     const wasNonZero = _consecutiveFailures !== 0
     _consecutiveFailures = 0
     _lastFailureAt = 0
-    if (wasNonZero) _persistConsecutiveFailures().catch(() => {})
+    if (wasNonZero) _persistConsecutiveFailures().catch(err => logger.debug('bg task error', { err: err.message }))
     // Flush pending episode acks (Layer 7) for whatever turn just succeeded.
     try {
       const turnId = currentTurnId()
-      if (turnId) _flushPendingEpisodeAcks(turnId).catch(() => {})
+      if (turnId) _flushPendingEpisodeAcks(turnId).catch(err => logger.debug('bg task error', { err: err.message }))
     } catch { /* non-fatal */ }
     return
   }
@@ -896,7 +896,7 @@ function _recordTurnOutcome(ok, errorMsg) {
   _lastFailureAt = now
   _consecutiveFailures += 1
   // Persist so a PM2 restart between failures does not amnesia-reset the gate.
-  _persistConsecutiveFailures().catch(() => {})
+  _persistConsecutiveFailures().catch(err => logger.debug('bg task error', { err: err.message }))
   if (_consecutiveFailures >= 3) {
     // Fire-and-forget async restart; caller returns immediately.
     ;(async () => {
@@ -910,7 +910,7 @@ function _recordTurnOutcome(ok, errorMsg) {
           // Still email/SMS as fallback so Tate knows we're stuck
           try {
             const alerting = require('./osAlertingService')
-            alerting.alertConsecutiveFailures(_consecutiveFailures, errorMsg).catch(() => {})
+            alerting.alertConsecutiveFailures(_consecutiveFailures, errorMsg).catch(err => logger.debug('bg task error', { err: err.message }))
           } catch {}
           return
         }
@@ -953,7 +953,7 @@ function _recordTurnOutcome(ok, errorMsg) {
           // still working - same surface as the cooldown-suppressed branch.
           try {
             const alerting = require('./osAlertingService')
-            alerting.alertConsecutiveFailures(_consecutiveFailures + 3, errorMsg).catch(() => {})
+            alerting.alertConsecutiveFailures(_consecutiveFailures + 3, errorMsg).catch(err => logger.debug('bg task error', { err: err.message }))
           } catch {}
           return
         }
@@ -2933,7 +2933,7 @@ async function _sendMessageImpl(content, opts = {}) {
                     msg.message?.usage?.cache_read_input_tokens
                     ?? msg.usage?.cache_read_input_tokens
                   ) ?? 0,
-                }).catch(() => {})
+                }).catch(err => logger.debug('bg task error', { err: err.message }))
               }
               // Live token usage broadcast — surfaces context-fill progress in the UI
               // so Tate can see the session approaching the compact threshold rather
@@ -3198,7 +3198,7 @@ async function _sendMessageImpl(content, opts = {}) {
                 observerSignals.acknowledgeImplicit(_lastSurfacedSignalIds, {
                   turn_id: dbSessionId ? `${dbSessionId}:${Date.now()}` : null,
                   action_summary: actionSummary,
-                }).catch(() => {})
+                }).catch(err => logger.debug('bg task error', { err: err.message }))
               }
             } catch { /* non-fatal */ }
 
@@ -3624,7 +3624,7 @@ async function _sendMessageImpl(content, opts = {}) {
     usageEnergy.refreshAllAccounts()
       .then(() => usageEnergy.getEnergy())
       .then(energy => { if (!suppressOutput) broadcast('os-session:energy', energy) })
-      .catch(() => {})
+      .catch(err => logger.debug('bg task error', { err: err.message }))
 
     // Ingest current session transcript into persistent memory (fire-and-forget, recent files only)
     // Full backlog scan runs in the codebase index worker cycle.
@@ -3747,7 +3747,7 @@ async function _sendMessageImpl(content, opts = {}) {
         context: { trigger: 'stale_retry_outer_catch', errMsg: errMsg.slice(0, 200) },
       })
       ccSessionId = null
-      // Audit P0 #39: this used to be `.catch(() => {})` fire-and-forget.
+      // Audit P0 #39: this used to be `.catch(err => logger.debug('bg task error', { err: err.message }))` fire-and-forget.
       // Next turn would call getOSSession() which reads cc_cli_session_id;
       // if the UPDATE was still in flight (or had failed silently), the
       // read returned the stale ID and we tried to .resume() a Claude
@@ -4076,7 +4076,7 @@ async function restart() {
   _currentProvider = 'claude_max'  // reset — smart selection will re-evaluate on next message
   usageEnergy.setProvider('claude_max')
   // Refresh both accounts so the next message gets fresh data
-  usageEnergy.refreshAllAccounts().catch(() => {})
+  usageEnergy.refreshAllAccounts().catch(err => logger.debug('bg task error', { err: err.message }))
   const session = await createOSSession()
   emitStatus('idle', { sessionId: session.id, restarted: true })
   return { sessionId: session.id }

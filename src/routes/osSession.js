@@ -404,7 +404,7 @@ router.post('/upload', uploadJson, async (req, res, next) => {
     const slug = `attachments/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const contentType = type || (typeof text === 'string' ? 'text/plain' : 'application/octet-stream')
 
-    await sb.storage.createBucket('os-attachments', { public: true }).catch(() => {})
+    await sb.storage.createBucket('os-attachments', { public: true }).catch(err => logger.debug('bg task error', { err: err.message }))
     const { error } = await sb.storage.from('os-attachments').upload(slug, buffer, { contentType, upsert: true })
     if (error) {
       logger.error('OS Upload: Supabase storage error', { error: error.message, name })

@@ -88,7 +88,7 @@ async function runTests({ spec, url, projectId, ccSessionId }) {
                     ${result.passed.length}, ${result.failed.length},
                     ${JSON.stringify(result.failed)}, ${exitCode},
                     ${durationMs}, ${timedOut}, ${(stdout + stderr).slice(-10000)})
-          `.catch(() => {})
+          `.catch(err => logger.debug('bg task error', { err: err.message }))
         } catch {}
       }
 

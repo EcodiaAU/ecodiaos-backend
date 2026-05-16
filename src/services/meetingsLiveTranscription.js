@@ -159,7 +159,7 @@ function register(app) {
                 ts_ms: start_ms,
               },
               confidence: 0.5,
-            }).catch(() => {})
+            }).catch(err => logger.debug('bg task error', { err: err.message }))
           }
         },
 
@@ -215,7 +215,7 @@ function register(app) {
           kind: 'meeting.live_ended',
           data: { meeting_id: meetingId, final_segments: seq },
           confidence: 0.6,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     })
 

@@ -115,8 +115,8 @@ function start() {
   if (_running) return
   _running = true
   _initDelayHandle = setTimeout(() => {
-    _poll().catch(() => {})
-    _intervalHandle = setInterval(() => _poll().catch(() => {}), POLL_INTERVAL_MS)
+    _poll().catch(err => logger.debug('bg task error', { err: err.message }))
+    _intervalHandle = setInterval(() => _poll().catch(err => logger.debug('bg task error', { err: err.message })), POLL_INTERVAL_MS)
   }, INITIAL_DELAY_MS)
   logger.info('dashboardNoteProgress observer started')
 }

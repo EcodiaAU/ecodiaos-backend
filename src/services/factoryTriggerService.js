@@ -358,7 +358,7 @@ async function createAndStartSession({ codebaseId, prompt, triggeredBy, triggerS
         sourceRefType: 'cc_session',
         actor: 'system',
         metadata: { triggeredBy, codebaseId },
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
     } catch {}
   }
 
@@ -651,7 +651,7 @@ async function dispatchSelfModification(spec) {
       }
     } finally {
       if (lockResult?.acquired) {
-        await db`SELECT pg_advisory_unlock(42, 1)`.catch(() => {})
+        await db`SELECT pg_advisory_unlock(42, 1)`.catch(err => logger.debug('bg task error', { err: err.message }))
       }
     }
   }

@@ -117,7 +117,7 @@ If that fails, the cert will expire and the frontend will go dark with no in-app
       await _alert({
         subject: `TLS cert check unreachable - ${target.host}`,
         body: `Couldn't read the TLS certificate for ${target.host}: ${err.message}\n\nLikely transient but worth a glance if it repeats.`,
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
       await _recordFired('cert_monitor:unreachable')
     }
   }

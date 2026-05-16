@@ -1,3 +1,4 @@
+const logger = require('../config/logger')
 const registry = require('../services/capabilityRegistry')
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -118,7 +119,7 @@ registry.registerMany([
       const gmail = require('../services/gmailService')
       const { recordHeartbeat } = require('../workers/heartbeat')
       await gmail.triagePendingEmails()
-      await recordHeartbeat('gmail', 'active').catch(() => {})
+      await recordHeartbeat('gmail', 'active').catch(err => logger.debug('bg task error', { err: err.message }))
       const stats = await gmail.getInboxStats()
       return { message: 'Triage complete', stats }
     },
@@ -150,7 +151,7 @@ registry.registerMany([
       const gmail = require('../services/gmailService')
       const { recordHeartbeat } = require('../workers/heartbeat')
       await gmail.pollInbox()
-      await recordHeartbeat('gmail', 'active').catch(() => {})
+      await recordHeartbeat('gmail', 'active').catch(err => logger.debug('bg task error', { err: err.message }))
       const stats = await gmail.getInboxStats()
       return { synced: true, stats }
     },
@@ -187,7 +188,7 @@ registry.registerMany([
 
       // Also save as Gmail draft
       const gmail = require('../services/gmailService')
-      await gmail.saveDraftToGmail(thread, draft).catch(() => {})
+      await gmail.saveDraftToGmail(thread, draft).catch(err => logger.debug('bg task error', { err: err.message }))
 
       return { draft, threadId: thread.gmail_thread_id, message: 'Draft saved - review and approve before sending' }
     },

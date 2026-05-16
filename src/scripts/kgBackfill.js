@@ -8,7 +8,7 @@ async function backfill() {
   logger.info('Starting KG backfill...')
 
   // Ensure vector index
-  await kg.ensureVectorIndex().catch(() => {})
+  await kg.ensureVectorIndex().catch(err => logger.debug('bg task error', { err: err.message }))
 
   // 1. Backfill clients → Person + Organisation nodes
   const clients = await db`SELECT * FROM clients WHERE archived_at IS NULL`

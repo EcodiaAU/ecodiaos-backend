@@ -297,7 +297,7 @@ ${conversationHistory.map(m => `${m.role === 'user' ? 'Caller' : 'You'}: ${m.con
           data: { caller: callerName, caller_phone: callerNumber, call_sid: callSid,
                   user: speech, assistant: responseText },
           confidence: 0.7,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     }
 
@@ -449,7 +449,7 @@ ${conversationHistory.map(m => `${m.role === 'user' ? 'Caller' : 'You'}: ${m.con
           `[VOICE CALL ENDED - ${callerName} (${callerNumber}), ${conversationHistory.length} turns]\n` +
           `Transcript:\n${summary}\n\n` +
           `Log to Neo4j if significant. Update contacts last_contacted.`
-        ).catch(() => {})
+        ).catch(err => logger.debug('bg task error', { err: err.message }))
 
         if (perceptionBus) {
           perceptionBus.publish({
@@ -458,7 +458,7 @@ ${conversationHistory.map(m => `${m.role === 'user' ? 'Caller' : 'You'}: ${m.con
             data: { caller: callerName, caller_phone: callerNumber, call_sid: callSid,
                     turn_count: conversationHistory.length, transcript: summary },
             confidence: 0.7,
-          }).catch(() => {})
+          }).catch(err => logger.debug('bg task error', { err: err.message }))
         }
       }
     })

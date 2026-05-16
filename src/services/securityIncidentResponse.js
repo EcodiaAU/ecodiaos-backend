@@ -106,7 +106,7 @@ async function fireIncident({
       kind: incident_class,
       data: { trigger_source, session_id, details, incident_id: incidentId },
       confidence: 1.0,
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
   } catch {}
 
   // ── Observation-only incidents skip the kill chain ────────────────

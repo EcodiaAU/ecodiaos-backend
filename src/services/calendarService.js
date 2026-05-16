@@ -217,7 +217,7 @@ async function upsertEvent(event, calendarEmail) {
     kgHooks.onCalendarEventProcessed({
       event: upserted,
       calendarEmail,
-    }).catch(() => {})
+    }).catch(err => logger.debug('bg task error', { err: err.message }))
   }
 
   return upserted

@@ -157,7 +157,7 @@ function _doRestart(reason) {
           pid_at_dispatch: process.pid,
         })}::jsonb, NOW())
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-      `.catch(() => {})
+      `.catch(err => logger.debug('bg task error', { err: err.message }))
     } catch { /* db not loadable — skip breadcrumb */ }
   } catch (err) {
     // Spawn failure: alert + record so the next run can see this didn't
@@ -171,7 +171,7 @@ function _doRestart(reason) {
           severity: 'urgent',
           subject: 'nightlyRestart: pm2 restart spawn FAILED',
           body: `Tried to restart ${PM2_PROCESS} (reason=${reason}) but spawn errored: ${err.message}. Manual intervention may be required.`,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
       }
     } catch { /* alerting not loadable */ }
   }

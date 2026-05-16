@@ -196,7 +196,7 @@ process.on('unhandledRejection', (reason) => {
 
   if (REJECTION_CRASH_THRESHOLD > 0 && _unhandledRejectionCount >= REJECTION_CRASH_THRESHOLD) {
     logger.error(`${_unhandledRejectionCount} unhandled rejections in ${REJECTION_CRASH_WINDOW_MS}ms - triggering shutdown`)
-    gracefulShutdown('unhandledRejection:flood').catch(() => {})
+    gracefulShutdown('unhandledRejection:flood').catch(err => logger.debug('bg task error', { err: err.message }))
   }
 })
 
@@ -313,7 +313,7 @@ server.listen(env.PORT, async () => {
           // Emergency fallback
           try {
             const oversight = require('./services/factoryOversightService')
-            oversight.runPostSessionPipeline(data.sessionId).catch(() => {})
+            oversight.runPostSessionPipeline(data.sessionId).catch(err => logger.debug('bg task error', { err: err.message }))
           } catch {}
         }
       },
@@ -638,7 +638,7 @@ server.listen(env.PORT, async () => {
 
     if (!deployMarker && validPrev && uptimeMs > 30_000) {
       // Previous beacon >30s ago and no deploy in progress - unplanned restart.
-      alerting.alertProcessRestart(uptimeMs).catch(() => {})
+      alerting.alertProcessRestart(uptimeMs).catch(err => logger.debug('bg task error', { err: err.message }))
     }
 
     // Alive beacon - ticks every 60s. A restart alert will compute prior
@@ -786,8 +786,8 @@ server.listen(env.PORT, async () => {
   }
   // Run once after 5 minutes, then hourly
   setTimeout(() => {
-    _dashNotesCleanup().catch(() => {})
-    setInterval(() => _dashNotesCleanup().catch(() => {}), 60 * 60 * 1000)
+    _dashNotesCleanup().catch(err => logger.debug('bg task error', { err: err.message }))
+    setInterval(() => _dashNotesCleanup().catch(err => logger.debug('bg task error', { err: err.message })), 60 * 60 * 1000)
   }, 5 * 60 * 1000)
 })
 

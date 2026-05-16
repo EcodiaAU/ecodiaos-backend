@@ -518,7 +518,7 @@ async function embedStaleChunks(batchSize = 50) {
       UPDATE session_memory_chunks
       SET embedding = ${vecStr}::vector
       WHERE id = ${stale[i].id}
-    `.catch(() => {})
+    `.catch(err => logger.debug('bg task error', { err: err.message }))
   }
 
   logger.info('Session memory: embedded stale chunks', { count: stale.length })

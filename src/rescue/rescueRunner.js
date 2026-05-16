@@ -141,7 +141,7 @@ function _abortActive(reason) {
   if (_inactivityTimer) { clearTimeout(_inactivityTimer); _inactivityTimer = null }
   if (_turnHardTimer)   { clearTimeout(_turnHardTimer);   _turnHardTimer = null }
   if (q) {
-    Promise.resolve().then(() => q.close?.()).catch(() => {})
+    Promise.resolve().then(() => q.close?.()).catch(err => logger.debug('bg task error', { err: err.message }))
   }
   bridge.publishStatus('idle', { abortReason: reason })
 }

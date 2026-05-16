@@ -218,7 +218,7 @@ async function surfaceToStatusBoard(db, newPeers) {
       ${JSON.stringify(peerList)},
       NOW()
     )
-  `.catch(() => {})
+  `.catch(err => logger.debug('bg task error', { err: err.message }))
 }
 
 // -- Main export ------------------------------------------------------------

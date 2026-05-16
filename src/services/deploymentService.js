@@ -263,7 +263,7 @@ async function deploySession(sessionId) {
         kgHooks.onDeploymentCompleted({
           deployment: { id: deploymentId, commit_sha: commitSha, deploy_status: 'deployed', deploy_target: deployTarget },
           codebaseName: session.codebase_name, sessionId,
-        }).catch(() => {})
+        }).catch(err => logger.debug('bg task error', { err: err.message }))
 
         await db`INSERT INTO notifications (type, message, link, metadata)
           VALUES ('deployment', ${'Deployed (no restart): ' + (session.initial_prompt || '').slice(0, 100)},

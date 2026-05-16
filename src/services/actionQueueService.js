@@ -552,9 +552,9 @@ async function execute(actionId) {
     emitEvent('action:executed', { id: actionId, source: item.source, actionType: item.action_type, result: resultSummary })
 
     // Record decision + KG ingestion
-    recordDecision(item, 'executed').catch(() => {})
+    recordDecision(item, 'executed').catch(err => logger.debug('bg task error', { err: err.message }))
     const kgHooks = require('./kgIngestionHooks')
-    kgHooks.onActionExecuted({ action: item, result }).catch(() => {})
+    kgHooks.onActionExecuted({ action: item, result }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     return result
   } catch (err) {
@@ -661,10 +661,10 @@ async function dismiss(actionId, { reason, reasonCategory, reasonDetail } = {}) 
 
   if (item) {
     // Record structured decision
-    recordDecision(item, 'dismissed', { reasonCategory, reasonDetail: reason || reasonDetail }).catch(() => {})
+    recordDecision(item, 'dismissed', { reasonCategory, reasonDetail: reason || reasonDetail }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     const kgHooks = require('./kgIngestionHooks')
-    kgHooks.onActionDismissed({ action: item, reason: reason || reasonDetail, reasonCategory }).catch(() => {})
+    kgHooks.onActionDismissed({ action: item, reason: reason || reasonDetail, reasonCategory }).catch(err => logger.debug('bg task error', { err: err.message }))
 
     // Feed into context tracking - prevents re-surfacing dismissed items
     try {
@@ -676,7 +676,7 @@ async function dismiss(actionId, { reason, reasonCategory, reasonDetail } = {}) 
         title: item.title,
         reason: reason || reasonDetail || reasonCategory,
         metadata: { actionQueueId: item.id, context: item.context },
-      }).catch(() => {})
+      }).catch(err => logger.debug('bg task error', { err: err.message }))
     } catch { /* contextTracking not loaded yet */ }
   }
 }
@@ -701,8 +701,8 @@ async function batchDismiss(ids, { reason, reasonCategory, reasonDetail } = {}) 
     broadcast('action_queue:dismissed', { id: item.id })
     publishRedis('dismissed', { id: item.id })
     emitEvent('action:dismissed', { id: item.id, reason: reason || null, reasonCategory: reasonCategory || null })
-    recordDecision(item, 'dismissed', { reasonCategory, reasonDetail: reason || reasonDetail }).catch(() => {})
-    kgHooks.onActionDismissed({ action: item, reason: reason || reasonDetail, reasonCategory }).catch(() => {})
+    recordDecision(item, 'dismissed', { reasonCategory, reasonDetail: reason || reasonDetail }).catch(err => logger.debug('bg task error', { err: err.message }))
+    kgHooks.onActionDismissed({ action: item, reason: reason || reasonDetail, reasonCategory }).catch(err => logger.debug('bg task error', { err: err.message }))
   }
   return dismissed.length
 }
@@ -868,7 +868,7 @@ async function expireStale() {
     broadcast('action_queue:expired', { count: expired.length, ids: expired.map(i => i.id) })
     // Record expiry decisions for pattern analysis
     for (const item of expired) {
-      recordDecision(item, 'expired').catch(() => {})
+      recordDecision(item, 'expired').catch(err => logger.debug('bg task error', { err: err.message }))
       emitEvent('action:expired', { id: item.id, source: item.source, actionType: item.action_type })
     }
   }
@@ -940,7 +940,7 @@ async function purgeExpired() {
     logger.info(`Action queue: manually purged ${expired.length} expired items`)
     broadcast('action_queue:expired', { count: expired.length })
     for (const item of expired) {
-      recordDecision(item, 'expired').catch(() => {})
+      recordDecision(item, 'expired').catch(err => logger.debug('bg task error', { err: err.message }))
     }
   }
   return expired.length
@@ -1077,7 +1077,7 @@ async function recordFeedback(actionId, { draftQuality, priorityAccuracy, releva
   // KG ingestion - the organism learns from quality signals
   try {
     const kgHooks = require('./kgIngestionHooks')
-    kgHooks.onActionFeedback({ action, feedback }).catch(() => {})
+    kgHooks.onActionFeedback({ action, feedback }).catch(err => logger.debug('bg task error', { err: err.message }))
   } catch {}
 
   return feedback

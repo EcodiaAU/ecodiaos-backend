@@ -81,7 +81,7 @@ async function acquireTaskLease({ task_id, brain_id, ttl_sec = DEFAULT_TTL_SEC }
     // Release the advisory lock if the row write failed, so the key
     // isn't held forever. pg_try_advisory_lock persists for the session
     // until pg_advisory_unlock is called, so we must clean up.
-    await db`SELECT pg_advisory_unlock(${keyStr}::bigint)`.catch(() => {})
+    await db`SELECT pg_advisory_unlock(${keyStr}::bigint)`.catch(err => logger.debug('bg task error', { err: err.message }))
     throw err
   }
 }
@@ -114,7 +114,7 @@ async function releaseTaskLease({ task_id, brain_id }) {
       AND released_at IS NULL
   `
   // Release the advisory lock unconditionally - idempotent.
-  await db`SELECT pg_advisory_unlock(${keyStr}::bigint)`.catch(() => {})
+  await db`SELECT pg_advisory_unlock(${keyStr}::bigint)`.catch(err => logger.debug('bg task error', { err: err.message }))
   logger.info('taskLease: released', { task_id, brain_id })
 }
 
