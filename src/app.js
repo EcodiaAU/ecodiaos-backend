@@ -69,6 +69,10 @@ app.use(compression())
 // (Wave C C1, fork_mosn8o5x_7a0e54, 5 May 2026)
 app.use('/api/webhooks/vercel', require('./routes/webhooks/vercel'))
 app.use('/api/webhooks/stripe', require('./routes/webhooks/stripe'))
+// Apple App Store Server Notifications V2. Auth is the JWS signature on
+// signedPayload (chain-anchored to Apple Root CA - G3 inside the router);
+// no shared secret in kv_store. See src/routes/webhooks/appleAsn.js.
+app.use('/api/webhooks/apple-asn', require('./routes/webhooks/appleAsn'))
 
 // GKG (GUI Knowledge Graph) ingest - capture daemon on Corazon POSTs
 // HMAC-signed NDJSON. MUST mount before express.json() so the raw body
@@ -153,8 +157,8 @@ const PUBLIC_PATH_PATTERNS = [
   // OAuth callbacks (must be unauthenticated; vendor POSTs back here)
   /^\/api\/canva\/oauth\/callback$/,
   /^\/api\/xero\/callback$/,
-  // Webhooks — verified by HMAC at the route layer
-  /^\/api\/webhooks\/(stripe|vercel)(\/|$)/,
+  // Webhooks — verified by HMAC (stripe/vercel) or JWS chain (apple-asn) at the route layer
+  /^\/api\/webhooks\/(stripe|vercel|apple-asn)(\/|$)/,
   /^\/api\/sms(\/|$)/, // Twilio request signature validated by twilioValidation middleware
   /^\/api\/gkg(\/|$)/, // HMAC validated by validateGkgSignature
   /^\/api\/hands(\/|$)/, // HMAC validated inside the route by handsBridge.verifyInbound
