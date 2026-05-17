@@ -345,3 +345,12 @@ router.post('/incoming', validateTwilioSignature, async (req, res) => {
 })
 
 module.exports = router
+
+// Test-only exports — pure functions safe to unit-test without Express infra.
+// Attaching to the router function object; app.use() ignores extra properties.
+module.exports._normalizePhone = normalizePhone
+module.exports._formatPriorThread = formatPriorThread
+module.exports._buildReflexPrompt = buildReflexPrompt
+module.exports.SMS_THREAD_KEY_PREFIX = SMS_THREAD_KEY_PREFIX
+module.exports.SMS_THREAD_STALE_HOURS = SMS_THREAD_STALE_HOURS
+module.exports.SMS_THREAD_MAX_EXCHANGES = SMS_THREAD_MAX_EXCHANGES
