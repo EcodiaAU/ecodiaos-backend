@@ -117,6 +117,25 @@ The `event.created_at` filter is dropped - it was the wrong anchor. The impact-d
 
 For future readers: there is NO delete-from-sheet path triggered by an app event becoming `status='cancelled'`. When the app cancels an event, the to-excel run simply stops including it (`.in('status', ['published','completed'])`). The existing sheet row, if any, persists. If the leader wants the row gone, they delete it on the sheet - and reconciliation propagates that deletion back to the DB via the cancellation pathway above. Deletion flow is sheet -> DB only.
 
+## Health-guard protection (added 2026-05-17 post-audit)
+
+Even with gate-symmetry, a sustained to-excel outage can produce false cancellations: a leader submits impact while Graph API is down, the to-excel cron keeps failing for >grace-period hours, then from-excel reconciliation fires and sees an event with mature impact data but no sheet row -> false cancel.
+
+The health guard closes this hole. Before running the reconciliation tail, syncFromExcel queries `excel_sync_runs` for any to-excel row in the last 2 hours. If absent, reconciliation skips entirely and logs an INFO message. When to-excel recovers, reconciliation resumes on the next from-excel cycle.
+
+The choice of 2h is sized to one missed hourly cycle plus a buffer. 7+ days of production history at the time of the audit showed zero to-excel gaps over 90 minutes; 2h is comfortable.
+
+## Audit protocol for sync-direction code
+
+Apply when authoring or reviewing any DB <-> external-sheet sync:
+
+1. **Enumerate every condition that gates the FORWARD push.** Status, date filter, migration flag, synthetic detection, payload completeness gates (e.g. impact-data existence), de-duplication signatures. Write them down.
+2. **Verify the REVERSE reconciliation predicate is a strict subset of those conditions.** If the push path has gate G, reconciliation must require G or stronger. Anything weaker = a row that the push never wrote, which reconciliation will then cancel.
+3. **Identify what dimension push-eligibility transitions on.** For Co-Exist it is `event_impact.logged_at`. For other systems it might be `order.paid_at`, `report.submitted_at`, etc. The grace period MUST anchor on that dimension, not on `created_at`.
+4. **Enumerate every path that can set the destructive state.** For Co-Exist `events.status='cancelled'`: leader app action (intentional), reconciliation (the audited path), DB triggers, RLS, other crons. Confirm only the intentional + audited paths exist.
+5. **Verify health signal for the forward push.** If the push side can go silent (network, auth, rate-limit), reconciliation MUST detect that and pause. Otherwise sheet-absence under push-down conditions = false delete.
+6. **Pin invariants in unit tests that mirror the production predicates.** Drift between the predicate-as-written and the predicate-as-tested is the recurring failure mode.
+
 ## Cross-references
 
 - `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md` (closely related - same shape: filter the candidate set to match the source's actual scope)
@@ -126,4 +145,4 @@ For future readers: there is NO delete-from-sheet path triggered by an app event
 
 ## Origin
 
-Two-step learning. (1) Co-Exist Excel sync incident 11 May 2026: `syncFromExcel` reconciliation cancelled all 8 future events because the impact sheet only contains past events. PR #19 fix added `.lt('date_start', runStartedAt.toISOString())`. 8 events restored manually. (2) 17 May 2026 Lilydale Tree Planting w/ Yarra Ranges Council was cancelled 15 minutes after `date_start` because the leader had not yet logged impact - reconciliation only mirrored the date dimension, not the impact-data dimension. Check-in code stopped working for attendees the moment the event flipped to cancelled. Fixed by (a) gate-symmetry: reconciliation must mirror every condition the to-excel APPEND path uses, including `hasImpactData=true`; (b) grace period anchored to `event_impact.logged_at - 6h`, not `event.created_at`. Event restored via REST API PATCH; one orphaned Seville event from May 11 also restored.
+Three-step learning. (1) Co-Exist Excel sync incident 11 May 2026: `syncFromExcel` reconciliation cancelled all 8 future events because the impact sheet only contains past events. PR #19 fix added `.lt('date_start', runStartedAt.toISOString())`. 8 events restored manually. (2) 17 May 2026 Lilydale Tree Planting w/ Yarra Ranges Council was cancelled 15 minutes after `date_start` because the leader had not yet logged impact - reconciliation only mirrored the date dimension, not the impact-data dimension. Check-in code stopped working for attendees the moment the event flipped to cancelled. Fixed by gate-symmetry + impact-anchored grace (commit `471e8b6`). (3) Same-day audit triggered by Tate's "this is getting ridiculous" - traced every path that can set `status='cancelled'`, enumerated edge cases, added a health-guard so reconciliation pauses when to-excel has been silent (commit `0984f8d`). Codified the audit protocol in this doctrine for future sync-direction code reviews.
