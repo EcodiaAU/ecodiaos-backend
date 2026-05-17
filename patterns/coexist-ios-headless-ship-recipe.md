@@ -293,6 +293,12 @@ Check App Store Connect > My Apps > Co-Exist > App Store > 1.8.x. State should b
 - UPLOAD SUCCEEDED 13:17 AEST, Delivery UUID `58187f51-4cdb-4d89-8a5e-16ab17daf045`
 - Recipe validated_v1 on first complete run
 
+## Latest ship: 1.8.7(7) - push notification fix (17 May 2026 16:59 AEST)
+
+End-to-end via this recipe. Delivery UUID `4e63e949-f0e7-4a6b-ba24-7cc6612d5921`, 11MB IPA. Commit `3860821`. Target: fix the silent NotificationCenter-name typo in AppDelegate that left `push_tokens` empty for every user since the Firebase wiring shipped. Full doctrine: `~/ecodiaos/patterns/capacitor-manual-delegate-bridge-must-use-namespaced-notification-name.md`.
+
+Driver: `D:/.code/coexist/scripts/ssh-ship.py` on Corazon (paramiko-based, drives SY094 via password SSH). All seven recipe steps automated, ~4min wall time.
+
 ## Extension (17 May 2026) - review-submission step
 
 - Conductor (no fork) ran end-to-end including new Step 9 to submit 1.8.6 build 7 to Apple review
