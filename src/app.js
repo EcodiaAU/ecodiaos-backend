@@ -70,19 +70,16 @@ app.use(compression())
 app.use('/api/webhooks/vercel', require('./routes/webhooks/vercel'))
 app.use('/api/webhooks/stripe', require('./routes/webhooks/stripe'))
 
-// Lane D fire-shim webhooks (2026-05-15) - parallel-mounted alongside the
-// existing handlers during Phase 2 side-by-side validation. Each shim
-// verifies its source-specific signature, dedupes via kv_store, and forwards
-// the parsed payload to the corresponding Routine's /fire endpoint via
-// kv_store.cowork.routine_registry.<account>.<routine_name>. After Phase 3
-// cutover the existing /api/webhooks/{vercel,stripe} mounts are removed and
-// these shims become the sole entry points. See backend/patterns/
-// webhook-fire-shim-architecture-2026-05-15.md.
-app.use('/api/webhooks/resend', require('./routes/webhooks/resend-fire-shim'))
-app.use('/api/webhooks/stripe-fire', require('./routes/webhooks/stripe-fire-shim'))
-app.use('/api/webhooks/vercel-fire', require('./routes/webhooks/vercel-fire-shim'))
-app.use('/api/webhooks/github-fire', require('./routes/webhooks/github-fire-shim'))
-app.use('/api/webhooks/apple-asn', require('./routes/webhooks/apple-asn-fire-shim'))
+// Lane D fire-shim webhooks (2026-05-15) - files exist on VPS local disk but
+// were not committed with this branch. Re-add these requires once the shim
+// files are committed to git (resend-fire-shim.js, stripe-fire-shim.js,
+// vercel-fire-shim.js, github-fire-shim.js, apple-asn-fire-shim.js).
+// See docs/REFLEX_SUBSTRATE_SESSION_2026-05-16.md section "What remains".
+// app.use('/api/webhooks/resend', require('./routes/webhooks/resend-fire-shim'))
+// app.use('/api/webhooks/stripe-fire', require('./routes/webhooks/stripe-fire-shim'))
+// app.use('/api/webhooks/vercel-fire', require('./routes/webhooks/vercel-fire-shim'))
+// app.use('/api/webhooks/github-fire', require('./routes/webhooks/github-fire-shim'))
+// app.use('/api/webhooks/apple-asn', require('./routes/webhooks/apple-asn-fire-shim'))
 
 // Telegram Bot webhook -> Corazon reflex (Phase 2 Lane 05 ext, 2026-05-16).
 // Replaces / runs alongside Twilio SMS path for $0/msg + native threading.
