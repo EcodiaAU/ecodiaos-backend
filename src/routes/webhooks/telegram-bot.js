@@ -89,7 +89,12 @@ async function loadAgentToken() {
   if (_agentTokenCache.expiresAt > now && _agentTokenCache.value) return _agentTokenCache.value
   const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.laptop_agent' LIMIT 1`
   const raw = rows?.[0]?.value
-  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+  let parsed = null
+  if (typeof raw === 'string') {
+    try { parsed = JSON.parse(raw) } catch { parsed = null }
+  } else if (raw && typeof raw === 'object') {
+    parsed = raw
+  }
   const token = parsed?.agent_token || null
   _agentTokenCache = { value: token, expiresAt: now + 5 * 60 * 1000 }
   return token
