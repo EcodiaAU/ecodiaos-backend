@@ -1,5 +1,5 @@
 ---
-triggers: sheet-sync, excel-sync, sync-direction, projection-sync, partial-state-sync, sheet-not-source-of-truth, impact-sheet-only-past-events, future-event-sync-cancel, sync-reconciliation-scope, syncFromExcel, syncToExcel, reconciliation-window, future-events-must-never-be-cancelled-by-sync, post-event-reporting-sheet
+triggers: sheet-sync, excel-sync, sync-direction, projection-sync, partial-state-sync, sheet-not-source-of-truth, impact-sheet-only-past-events, future-event-sync-cancel, sync-reconciliation-scope, syncFromExcel, syncToExcel, reconciliation-window, future-events-must-never-be-cancelled-by-sync, post-event-reporting-sheet, gate-symmetry, reconciliation-must-mirror-append-gate, impact-survey-grace-period, in-progress-event-cancellation, grace-period-must-anchor-to-impact-not-creation
 ---
 
 # Sheet-as-projection sync direction discipline - sheets that only hold a subset of state must never authoritatively cancel app rows outside that subset
@@ -50,7 +50,7 @@ Apply ALL applicable filters simultaneously. The query's WHERE clause must descr
 4. **Test the boundary.** Create an app row that the sheet's coverage rule excludes. Run sync. Confirm the row is still there.
 5. **Audit the sheet after any sync-logic change** for rows that violate the new rules (per `~/ecodiaos/patterns/excel-sync-collectives-migration.md` cleanup lesson).
 
-## The fix that shipped in PR #19
+## The fix that shipped in PR #19 (11 May 2026)
 
 ```typescript
 // supabase/functions/excel-sync/index.ts - reconciliation candidate query
@@ -61,7 +61,61 @@ Apply ALL applicable filters simultaneously. The query's WHERE clause must descr
 .lt('created_at', cutoffIso)                   // 2-hour grace period
 ```
 
-The `runStartedAt` upper bound mirrors the sheet's actual coverage: the impact sheet only ever contains events that have already occurred.
+The `runStartedAt` upper bound mirrors the sheet's actual coverage for the date dimension. But this was not enough.
+
+## The 17 May 2026 Lilydale incident - gate-symmetry was incomplete
+
+PR #19 closed the future-event hole, but reconciliation was still cancelling events whose `date_start` had *just passed* and whose leader hadn't yet submitted the impact survey. The Lilydale Tree Planting w/ Yarra Ranges Council was cancelled 15 minutes after its scheduled start: `date_start` was 00:15 UTC, reconciliation ran at 00:30 UTC, the leader was still on-site setting up, no `event_impact` row had been written, no row was on the sheet. Reconciliation saw "DB has event, sheet doesn't" and cancelled. The cancellation then broke the check-in code (lookup throws "This event has been cancelled") for the actual attendees who turned up.
+
+Root cause: the reconciliation candidate selector mirrored the to-excel push selector on date and migration dimensions but NOT on the impact-data dimension. The to-excel APPEND gate at the same time (`a9e5937`) had been tightened to require `hasImpactData=true` AND `hasHappened=true` - so an event without impact data is NEVER on the sheet by design. Reconciliation didn't know that.
+
+## Gate-symmetry rule (the load-bearing doctrine)
+
+Every reconciliation candidate filter must be a strict subset (or exact match) of the conditions under which the forward-sync would PUSH the row. If push has gate G1 ∧ G2 ∧ G3, reconciliation must require G1 ∧ G2 ∧ G3 too. Otherwise reconciliation will cancel events the push path never made eligible.
+
+For the Co-Exist excel-sync, the to-excel APPEND gates are:
+- status IN ('published', 'completed')
+- date_start >= SYNC_CUTOFF_DATE
+- date_start < now (`hasHappened`)
+- collective.forms_migrated_at IS NOT NULL AND date_start >= forms_migrated_at
+- NOT synthetic (created_by IS NOT NULL AND NOT UUID v5)
+- event_impact row exists (`hasImpactData`)
+- not matching a Forms-row dedup signature
+
+Reconciliation cancels events that pass ALL of those AND are absent from the sheet. If any reconciliation candidate condition is weaker than the corresponding push condition, that is the bug.
+
+## Grace period must anchor to the most recent push-eligibility transition, not creation
+
+The PR #19 fix put a 2-hour grace period on `event.created_at`. That was wrong for the same reason the future-event filter was wrong before PR #19: it anchored to the wrong dimension. Push-eligibility transitions when impact data is logged, not when the event is created. A leader can create an event months in advance, hold it, run it, and log impact days later. Reconciliation must wait long enough AFTER impact-data submission for the next to-excel cron to have pushed it.
+
+For Co-Exist: to-excel runs hourly, from-excel runs every 30 min. The 6-hour grace anchored on `event_impact.logged_at` gives at least 6 to-excel cycles for the row to land on the sheet before reconciliation treats absence as deletion - safe headroom for transient failures and retries.
+
+## The 17 May 2026 fix
+
+```typescript
+// supabase/functions/excel-sync/index.ts - reconciliation candidate query
+.select('id, collective_id, date_start, status, created_by, collectives(forms_migrated_at)')
+.in('status', ['published', 'completed'])
+.gte('date_start', SYNC_CUTOFF_DATE)
+.lt('date_start', runStartedAt.toISOString())
+
+// Then: pre-load MATURE event_impact rows (logged_at < runStartedAt - 6h)
+const { data: impactRows } = await supabase
+  .from('event_impact')
+  .select('event_id, logged_at')
+  .in('event_id', candidateIds)
+  .lt('logged_at', impactCutoffIso) // 6h grace anchored to impact submission
+
+// Per-candidate gates:
+if (c.created_by === null || isSyntheticFormsUuid(c.id)) continue  // synthetic gate
+if (!matureImpactEventIds.has(c.id)) continue                       // impact + grace gate
+```
+
+The `event.created_at` filter is dropped - it was the wrong anchor. The impact-data gate + impact-grace replaces it. The synthetic-event gate mirrors the to-excel skip.
+
+## Sheet semantics for cancelled events
+
+For future readers: there is NO delete-from-sheet path triggered by an app event becoming `status='cancelled'`. When the app cancels an event, the to-excel run simply stops including it (`.in('status', ['published','completed'])`). The existing sheet row, if any, persists. If the leader wants the row gone, they delete it on the sheet - and reconciliation propagates that deletion back to the DB via the cancellation pathway above. Deletion flow is sheet -> DB only.
 
 ## Cross-references
 
@@ -72,4 +126,4 @@ The `runStartedAt` upper bound mirrors the sheet's actual coverage: the impact s
 
 ## Origin
 
-Co-Exist Excel sync incident 11 May 2026. `syncFromExcel` reconciliation cancelled all 8 future events in the app because the impact sheet only contains past events with submitted surveys. PR #19 fix: added `.lt('date_start', runStartedAt.toISOString())` to the reconciliation candidate query. 8 events restored via direct REST API PATCH before the PR landed.
+Two-step learning. (1) Co-Exist Excel sync incident 11 May 2026: `syncFromExcel` reconciliation cancelled all 8 future events because the impact sheet only contains past events. PR #19 fix added `.lt('date_start', runStartedAt.toISOString())`. 8 events restored manually. (2) 17 May 2026 Lilydale Tree Planting w/ Yarra Ranges Council was cancelled 15 minutes after `date_start` because the leader had not yet logged impact - reconciliation only mirrored the date dimension, not the impact-data dimension. Check-in code stopped working for attendees the moment the event flipped to cancelled. Fixed by (a) gate-symmetry: reconciliation must mirror every condition the to-excel APPEND path uses, including `hasImpactData=true`; (b) grace period anchored to `event_impact.logged_at - 6h`, not `event.created_at`. Event restored via REST API PATCH; one orphaned Seville event from May 11 also restored.
