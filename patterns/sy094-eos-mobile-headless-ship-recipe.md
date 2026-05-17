@@ -4,6 +4,8 @@ triggers: sy094-eos-mobile-headless-ship, eos-mobile-testflight, ecodia-os-mobil
 
 # SY094 EcodiaOS-mobile headless ship recipe (SSH-only path) - status: validated_v1
 
+**As of 17 May 2026 this is one of N app-specific deltas on the universal protocol at [ios-app-asc-headless-ship-protocol.md](ios-app-asc-headless-ship-protocol.md).** Once an EOS-mobile spec is dropped at `~/asc-scripts/apps/eos-mobile.json` on SY094, the one-line ship is `python3 ~/asc-scripts/ship-ios.py eos-mobile`. This recipe remains the authoritative reference for EOS-mobile's deltas (CocoaPods, ~/code/ecodia-os-mobile path, bundle id `au.ecodia.os.mobile`).
+
 Sister recipe to `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` (which is the GUI Xcode Distribute App flow via RDP). This recipe is the SSH-headless path authorised by `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` (7 May 2026 doctrine, +AU$9/mo Remote Build Port add-on).
 
 ## Status (7 May 2026 - SHIPPED)
@@ -37,7 +39,7 @@ Once the ASC API key prerequisite below is in place, prefer this recipe over the
    security add-generic-password -a code@ecodia.au -w '<apple_id_password>' -s AC_PASSWORD -U login.keychain
    ```
    Pull `<apple_id_password>` from `kv_store.creds.apple.password.value`.
-4. **App Store Connect API key (.p8) on SY094** at `~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8` plus issuer_id + key_id stored as sub-object on `kv_store.creds.apple > value.asc_api_key`. **SATISFIED as of 7 May 2026 13:14 AEST** — `R8P6K38X47` / issuer `4b45186b-49e4-4a25-8a63-afd28cf12d3f`. See `~/ecodiaos/docs/secrets/apple.md > value.asc_api_key` for full sub-object.
+4. **App Store Connect API key (.p8) on SY094** at `~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8` plus issuer_id + key_id stored as sub-object on `kv_store.creds.apple > value.asc_api_key`. **SATISFIED as of 7 May 2026 13:14 AEST** - `R8P6K38X47` / issuer `4b45186b-49e4-4a25-8a63-afd28cf12d3f`. See `~/ecodiaos/docs/secrets/apple.md > value.asc_api_key` for full sub-object.
 5. **Bundle ID + capabilities + ASC App record + Internal Testing group** all set up via Apple Developer portal + ASC web (one-time per app, Tate-side via Corazon Chrome / recordings).
 6. **Distribution provisioning profile** for `au.ecodia.os.mobile` (auto-fetched by `xcodebuild -allowProvisioningUpdates` once ASC API key is in place; manual download + scp also works).
 

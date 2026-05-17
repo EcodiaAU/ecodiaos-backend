@@ -5,11 +5,15 @@ status: validated_v1
 
 # Co-Exist iOS Headless Ship Recipe (SSH Path) - status: validated_v1
 
-Sister recipe to `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` (EOS-mobile). Covers Co-Exist specifically, which differs from the EOS-mobile template in: SPM-based (no CocoaPods), Firebase wiring in pbxproj, gitignored GoogleService-Info.plist, canonical build path at ~/Desktop/projects/coexist, and local signing mod stash workflow.
+**Use the universal protocol for one-line ships.** As of 17 May 2026 this is one of three app-specific deltas on the universal protocol at [ios-app-asc-headless-ship-protocol.md](ios-app-asc-headless-ship-protocol.md). For a routine 1.8.x or 1.9.x ship the one-line invocation is `python3 ~/asc-scripts/ship-ios.py coexist` on SY094 (driver + app spec already in place). This recipe remains the authoritative reference for Co-Exist's deltas (SPM, Firebase, gitignored GoogleService-Info.plist, ~/Desktop/projects/coexist path) and for any future blocker that the parametric driver doesn't yet handle.
 
-## Status (11 May 2026 - SHIPPED)
+Sister recipe to `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` (EOS-mobile). Co-Exist deltas vs the EOS-mobile template: SPM-based (no CocoaPods), Firebase wiring in pbxproj, gitignored GoogleService-Info.plist, canonical build path at ~/Desktop/projects/coexist, and local signing mod stash workflow.
 
-**End-to-end verified shipped.** Build 1.8.5(2) of Co-Exist uploaded to ASC via `xcrun altool --upload-app` 11 May 2026 ~13:17 AEST, fork `fork_mp0m711w_da02a2`. Delivery UUID `58187f51-4cdb-4d89-8a5e-16ab17daf045`. App.ipa 11MB. Apple processing ~5-10min after upload.
+## Status (17 May 2026 - END-TO-END SUBMITTED FOR REVIEW)
+
+**End-to-end verified through to App Store review submission.** Build 1.8.6(7) of Co-Exist uploaded AND submitted for Apple review 17 May 2026 ~15:03 AEST by conductor (no fork). Delivery UUID `0a7cbb5a-dc78-445e-a2d0-2a3d415025c5`. Submission UUID `85029c92-7d72-4997-be71-ef32ad48ffd9`, state `WAITING_FOR_REVIEW`. App.ipa 11MB. Apple processing ~30-60s, then submission flow ~5s. Auto-release on approval is ON (releaseType=AFTER_APPROVAL).
+
+**Prior:** Build 1.8.5(2) uploaded 11 May 2026, fork `fork_mp0m711w_da02a2`, delivery `58187f51-4cdb-4d89-8a5e-16ab17daf045`. That run stopped at TestFlight upload; the review-submission step (Section 9 below) was added 17 May after Tate flagged the recipe didn't reach Apple review.
 
 **Target commit on main:** f7194c1 (1.8.5 bundle - push notifications, share-graphic, splash, excel-sync gate, profile hero)
 
@@ -220,9 +224,28 @@ xcrun altool --upload-app -f /tmp/coexist-${BUILD}-export/App.ipa -t ios \
 
 Returns `UPLOAD SUCCEEDED with no errors` + Delivery UUID. Record the UUID.
 
-### Step 8 - Verify
+### Step 8 - Verify build state via ASC API
 
-Check ASC web (Corazon Chrome): App Store Connect > My Apps > Co-Exist > TestFlight > iOS builds. Build appears as "Processing" within ~5min, then "Ready to Test".
+Poll `/v1/builds?filter[app]={APP_ID}&filter[preReleaseVersion.version]={BUILD}&filter[version]={BUILD_NUM}` until `processingState == 'VALID'` (typically 30-90s post-altool-upload, sometimes up to 10min). APP_ID for Co-Exist is `6760897574`. PyJWT-based probe script template in `~/asc-scripts/asc-probe.py` on SY094.
+
+### Step 9 - Attach build + submit for Apple review (reviewSubmissions API)
+
+**The deprecated `appStoreVersionSubmissions` endpoint returns 403 FORBIDDEN as of 2026** ("The resource 'appStoreVersionSubmissions' does not allow 'CREATE'. Allowed operation is: DELETE"). Use the newer `reviewSubmissions` container flow.
+
+Prerequisite: an App Store version row at `versionString = {BUILD}` already exists in ASC for the app with state `PREPARE_FOR_SUBMISSION` and metadata (description, what's new, screenshots) filled in. Whoever bumped marketing version typically creates this in ASC web UI. If missing, create via `POST /v1/appStoreVersions` with relationship to the app.
+
+Flow (full script at `~/asc-scripts/asc-submit-v2.py` on SY094):
+1. `PATCH /v1/appStoreVersions/{ASV_ID}/relationships/build` with body `{"data":{"type":"builds","id":"{BUILD_ID}"}}` to attach the new build to the App Store version. Returns 204 on success.
+2. Check `GET /v1/reviewSubmissions?filter[app]={APP_ID}&filter[platform]=IOS&filter[state]=READY_FOR_REVIEW,WAITING_FOR_REVIEW,IN_REVIEW,UNRESOLVED_ISSUES` for an in-flight submission. If one exists, reuse its id. Otherwise:
+3. `POST /v1/reviewSubmissions` with body `{"data":{"type":"reviewSubmissions","attributes":{"platform":"IOS"},"relationships":{"app":{"data":{"type":"apps","id":"{APP_ID}"}}}}}` → returns 201 with `submission_id`.
+4. `POST /v1/reviewSubmissionItems` with `relationships.reviewSubmission` pointing to the submission and `relationships.appStoreVersion` pointing to the ASV → returns 201.
+5. `PATCH /v1/reviewSubmissions/{submission_id}` with `{"data":{"type":"reviewSubmissions","id":"{submission_id}","attributes":{"submitted":true}}}` → state flips from `READY_FOR_REVIEW` to `WAITING_FOR_REVIEW`. **This is the actual submit action.**
+
+After step 5, Apple's review queue takes over. If the App Store version has `releaseType=AFTER_APPROVAL` (default for Co-Exist), once Apple approves the build auto-releases without any further click - see `~/ecodiaos/patterns/asc-auto-release-on-approval-no-manual-release-step.md`.
+
+### Step 10 - Verify in ASC web (optional)
+
+Check App Store Connect > My Apps > Co-Exist > App Store > 1.8.x. State should be "Waiting for Review" within seconds of step 5. TestFlight tab shows the build under processed builds for any internal testers.
 
 ## Project specifics vs EOS-mobile recipe
 
@@ -269,6 +292,15 @@ Check ASC web (Corazon Chrome): App Store Connect > My Apps > Co-Exist > TestFli
 - Multiple blockers resolved: wrong build dir, Manual signing conflict, missing teamID in ExportOptions.plist, xcworkspace vs xcproject
 - UPLOAD SUCCEEDED 13:17 AEST, Delivery UUID `58187f51-4cdb-4d89-8a5e-16ab17daf045`
 - Recipe validated_v1 on first complete run
+
+## Extension (17 May 2026) - review-submission step
+
+- Conductor (no fork) ran end-to-end including new Step 9 to submit 1.8.6 build 7 to Apple review
+- Target commit: d2b7c70 (verify-email auto-confirm fix)
+- New finding: `appStoreVersionSubmissions` endpoint is 403 deprecated, must use `reviewSubmissions` container flow
+- New finding: ASC API auth flow (PyJWT + .p8 already on SY094) supports the full submit, no need to touch the ASC web UI
+- Submission UUID `85029c92-7d72-4997-be71-ef32ad48ffd9` 15:03 AEST, state WAITING_FOR_REVIEW
+- Tate directive: "You should be able to ssh into the mac in cloud and push 1.8.6 to asc for apple review"
 
 ## Cross-references
 
