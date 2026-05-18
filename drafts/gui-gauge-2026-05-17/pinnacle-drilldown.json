@@ -1,0 +1,19 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/orgs/EcodiaTate/repositories?type=all&sort=updated", "waitUntil": "networkidle2", "timeout": 25000 } },
+      { "tool": "cdp.wait", "params": { "selector": "ul[data-listview-component='items-list'] li, ul#org-repositories li", "timeout": 8000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var rows=document.querySelectorAll('ul[data-listview-component=items-list] li, ul#org-repositories li');var repos=[];rows.forEach(function(li){var nameLink=li.querySelector('a[itemprop=name codeRepository], a[href^=\\\"/EcodiaTate/\\\"][itemprop], h4 a, h3 a');if(!nameLink){var anyLink=li.querySelector('a[href^=\\\"/EcodiaTate/\\\"]');nameLink=anyLink;}if(!nameLink)return;var name=(nameLink.textContent||'').trim();var href=nameLink.getAttribute('href')||'';var desc=(li.querySelector('p, [itemprop=description]')||{}).textContent||'';var lang=(li.querySelector('[itemprop=programmingLanguage], span[class*=Language]')||{}).textContent||'';var time=(li.querySelector('relative-time, time-ago, time')||{}).getAttribute&&(li.querySelector('relative-time, time-ago, time')||{}).getAttribute('datetime')||'';repos.push({name:name,href:href,description:desc.trim().slice(0,140),language:lang.trim(),updated:time});});return {totalCount:repos.length, repos:repos.slice(0,15)}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var rows=document.querySelectorAll('ul[data-listview-component=items-list] li, ul#org-repositories li');var top=null;var topTime=0;rows.forEach(function(li){var t=li.querySelector('relative-time, time-ago, time');var href=(li.querySelector('a[href^=\\\"/EcodiaTate/\\\"]')||{}).getAttribute&&(li.querySelector('a[href^=\\\"/EcodiaTate/\\\"]')||{}).getAttribute('href')||'';if(!t||!href)return;var dt=t.getAttribute('datetime');if(!dt)return;var v=Date.parse(dt);if(v>topTime){topTime=v;top=href;}});window.__topRepo=top;return {topRepo:top, topTime:new Date(topTime).toISOString()}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var url='https://github.com'+window.__topRepo+'/commits';location.href=url;return {navigatingTo:url}})()" } },
+      { "tool": "cdp.wait", "params": { "selector": "section[aria-label*='Commit'], ol li[data-testid*='commit'], div[data-testid='commit-row-item']", "timeout": 12000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var items=document.querySelectorAll('div[data-testid=commit-row-item], li[data-testid*=commit], section ol li');var commits=[];items.forEach(function(c){var msg=(c.querySelector('h4 a, h3 a, a[class*=commit-message], a[class*=Link]')||{}).textContent||'';var sha=(c.querySelector('a[href*=\\\"/commit/\\\"]')||{}).getAttribute&&(c.querySelector('a[href*=\\\"/commit/\\\"]')||{}).getAttribute('href')||'';var sm=sha.match(/\\/commit\\/([0-9a-f]+)/);var author=(c.querySelector('a[class*=Link][class*=author], a[data-hovercard-type=user]')||{}).textContent||'';var t=c.querySelector('relative-time, time');var time=t&&t.getAttribute?t.getAttribute('datetime'):'';if(msg)commits.push({message:msg.trim().slice(0,140),sha:sm?sm[1].slice(0,7):'',author:author.trim(),time:time});});return {url:location.href, title:document.title, commitCount:commits.length, commits:commits.slice(0,10)}})()" } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": false,
+    "finalScreenshot": true,
+    "includeStepResults": true
+  }
+}

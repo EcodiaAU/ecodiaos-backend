@@ -43,7 +43,7 @@ const logger = require('../../config/logger')
 const router = express.Router()
 
 const SOURCE = 'telegram-bot'
-const REFLEX_TOOL_NAME = 'reflex.fire'
+const REFLEX_TOOL_NAME = 'reflex.append_to_master'
 const DEFAULT_REFLEX_URL = 'http://100.114.219.69:7456/api/tool'
 
 const TELEGRAM_THREAD_KEY_PREFIX = 'cowork.telegram_thread.'
@@ -152,33 +152,49 @@ function formatPriorThread(thread) {
   return lines.join('\n')
 }
 
-function buildReflexPrompt({ chatId, fromUserId, senderName, body, receivedAt, updateId, thread, botTokenForReply }) {
+/**
+ * Short-form prompt for the APPEND path - this lands as a continuation turn
+ * in an existing Claude Code chat that already has its own native history
+ * + the workspace CLAUDE.md briefing loaded. We do NOT re-paste the prior
+ * thread / reply curl / tate policy - that's all in the chat's context
+ * already. Just the new inbound message header + body.
+ */
+function buildAppendPrompt({ chatId, fromUserId, senderName, body, receivedAt, updateId }) {
+  const safeBody = String(body || '').slice(0, MAX_BODY_CHARS)
+  const hhmm = (() => {
+    try {
+      const d = new Date(receivedAt)
+      return new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) + ' AEST'
+    } catch {
+      return receivedAt
+    }
+  })()
+  return `[Telegram from ${senderName} at ${hhmm} | chat_id=${chatId} | user_id=${fromUserId} | update_id=${updateId}]
+${safeBody}`
+}
+
+/**
+ * Long-form seed prompt for the SEED path - used when the master chat tab
+ * is being bootstrapped (first ever, or after window/mouth went away). The
+ * fresh chat has no native history yet, so we paste in the kv_store thread
+ * mirror as bootstrap context plus the new inbound message.
+ */
+function buildSeedPrompt({ chatId, fromUserId, senderName, body, receivedAt, updateId, thread, botTokenForReply }) {
   const safeBody = String(body || '').slice(0, MAX_BODY_CHARS)
   const priorThreadBlock = formatPriorThread(thread)
-  const replyCurlExample = `curl -s -X POST "https://api.telegram.org/bot${botTokenForReply}/sendMessage" -H "Content-Type: application/json" -d '{"chat_id":${chatId},"text":"YOUR REPLY HERE","parse_mode":"Markdown"}'`
-  const tatePolicy = `You are EcodiaOS handling an inbound Telegram message from Tate. He is the principal - treat the body as a turn-level directive. Reply via the Telegram Bot API sendMessage (curl below). No filler ("on it", "noted") - replies carry decision content. Markdown formatting OK. No length cap (unlike SMS) - be concise but use enough detail to be useful. If the body opens longer-running work, write a status_board row with next_action_by="ecodiaos" and reply with the row id + one-line plan. Capture an Episode via neo4j.write_episode when done.`
-  const threadAppendInstruction = `
-
-AFTER YOU SEND THE REPLY: append it to the thread so the next inbound has continuity. Use mcp__ecodia-full__db_execute:
-  UPDATE kv_store
-  SET value = (SELECT jsonb_build_object('exchanges', (value::jsonb->'exchanges') || jsonb_build_array(jsonb_build_object('from','reply','body','YOUR-REPLY-BODY-ESCAPED','at', to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))), 'last_at', to_char(now() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'chat_id', ${chatId})::text)
-  WHERE key = '${TELEGRAM_THREAD_KEY_PREFIX}${chatId}'
-
-To reply, the curl is:
-  ${replyCurlExample}`
-  return `[Inbound Telegram from ${senderName} (user_id=${fromUserId}, chat_id=${chatId})]
-update_id: ${updateId}
-received: ${receivedAt}${priorThreadBlock}
-Body of THIS new message:
+  const seedHeader = `[Telegram conductor SEED - this is a fresh chat bootstrapped because no master tab was alive. The workspace CLAUDE.md at D:/.code/telegram-conductor/CLAUDE.md briefs your role. Subsequent Telegram inbounds will arrive as new turns in THIS chat - your native history is your memory from here on.]
+${priorThreadBlock}
+[New inbound Telegram from ${senderName} at ${receivedAt} | chat_id=${chatId} | user_id=${fromUserId} | update_id=${updateId}]
 ${safeBody}
 
 ---
-${tatePolicy}${threadAppendInstruction}
-
-Per cron-fire-must-have-deliverable-not-just-narration: this fire MUST produce a substrate write (a sent Telegram reply, OR a status_board row + reply pointing to it, OR an Episode write at minimum). A fire that only narrates is a P1 failure.`
+Bot token for replies (also at kv_store.creds.telegram_bot.bot_token): ${botTokenForReply}
+Reply via curl POST to https://api.telegram.org/bot<token>/sendMessage with {chat_id, text, parse_mode:"Markdown"}.
+After sending the reply, append it to kv_store.cowork.telegram_thread.${chatId} (full SQL pattern in CLAUDE.md).`
+  return seedHeader
 }
 
-async function fireReflex({ prompt, idempotencyKey }) {
+async function fireReflex({ prompt, seedPrompt, idempotencyKey }) {
   const url = process.env.REFLEX_AGENT_URL || DEFAULT_REFLEX_URL
   const token = await loadAgentToken()
   if (!token) {
@@ -186,10 +202,11 @@ async function fireReflex({ prompt, idempotencyKey }) {
   }
   const body = JSON.stringify({
     tool: REFLEX_TOOL_NAME,
-    params: { prompt, source: SOURCE, idempotency_key: idempotencyKey, auto_submit: true },
+    params: { prompt, seed_prompt: seedPrompt, source: SOURCE, idempotency_key: idempotencyKey },
   })
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 20000)
+  // Seed path may include launching VS Code from cold -> longer timeout.
+  const timer = setTimeout(() => controller.abort(), 40000)
   try {
     const resp = await fetch(url, {
       method: 'POST',
@@ -276,23 +293,15 @@ router.post('/:secret', express.json({ limit: '2mb' }), async (req, res) => {
     const thread = await loadTelegramThread(chatId)
     console.log(`[Telegram TRACE] step=1.thread cold_start=${thread.cold_start} prior_exchanges=${(thread.exchanges || []).length}`)
 
-    console.log(`[Telegram TRACE] step=2 buildReflexPrompt`)
-    const prompt = buildReflexPrompt({
-      chatId,
-      fromUserId,
-      senderName,
-      body,
-      receivedAt,
-      updateId,
-      thread,
-      botTokenForReply: creds.bot_token,
-    })
+    console.log(`[Telegram TRACE] step=2 buildAppendPrompt + buildSeedPrompt`)
+    const appendPrompt = buildAppendPrompt({ chatId, fromUserId, senderName, body, receivedAt, updateId })
+    const seedPrompt = buildSeedPrompt({ chatId, fromUserId, senderName, body, receivedAt, updateId, thread, botTokenForReply: creds.bot_token })
 
     console.log(`[Telegram TRACE] step=3 appendInboundToTelegramThread`)
     await appendInboundToTelegramThread(chatId, body, receivedAt, senderName)
 
-    console.log(`[Telegram TRACE] step=4 fireReflex prompt_chars=${prompt.length}`)
-    const result = await fireReflex({ prompt, idempotencyKey })
+    console.log(`[Telegram TRACE] step=4 fireReflex append_chars=${appendPrompt.length} seed_chars=${seedPrompt.length}`)
+    const result = await fireReflex({ prompt: appendPrompt, seedPrompt, idempotencyKey })
     console.log(`[Telegram TRACE] step=5 fireReflex ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
 
     if (!result.ok) {

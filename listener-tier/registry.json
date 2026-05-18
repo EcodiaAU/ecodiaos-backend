@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "host": "corazon",
+  "authored_at": "2026-05-15",
+  "doc": "backend/docs/LISTENER_TIER_EVENT_SOURCES_2026-05-15.md",
+  "listeners": [
+    {
+      "name": "pattern-INDEX-regen",
+      "source": "file-watcher",
+      "trigger": "chokidar add|change|unlink on backend/patterns/*.md",
+      "owns_write_surface": [
+        "backend/patterns/INDEX.md"
+      ],
+      "action": "runs scripts/regen-patterns-index.js when frontmatter or filename changes",
+      "auto_commit": false,
+      "human_approved": false,
+      "file": "pattern-INDEX-regen.js",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null,
+      "last_duration_ms": null,
+      "last_error": null,
+      "last_payload": null,
+      "fire_count": 0,
+      "error_count": 0
+    },
+    {
+      "name": "commit-pattern-detector",
+      "source": "file-watcher",
+      "trigger": "chokidar add|change on $GIT_DIR/refs/heads/**",
+      "owns_write_surface": [
+        "status_board:task rows tagged listener-tier",
+        "kv_store.health.eos_listener_tier.commit-pattern-detector"
+      ],
+      "action": "scans HEAD commit subject + git show --stat for pattern-worthy keywords; if score >= 2, opens a P3 status_board row",
+      "auto_commit": true,
+      "human_approved": false,
+      "file": "commit-pattern-detector.js",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null,
+      "last_duration_ms": null,
+      "last_error": null,
+      "last_payload": null,
+      "fire_count": 0,
+      "error_count": 0
+    },
+    {
+      "name": "forkComplete-cleanup",
+      "source": "mcp-write-event",
+      "trigger": "pg_notify eos_listener_events on os_forks UPDATE to terminal status",
+      "owns_write_surface": [
+        "working_set rows for completed forks",
+        "perception_bus messages"
+      ],
+      "action": "Closes working_set rows + emits perception summary. Shipped on VPS at ~/ecodiaos/src/services/listeners/forkComplete.js. Local conductor reads completions via context-stitching on next turn until Lane 06 relay ships.",
+      "auto_commit": true,
+      "human_approved": false,
+      "host": "vps",
+      "vps_path": "~/ecodiaos/src/services/listeners/forkComplete.js",
+      "shipped_on": "2026-04-30 (refactor 2026-05-05 + 2026-05-06)",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null
+    },
+    {
+      "name": "emailArrival-triage",
+      "source": "routine",
+      "trigger": "Resend inbound webhook -> /fire on inbound-email-triage routine OR pg_notify on email_events INSERT",
+      "owns_write_surface": [
+        "email_threads rows",
+        "os-session wake message"
+      ],
+      "action": "VPS listener at ~/ecodiaos/src/services/listeners/emailArrival.js wakes os-session via HTTP POST. Cloud-routine variant authored under backend/routines/inbound-email-triage.md (Lane D).",
+      "auto_commit": false,
+      "human_approved": true,
+      "host": "vps+routine",
+      "shipped_on": "2026-05-15 (Lane D)",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null
+    },
+    {
+      "name": "cred-mention-surface",
+      "source": "hook",
+      "trigger": "PreToolUse on Bash | Edit | Write | MultiEdit",
+      "owns_write_surface": [
+        "model-visible additionalContext"
+      ],
+      "action": "Grep kv_store credential paths in tool input; if present, surface a [CRED WARN] line so the conductor uses the substrate path rather than re-typing the secret. Lane B shipped.",
+      "auto_commit": true,
+      "human_approved": false,
+      "host": "corazon",
+      "hook_path": "~/.claude/hooks/ecodia/cred-mention-surface.sh",
+      "shipped_on": "2026-05-15 (Lane B)",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null
+    },
+    {
+      "name": "observer-signals-emit",
+      "source": "hook",
+      "trigger": "PostToolUse on every tool call",
+      "owns_write_surface": [
+        "~/.claude/hooks/ecodia/state/observer_signals_local.jsonl",
+        "observer_signals table via MCP relay"
+      ],
+      "action": "Emits coherence / drift / thin-context / no-substrate-write-streak signals as ambient meta-cognition events. Lane C shipped via observer_signal.py.",
+      "auto_commit": true,
+      "human_approved": false,
+      "host": "corazon",
+      "hook_path": "~/.claude/hooks/observer_signal.py",
+      "shipped_on": "2026-05-15 (Lane C)",
+      "enabled": true,
+      "last_fired_ts": null,
+      "last_status": null
+    }
+  ],
+  "last_boot_ts": null,
+  "last_boot_listeners": []
+}

@@ -1,0 +1,20 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "gui.launch_cdp_chrome", "params": {} },
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/EcodiaTate", "waitUntil": "domcontentloaded", "timeout": 25000 } },
+      { "tool": "cdp.wait", "params": { "selector": "main", "timeout": 8000 } },
+      { "tool": "cdp.runJs", "params": { "timeout": 25000, "js": "(async function(){const repos=await fetch('https://api.github.com/users/EcodiaTate/repos?sort=pushed&per_page=10').then(r=>r.json());if(!Array.isArray(repos))return{error:'gh api'};const top=repos[0];const[commits,issues,prs]=await Promise.all([fetch('https://api.github.com/repos/EcodiaTate/'+top.name+'/commits?per_page=5').then(r=>r.json()),fetch('https://api.github.com/repos/EcodiaTate/'+top.name+'/issues?state=open&per_page=10').then(r=>r.json()),fetch('https://api.github.com/repos/EcodiaTate/'+top.name+'/pulls?state=open&per_page=10').then(r=>r.json())]);return{githubLatest:{repo:top.name,pushedAt:top.pushed_at,language:top.language},recentCommits:(Array.isArray(commits)?commits:[]).slice(0,5).map(c=>({sha:(c.sha||'').slice(0,7),message:((c.commit&&c.commit.message)||'').split('\\n')[0].slice(0,140),date:(c.commit&&c.commit.author&&c.commit.author.date)||''})),openIssues:(Array.isArray(issues)?issues.filter(i=>!i.pull_request):[]).length,openPRs:(Array.isArray(prs)?prs:[]).length,allRepos:repos.map(r=>({name:r.name,lang:r.language,pushed:r.pushed_at}))}})()" } },
+      { "tool": "window.windows", "params": {} },
+      { "tool": "explorer.list_dir", "params": { "path": "D:/.code/coexist", "limit": 20 } },
+      { "tool": "uia.windows", "params": {} },
+      { "tool": "cdp.pageScreenshot", "params": {} }
+    ],
+    "stopOnError": false,
+    "finalScreenshot": true,
+    "keepIntermediateScreenshots": true,
+    "includeStepResults": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-4-7",
+  "effortLevel": "max",
+  "alwaysThinkingEnabled": true,
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "LS(*)",
+      "Task(*)",
+      "WebFetch(*)",
+      "WebSearch"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "0",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const p = process.env.CLAUDE_TOOL_INPUT_FILE_PATH || process.env.CLAUDE_TOOL_INPUT_PATH || ''; const noisy = ['package-lock.json','yarn.lock','pnpm-lock.yaml','.next/','node_modules/','dist/','build/','.turbo/','coverage/','*.map'].some(x => p.includes(x)); if (noisy) { console.error('BLOCKED (token-saver): Reading ' + p + ' would flood context. Use Grep/Glob to extract specific values instead.'); process.exit(2); }\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const cmd = process.env.CLAUDE_TOOL_INPUT_COMMAND || ''; const blocklist = ['npm install','yarn install','pnpm install','npm ci','git log --all','git log -p','cat package-lock','cat yarn.lock','find . -name','ls -la node_modules','npm list','pip freeze']; const hit = blocklist.find(b => cmd.includes(b)); if (hit) { console.error('BLOCKED (token-saver): \\\"' + hit + '\\\" returns massive output. Use a targeted alternative (Glob/Grep/specific flags).'); process.exit(2); }\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const result = process.env.CLAUDE_TOOL_RESULT || ''; const lines = result.split('\\n'); const LIMIT = 200; if (lines.length > LIMIT) { const truncated = lines.slice(0, LIMIT).join('\\n'); const dropped = lines.length - LIMIT; process.stdout.write('[token-saver] Output truncated: showing first ' + LIMIT + ' of ' + lines.length + ' lines (' + dropped + ' lines dropped). Use Grep/Read for targeted extraction if needed.\\n'); }\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before compacting: identify and exclude from the summary any tool results that are: (1) raw file dumps of lock files, build output, or node_modules; (2) identical or near-identical repeated tool calls; (3) error stack traces already resolved; (4) large Bash outputs no longer referenced. Preserve: current task state, key decisions, file paths edited, outstanding TODOs, and any unresolved errors. If this is an EcodiaOS session, additionally preserve: which systems were touched, which specs were read, any cross-system integration surfaces discovered, any architectural decisions made, and whether the doc contract has been fulfilled. Output a compact summary prioritising active work over historical noise.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node d:/.code/EcodiaOS/backend/.claude/hooks/chat-heartbeat.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

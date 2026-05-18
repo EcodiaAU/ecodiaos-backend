@@ -1,0 +1,15 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "screenshot.screenshot" },
+      { "tool": "wait", "params": { "ms": 300 } },
+      { "tool": "input.cursorPosition" },
+      { "tool": "wait", "params": { "ms": 200 } },
+      { "tool": "screenshot.screenshot" }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "keepIntermediateScreenshots": false
+  }
+}

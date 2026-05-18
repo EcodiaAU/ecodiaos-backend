@@ -4,6 +4,31 @@ Technical systems, tools, workflows specific to ecodiaos. Business/identity/pric
 
 ---
 
+## 🚨 ARCHITECTURAL DEPRECATIONS - 2026-05-17 (READ BEFORE BELIEVING ANYTHING BELOW)
+
+The local-first migration completed faster than this document caught up. The following sections of this file describe substrates that are **dead, dormant, or wrong**. Pattern files marked `superseded_by` in their frontmatter are the corrected doctrine. Until those sections below are surgically rewritten, treat them as historical.
+
+| Stale claim in this file | Reality (2026-05-17) | Corrected doctrine |
+|---|---|---|
+| SDK fork primitive (`mcp__forks__spawn_fork`, manager forks, sub-forks, `[FORK_REPORT]`, `os_forks` substrate, 5/5 per-tree cap) is the parallelism path | Dead. Migrated away from VPS-as-agentic-runtime. | [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]] - parallelism is `cowork.dispatch_worker` (auto-spawns a fresh Claude Code chat tab via Ctrl+Alt+Shift+C, registers identity, pastes brief, returns tab_id). Workers signal back via the [[coord-conventions-heartbeat-signal-done-2026-05-18]] protocol (8 `coord.*` MCP tools on localhost:7456). Manual Ctrl+Shift+P -> Claude Code: New Chat is the fallback when dispatch_worker is unavailable. Task subagents still valid for in-session bounded work. Supersedes [[ide-tab-is-the-new-fork-mechanic-2026-05-17]]. |
+| Factory CLI / `start_cc_session` / Factory dispatch / Factory-cloud routine | Dead in the form described. Coding work is local in this conductor or in a sister IDE tab. | Same pattern as above. The Factory-as-separate-Claude-account model is gone. |
+| EcodiaOS frontend (custom UI at the host-app surface, `apps/frontend`) | Dir exists at `D:/.code/EcodiaOS/frontend/` but Tate stopped using it. Mobile surface is the Claude mobile app + SMS (which spawns a fresh CC chat). | The "Frontend UI - Interactive Outputs" section below is **deprecated as a user-facing surface**. The auto-preview substrate (write `.md` / `.html` to disk -> IDE preview tab) is the live render target. |
+| EOS mobile app | Dir does not exist on disk. Never had one or already removed. | Mobile surface is Claude mobile app + SMS. |
+| Local listener tier "shipped Phase 2 Lane 03 2026-05-15" | Code on disk at `backend/listener-tier/` but no PM2 supervision. `registry.json` shows `last_fired_ts: null` and `fire_count: 0` for every listener. Hook-based listeners (cred-mention, observer-signals, em-dash detector) under `~/.claude/hooks/ecodia/` ARE alive because they fire on every Claude Code tool call. The file-watcher daemon listeners are not. VPS-pg_notify listeners are dead. | Hook-based listeners are alive. File-watcher daemon needs starting OR replacing with simpler PostToolUse / git-hook substrates. VPS listeners gone with the VPS-as-runtime. |
+| eos-laptop-agent / laptop-hands status inferred from `pm2 list` | **eos-laptop-agent is ALIVE on port 7456** (verified 2026-05-17, HTTP 200 from both localhost and Tailscale 100.114.219.69, uptime ~20min at probe time, PID 14252). It runs without PM2 supervision on Corazon. **laptop-hands is NOT running on port 7800** (connection refused at probe time). My initial 2026-05-17 inference that "PM2 empty means nothing running" was wrong for the agent. | Always probe service liveness by HTTP `/health` (or the service's actual health endpoint), not by `pm2 list`. Most Corazon services do not run under PM2. See [[pm2-list-is-not-definitive-liveness-probe-on-corazon-2026-05-17]]. |
+| [redacted] / [redacted] as active client | Archived. `clients/archived/[redacted]/` is the canonical location. References in patterns / skills / INDEX / scripts need archival sweep. | All [redacted] doctrine that surfaces this client as active should move to `_archived/`. |
+| Routines (16 scheduled, 4 webhook) firing on tate@ / code@ / money@ accounts | Status unverified. Many of the listed routines depended on VPS substrate. | Treat each routine claim as **unverified** until the world-model audit confirms it. |
+| `mcp__router__route_work` (routing decisions silent) | Already marked NOT YET SHIPPED on 13 May. Still not shipped. | Hook fires warn-only on a phantom tool. |
+| `mcp__scratchpad__write` (doctrine compliance silent) | Already marked NOT YET SHIPPED on 13 May. Still not shipped. | JSONL bridge in `conductorStreamTagWatcher.js` is the fallback. |
+
+**Visual / GUI / macros are 1st-class primitives** for client-facing work. See [[visual-gui-macros-are-first-class-primitives-2026-05-17]]. laptop-hands is not running in PM2 as of 2026-05-17 - it needs starting.
+
+**The meta-doctrine for keeping this file true**: [[world-model-staleness-needs-active-reconciliation-2026-05-17]]. The audit routine (when shipped) picks one section per run, probes claims against reality, opens a P3 row on drift > 30%.
+
+Origin: Tate verbatim 2026-05-17 cold-start. The world-model summary I gave him contained five substantial architectural fictions. He flagged it as "an actual problem that needs attending to."
+
+---
+
 ## ⚡ STATUS BOARD - READ FIRST, UPDATE ALWAYS
 
 `status_board` is single source of truth. Query at start of EVERY session. Update after EVERY action. No exceptions.
@@ -52,6 +77,28 @@ Read triggers, pick matching files, read in full, proceed. 30sec cost.
 **Pattern lifecycle and tuning.** Patterns are provisional, not sacred. Three explicit states tracked in frontmatter: `active` (default, may be omitted), `narrowed` (triggers tightened after false-positive cluster, frontmatter records `narrowed_at` + `narrowed_reason`), `archived` (file moved to `~/ecodiaos/patterns/_archived/<slug>.md`, frontmatter records `archived_at` + `archived_reason` + `superseded_by`). Tuning thresholds: `[NOT-APPLIED]` rate >70% over 7d -> narrow triggers; zero fires >30d -> archive candidate (release recipes excepted); `tagged_silent` rate (Phase C) >50% over 7d -> retire OR restate; Tate-flagged false-positive in chat -> narrow OR archive same-arc. The weekly `pattern-corpus-health-check` cron (Sunday 21:00 AEST) reads Phase C telemetry, classifies each pattern, surfaces tuning candidates to a single status_board P3 row. Origin: Tate verbatim 16:20 AEST 7 May 2026. Full: `~/ecodiaos/patterns/pattern-lifecycle-active-narrowed-archived.md`.
 
 Origin: Tate Apr 21 2026, "No point logging if we dont actually act on it in the future."
+
+---
+
+## 🧠 MEMORY SUBSTRATE DOCTRINE - ROUTE BEFORE WRITE
+
+EcodiaOS has two durable memory substrates. They are not redundant. Different kinds of memory belong in different substrates.
+
+| Memory kind | Substrate |
+|---|---|
+| Architecture decision, Episode, Pattern, Strategic_Direction, client knowledge | Neo4j |
+| Tate preference / interaction style, in-flight project state, machine-local reference, user profile | Anthropic auto-memory at `C:/Users/tjdTa/.claude/projects/d---code/memory/` |
+| Conversation-scoped state (todo, debugging trail) | Nowhere durable - let it die with the session |
+
+**Before writing a memory:** classify against `~/ecodiaos/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. If unsure, prefer no-write over wrong-substrate write. The PreToolUse `memory-substrate-routing.py` hook surfaces misroutes via observer_signals but does NOT block - the judgement is mine.
+
+**Promotion path:** cited feedback (>=5 cites) -> Pattern node. Long-stable project (30d+ unchanged) -> Strategic_Direction or Project node. Load-bearing reference cited by Routine prompts -> Pattern node. Daily Routine `auto-memory-promotion-audit` surfaces candidates; promotion writes are conductor-confirmed not Routine-autonomous.
+
+**Demotion path:** Reflection / Episode nodes with no inbound relationships + age >90d + no retrieval hits in 30d -> archive candidates. Weekly Routine `neo4j-stale-node-audit` surfaces; archival is conductor-confirmed.
+
+**Cloud-vs-local bridge:** Neo4j is canonical. A 6h Routine mirrors recent Decisions / Episodes / Patterns to `kv_store.cowork.memory_mirror.recent`; the Corazon `scope-context.py` hook fetches at session boot. Corazon-authored auto-memory entries stay Corazon-local until explicitly promoted.
+
+Full doctrine: `~/ecodiaos/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. Backfill audit at `~/ecodiaos/docs/MEMORY_SUBSTRATE_BACKFILL_AUDIT_2026-05-15.md`.
 
 ---
 
@@ -497,7 +544,18 @@ Rules:
 
 ---
 
-## Factory - Your Coding Workforce
+## Sub-agent dispatch protocol [SUPERSEDED 2026-05-17]
+
+> **SUPERSEDED 2026-05-17:** The two-lane subagent / factory_cloud router described below was a stepping stone that was overtaken by the simpler "open a new CC chat tab" mechanic. The `factoryDispatch.js` classifier and `code_requests` row-as-control-plane are not the live dispatch path. See [[ide-tab-is-the-new-fork-mechanic-2026-05-17]].
+>
+> What remains valid:
+> - **Task subagents inside the current session** (via the Task tool) for bounded research / lookup work. This is the in-session parallelism primitive.
+> - **A fresh Claude Code chat tab** (Ctrl+Shift+P -> `Claude Code: New Chat` in VS Code Stable / Insiders / Cursor) for substantive parallel work that deserves its own context arc.
+> - Coordination between tabs happens through a named substrate row (a `coordination_threads` table when shipped, or a `kv_store` row / file in the meantime), never through in-memory state.
+
+## Factory - Your Coding Workforce [DEPRECATED 2026-05-17]
+
+> **DEPRECATED 2026-05-17:** This entire section describes the pre-local-first agentic substrate (SDK forks, Factory CLI, multi-account provider chain, manager fork hierarchy, FORK_REPORT envelope, os_forks substrate). All of it is dead. See the deprecations table at the top of this file and [[ide-tab-is-the-new-fork-mechanic-2026-05-17]] for the corrected doctrine. The content below is retained for historical reference until the file is fully rewritten. Do not act on it.
 
 ### 2026-04-28 OPERATIONAL ALERT - Factory CLI credit/paywall-gated
 
@@ -972,9 +1030,16 @@ Persistent DB-backed scheduler architecture (not session-scoped). Parallel react
 
 ---
 
-## Frontend UI - Interactive Outputs
+## Frontend UI - Interactive Outputs [DEPRECATED 2026-05-17]
 
-Tate sees rich interactive content via EcodiaOS frontend.
+> **DEPRECATED 2026-05-17:** The EcodiaOS custom frontend at `D:/.code/EcodiaOS/frontend/` is no longer Tate's user-facing surface. He uses:
+> - **Claude Code in VS Code Stable / Insiders / Cursor** (desktop / laptop) as the primary conductor surface.
+> - **Claude mobile app + SMS** on mobile. SMS spawns a fresh CC chat (SMS thread persistence is the open build).
+> - **Auto-preview substrate** (write `.md` / `.html` to disk -> IDE preview tab via PostToolUse hook) is the live render target for any rich content I want him to see. See [[auto-preview-md-html-on-write-2026-05-16]].
+>
+> The download-button / render-html / Supabase-storage primitives below still WORK (the endpoints exist), but they render to a frontend Tate does not open. Prefer writing the artefact to `backend/drafts/<slug>.md` or `.html` and letting the auto-preview tab appear in his IDE.
+
+Tate previously saw rich interactive content via EcodiaOS frontend.
 
 ### Download Buttons
 
@@ -1020,6 +1085,20 @@ Live rendered HTML preview directly inside chat: use html code block:
 ````
 
 Frontend detects html code blocks, renders as interactive iframes.
+
+### Auto-preview on Write (Corazon IDEs, shipped 16 May 2026)
+
+Any `.md` / `.html` file written or edited under the backend workspace automatically pops a preview tab in every running IDE (Cursor + VS Code Stable + VS Code Insiders). PostToolUse hook -> tiny extension per IDE -> `markdown.showPreviewToSide` for .md, `simpleBrowser.show` for .html.
+
+**Behavioural rule (default for all chats):** when the deliverable is "render this for Tate," WRITE the file to disk (`backend/drafts/<slug>.md` or `.html`) instead of pasting the content as a chat code block. The preview appears in his IDE with zero friction. The chat stays clean.
+
+Components:
+- Extension: `backend/laptop-agent/cursor-preview-extension/` (junctioned into all three IDE extensions dirs via `install.ps1`)
+- Hook: `backend/.claude/hooks/open-preview.js`, registered in `backend/.claude/settings.json` PostToolUse matcher `Write|Edit|MultiEdit`
+- Registry: `%USERPROFILE%/.ecodia-preview/instances.json`
+- Verify alive: `cat $env:USERPROFILE\.ecodia-preview\instances.json` should list one entry per running IDE
+
+Full doctrine: `~/ecodiaos/backend/patterns/auto-preview-md-html-on-write-2026-05-16.md`.
 
 ### Supabase Storage
 

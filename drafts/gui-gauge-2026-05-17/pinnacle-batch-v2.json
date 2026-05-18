@@ -1,0 +1,16 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.navigate", "params": { "url": "https://www.coexistapp.com.au/", "waitUntil": "networkidle2", "timeout": 20000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){return {url:location.href,title:document.title,h1Count:document.querySelectorAll('h1').length,h2Count:document.querySelectorAll('h2').length,buttonCount:document.querySelectorAll('button,a[role=button]').length,linkCount:document.querySelectorAll('a').length,bodyLen:(document.body.innerText||'').length}})()" } },
+      { "tool": "cdp.queryAll", "params": { "selector": "h1, h2, h3", "fields": { "tag": "@tagName", "text": "@text" }, "limit": 30 } },
+      { "tool": "cdp.queryAll", "params": { "selector": "a[href]", "fields": { "text": "@text", "href": "@href" }, "limit": 30 } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "keepIntermediateScreenshots": false,
+    "includeStepResults": true
+  }
+}

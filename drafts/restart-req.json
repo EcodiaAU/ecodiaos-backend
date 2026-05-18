@@ -1,0 +1,1 @@
+{"tool":"shell.shell","params":{"command":"powershell -NoProfile -File D:\\.code\\eos-laptop-agent\\restart-detached.ps1; 'queued'"}}

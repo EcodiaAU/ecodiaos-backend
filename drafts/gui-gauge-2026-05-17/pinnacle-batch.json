@@ -1,0 +1,16 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://vercel.com/ecodia/~/deployments", "waitUntil": "networkidle2", "timeout": 20000 } },
+      { "tool": "cdp.wait", "params": { "selector": "a[href*='/ecodia/']", "timeout": 8000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var rows=[];document.querySelectorAll('a[href*=\\\"/ecodia/\\\"][href*=\\\"/deployments/\\\"]').forEach(function(a){var u=a.href||'';if(u.indexOf('/deployments/')<0)return;rows.push({href:a.getAttribute('href'),text:(a.textContent||'').trim().slice(0,200)})});return {count:rows.length, sample:rows.slice(0,5)}})()" } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "keepIntermediateScreenshots": false,
+    "includeStepResults": true
+  }
+}

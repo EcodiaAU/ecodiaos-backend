@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ecodia Preview - HTML Smoke Test</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at 30% 20%, #1a3a2e 0%, #0a0f0d 60%);
+    color: #d6efe2;
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+  }
+  .card {
+    background: rgba(20, 30, 25, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(120, 200, 160, 0.2);
+    border-radius: 16px;
+    padding: 3rem 3.5rem;
+    max-width: 540px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #8fe5b6;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: #6fa087;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+  .checks {
+    list-style: none;
+    text-align: left;
+    margin: 2rem 0;
+  }
+  .checks li {
+    padding: 0.75rem 1rem;
+    background: rgba(40, 60, 50, 0.4);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .checks li::before {
+    content: "->";
+    color: #8fe5b6;
+    font-family: ui-monospace, monospace;
+  }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #b8e6c8;
+  }
+  .footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(120, 200, 160, 0.1);
+    color: #5a8070;
+    font-size: 0.8rem;
+  }
+  .pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #8fe5b6;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.3); }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>HTML preview works.</h1>
+  <p class="subtitle"><span class="pulse"></span>rendered via <code>simpleBrowser.show</code> in-IDE</p>
+  <ul class="checks">
+    <li>Hook fired on <code>Write *.html</code></li>
+    <li>Registry resolved 3 listening instances</li>
+    <li>Each extension opened a Simple Browser tab</li>
+    <li>You did nothing</li>
+  </ul>
+  <div class="footer">ecodia.preview 0.1.0 - friction removed</div>
+</div>
+</body>
+</html>

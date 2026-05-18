@@ -1,0 +1,40 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "notification.toast", "params": { "title": "GUI Beast Dance", "body": "Starting multi-app orchestration" } },
+      { "tool": "screenshot.screenshot", "params": {} },
+
+      { "tool": "explorer.open", "params": { "path": "D:/.code/EcodiaOS/backend/patterns" } },
+      { "tool": "wait", "params": { "ms": 1500 } },
+      { "tool": "screenshot.screenshot", "params": {} },
+      { "tool": "window.foreground", "params": {} },
+
+      { "tool": "vscode.focus", "params": { "ide": "insiders" } },
+      { "tool": "wait", "params": { "ms": 700 } },
+      { "tool": "screenshot.screenshot", "params": {} },
+
+      { "tool": "cursor.focus", "params": {} },
+      { "tool": "wait", "params": { "ms": 700 } },
+      { "tool": "screenshot.screenshot", "params": {} },
+
+      { "tool": "vscode.focus", "params": { "ide": "stable" } },
+      { "tool": "wait", "params": { "ms": 700 } },
+      { "tool": "screenshot.screenshot", "params": {} },
+
+      { "tool": "clipboard.write", "params": { "text": "116 tools / 19 namespaces / 3 IDEs + Explorer + Chrome + UIA all driven in one batch - beast mode achieved" } },
+      { "tool": "clipboard.read", "params": {} },
+
+      { "tool": "vscode.focus", "params": { "ide": "insiders" } },
+      { "tool": "wait", "params": { "ms": 600 } },
+
+      { "tool": "notification.toast", "params": { "title": "GUI Beast Dance Complete", "body": "Drove File Explorer + VS Code Stable + Insiders + Cursor + Chrome CDP + clipboard in 19 actions, one HTTP call" } },
+
+      { "tool": "screenshot.screenshot", "params": {} }
+    ],
+    "stopOnError": false,
+    "finalScreenshot": true,
+    "keepIntermediateScreenshots": true,
+    "includeStepResults": true
+  }
+}

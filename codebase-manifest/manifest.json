@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "authored": "2026-05-15",
+  "authored_by": "phase2-01-codebase-awareness",
+  "root": "D:/.code",
+  "codebases": [
+    {
+      "id": "ecodiaos-backend",
+      "path": "D:/.code/EcodiaOS/backend",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": "patterns/",
+      "docs_subdir": "docs/",
+      "test_command": "npm test",
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vps-pm2-ecodia-api", "vps-pm2-ecodia-meetings"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.md", "**/*.json", "**/*.sql"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "logs/**",
+        "documents/**",
+        "archive/**",
+        "drafts/**",
+        "journal/**",
+        "research/**",
+        "public/**",
+        "ops/snapshots/**",
+        "**/*.min.js",
+        "**/*.map"
+      ]
+    },
+    {
+      "id": "ecodiaos-frontend",
+      "path": "D:/.code/EcodiaOS/frontend",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": null,
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vercel-admin-ecodia-au"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.css"],
+      "watcher_ignore": ["node_modules/**", ".git/**", "dist/**", ".next/**", "build/**", "public/**"]
+    },
+    {
+      "id": "coexist",
+      "path": "D:/.code/coexist",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": "npm test",
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vercel-coexist", "ios-asc-coexist", "android-play-coexist"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.vue", "**/*.css"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "build/**",
+        "ios/App/Pods/**",
+        "ios/App/build/**",
+        "android/app/build/**",
+        "android/.gradle/**",
+        "android/build/**",
+        "data/**",
+        "public/**"
+      ]
+    },
+    {
+      "id": "roam-backend",
+      "path": "D:/.code/roam/backend",
+      "language": "python",
+      "primary_lockfile": "requirements.txt",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": "pytest",
+      "lint_command": "ruff check",
+      "deploy_targets": ["fly-roam-backend"],
+      "watcher_glob": ["**/*.py", "**/*.md", "**/*.toml", "**/*.yaml", "**/*.yml", "**/*.sql"],
+      "watcher_ignore": [
+        ".git/**",
+        "__pycache__/**",
+        "**/*.pyc",
+        ".venv/**",
+        "venv/**",
+        "logs/**",
+        ".pytest_cache/**"
+      ]
+    },
+    {
+      "id": "roam-frontend",
+      "path": "D:/.code/roam/frontend",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": null,
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vercel-roam", "ios-asc-roam", "android-play-roam"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.css"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "out/**",
+        "build/**",
+        "ios/App/Pods/**",
+        "ios/App/build/**",
+        "android/app/build/**",
+        "android/.gradle/**"
+      ]
+    },
+    {
+      "id": "patterns-corpus",
+      "path": "D:/.code/EcodiaOS/backend/patterns",
+      "language": "markdown",
+      "primary_lockfile": null,
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": [],
+      "watcher_glob": ["**/*.md"],
+      "watcher_ignore": ["_archived/**", ".git/**"]
+    }
+  ]
+}

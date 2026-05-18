@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "authored": "2026-05-15",
+  "doc": "Streaming substrate channel registry. Source of truth for stream.list_channels and the streamingService boot path. See backend/patterns/streaming-substrate-complement-to-mcp-2026-05-15.md.",
+  "channels": [
+    {
+      "name": "vercel.deploys",
+      "description": "Live Vercel deploy events as they happen, after signature verification in the vercel-fire-shim",
+      "publisher": "vercel-webhook-fire-shim",
+      "retention_count": 200,
+      "retention_ttl_seconds": 86400
+    },
+    {
+      "name": "stripe.events",
+      "description": "Stripe webhook events post-signature-verify, broadcast for live financial dashboards",
+      "publisher": "stripe-webhook-fire-shim",
+      "retention_count": 500,
+      "retention_ttl_seconds": 604800
+    },
+    {
+      "name": "corazon.files",
+      "description": "File save events from Corazon's chokidar watcher",
+      "publisher": "corazon-file-watcher",
+      "retention_count": 100,
+      "retention_ttl_seconds": 3600
+    },
+    {
+      "name": "meetings.live",
+      "description": "Live transcript chunks from ecodia-meetings while a meeting is in progress",
+      "publisher": "ecodia-meetings",
+      "retention_count": 50,
+      "retention_ttl_seconds": 600
+    },
+    {
+      "name": "observer.signals",
+      "description": "PostToolUse observer_signal events from Corazon (no-substrate-write-streak, thin-context, episode-overdue)",
+      "publisher": "observer-signal-hook",
+      "retention_count": 100,
+      "retention_ttl_seconds": 7200
+    },
+    {
+      "name": "status_board.writes",
+      "description": "Every status_board.upsert call broadcast for live dashboards",
+      "publisher": "mcp-status-board-tool",
+      "retention_count": 200,
+      "retention_ttl_seconds": 86400
+    }
+  ]
+}

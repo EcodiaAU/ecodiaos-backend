@@ -384,8 +384,13 @@ app.use(require('./routes/voiceChunk'))
 app.use('/api/meetings', require('./routes/meetings'))
 // /api/voice/* REST tools - Deepgram transcribe/synthesize/live-session.
 // /api/voice/incoming and /api/voice/relay are registered directly in
+<<<<<<< Updated upstream
 // voiceRelay.js (TwiML POST + Twilio Media Streams WS). Express matches the
 // direct app.post/app.ws routes first, then falls through to this router.
+=======
+// voiceRelay.js (TwiML POST + Twilio Media Streams WS). Mounting the router
+// after those direct routes lets express match exact paths first.
+>>>>>>> Stashed changes
 app.use('/api/voice', require('./routes/voiceTools'))
 
 // Error handler (must be last)

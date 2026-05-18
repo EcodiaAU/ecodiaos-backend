@@ -1,0 +1,25 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/EcodiaTate", "waitUntil": "networkidle2", "timeout": 20000 } },
+      { "tool": "cdp.wait", "params": { "selector": "h1, [data-testid='UnderlineNav']", "timeout": 8000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){return {url:location.href,title:document.title,orgName:(document.querySelector('h1')||{}).innerText||null,h2Count:document.querySelectorAll('h2').length,pinnedRepoCount:document.querySelectorAll('[data-hovercard-type=repository]').length,linkCount:document.querySelectorAll('a').length}})()" } },
+      { "tool": "cdp.queryAll", "params": {
+          "selector": "a[data-hovercard-type='repository']",
+          "fields": { "name": "@text", "href": "@href" },
+          "limit": 12
+      } },
+      { "tool": "cdp.queryAll", "params": {
+          "selector": "[data-tab-item='repositories'] a, nav a",
+          "fields": { "label": "@text", "href": "@href" },
+          "limit": 10
+      } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "includeStepResults": true
+  }
+}

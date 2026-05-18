@@ -1,0 +1,16 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "gui.launch_cdp_chrome", "params": {} },
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/EcodiaTate", "waitUntil": "domcontentloaded", "timeout": 25000 } },
+      { "tool": "cdp.wait", "params": { "selector": "h1, main", "timeout": 8000 } },
+      { "tool": "cdp.runJs", "params": { "timeout": 25000, "js": "(async function(){const repos=await fetch('https://api.github.com/users/EcodiaTate/repos?sort=pushed&per_page=15').then(r=>r.json());if(!Array.isArray(repos))return {error:'repos not array',raw:repos};const slim=repos.map(r=>({name:r.name,description:r.description||'',language:r.language,stars:r.stargazers_count,forks:r.forks_count,openIssues:r.open_issues_count,watchers:r.watchers_count,defaultBranch:r.default_branch,pushedAt:r.pushed_at,size_kb:r.size,visibility:r.visibility}));const top=slim[0];const drillBase='https://api.github.com/repos/EcodiaTate/'+top.name;const[commits,issues,prs,langs,contribs]=await Promise.all([fetch(drillBase+'/commits?per_page=10').then(r=>r.json()),fetch(drillBase+'/issues?state=open&per_page=20').then(r=>r.json()),fetch(drillBase+'/pulls?state=open&per_page=20').then(r=>r.json()),fetch(drillBase+'/languages').then(r=>r.json()),fetch(drillBase+'/contributors?per_page=10').then(r=>r.json())]);const slimCommits=Array.isArray(commits)?commits.slice(0,10).map(c=>({sha:(c.sha||'').slice(0,7),message:((c.commit&&c.commit.message)||'').split('\\n')[0].slice(0,140),author:(c.commit&&c.commit.author&&c.commit.author.name)||'',date:(c.commit&&c.commit.author&&c.commit.author.date)||''})):[];const slimIssues=Array.isArray(issues)?issues.filter(i=>!i.pull_request).slice(0,10).map(i=>({number:i.number,title:(i.title||'').slice(0,120),state:i.state,createdAt:i.created_at,labels:(i.labels||[]).map(l=>l.name)})):[];const slimPrs=Array.isArray(prs)?prs.slice(0,10).map(p=>({number:p.number,title:(p.title||'').slice(0,120),state:p.state,createdAt:p.created_at,branch:p.head&&p.head.ref})):[];const totalBytes=Object.values(langs||{}).reduce((a,b)=>a+b,0);const langPct={};Object.keys(langs||{}).forEach(k=>{langPct[k]=Math.round((langs[k]/totalBytes)*1000)/10});const slimContribs=Array.isArray(contribs)?contribs.slice(0,8).map(c=>({login:c.login,contributions:c.contributions})):[];return {orgRepoCount:slim.length,allRepos:slim,drilldownTarget:top.name,drilldown:{commits:slimCommits,openIssueCount:slimIssues.length,openIssues:slimIssues,openPrCount:slimPrs.length,openPrs:slimPrs,languageBytes:langs,languagePercent:langPct,totalContributors:slimContribs.length,topContributors:slimContribs}}})()" } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "includeStepResults": true
+  }
+}

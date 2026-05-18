@@ -33,6 +33,7 @@ const messageQueue = require('../../services/messageQueue')
 // before Cypher interpolation.
 const { coerceLabel, coerceRelType } = require('../../lib/cypher/labelAllowlist')
 const forkService = require('../../services/forkService')
+const streaming = require('../../services/streamingService')
 const osSession = require('../../services/osSessionService')
 
 router.use(express.json({ limit: '2mb' }))
@@ -241,6 +242,20 @@ router.post('/status_board.upsert', scope.requireScope('write.status_board.cowor
       affected_row_ref: row?.id,
       request_summary: { entity_type, name, action },
       response_summary: { action, row_id: row?.id },
+    })
+
+    streaming.publishSync('status_board.writes', {
+      event_type: 'status_board.' + action,
+      payload: {
+        row_id: row?.id,
+        entity_type: row?.entity_type,
+        name: row?.name,
+        status: row?.status,
+        priority: row?.priority,
+        next_action_by: row?.next_action_by,
+        cowork_session_id: row?.cowork_session_id,
+        action,
+      },
     })
 
     return { row, action, archived: !!row.archived_at }
@@ -1388,6 +1403,118 @@ router.post('/scheduler.list', scope.requireScope('read.scheduler.list'), async 
               ORDER BY next_run_at ASC NULLS LAST LIMIT ${limit}
             `)
     res.json({ tasks: rows, count: rows.length, name_prefix_filter: namePrefix })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+// ── checkpoint.* (Phase 2 Lane 09, 2026-05-15) ───────────────────────────
+// Multi-hour project chains via self-scheduled one_shot Routines. See
+// backend/patterns/multi-hour-project-via-self-scheduled-routine-chain-2026-05-15.md.
+const checkpointMcp = require('./cowork.checkpoint')
+checkpointMcp.mount(router, { db, scope, audit, withIdempotency, _serverError })
+
+// ── stream.* (Phase 2 Lane 06, 2026-05-15) ───────────────────────────────
+// Streaming substrate complement to MCP. Channel registry at
+// backend/streaming/channels.json. See backend/patterns/streaming-substrate-complement-to-mcp-2026-05-15.md.
+//
+// Scopes:
+//   - stream.list_channels and stream.tail use read.kv_store (channel
+//     persistence lives in kv_store.cowork.stream.<channel>.events).
+//   - stream.publish uses write.kv_store.cowork_namespace (same backing
+//     store; events are persisted as cowork.stream.* keys).
+//   - stream.subscribe uses read.kv_store (window-bounded, read-only fan-out).
+
+router.post('/stream.list_channels', scope.requireScope('read.kv_store'), async (_req, res) => {
+  try {
+    res.json({ channels: streaming.listChannels() })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+router.post('/stream.tail', scope.requireScope('read.kv_store'), async (req, res) => {
+  try {
+    const channel = req.body?.channel
+    const limit = req.body?.limit
+    if (!channel) {
+      return res.status(422).json({ error: 'missing_field', field: 'channel' })
+    }
+    if (!streaming.isKnownChannel(channel)) {
+      return res.status(404).json({ error: 'unknown_channel', channel })
+    }
+    const events = await streaming.recent(channel, limit)
+    res.json({ channel, count: events.length, events })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+router.post('/stream.subscribe', scope.requireScope('read.kv_store'), async (req, res) => {
+  try {
+    const channel = req.body?.channel
+    if (!channel) {
+      return res.status(422).json({ error: 'missing_field', field: 'channel' })
+    }
+    if (!streaming.isKnownChannel(channel)) {
+      return res.status(404).json({ error: 'unknown_channel', channel })
+    }
+    const requested = parseInt(req.body?.duration_seconds, 10)
+    const durationSeconds = Math.min(Math.max(Number.isFinite(requested) ? requested : 60, 1), 300)
+    const sinceId = req.body?.since_id ? String(req.body.since_id) : null
+
+    const collected = []
+    let resolved = false
+    const replay = await streaming.eventsSince(channel, sinceId)
+    for (const e of replay) collected.push(e)
+    const startedAt = Date.now()
+    const stopAt = startedAt + durationSeconds * 1000
+    let unsubscribe = null
+    let timer = null
+
+    await new Promise((resolve) => {
+      const finish = () => {
+        if (resolved) return
+        resolved = true
+        try { unsubscribe && unsubscribe() } catch {}
+        if (timer) clearTimeout(timer)
+        resolve()
+      }
+      unsubscribe = streaming.subscribe(channel, (evt) => {
+        collected.push(evt)
+        if (Date.now() >= stopAt) finish()
+      })
+      timer = setTimeout(finish, durationSeconds * 1000)
+      if (typeof timer.unref === 'function') timer.unref()
+    })
+
+    res.json({
+      channel,
+      duration_seconds: durationSeconds,
+      since_id: sinceId,
+      count: collected.length,
+      events: collected,
+    })
+  } catch (err) {
+    return _serverError(res, err)
+  }
+})
+
+router.post('/stream.publish', scope.requireScope('write.kv_store.cowork_namespace'), async (req, res) => {
+  try {
+    const channel = req.body?.channel
+    const event_type = req.body?.event_type
+    if (!channel || !event_type) {
+      return res.status(422).json({ error: 'missing_fields', required: ['channel', 'event_type'] })
+    }
+    if (!streaming.isKnownChannel(channel)) {
+      return res.status(404).json({ error: 'unknown_channel', channel })
+    }
+    const evt = await streaming.publish(channel, {
+      event_type,
+      payload: req.body?.payload ?? null,
+    })
+    res.status(202).json({ accepted: true, event: evt })
   } catch (err) {
     return _serverError(res, err)
   }

@@ -1,0 +1,18 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "input.click", "params": { "x": 795, "y": 743 } },
+      { "tool": "wait", "params": { "ms": 400 } },
+      { "tool": "input.shortcut", "params": { "keys": ["ctrl", "l"] } },
+      { "tool": "wait", "params": { "ms": 200 } },
+      { "tool": "input.type", "params": { "text": "vercel.com/ecodia/~/deployments" } },
+      { "tool": "wait", "params": { "ms": 150 } },
+      { "tool": "input.key", "params": { "key": "enter" } },
+      { "tool": "wait", "params": { "ms": 4000 } },
+      { "tool": "screenshot.screenshot" }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true
+  }
+}

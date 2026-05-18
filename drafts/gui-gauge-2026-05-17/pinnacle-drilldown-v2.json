@@ -1,0 +1,19 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/EcodiaTate?tab=repositories&sort=updated&direction=desc", "waitUntil": "networkidle2", "timeout": 25000 } },
+      { "tool": "cdp.wait", "params": { "selector": "#user-repositories-list ul li, [data-tab-item='repositories']", "timeout": 10000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var lis=document.querySelectorAll('#user-repositories-list ul li');var repos=[];lis.forEach(function(li){var a=li.querySelector('h3 a, a[itemprop*=\\\"name\\\"]');if(!a)return;var name=(a.textContent||'').trim();var href=a.getAttribute('href')||'';var desc=(li.querySelector('p[itemprop=description], p')||{}).textContent||'';var lang=(li.querySelector('[itemprop=programmingLanguage]')||{}).textContent||'';var rt=li.querySelector('relative-time');var time=rt?(rt.getAttribute('datetime')||''):'';repos.push({name:name,href:href,description:desc.trim().slice(0,140),language:lang.trim(),updated:time});});window.__repos=repos;return {totalCount:repos.length, repos:repos.slice(0,10)}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var r=window.__repos||[];var top=null;var bestTime=0;r.forEach(function(x){var t=Date.parse(x.updated);if(t>bestTime){bestTime=t;top=x;}});window.__top=top;return {chosen:top, updatedAt:top?top.updated:null}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var t=window.__top;if(!t)return {error:'no top repo'};var url='https://github.com'+t.href+'/commits';location.href=url;return {navigatingTo:url}})()" } },
+      { "tool": "cdp.wait", "params": { "selector": "div[data-testid=commit-row-item], a[href*='/commit/']", "timeout": 15000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var rows=document.querySelectorAll('div[data-testid=commit-row-item]');var commits=[];rows.forEach(function(c){var msgA=c.querySelector('h4 a, a[data-testid*=commit-message]');var sha=(c.querySelector('a[href*=\\\"/commit/\\\"]')||{}).getAttribute&&(c.querySelector('a[href*=\\\"/commit/\\\"]')||{}).getAttribute('href')||'';var sm=sha.match(/\\/commit\\/([0-9a-f]+)/);var author=(c.querySelector('a[data-hovercard-type=user]')||{}).textContent||'';var rt=c.querySelector('relative-time');var time=rt?(rt.getAttribute('datetime')||''):'';commits.push({message:msgA?(msgA.textContent||'').trim().slice(0,160):'',sha:sm?sm[1].slice(0,7):'',author:author.trim(),time:time});});return {repoUrl:location.href.split('/commits')[0], title:document.title, commitCount:commits.length, commits:commits.slice(0,12)}})()" } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "includeStepResults": true
+  }
+}

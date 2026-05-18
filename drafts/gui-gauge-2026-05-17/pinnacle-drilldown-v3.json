@@ -1,0 +1,19 @@
+{
+  "tool": "gui.sequence",
+  "params": {
+    "actions": [
+      { "tool": "cdp.attach", "params": {} },
+      { "tool": "cdp.navigate", "params": { "url": "https://github.com/EcodiaTate?tab=repositories&sort=updated&direction=desc", "waitUntil": "networkidle2", "timeout": 25000 } },
+      { "tool": "cdp.wait", "params": { "selector": "#user-repositories-list ul li", "timeout": 10000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var lis=document.querySelectorAll('#user-repositories-list ul li');var repos=[];lis.forEach(function(li){var a=li.querySelector('h3 a, a[itemprop*=\\\"name\\\"]');if(!a)return;var name=(a.textContent||'').trim();var href=a.getAttribute('href')||'';var desc=(li.querySelector('p[itemprop=description], p')||{}).textContent||'';var lang=(li.querySelector('[itemprop=programmingLanguage]')||{}).textContent||'';var rt=li.querySelector('relative-time');var time=rt?(rt.getAttribute('datetime')||''):'';repos.push({name:name,href:href,description:desc.trim().slice(0,140),language:lang.trim(),updated:time});});window.__repos=repos;return {totalCount:repos.length, top5:repos.slice(0,5)}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var r=window.__repos||[];var top=null;var best=0;r.forEach(function(x){var t=Date.parse(x.updated);if(t>best){best=t;top=x;}});window.__top=top;return {chosen:top?top.name:null, updatedAt:top?top.updated:null, href:top?top.href:null}})()" } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){if(!window.__top)return {error:'no top'};var url='https://github.com'+window.__top.href+'/commits';location.href=url;return {navigatingTo:url}})()" } },
+      { "tool": "cdp.wait", "params": { "selector": "a[href*='/commit/']", "timeout": 15000 } },
+      { "tool": "cdp.runJs", "params": { "js": "(function(){var commits=[];var seen=new Set();document.querySelectorAll('a[href*=\\\"/commit/\\\"]').forEach(function(a){var href=a.getAttribute('href')||'';var m=href.match(/\\/commit\\/([0-9a-f]{7,40})/);if(!m)return;var sha=m[1].slice(0,7);if(seen.has(sha))return;seen.add(sha);var container=a.closest('li, article, div[data-testid], tr')||a.parentElement&&a.parentElement.parentElement;var msg=(a.textContent||'').trim();if(!msg||msg.length<3){var ml=container&&container.querySelector('a[href*=\\\"/commit/\\\"]');if(ml)msg=(ml.textContent||'').trim();}var t=container&&container.querySelector('relative-time, time');var time=t?(t.getAttribute('datetime')||''):'';var authorEl=container&&container.querySelector('a[data-hovercard-type=user], a[href^=\\\"/\\\"][href*=\\\"author\\\"]');var author=authorEl?(authorEl.textContent||'').trim():'';commits.push({sha:sha,message:msg.slice(0,160),author:author,time:time});});return {url:location.href, title:document.title, totalCommitAnchors:document.querySelectorAll('a[href*=\\\"/commit/\\\"]').length, uniqueCommits:commits.length, top10:commits.slice(0,10)}})()" } },
+      { "tool": "cdp.pageScreenshot", "params": { "fullPage": false } }
+    ],
+    "stopOnError": true,
+    "finalScreenshot": true,
+    "includeStepResults": true
+  }
+}

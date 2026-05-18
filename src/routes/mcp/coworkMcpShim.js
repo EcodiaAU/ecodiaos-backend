@@ -445,6 +445,123 @@ const TOOLS = Object.freeze([
       additionalProperties: true,
     },
   },
+  {
+    name: 'checkpoint.schedule',
+    description:
+      'Schedule the next wake-up in a multi-hour project chain. Composes a self-resuming Routine prompt that reads chain state, executes action_brief, decides next step, and either re-schedules (iteration+1) or terminates. wake_in: "in 30m" | "in 2h" | "tomorrow HH:MM" | ISO datetime. Defaults: account=code, iteration=1, max_iterations=20. Hard caps: max_iterations<=50, chain wall-time<=7d. Returns chain_id + task_id + wake_at.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id:     { type: 'string', description: 'status_board row id this chain advances.' },
+        wake_in:        { type: 'string', description: '"in 30m" | "in 2h" | "tomorrow HH:MM" | ISO 8601 datetime' },
+        action_brief:   { type: 'string', description: 'What future-me should do when waking. Read by the composed Routine prompt.' },
+        chain_id:       { type: 'string', description: 'Optional. Auto-generated on iteration=1. Pass the same id on subsequent iterations.' },
+        iteration:      { type: 'integer', minimum: 1, default: 1, description: '1-based checkpoint counter for this chain.' },
+        max_iterations: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+        account:        { type: 'string', enum: ['tate', 'code', 'money'], default: 'code', description: 'Which account fires the wake-up Routine.' },
+        cowork_session_id: { type: 'string' },
+        idempotency_key:   { type: 'string' },
+      },
+      required: ['project_id', 'wake_in', 'action_brief'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'checkpoint.status',
+    description:
+      'Read chain state + all os_scheduled_tasks rows associated with a checkpoint chain.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chain_id: { type: 'string' },
+      },
+      required: ['chain_id'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'checkpoint.list',
+    description:
+      'List checkpoint chains in kv_store.cowork.checkpoint_chains.*. Filter by status (default "active"); pass "all" for everything.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['active', 'stopped', 'archived', 'completed', 'failed', 'blocked', 'all'], default: 'active' },
+        limit:  { type: 'integer', minimum: 1, maximum: 200, default: 50 },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'checkpoint.stop',
+    description:
+      'Emergency-stop a checkpoint chain. Marks chain state stopped and pauses all active os_scheduled_tasks rows whose name starts with cowork.checkpoint.<chain_id>.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chain_id: { type: 'string' },
+        reason:   { type: 'string' },
+        cowork_session_id: { type: 'string' },
+        idempotency_key:   { type: 'string' },
+      },
+      required: ['chain_id'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stream.list_channels',
+    description:
+      'List the streaming substrate channel registry from backend/streaming/channels.json. Returns name, description, publisher, retention_count, retention_ttl_seconds for each channel.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stream.tail',
+    description:
+      'Synchronous tail of the most recent events on a channel. Returns immediately. limit default 20, max 500.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: { type: 'string', description: 'Channel name from stream.list_channels.' },
+        limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 },
+      },
+      required: ['channel'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stream.subscribe',
+    description:
+      'Open a bounded SSE-style subscription on a channel and return all events received in the duration_seconds window. Bounded so the MCP call cannot block forever. duration_seconds default 60, max 300.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: { type: 'string' },
+        duration_seconds: { type: 'integer', minimum: 1, maximum: 300, default: 60 },
+        since_id: { type: 'string', description: 'Optional. Replay events newer than this id before the live tail.' },
+      },
+      required: ['channel'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stream.publish',
+    description:
+      'Publish an event to a channel. Useful for broadcasting "I just shipped X" notifications other surfaces (live dashboards, CodeLens) can react to.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: { type: 'string' },
+        event_type: { type: 'string', description: 'Free-form event class, e.g. vercel.deploy.ready.' },
+        payload: { description: 'Any JSON-serialisable value.' },
+      },
+      required: ['channel', 'event_type'],
+      additionalProperties: true,
+    },
+  },
 ])
 
 const TOOL_NAMES = new Set(TOOLS.map(t => t.name))

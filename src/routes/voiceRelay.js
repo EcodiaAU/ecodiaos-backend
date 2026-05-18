@@ -28,7 +28,11 @@
  *   LLM:  $0  (Max account)
  *   Total: ~$0.40/hr vs $4.50/hr for Voice Agent Standard.
  *
+<<<<<<< Updated upstream
  * Authored: 12 May 2026.
+=======
+ * Authored: fork_mp29xxxx_<rewrite>, 2026-05-12.
+>>>>>>> Stashed changes
  */
 'use strict'
 

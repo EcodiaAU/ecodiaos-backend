@@ -1,0 +1,21 @@
+{
+  "name": "@ecodiaos/codebase-manifest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Continuous codebase awareness substrate - SQLite index + chokidar watcher + 50-word Haiku summaries across all D:/.code/ codebases.",
+  "main": "indexer.js",
+  "type": "commonjs",
+  "scripts": {
+    "index:full": "node indexer.js --full",
+    "index:watch": "node indexer.js --watch",
+    "mcp:serve": "node mcp-server.js",
+    "orient": "node orient.js"
+  },
+  "dependencies": {
+    "@babel/parser": "*",
+    "@babel/traverse": "*",
+    "better-sqlite3": "^11.3.0",
+    "chokidar": "*",
+    "glob": "*"
+  }
+}
