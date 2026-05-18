@@ -15,14 +15,6 @@
       },
       "_comment": "Local coord bus on Corazon (laptop-agent). 8 coord.* tools for inter-CC-tab coordination. Workers identify via X-Tab-Id + X-Tab-Credential headers, or via tab_id/tab_credential in tool params. Shipped 2026-05-18."
     },
-    "ecodia-full": {
-      "type": "http",
-      "url": "https://api.admin.ecodia.au/api/mcp/ecodia-full",
-      "headers": {
-        "Authorization": "Bearer b31312a007e1972b7bfd860ba9f4c27d4e6d663a4abdc26ce3aa316a02a408e4"
-      },
-      "_comment_lane_e": "Wider bearer (68 scopes). Re-exposes all 22 cowork tools + proxies 10 stdio MCP servers (135 child tools) for a single-bearer 157-tool surface. shell_exec gated. Shipped 2026-05-15."
-    },
     "factory": {
       "type": "stdio",
       "command": "/home/tate/ecodiaos/mcp-servers/factory/start.sh",
@@ -89,6 +81,17 @@
       "command": "node",
       "args": ["D:/.code/EcodiaOS/mcp-servers/visual-test/index.js"],
       "_comment_phase_2_08": "Visual testing substrate shipped 2026-05-15 (Phase 2 / 08). Wraps laptop-hands HTTP service at HANDS_URL with HMAC over HANDS_SHARED_SECRET. Surfaces browser.* + android.* + ios.* (stubs) + visual.* recipe/regression tools. Reachable via ecodia-full proxy once registered server-side."
+    }
+  },
+  "_disabled": {
+    "ecodia-full": {
+      "_disabled_at": "2026-05-18",
+      "_disabled_reason": "code@ Claude routines were stalling on per-tool 'Allow Claude to use X?' dialogs because Claude preferred this project-local server over the auto-approved account-level narrow connectors. Removed from active mcpServers to force routine + Corazon sessions to use the narrow connectors (ecodia-core, ecodia-comms, ecodia-scheduler, ecodia-crm, ecodia-graph, ecodia-money, ecodia-code, ecodia-factory, ecodia-supabase) which auto-approve via the account connector path. Aligns with the 2026-06-14 ecodia-full deprecation. To re-enable: move this block back under mcpServers.",
+      "type": "http",
+      "url": "https://api.admin.ecodia.au/api/mcp/ecodia-full",
+      "headers": {
+        "Authorization": "Bearer b31312a007e1972b7bfd860ba9f4c27d4e6d663a4abdc26ce3aa316a02a408e4"
+      }
     }
   }
 }
