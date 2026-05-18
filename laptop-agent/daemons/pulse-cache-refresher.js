@@ -121,11 +121,22 @@ async function _callTool(name, args) {
       .map((c) => c.text)
       .join('')
     if (!text) return result
-    try {
-      return JSON.parse(text)
-    } catch (_) {
-      return text
+    let parsed
+    try { parsed = JSON.parse(text) } catch (_) { return text }
+    // 2026-05-18 unwrap fix: ecodia-full MCP proxies stdio MCPs, which means
+    // the response is doubly wrapped: outer result.content[0].text is the
+    // inner MCP envelope `{content:[{type:'text',text:'<actual JSON>'}]}`.
+    // Recursively unwrap.
+    if (parsed && Array.isArray(parsed.content)) {
+      const innerText = parsed.content
+        .filter((c) => c && c.type === 'text' && typeof c.text === 'string')
+        .map((c) => c.text)
+        .join('')
+      if (innerText) {
+        try { return JSON.parse(innerText) } catch (_) { return innerText }
+      }
     }
+    return parsed
   }
   return result
 }
