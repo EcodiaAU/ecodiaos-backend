@@ -27,3 +27,14 @@ logs/telemetry/
 
 # Supabase CLI tooling cache.
 supabase/.temp/
+
+# MCP config holds live bearer tokens - keep local-only. .mcp.json.example
+# tracked as the shape template; copy + fill in real bearers from kv_store.
+.mcp.json
+
+# Path-mangled artefacts from coord writes that passed bad path strings.
+.codeEcodiaOScoordination/
+
+# Tmp/scratch dumps from one-shot test responses, screenshots, etc.
+tmp*
+*-shot-response.json
