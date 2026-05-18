@@ -138,11 +138,44 @@ Co-Exist is on a **substrate-tracked recurring billing schedule** (live 7 May 20
 **Doctrine:** `~/ecodiaos/patterns/recurring-billing-must-be-substrate-tracked-not-ad-hoc.md` (canonical), `~/ecodiaos/patterns/invoice-line-items-durable-doctrine.md`, `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md`.
 
 **Invoice register (manual log, mirror of `client_billing_generations`):**
-- INV-2026-001 (April 2026): build fee + first month licence + passthrough + tech assistance. PDF: `public/invoice-coexist-2026-001.pdf`.
-- INV-2026-002 (??): not present on disk; investigate before next render to avoid number collision.
-- INV-2026-003 (May 2026, **month 1 of 3 retainer**): $1,000 retainer + $200 licence + $82 passthrough = $1,282 ex-GST + $130.20 GST = $1,410.20. v2 PDF (with ABN + footer fix): `documents/invoices/inv-coexist-2026-003-FINAL-v2-2026-05-07.pdf`. Test-to-Tate gmail message id `19dff9aa78dccdf3` (sent 2026-05-07 by `fork_mouoh2fb_fcd4f2`). Awaiting Tate "send it" before forwarding to hello@coexistaus.org.
-- INV-2026-004 (June 2026, month 2 of 3): auto-draft 2026-06-07 via cron.
-- INV-2026-005 (July 2026, month 3 of 3): auto-draft 2026-07-07 via cron. After this fires, retainer line drops; INV-2026-006+ are licence + passthrough only.
+- INV-2026-001 (April 2026): build fee + first month licence + passthrough + tech assistance. PDF: `public/invoice-coexist-2026-001.pdf`. Sent 8 Apr 2026 to hello@coexistaus.org (gmail msg id `19d687d192871ced`).
+- INV-2026-002 (??): never rendered on disk; **sequence gap, not an actual invoice**. INV-2026-003 is the 2nd actual invoice (April = 1st, May = 2nd) despite the 003 numbering. Correction email sent to Kurt 2026-05-18 (gmail msg id `19e391f477a5b8c7`).
+- INV-2026-003 (May 2026, **2nd actual / month 1 of 3 retainer**): $1,000 retainer + $200 licence + $82 passthrough = $1,282 ex-GST + $130.20 GST = $1,410.20. v2 PDF: `documents/invoices/inv-coexist-2026-003-FINAL-v2-2026-05-07.pdf`. Sent 6 May 2026 to hello@coexistaus.org (gmail msg id `19dffa931a0f2cfd`). **Covers 7 May - 7 Jun 2026** (7th-to-7th cadence).
+- INV-2026-004 (June 2026, 3rd actual / month 2 of 3): auto-draft 2026-06-07 via cron. **Covers 7 Jun - 7 Jul 2026.** Projected total $1,462 ex-GST + $146.20 GST = **$1,608.20 incl GST** with current 3hrs MS365 tech support; adjusts up if more hours accrue before send.
+- INV-2026-005 (July 2026, 4th actual / month 3 of 3): auto-draft 2026-07-07 via cron. **Covers 7 Jul - 7 Aug 2026.** Last invoice of current retainer arc - after this fires, retainer line drops; INV-2026-006+ would be licence + passthrough only UNLESS the post-Aug renewal lands (which Kurt verbally locked in 2026-05-17 - see Renewal Arc section below).
+
+**Retainer coverage ENDS 7 August 2026** (not end of July). The 7-Jul send-date covers through 7-Aug-2026 inclusive per the 7th-to-7th cadence. Tate-window for landing the renewal contract: 7-15 July 2026 (status_board 59a67b24).
+
+**Tech support hours (live tally at `kv_store.cowork.coexist.tech_support_hours`):**
+- Rate: $60/hr ex GST.
+- Categories: `MS365 tech support` (Google Workspace / M365 / email / Teams / general workspace troubleshooting - the recurring tech-support stream Co-Exist has paid for since the original arrangement) | `app dev support` (Co-Exist app / Supabase backend / Capacitor hotfixes outside scheduled work) | `other`.
+- Current period (June billing): **3hrs MS365 tech support** logged 2026-05-18 (Tate bulk-recorded, specific session breakdown TBD).
+- Rules: hours accrued between invoice-send dates roll into NEXT invoice. Reset `hours_logged_for_period` to 0 after invoice send + Tate confirmation.
+
+---
+
+## Renewal Arc — post-2026-08-07 (verbal lock-in 2026-05-17)
+
+Tate confirmed verbally with Kurt the night of 2026-05-17 at Kurt's place that after the current 3-month operational retainer ends (coverage through 7 Aug 2026), Co-Exist returns to retainer + pays bulk payments for an expanded scope.
+
+**Expanded scope (verbal, not contracted):**
+- Unify website + app + impact-tracking systems into one coherent platform.
+- Replace the current Supabase-DB + Excel-sheet sync mess (Tate's words: "stupid", "obnoxious") with a proper integrated impact substrate. The Excel sync architecture documented above is the load-bearing example - we already have the doctrine to do this.
+- Reinstate MS365 tech support at **$1,000/month** (matches the prior arrangement).
+- Bulk payments alongside the retainer, not retainer-only.
+
+**Tate-window:** 7-15 July 2026 to land the renewal contract before coverage gap. Anchor to the final-invoice send date (7 Jul) as natural handoff moment.
+
+**Doctrine that lands as first deliverables for the unification work:**
+- `~/ecodiaos/patterns/excel-sync-collectives-migration.md`
+- `~/ecodiaos/patterns/sheet-as-projection-sync-direction-discipline.md`
+- `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md`
+
+**Substrate cross-refs:**
+- status_board: `59a67b24` (renewal opportunity, Tate-due 2026-07-15), `35f91c9c` (June invoice task, ecodiaos-due 2026-06-07), `f652c1fd` (email-path fix - resolved).
+- Neo4j: Decision 2998 (Co-Exist retainer renewal + scope expansion locked).
+- Auto-memory: `project_coexist_retainer_renewal_2026-07-07.md`, `project_coexist_billing_model_2026-05-18.md`.
+- CRM: contact added 2026-05-18, Kurt Jones primary decision_maker, `ceo@coexistaus.org` direct.
 
 ---
 
