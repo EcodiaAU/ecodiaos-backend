@@ -1,8 +1,12 @@
 ---
 triggers: eugene, [redacted], [redacted], [redacted], [redacted], PR 212, [redacted] review, [redacted] comms
+status: archived_client_doctrine
+archived_client_note: [redacted] archived 2026-05-17. Doctrine preserved as comms boundary precedent and in case of any residual cleanup contact.
 ---
 
 # Never contact Eugene (or any [redacted] technical contact) directly - Tate handles all human-side comms
+
+**Client status (2026-05-18):** [redacted] was archived as a client 2026-05-17. The doctrine below was authored while [redacted] was active and is preserved as (a) the comms-boundary precedent for future client engagements and (b) a guard against any residual cleanup contact. Treat as historical-but-load-bearing: if any [redacted]-related event arrives, the rule still applies.
 
 ## Rule
 I do not email, DM, Slack, tag, or initiate contact with [redacted] ([redacted]) or any other [redacted] technical contact. Tate is the sole human-side interface on [redacted]. My job is codebase work (audit, push PRs, respond to PR comments if they are strictly technical and Eugene has tagged the PR directly), and I flag anything that needs Eugene's eyes up to Tate.

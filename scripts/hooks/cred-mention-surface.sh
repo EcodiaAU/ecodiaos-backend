@@ -204,18 +204,18 @@ if [ "$android_high" -gt 0 ] || [ "$android_broad" -ge 3 ]; then
   fi
 fi
 
-# --- Bitbucket / [redacted] / git push to [redacted] ---
+# --- Bitbucket / git push ---
 # Phase C Gap 3: HIGH = explicit credential context (api token, REST host,
-# Atlassian token mention, [redacted] push). BROAD = bare "bitbucket" or
-# "[redacted]" mention which only fires when paired (>=2 hits) so casual
-# context-mentions don't trip the hook.
-bitbucket_high=$(count_matches "$brief_verb_lines" '\b(ATATT[A-Za-z0-9]+|atlassian.*token|api\.bitbucket\.org|[redacted]|bitbucket api token|x-bitbucket-api-token-auth|BITBUCKET_[A-Z_]*KEY|BITBUCKET_[A-Z_]*TOKEN|rotate bitbucket)\b')
-bitbucket_broad=$(count_matches "$brief_verb_lines" '\b(bitbucket|[redacted])\b')
+# Atlassian token mention). BROAD = bare "bitbucket" mention which only fires
+# when paired (>=3 hits) so casual context-mentions don't trip the hook.
+# [redacted] / [redacted] anchors removed 2026-05-18 ([redacted] archived 2026-05-17).
+bitbucket_high=$(count_matches "$brief_verb_lines" '\b(ATATT[A-Za-z0-9]+|atlassian.*token|api\.bitbucket\.org|bitbucket api token|x-bitbucket-api-token-auth|BITBUCKET_[A-Z_]*KEY|BITBUCKET_[A-Z_]*TOKEN|rotate bitbucket)\b')
+bitbucket_broad=$(count_matches "$brief_verb_lines" '\b(bitbucket)\b')
 # Phase C Gap 4 (9 May 2026): broad threshold raised >=2 -> >=3.
 if [ "$bitbucket_high" -gt 0 ] || [ "$bitbucket_broad" -ge 3 ]; then
   primary="/home/tate/ecodiaos/docs/secrets/bitbucket.md"
   if ! already_acked "$primary"; then
-    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Bitbucket / [redacted] work but does not reference ~/ecodiaos/docs/secrets/. Read: bitbucket.md before dispatching. Note the two-context auth split (git remote uses x-bitbucket-api-token-auth username; REST API uses code@ecodia.au).")
+    warnings+=("[CRED-SURFACE WARN] ${tool_name} brief mentions Bitbucket work but does not reference ~/ecodiaos/docs/secrets/. Read: bitbucket.md before dispatching. Note the two-context auth split (git remote uses x-bitbucket-api-token-auth username; REST API uses code@ecodia.au).")
     surfaces+=("$primary|bitbucket")
   fi
 fi

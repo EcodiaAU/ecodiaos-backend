@@ -6,6 +6,14 @@ triggers: coord-heartbeat, heartbeat-protocol, signal-done, signal_done, termina
 
 Operational protocol for workers dispatched via [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]]. Every worker follows the same shape so the conductor can rely on it without per-task wiring.
 
+## Substrate prerequisite — MCP schema passes ctx args through (patched 2026-05-18 17:30 AEST)
+
+Before 17:30 AEST 18 May 2026 the coord.* MCP tools only declared per-tool properties in `inputSchema.properties`; `tab_id` / `tab_credential` were absent except on `register_conductor` / `unregister_conductor`. Even though `additionalProperties: true` was set, MCP clients treat `inputSchema.properties` as the allowlist for what they actually send — so passthrough `{tab_id, tab_credential}` got stripped on the way to the laptop-agent route, and `extractCtx` returned undefined. Every worker call returned `tab_id required`.
+
+Fixed in `routes/mcpCoord.js` by injecting a shared `CTX_PROPS` block into every coord.* tool's schema after the `TOOLS` const (`Object.freeze` is shallow). Heartbeats, send_message, signal_done, wait_for_inbox — all coord.* tools now pass passthrough args through to the route. Verified end-to-end by smoke-patch1-heartbeat 2026-05-18 14:42 AEST (worker called heartbeat with passthrough args, dispatcher detected the heartbeat-advance in 44.8s, signal_done landed cleanly).
+
+Generalised in [[mcp-schemas-must-explicitly-declare-passthrough-ctx-args-2026-05-18]].
+
 ## Worker discipline (every turn)
 
 1. **Turn-start heartbeat.** First tool call of every turn: `coord.heartbeat({status: 'short summary of what I'm about to do'})`. This refreshes `last_heartbeat_at` so the sweeper doesn't kill the tab.
@@ -35,8 +43,20 @@ When you action a message addressed to your inbox, call `coord.ack_message({id, 
 ## Conductor side
 
 - `coord.read_inbox()` - pull all unread, mark seen, process. Fast, fire-and-forget.
+- `coord.peek_inbox()` - same as read_inbox but does NOT mark seen. Use for non-consuming probes (wait-loops, observer flows). The next read_inbox caller still sees the message.
 - `coord.wait_for_inbox({timeout: 300})` - long-poll. Blocks up to 600s for the next message. Returns `trigger_message` + up to 20 `also_unread` + `more_unread: bool` flag if the bus flooded.
 - `coord.list_workers({include_dead: false})` - see who's alive. `stale_ms > 90000` means dead (no heartbeat in 90s).
+
+## Conductor anti-pattern: shallow polling instead of long-poll
+
+When you dispatch a worker and want to know when it's done, **use `coord.wait_for_inbox`** (or compose `gui.sequence` with a `wait_for {type: 'coord_inbox_has', body_contains: <task_id>}` step). DO NOT shallow-poll with bash loops that fire `coord.read_inbox` every few seconds.
+
+Reasons:
+1. **You'll miss the signal.** Bash polling that fires every 8s with 4-min worker spin-up means 30+ shallow probes. Each must hit the right moment. Easy to forget the next poll and miss the message entirely (the message lands silently, you find out 30min later when something else surfaces it). Long-poll holds the request open server-side until the message arrives.
+2. **read_inbox marks seen.** Each shallow poll consumes whatever's there. If you forget the message you got, it's gone (well - in the audit log but not "unread"). peek_inbox + manual ack is the safer pattern, but wait_for_inbox is better because it's atomic.
+3. **You'll dispatch a worker, get busy with something else, and forget you were waiting.** The long-poll forces you to deal with the message immediately when it arrives. Shallow polling lets you context-switch away.
+
+Origin: bit me on 2026-05-18 night - dispatched Worker B v3 with a real audit task, signal_done landed in conductor inbox at 13:16, I didn't see it until ~13:20 when Tate asked "why didn't you get it." Worker had completed cleanly + signaled correctly; the failure was on my side (the conductor side), shallow polling instead of long-polling.
 
 ## Don't
 

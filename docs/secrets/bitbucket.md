@@ -6,7 +6,7 @@ owner: tate
 
 # creds.bitbucket_api_token + creds.bitbucket_account_email
 
-Atlassian API key (single key, two consumption contexts) used for ALL Bitbucket interactions. Without it, [redacted] work blocks (the [redacted] repo lives at `bitbucket.org/[redacted]/be`) and any push from VPS fails.
+Atlassian API key (single key, two consumption contexts) used for ALL Bitbucket interactions. Without it, any push to a Bitbucket-hosted repo from VPS fails. (Historical primary consumer: the [redacted] engagement at `bitbucket.org/[redacted]/be`, archived 2026-05-17.)
 
 | Key | Shape | What it is |
 |---|---|---|
@@ -39,11 +39,10 @@ Two distinct auth contexts, same key, different username:
    ```
    Username IS the Atlassian account email (`creds.bitbucket_account_email`). Using the magic git username here returns HTTP 401.
 
-Consumers:
-- `~/ecodiaos/clients/[redacted].md` ([redacted] auth doctrine; canonical reference for the two-context split)
-- `~/ecodiaos/patterns/[redacted]-prepush-pipeline.md`
-- All `git push` operations against `bitbucket.org/[redacted]/*`
-- All REST calls (PR comments, branch list, diff fetch, comment delete)
+Consumers (historical + future):
+- `~/ecodiaos/clients/archived/[redacted].md` (archived) and `~/ecodiaos/patterns/_archived/[redacted]-prepush-pipeline.md` (archived) - kept as the canonical worked example of the two-context split
+- Any future Bitbucket-hosted client repo `git push` operations
+- All REST calls (PR comments, branch list, diff fetch, comment delete) against `api.bitbucket.org`
 
 ## Replaceable by macro?
 
@@ -65,9 +64,9 @@ On-leak-only. Atlassian API keys do not auto-expire.
 
 ## Failure mode if missing
 
-- Git push to `[redacted]/*` fails (HTTP 403 / 401).
+- Git push to any Bitbucket-hosted repo fails (HTTP 403 / 401).
 - REST API calls (PR comments, etc.) fail with HTTP 401.
-- All [redacted]-PR work blocks until rebound.
+- Any Bitbucket-PR client work blocks until rebound.
 
 ## Drift note
 

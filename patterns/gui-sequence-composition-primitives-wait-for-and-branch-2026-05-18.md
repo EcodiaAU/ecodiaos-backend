@@ -154,8 +154,133 @@ Capture a step's result and reference it in later steps. Set `as: "name"` on any
 - The condition types call live modules (cdp / window / coord / fs / spawnSync) on each poll - light-touch, no separate poller infrastructure.
 - Single-in-flight serialization: the daemon (lib/ps-daemon) processes one PS call at a time, so a sequence with many wait_for probes that each call cdp/window/etc serialises naturally.
 
+## Stream B v2 - additional primitives shipped same day
+
+After Worker B v3's audit at [coordination/briefs/gui-composition-extensions-OUTPUT.md](../../EcodiaOS/coordination/briefs/gui-composition-extensions-OUTPUT.md), five more primitives landed (~300 LOC, all backward-compatible):
+
+### Multi-condition `wait_for` (`any` / `all`)
+
+```json
+{"tool":"wait_for","params":{"until":{"any":[
+  {"type":"cdp_url_contains","contains":"/dashboard"},
+  {"type":"cdp_element_exists","selector":".error-banner"}
+]},"timeout_ms":15000}}
+```
+
+`any: [...]` returns when ANY sub-condition fires (race-for-first). `all: [...]` returns when ALL are true. Backward-compat: single-condition `until: {type: ...}` still works. Response shape adds `matched_index` for `any`.
+
+### Step-level `if:` precondition
+
+Sibling field on every action object. Probed ONCE before the step. If false, step recorded as `{ok:true, skipped:true, if_probe: <result>}` and sequence continues. Collapses `branch{then:[X]}` → `{tool:X, if:...}`.
+
+```json
+{"actions":[
+  {"tool":"cdp.click","params":{"selector":".dismiss"},"if":{"type":"cdp_element_exists","selector":".dismiss"}},
+  {"tool":"cdp.navigate","params":{"url":"${url}"}}
+]}
+```
+
+### `foreach` loop
+
+```json
+{"tool":"foreach","params":{
+  "items":"${deploy_rows.elements}",
+  "as":"row","index_as":"i","max_iterations":50,
+  "body":[
+    {"tool":"cdp.click","params":{"selector":"${row.selector}"}},
+    {"tool":"wait_for","params":{"until":{"type":"cdp_ready_state"},"timeout_ms":3000}}
+  ]
+}, "as":"loop_result"}
+```
+
+`items` accepts a literal array OR a `${var}` that resolves to one. Iteration bindings are SCOPED (restored on loop exit). Default `stopOnError: false` (process all items, report per-iteration failures).
+
+### `try` block with `catch` + `finally`
+
+```json
+{"tool":"try","params":{
+  "body":[ {"tool":"gui.open_url","params":{"url":"${url}"}}, {"tool":"cdp.queryAll","params":{"selector":"..."}} ],
+  "catch":{"as":"err","body":[
+    {"tool":"coord.send_message","params":{"to":"chat.conductor.inbox","body":{"type":"extract_failed","error":"${err}"}}}
+  ]},
+  "finally":[ {"tool":"gui.close_tab"} ]
+}}
+```
+
+`body` always runs; `catch` runs only if body fails (with the error bound to `${err}` by default, override via `catch.as`); `finally` always runs. Returns `{ok, taken: 'success'|'caught'|'rethrown', body_steps, catch_steps, finally_steps}`.
+
+### `max_total_ms` envelope-level timeout
+
+```json
+{
+  "tool":"gui.sequence",
+  "params":{
+    "max_total_ms": 300000,
+    "actions":[ ... ]
+  }
+}
+```
+
+Hard whole-sequence deadline. Currently-running step is allowed to finish (atomic await), no further actions dispatched. Response adds `timed_out_at_step: <i>, max_total_ms: <ms>` when triggered. Default unbounded.
+
+### Combined example - foreach + try + branch + wait_for + ${var}
+
+```json
+{
+  "tool":"gui.sequence",
+  "params":{
+    "max_total_ms": 600000,
+    "bindings": {"urls":["https://a.com","https://b.com","https://c.com"]},
+    "actions":[
+      {"tool":"gui.launch_cdp_chrome"},
+      {"tool":"cdp.attach"},
+      {"tool":"foreach","params":{
+        "items":"${urls}","as":"url","index_as":"i","stopOnError":false,
+        "body":[
+          {"tool":"try","params":{
+            "body":[
+              {"tool":"cdp.navigate","params":{"url":"${url}"}},
+              {"tool":"wait_for","params":{"until":{"any":[
+                {"type":"cdp_ready_state"},
+                {"type":"cdp_element_exists","selector":".error-page"}
+              ]},"timeout_ms":10000}},
+              {"tool":"cdp.pageScreenshot","as":"shot"}
+            ],
+            "catch":{"body":[
+              {"tool":"coord.send_message","params":{"to":"chat.conductor.inbox","body":{"type":"page_failed","i":"${i}","url":"${url}","err":"${err}"}}}
+            ]}
+          }}
+        ]
+      }}
+    ]
+  }
+}
+```
+
+One HTTP call. Navigate to N URLs in sequence, each with try/catch + multi-condition wait + screenshot; failures don't stop the loop; cleanup of the whole batch bounded by max_total_ms. This is the substrate at "absolutely flawless."
+
+## What was NOT shipped (deferred per audit)
+
+- `define` + `call` sub-sequence reuse (~100 LOC) - useful but lower F*L*B
+- Sequence-level `max_attempts` + retry-whole (~40 LOC) - dangerous for side-effecting batches
+- `dry_run` envelope flag / `gui.plan` (~60 LOC) - useful for CI/dev not load-bearing
+- Push telemetry to coord topic (~50 LOC) - inline timing in `steps[].durationMs` already covers most needs
+- Sequence-id / continuation token (~150 LOC) - defer until a flow actually wants async cancellation
+- Result projection (`return_only: [...]`) (~40 LOC) - relevant only at high frequency
+
+## Anti-additions (NEVER ship - audit §4)
+
+- Expression DSL inside `${...}` (no `${var + 1}`, `${a ? b : c}`, etc)
+- Server-side `eval` for JS-in-params
+- Async/parallel that bypasses PS daemon serialisation
+- Nested `gui.sequence` (already forbidden in runStep)
+- `goto` / labels / `continue` / `break`
+- Sequence-shared persistent state (use coord / kv_store instead)
+- Per-key `${...}` substitution (values only, not keys)
+- Sequence format `version` field (YAGNI until first break)
+
 ## Origin
 
-2026-05-18 ~14:00 AEST. Stream B of the "absolutely flawless GUI" doctrine (Tate verbatim 01:00 AEST: "sequencing sequences together"). Stream A was reliability (PS daemon + audit-driven hardening). Stream B is composability (wait_for + branch). Both shipped same night.
+2026-05-18 ~14:00 AEST. Stream B of the "absolutely flawless GUI" doctrine (Tate verbatim 01:00 AEST: "sequencing sequences together"). Stream A was reliability (PS daemon + audit-driven hardening). Stream B v1 was wait_for + branch + ${var} substitution + peek_inbox. Stream B v2 added the five from Worker B v3's audit-ranked roadmap. All shipped same day.
 
 Pairs with [[gui-substrate-beast-mode-2026-05-17]] and [[ps-daemon-long-lived-powershell-for-gui-substrate-2026-05-18]].

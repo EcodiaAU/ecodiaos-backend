@@ -53,8 +53,8 @@ Each PS-shelling tool follows the same pattern:
 
 Then add `await` at each caller site of `runPs` inside the (already-async) tool functions.
 
-Migration status (2026-05-18, post-audit):
-- `tools/clipboard.js` - migrated, canary, LIVE
+Migration status (2026-05-18, post-audit + post-clipboard-rollback):
+- `tools/clipboard.js` - **rolled back OFF the daemon** + uses `powershell -Sta` + verify-after-write. Reason: long-lived daemon process runs MTA by default; `Set-Clipboard` under MTA returns success but does NOT mutate the system clipboard. Bit us on Worker B v2 dispatch (brief silently pasted as a stale value from an earlier smoke test). See [[substrate-migration-must-verify-side-effect-not-just-return-2026-05-18]].
 - `tools/window.js` - migrated, LIVE (foreground + windows + focus_window)
 - `tools/input.js` - migrated, LIVE (click/move/type/key/shortcut/drag/cursorPosition - the most-called PS surface, ~9s saved per dispatch via amortized cold-start)
 - `tools/uia.js` - migrated, code shipped (UIA assemblies amortized to zero per-call cost - biggest single-call win)

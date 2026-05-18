@@ -1,9 +1,33 @@
 {
   "mcpServers": {
+    "ecodia": {
+      "type": "http",
+      "url": "https://api.admin.ecodia.au/api/mcp/ecodia",
+      "headers": {
+        "Authorization": "Bearer 7bb65299407a6d0481e11ff3e1d0da04660e45e8dd087e953dd640a0e79436c1"
+      }
+    },
+    "coord": {
+      "type": "http",
+      "url": "http://localhost:7456/api/mcp/coord",
+      "headers": {
+        "Authorization": "Bearer fad80809116f70923d200b371d4b1b922e38951bac5fc30df516652cfea6011f"
+      },
+      "_comment": "Local coord bus on Corazon (laptop-agent). 8 coord.* tools for inter-CC-tab coordination. Workers identify via X-Tab-Id + X-Tab-Credential headers, or via tab_id/tab_credential in tool params. Shipped 2026-05-18."
+    },
+    "ecodia-full": {
+      "type": "http",
+      "url": "https://api.admin.ecodia.au/api/mcp/ecodia-full",
+      "headers": {
+        "Authorization": "Bearer b31312a007e1972b7bfd860ba9f4c27d4e6d663a4abdc26ce3aa316a02a408e4"
+      },
+      "_comment_lane_e": "Wider bearer (68 scopes). Re-exposes all 22 cowork tools + proxies 10 stdio MCP servers (135 child tools) for a single-bearer 157-tool surface. shell_exec gated. Shipped 2026-05-15."
+    },
     "factory": {
       "type": "stdio",
       "command": "/home/tate/ecodiaos/mcp-servers/factory/start.sh",
-      "args": []
+      "args": [],
+      "_comment_local": "VPS-only path; ignored on Corazon. Will be subsumed by /api/mcp/ecodia-full HTTP proxy in a follow-up sprint."
     },
     "google-workspace": {
       "type": "stdio",
@@ -51,16 +75,20 @@
       "args": []
     },
     "neo4j": {
-      "command": "bash",
-      "args": [
-        "/home/tate/ecodiaos/mcp-servers/neo4j/start.sh"
-      ]
+      "type": "stdio",
+      "command": "/home/tate/ecodiaos/mcp-servers/neo4j/start.sh",
+      "args": []
     },
     "sms": {
-      "command": "bash",
-      "args": [
-        "/home/tate/ecodiaos/mcp-servers/sms/start.sh"
-      ]
+      "type": "stdio",
+      "command": "/home/tate/ecodiaos/mcp-servers/sms/start.sh",
+      "args": []
+    },
+    "visual-test": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["D:/.code/EcodiaOS/mcp-servers/visual-test/index.js"],
+      "_comment_phase_2_08": "Visual testing substrate shipped 2026-05-15 (Phase 2 / 08). Wraps laptop-hands HTTP service at HANDS_URL with HMAC over HANDS_SHARED_SECRET. Surfaces browser.* + android.* + ios.* (stubs) + visual.* recipe/regression tools. Reachable via ecodia-full proxy once registered server-side."
     }
   }
 }

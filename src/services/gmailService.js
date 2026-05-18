@@ -7,9 +7,99 @@ const { createNotification } = require('../db/queries/transactions')
 const { findClientByEmail } = require('../db/queries/clients')
 const { createTask } = require('../db/queries/tasks')
 const kgHooks = require('./kgIngestionHooks')
+const { seedFollowupNudges } = require('./seedFollowupNudges')
 
 const GMAIL_ENABLED = (env.GMAIL_ENABLED || 'false').toLowerCase() === 'true'
 const MAX_TRIAGE_ATTEMPTS = parseInt(env.GMAIL_MAX_TRIAGE_ATTEMPTS || '0', 10) || Infinity
+
+// ── Follow-up nudge seeding helpers ──────────────────────────────────────────
+// Called fire-and-forget on every successful external-recipient outbound send.
+// Internal-domain sends (@ecodia.au, @ecodia.com.au) do NOT seed nudges.
+// seedFollowupNudges is idempotent (status_board UNIQUE-name-per-thread guard).
+
+const _INTERNAL_DOMAINS = new Set(['ecodia.au', 'ecodia.com.au'])
+
+function _extractDomain(emailAddr) {
+  if (!emailAddr || typeof emailAddr !== 'string') return ''
+  // Accept "Name <user@host>" or bare "user@host".
+  const angle = emailAddr.match(/<([^>]+)>/)
+  const raw = angle ? angle[1] : emailAddr
+  const at = raw.indexOf('@')
+  if (at < 0) return ''
+  return raw.slice(at + 1).trim().toLowerCase()
+}
+
+function _firstRecipient(to) {
+  if (Array.isArray(to)) return to.find(Boolean) || null
+  return to || null
+}
+
+function _normaliseRecipient(emailAddr) {
+  if (!emailAddr || typeof emailAddr !== 'string') return null
+  const angle = emailAddr.match(/<([^>]+)>/)
+  const raw = angle ? angle[1] : emailAddr
+  return raw.trim().toLowerCase()
+}
+
+function _isExternalRecipient(emailAddr) {
+  const domain = _extractDomain(emailAddr)
+  if (!domain) return false
+  return !_INTERNAL_DOMAINS.has(domain)
+}
+
+// Best-effort client_slug lookup by recipient email domain. Returns undefined
+// when no match - seedFollowupNudges accepts undefined client_slug.
+// Heuristic: exact domain match against clients.contact_email, then
+// LIKE-match against clients.notes / name (case-insensitive). Never throws.
+async function _lookupClientSlug(recipientEmail) {
+  if (!recipientEmail) return undefined
+  const domain = _extractDomain(recipientEmail)
+  if (!domain) return undefined
+  if (_INTERNAL_DOMAINS.has(domain)) return undefined
+  try {
+    const rows = await db`
+      SELECT slug, name
+      FROM clients
+      WHERE archived_at IS NULL
+        AND (
+          lower(contact_email) LIKE ${'%@' + domain}
+          OR lower(email) LIKE ${'%@' + domain}
+        )
+      LIMIT 1
+    `
+    if (rows && rows[0]) {
+      return (rows[0].slug || rows[0].name || '').toString().toLowerCase().trim() || undefined
+    }
+  } catch (err) {
+    logger.debug('gmailService._lookupClientSlug: clients query failed', {
+      domain, error: err.message,
+    })
+  }
+  return undefined
+}
+
+// Fire-and-forget nudge seeding. Never throws back to caller. Skips
+// internal-domain recipients. Idempotent at the status_board layer.
+function _seedFollowupNudgesPostSend({ thread_id, recipient, sent_at }) {
+  const primary = _normaliseRecipient(_firstRecipient(recipient))
+  if (!primary) return
+  if (!_isExternalRecipient(primary)) return
+  Promise.resolve()
+    .then(async () => {
+      const client_slug = await _lookupClientSlug(primary)
+      return seedFollowupNudges({
+        thread_id: thread_id || undefined,
+        recipient: primary,
+        client_slug,
+        sent_at: sent_at || new Date().toISOString(),
+      })
+    })
+    .catch((err) => {
+      logger.warn('gmailService: seedFollowupNudges failed (non-blocking)', {
+        thread_id, recipient: primary, error: err.message,
+      })
+    })
+}
 
 // Inboxes live in the gmail_inboxes DB table so the OS can add/remove them at runtime.
 // Falls back to GMAIL_INBOXES env var then GOOGLE_PRIMARY_ACCOUNT (pre-migration safety).
@@ -788,6 +878,14 @@ async function sendReply(threadId, body) {
 
   await db`UPDATE email_threads SET status = 'replied', updated_at = now() WHERE gmail_thread_id = ${threadId}`
   logger.info(`Reply sent from ${inbox} to ${thread.from_email}`, { action_id: result.id, external_id: result.external_id })
+
+  // Seed +2d / +7d / +14d follow-up nudges on external-recipient sends.
+  // Fire-and-forget; internal-domain recipients are filtered inside.
+  _seedFollowupNudgesPostSend({
+    thread_id: threadId,
+    recipient: thread.from_email,
+    sent_at: new Date().toISOString(),
+  })
 }
 
 // ─── Listener Producer ──────────────────────────────────────────────────────
@@ -1092,6 +1190,11 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
     .update(String(body || '') + '|' + String(subject || '')).digest('hex').slice(0, 16)
   const action_key = `gmail_new:${recipientHash}:${bodyHash}:${Math.floor(Date.now() / 60000)}`
 
+  // Captured from the gmail.users.messages.send response inside the send
+  // closure - used to seed follow-up nudges with the real thread id when
+  // gmail allocates a new one for a non-reply send.
+  let _capturedThreadId = null
+
   const wrapped = await actionVerification.withVerification(
     {
       action_type: 'email_send',
@@ -1102,6 +1205,7 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
     },
     async () => {
       const r = await gmail.users.messages.send({ userId: 'me', requestBody })
+      _capturedThreadId = r?.data?.threadId || null
       return {
         external_id: r?.data?.id || null,
         metadata: { gmail_thread_id: r?.data?.threadId || null },
@@ -1125,6 +1229,15 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
   } else {
     logger.info(`Email sent from ${fromInbox} to ${Array.isArray(to) ? to.join(',') : to}: ${subject}`, {
       action_id: wrapped.id, external_id: wrapped.external_id,
+    })
+    // Seed +2d / +7d / +14d follow-up nudges on external-recipient sends.
+    // Fire-and-forget; internal-domain recipients are filtered inside.
+    // _capturedThreadId is the gmail-allocated thread id from the send
+    // response; threadId param is the upstream hint (already-known thread).
+    _seedFollowupNudgesPostSend({
+      thread_id: _capturedThreadId || threadId || null,
+      recipient: to,
+      sent_at: new Date().toISOString(),
     })
   }
   return {

@@ -179,6 +179,27 @@ Tate confirmed verbally with Kurt the night of 2026-05-17 at Kurt's place that a
 
 ---
 
+## Grant Intelligence - internal scaffolding only (2026-05-18 one-shot research)
+
+**Status:** Internal Ecodia research that justified the $12k Tier A / $47k Tier B split in the renewal quote. **One-shot deliverable, not an ongoing service.** Co-Exist runs its own grant strategy. We do not scout grants, advise on grant strategy, or impose on Co-Exist's funder relationships (Wedgetail, VFFF, others). That's Kurt's domain.
+
+**Artefacts on disk (reference only, do not extend):**
+- Master brief: `D:\.code\EcodiaOS\backend\drafts\coexist-grant-intelligence-master-2026-05-18.md` (60-program audit). Treat as locked - do not update going forward.
+- Tech-empowerment lane raw research: `D:\.code\EcodiaOS\backend\drafts\coexist-tech-grants-intelligence-brief-2026-05-18.md`
+- Quote doc: `D:\.code\EcodiaOS\backend\drafts\coexist-quote-and-gameplan-2026-08-onwards.md`
+
+**Why the research was done:** To anchor the Tier A vs Tier B pricing split with evidence that Tier B ($47k) is genuinely grant-tractable - so we can hold firm on $12k Tier A without giving away the bigger scope. The audit's job is done now.
+
+**What Ecodia DOES provide in Tier A** (no extra cost): partnership confirmation letter when Co-Exist names us as technical delivery partner, technical scoping doc as Tier A deliverable (usable as supporting evidence if Kurt attaches to applications).
+
+**What we do NOT do** (separate engagement at standard rate only): grant scouting, application writing, custom architecture diagrams for individual applications, funder communications, ongoing grant strategy advice, intros to Co-Exist's funders.
+
+**Boundary:** Co-Exist's existing funder relationships (Wedgetail with Cam Adams + Melanie, VFFF, others) belong to Co-Exist. We do not contact them, do not name-drop them in our applications, do not ride on those relationships for ourselves. Strict separation.
+
+**Cross-refs:** status_board renewal-arc row `59a67b24`, grant-strategy row `0c6c8298-0ac6-4b73-b254-4097697273f7`, [[project_coexist_quote_and_grant_strategy_2026-05-18]] auto-memory.
+
+---
+
 ## IP & Licence Model — READ BEFORE ANY EXTERNAL ARTEFACT
 
 **Recalibrated 2026-04-27 per Tate. See `~/ecodiaos/patterns/coexist-vs-platform-ip-separation.md`.**

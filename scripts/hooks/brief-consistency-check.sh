@@ -174,7 +174,7 @@ fi
 # 'poll Vercel until READY', 'wait until deployment ready'). Match is now case-insensitive
 # and accepts those alternates. Negation guard list also extended to cover the
 # '(NOT Vercel-linked)' / '(NOT Vercel)' parenthetical form.
-if echo "$brief" | grep -qiE '(\bvercel\b|frontend|ecodiaos-frontend|roam-frontend|coexist|chambers|[redacted]-frontend|next\.js|nextjs)'; then
+if echo "$brief" | grep -qiE '(\bvercel\b|frontend|ecodiaos-frontend|roam-frontend|coexist|chambers|next\.js|nextjs)'; then
   # Negation guard: skip Check 3 if the brief explicitly states a non-Vercel deployment posture.
   # Prevents false-positive on briefs that mention "Vercel" only to negate it.
   if echo "$brief" | grep -qiE '(PM2[ -]?managed|not Vercel[ -]?linked|VPS[ -]?only|no Vercel deploy|ecodiaos backend is PM2|\(NOT Vercel[ -]?linked\)|\(NOT Vercel\))'; then

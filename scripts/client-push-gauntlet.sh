@@ -6,8 +6,8 @@
 # does not catch (em-dash sweep, merge-conflict probe, hostile-reviewer diff).
 #
 # Usage:  scripts/client-push-gauntlet.sh <client-slug> [base-branch-override]
-# Example: scripts/client-push-gauntlet.sh [redacted]
-# Example: scripts/client-push-gauntlet.sh [redacted] main
+# Example: scripts/client-push-gauntlet.sh coexist
+# Example: scripts/client-push-gauntlet.sh coexist main
 #
 # Loads per-client config from scripts/gauntlet-configs/<slug>.sh which must
 # export WORKDIR, BASE_BRANCH, and the *_CMD variables consumed below. The
@@ -18,7 +18,9 @@
 #   1 - at least one step failed, do NOT push
 #   2 - usage / config error
 #
-# Written by EcodiaOS Apr 23 2026 in response to [redacted] PR 212 fallout.
+# Originally authored Apr 23 2026 during the [redacted] engagement (now archived
+# 2026-05-17). Script itself is client-agnostic - drives whichever gauntlet
+# config matches the slug argument.
 # Doctrine: patterns/client-push-pre-submission-pipeline.md
 
 set -u
@@ -27,10 +29,10 @@ base_override="${2:-}"
 
 if [ -z "$slug" ]; then
   echo "usage: $0 <client-slug> [base-branch-override]"
-  echo "example: $0 [redacted]"
+  echo "example: $0 coexist"
   echo ""
   echo "available configs:"
-  ls "$(dirname "$0")/gauntlet-configs/" 2>/dev/null | sed 's/\.sh$//' | sed 's/^/  /'
+  ls "$(dirname "$0")/gauntlet-configs/" 2>/dev/null | grep -v '^_archived' | sed 's/\.sh$//' | sed 's/^/  /'
   exit 2
 fi
 
@@ -39,7 +41,8 @@ config="$script_dir/gauntlet-configs/${slug}.sh"
 
 if [ ! -f "$config" ]; then
   echo "ERROR: missing config $config"
-  echo "create one modeled on scripts/gauntlet-configs/[redacted].sh"
+  echo "create one modeled on an existing config under scripts/gauntlet-configs/"
+  echo "(historical reference: scripts/gauntlet-configs/_archived/[redacted].sh)"
   exit 2
 fi
 

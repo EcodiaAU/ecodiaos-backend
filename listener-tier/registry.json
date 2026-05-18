@@ -16,12 +16,16 @@
       "human_approved": false,
       "file": "pattern-INDEX-regen.js",
       "enabled": true,
-      "last_fired_ts": null,
-      "last_status": null,
-      "last_duration_ms": null,
+      "last_fired_ts": "2026-05-18T07:06:39.732Z",
+      "last_status": "ok",
+      "last_duration_ms": 1313,
       "last_error": null,
-      "last_payload": null,
-      "fire_count": 0,
+      "last_payload": {
+        "reason": "change:authorised-branch-push-is-not-client-contact.md",
+        "started_at": "2026-05-18T07:06:38.417Z",
+        "stderr_lines": 0
+      },
+      "fire_count": 18,
       "error_count": 0
     },
     {
@@ -37,12 +41,19 @@
       "human_approved": false,
       "file": "commit-pattern-detector.js",
       "enabled": true,
-      "last_fired_ts": null,
-      "last_status": null,
-      "last_duration_ms": null,
+      "last_fired_ts": "2026-05-18T06:50:59.377Z",
+      "last_status": "ok",
+      "last_duration_ms": 2866,
       "last_error": null,
-      "last_payload": null,
-      "fire_count": 0,
+      "last_payload": {
+        "sha": "5c7b8950f77baf20e20fbd72a400db76ba51501e",
+        "subject": "feat(2026-05-18): Upgrade Atlas Wave 1+2 ship - 12 services, 7 patterns, 2 migrations, listener-tier live",
+        "score": 1,
+        "reasons": [
+          "touches-doctrine"
+        ]
+      },
+      "fire_count": 1,
       "error_count": 0
     },
     {
@@ -116,6 +127,9 @@
       "last_status": null
     }
   ],
-  "last_boot_ts": null,
-  "last_boot_listeners": []
+  "last_boot_ts": "2026-05-18T06:38:16.255Z",
+  "last_boot_listeners": [
+    "pattern-INDEX-regen",
+    "commit-pattern-detector"
+  ]
 }

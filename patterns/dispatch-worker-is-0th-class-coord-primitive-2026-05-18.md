@@ -74,6 +74,23 @@ Workers can take 30s-4min on their first turn because the new CC tab loads ~13 M
 - Persistence: file-backed at `D:/.code/EcodiaOS/coordination/{workers,messages,inbox,state}/`
 - Full architecture: [[reference-coord-bus-local-2026-05-18]]
 
+## Orphan-tab detection (patched 2026-05-18 14:38 AEST)
+
+The load-bearing failure mode is **orphan tab**: dispatcher returns `ok: true` (tab spawned, brief pasted, register-worker succeeded) but the worker model never actually starts executing. Causes: clipboard race under memory pressure, model OOM, auth gate stuck, brief paste landed before chat was ready to receive. Symptom: spawned tab sends zero coord.* calls.
+
+Caught live during the 2026-05-18 status_board drift-audit when Worker A dispatched into Cursor and never sent a single message in 14+ min while Worker B (parallel dispatch) heartbeated + signal_done'd cleanly.
+
+**Hardened dispatch (now default):**
+
+- `worker_acknowledgment_timeout_ms` param (default 90_000, max 600_000). Dispatcher polls `workers/<tab_id>.json.last_heartbeat_at` AND `messages/*.json[body.from === tab_id]` every 2s until it sees a sign of life or the timeout fires.
+- On acknowledgment: returns `{ok: true, acknowledged: true, ack_via: 'heartbeat'|'message:<type>', ack_elapsed_ms}`.
+- On timeout: returns `{ok: false, orphan: true, orphan_reason, ack_elapsed_ms, tab_id, ...}`. Caller can `cowork.kill_worker({tab_id})` to clean up.
+- `redispatch_on_orphan: true` opts into a single automatic retry with the same brief (recurses once via `_is_redispatch` sentinel; no infinite loops).
+- Fire-and-forget mode: pass `worker_acknowledgment_timeout_ms: 0` to skip the wait entirely (legacy behaviour).
+- Companion file: dispatcher writes `briefs/<task_id>-PASTE-VERIFY.flag` (JSON with task_id, tab_id, brief size, sha256, pasted_at) so workers with the brief can verify their clipboard payload didn't get truncated.
+
+Smoke-verified 2026-05-18 14:39 AEST: tiny `ack_timeout=100ms` dispatch correctly returned `orphan: true` in 2098ms (overshoot is the poll interval; not a bug — 90s default produces no observable overshoot). 14:42 AEST: real worker with 120s timeout returned `acknowledged: true` via heartbeat at 44.8s, signal_done landed cleanly.
+
 ## Origin
 
 2026-05-18 00:30-01:00 AEST. OC went dark mid-build of the VPS PG + LISTEN/NOTIFY coord architecture; Tate ("you take over"). Local file-backed v1 shipped in 17min, smoke-passed end-to-end (worker `tab_1779064982618_c97aa12a` dispatched at 00:43:02, called `coord.signal_done` at 00:46:52). Tate verbatim 01:00 AEST: "coordination between chats is unbelievably important for sequencing, task managing, sequential work, big projects" → codify as 0th-class.

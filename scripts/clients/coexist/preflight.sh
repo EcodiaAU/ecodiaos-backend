@@ -3,8 +3,9 @@
 # Coexist PR preflight gate.
 #
 # Runs gates against the Coexist worktree before any push to
-# github.com/EcodiaTate/coexist. Adapted from the [redacted] preflight for a
-# Vite + React + Supabase + Capacitor monorepo (no split be/fe).
+# github.com/EcodiaTate/coexist. Originally adapted from an earlier
+# client preflight (archived) for a Vite + React + Supabase + Capacitor
+# monorepo (no split be/fe).
 #
 # Usage (manual):   ~/ecodiaos/scripts/clients/coexist/preflight.sh
 # Usage (pre-push): installed by install-hooks.sh at .git/hooks/pre-push

@@ -4,8 +4,8 @@
 //
 // Pre-push scope-diff checker. Hard-fails if a git diff touches files
 // outside a declared scope list. Use before pushing to client repos
-// (e.g. [redacted] at bitbucket.org/[redacted]/be) to catch scope creep
-// before a PR lands.
+// to catch scope creep before a PR lands. Originally authored for the
+// [redacted] engagement (archived 2026-05-17); tool itself is client-agnostic.
 //
 // Usage:
 //   node tools/scope-check.js --scope-file <path> [options]
@@ -20,7 +20,7 @@
 //   --help                Print this help and exit
 //
 // Scope file example:
-//   # [redacted] PR 213 - Cognito observability
+//   # PR 213 - Cognito observability
 //   src/users/users.service.ts
 //   src/users/dto/*.ts
 //   src/auth/auth.service.ts
@@ -167,7 +167,7 @@ Options:
   --help                Print this help and exit
 
 Scope file example:
-  # [redacted] PR 213 - Cognito observability
+  # PR 213 - Cognito observability
   src/users/users.service.ts
   src/users/dto/*.ts
   src/auth/auth.service.ts

@@ -24,7 +24,7 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 **High-leverage trigger keywords** (always grep before):
 - iOS / TestFlight / App Store Connect
 - Android / Play Console / keystore
-- Bitbucket / git push to [redacted] / [redacted]
+- Bitbucket / git push (any Bitbucket-hosted client repo)
 - Edge Function deploy / Supabase Management
 - Co-Exist excel-sync / Microsoft Graph
 - Corazon / Mac SSH / SY094 / MacInCloud
@@ -38,7 +38,7 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [asc-api-fallback.md](asc-api-fallback.md) | asc, asc-api-key, p8, altool, fastlane, ios-upload-fallback, programmatic-apple, key_id, issuer_id | programmatic-required | ecodiaos |
 | [apple-2fa-code.md](apple-2fa-code.md) | apple-2fa, transient, stale-cred, cleanup-target | programmatic-required | ecodiaos |
 | [macincloud.md](macincloud.md) | macincloud, sy094, mac, ssh, sshpass, ios-build, xcode, mac-host, remote-mac | programmatic-required | tate |
-| [bitbucket.md](bitbucket.md) | bitbucket, atlassian, [redacted], [redacted], git push, git remote, ATATT, api-token | programmatic-required | tate |
+| [bitbucket.md](bitbucket.md) | bitbucket, atlassian, git push, git remote, ATATT, api-token | programmatic-required | tate |
 | [supabase-access-token.md](supabase-access-token.md) | supabase, supabase-access-token, edge-function-deploy, sbp_, supabase-management, supabase-cli | programmatic-required | tate |
 | [laptop-agent.md](laptop-agent.md) | laptop, laptop-agent, corazon, tailscale, agent_token, eos-laptop-agent, browser.*, screenshot.*, input.* | programmatic-required | ecodiaos |
 | [laptop-passkey.md](laptop-passkey.md) | laptop, corazon, passkey, windows-hello, 2fa-passkey, 5-point-check, exhaust-laptop-route | gui-macro-replaces | tate |
