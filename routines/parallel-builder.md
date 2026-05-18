@@ -5,8 +5,14 @@ trigger: schedule
 repos: EcodiaTate/ecodiaos-backend
 connectors: ecodia-core, ecodia-scheduler, ecodia-factory
 permissions: claude/-prefixed branches only (default)
+status: DEPRECATED-as-routine-prompt-2026-05-18
+deprecation_reason: The dispatch substrate this Routine calls (`forks.spawn`, `forks.list`, `os_forks`, 3-cap cowork pool) is dead per the CLAUDE.md deprecations table at the top of this repo (2026-05-17). SDK forks were the VPS-as-agentic-runtime parallelism primitive; the migration replaces them with `cowork.dispatch_worker` (auto-spawns a fresh Claude Code chat tab via Ctrl+Alt+Shift+C on the local laptop) per `patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. That replacement primitive is LOCAL-conductor surface, not reachable from a cloud cron-fire on money@ecodia.au. Empirically verified 2026-05-18 18:?? AEST cron fire: ecodia-core + ecodia-scheduler MCP both returned `token expired`, and the forks.* tools are absent from the cloud Routine MCP surface entirely. The Routine cannot do its declared job.
+current_substrate: Parallel work dispatch is now done by the local conductor on Corazon. The conductor uses `cowork.dispatch_worker` for new-IDE-tab parallelism and Task subagents for in-session bounded work. There is no cloud equivalent today.
+keep_reason: File retained as a reference template for the "identify-parallelisable-rows + 3-cap dispatch + status_board annotation" pattern. If/when a cloud-side cowork dispatch primitive ships, this prompt body is the starting point. The body below is preserved verbatim.
 purpose: Parallel build pipeline - identify P1/P2 work that can be parallelised, dispatch sub-tasks
 ---
+
+> **DEPRECATED 2026-05-18 as a Routine prompt.** This Routine's entire dispatch substrate (`forks.spawn` / `forks.list` / 3-cap cowork pool / `os_forks`) is in the CLAUDE.md deprecations table at the top of this repo (2026-05-17). The replacement parallelism primitive is `cowork.dispatch_worker` on the local laptop, which a cloud cron-fire cannot reach. Verified empirically on the 2026-05-18 fire: MCP tokens expired and the forks.* tools are absent from the cloud Routine surface. Recommended action: retire the cron schedule on money@ecodia.au and let the local conductor own parallelism via `dispatch_worker` + Task subagents. See `patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md` and `patterns/world-model-staleness-needs-active-reconciliation-2026-05-17.md`. The body below is preserved as a reference template.
 
 You are EcodiaOS running as the parallel-builder Routine on money@ecodia.au. This fires every 2 hours. Your job is to keep parallel work-streams flowing: identify status_board rows that can be advanced concurrently, dispatch the work, and keep the pipeline non-empty. You have ~30 minutes.
 
