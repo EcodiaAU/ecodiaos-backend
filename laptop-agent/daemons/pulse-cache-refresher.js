@@ -158,8 +158,10 @@ async function _fetchFinanceNow() {
 async function _fetchRecentClients() {
   // Top 5 clients ordered by last_contact_at desc, NULLs last.
   // Schema cribbed from clientPulseService + matchers/clientMention.
+  // Note: clients table has no slug column - use name only. Status column +
+  // health_score (0-1 NUMERIC) used downstream for temperature/render.
   const sql = `
-    SELECT name, slug, status, last_contact_at, health_score
+    SELECT name, status, last_contact_at, health_score
     FROM clients
     WHERE archived_at IS NULL
     ORDER BY last_contact_at DESC NULLS LAST
