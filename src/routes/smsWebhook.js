@@ -329,14 +329,44 @@ router.post('/incoming', validateTwilioSignature, async (req, res) => {
     console.log(`[SMS Webhook TRACE] step=3 appendInboundToThread`)
     await appendInboundToThread(from, Body, receivedAt)
 
-    console.log(`[SMS Webhook TRACE] step=4 fireReflex (prompt_chars=${prompt.length}) url=${process.env.REFLEX_AGENT_URL || DEFAULT_REFLEX_URL}`)
-    const result = await fireReflex({ prompt, idempotencyKey })
-    console.log(`[SMS Webhook TRACE] step=5 fireReflex returned ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
+    // 2026-05-18 session-subscription: probe for an active conductor first.
+    // If one is registered with a fresh heartbeat (<30min), route the message
+    // into its coord inbox via send_message - the wake substrate flashes/
+    // toasts the existing tab. Falls back to reflex.fire (new tab spawn) only
+    // when no active conductor. See backend/patterns/session-subscription-
+    // via-coord-inbox-routing-2026-05-18.md.
+    let routedViaCoord = false
+    try {
+      const bridge = require('../services/inboundChannelBridge')
+      const bridgeResult = await bridge.routeInbound({
+        channel: 'sms',
+        from,
+        sender_name: senderName,
+        thread_id: from,  // SMS threading key is the phone number
+        body: Body,
+        extra: { isTate, is_known: isKnown, idempotency_key: idempotencyKey },
+      })
+      console.log(`[SMS Webhook TRACE] step=3.5 bridge routed=${bridgeResult.routed} reason=${bridgeResult.reason || 'ok'}`)
+      if (bridgeResult.routed) {
+        routedViaCoord = true
+        logger.info('sms routed via coord to active conductor', {
+          idempotencyKey, senderName, conductor_tab_id: bridgeResult.conductor?.tab_id || null,
+        })
+      }
+    } catch (bridgeErr) {
+      // Never let bridge errors block the fallback path.
+      logger.warn('inbound bridge threw, falling back to reflex', { error: bridgeErr.message })
+    }
 
-    if (!result.ok) {
-      logger.error('sms reflex fire failed', { idempotencyKey, status: result.status, error: result.error })
-    } else {
-      logger.info('sms reflex fired', { idempotencyKey, senderName, isTate, cold_start: thread.cold_start, prior_exchanges: (thread.exchanges || []).length, reflex_result: result.result })
+    if (!routedViaCoord) {
+      console.log(`[SMS Webhook TRACE] step=4 fireReflex (prompt_chars=${prompt.length}) url=${process.env.REFLEX_AGENT_URL || DEFAULT_REFLEX_URL}`)
+      const result = await fireReflex({ prompt, idempotencyKey })
+      console.log(`[SMS Webhook TRACE] step=5 fireReflex returned ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
+      if (!result.ok) {
+        logger.error('sms reflex fire failed', { idempotencyKey, status: result.status, error: result.error })
+      } else {
+        logger.info('sms reflex fired', { idempotencyKey, senderName, isTate, cold_start: thread.cold_start, prior_exchanges: (thread.exchanges || []).length, reflex_result: result.result })
+      }
     }
   } catch (err) {
     console.log(`[SMS Webhook TRACE] step=err ${err.message}`)

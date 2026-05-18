@@ -300,14 +300,43 @@ router.post('/:secret', express.json({ limit: '2mb' }), async (req, res) => {
     console.log(`[Telegram TRACE] step=3 appendInboundToTelegramThread`)
     await appendInboundToTelegramThread(chatId, body, receivedAt, senderName)
 
-    console.log(`[Telegram TRACE] step=4 fireReflex append_chars=${appendPrompt.length} seed_chars=${seedPrompt.length}`)
-    const result = await fireReflex({ prompt: appendPrompt, seedPrompt, idempotencyKey })
-    console.log(`[Telegram TRACE] step=5 fireReflex ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
+    // 2026-05-18 session-subscription: probe for active conductor first.
+    // If registered with fresh heartbeat (<30min), route the message into
+    // its coord inbox - wake substrate flashes/toasts the existing tab. Only
+    // falls back to reflex.append_to_master / seed (new tab spawn) when no
+    // active conductor. See backend/patterns/session-subscription-via-coord-
+    // inbox-routing-2026-05-18.md.
+    let routedViaCoord = false
+    try {
+      const bridge = require('../../services/inboundChannelBridge')
+      const bridgeResult = await bridge.routeInbound({
+        channel: 'telegram',
+        from: fromUserId,
+        sender_name: senderName,
+        thread_id: chatId,
+        body,
+        extra: { update_id: updateId, idempotency_key: idempotencyKey },
+      })
+      console.log(`[Telegram TRACE] step=3.5 bridge routed=${bridgeResult.routed} reason=${bridgeResult.reason || 'ok'}`)
+      if (bridgeResult.routed) {
+        routedViaCoord = true
+        logger.info('telegram routed via coord to active conductor', {
+          idempotencyKey, senderName, conductor_tab_id: bridgeResult.conductor?.tab_id || null,
+        })
+      }
+    } catch (bridgeErr) {
+      logger.warn('inbound bridge threw, falling back to reflex', { error: bridgeErr.message })
+    }
 
-    if (!result.ok) {
-      logger.error('telegram reflex fire failed', { idempotencyKey, status: result.status, error: result.error })
-    } else {
-      logger.info('telegram reflex fired', { idempotencyKey, senderName, chatId, cold_start: thread.cold_start, prior_exchanges: (thread.exchanges || []).length })
+    if (!routedViaCoord) {
+      console.log(`[Telegram TRACE] step=4 fireReflex append_chars=${appendPrompt.length} seed_chars=${seedPrompt.length}`)
+      const result = await fireReflex({ prompt: appendPrompt, seedPrompt, idempotencyKey })
+      console.log(`[Telegram TRACE] step=5 fireReflex ok=${result.ok} status=${result.status} error=${result.error || 'none'}`)
+      if (!result.ok) {
+        logger.error('telegram reflex fire failed', { idempotencyKey, status: result.status, error: result.error })
+      } else {
+        logger.info('telegram reflex fired', { idempotencyKey, senderName, chatId, cold_start: thread.cold_start, prior_exchanges: (thread.exchanges || []).length })
+      }
     }
   } catch (err) {
     console.log(`[Telegram TRACE] step=err ${err.message}`)
