@@ -92,6 +92,31 @@ Probes the condition ONCE (with `probe_timeout_ms`, default 1000); runs `then` a
 
 One HTTP call dispatches the worker, blocks up to 5min waiting for the worker's `signal_done` message to arrive in the conductor inbox, then snaps the final screenshot. Composition.
 
+## Variable binding (`as:` + `${var}` substitution)
+
+Capture a step's result and reference it in later steps. Set `as: "name"` on any action, then any string in subsequent steps' `params` containing `${name}` (or `${name.field.nested}`) gets substituted with that result.
+
+```json
+{
+  "actions": [
+    { "tool": "cdp.url", "params": {}, "as": "current_url" },
+    { "tool": "cdp.navigate", "params": { "url": "https://example.com/page2" } },
+    { "tool": "wait_for", "params": { "until": { "type": "cdp_url_contains", "contains": "/page2" }, "timeout_ms": 5000 } },
+    { "tool": "cdp.runJs", "params": { "script": "history.replaceState(null,'','${current_url}')" } }
+  ],
+  "bindings": { "API_HOST": "api.admin.ecodia.au" }
+}
+```
+
+- `bindings` at the envelope level pre-seeds vars (good for config like `${API_HOST}`).
+- Per-step `as` captures the step's result object - reference whole-object with `${var}` or nested fields with `${var.field}`.
+- Unknown `${var}` tokens are LEFT IN PLACE so misnames are visible in the rendered params (and the response surface). Don't silently swallow them.
+- Substitution is SHALLOW (string-template). Objects bound via `as` get JSON-stringified when used in a string context.
+
+## Non-consuming inbox probe: `coord.peek_inbox`
+
+`coord.read_inbox` marks messages SEEN as a side effect. For `wait_for {type: 'coord_inbox_has'}` and any observer-style use, **prefer `coord.peek_inbox`** - same shape, no `seen_at` mutation. Now exposed on both `/api/tool` (direct) and the MCP shim. `wait_for` internally uses `peek_inbox` so the wait probe doesn't consume the message the next `read_inbox` caller would have claimed.
+
 ## Worked example: navigate + wait + click + verify
 
 ```json
