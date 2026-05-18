@@ -78,6 +78,44 @@ async function _lookupClientSlug(recipientEmail) {
   return undefined
 }
 
+// Fire-and-forget: update clients.last_contact_at on every external outbound
+// send. Root cause of the 42-day silent-stale issue (Coexist + Hello Lendy +
+// Denise Marsh all showing last_contact_at=2026-04-06 despite active comms):
+// gmailService never wrote to this column. Surfaced 2026-05-18 audit + ship.
+// Doctrine: client-dossier-must-update-on-every-touch + stale-client-threshold.
+function _updateClientLastContactPostSend({ recipient, sent_at }) {
+  const primary = _normaliseRecipient(_firstRecipient(recipient))
+  if (!primary) return
+  if (!_isExternalRecipient(primary)) return
+  const sentIso = sent_at || new Date().toISOString()
+  Promise.resolve()
+    .then(async () => {
+      // Match by exact contact_email OR email column (some clients have one,
+      // some have the other). Only advance last_contact_at - never roll back.
+      const result = await db`
+        UPDATE clients
+           SET last_contact_at = ${sentIso}
+         WHERE archived_at IS NULL
+           AND (
+             lower(contact_email) = ${primary}
+             OR lower(email) = ${primary}
+           )
+           AND (last_contact_at IS NULL OR last_contact_at < ${sentIso})
+        RETURNING id, name
+      `
+      if (result && result.length > 0) {
+        logger.info('gmailService: bumped client.last_contact_at', {
+          client: result[0].name, recipient: primary, sent_at: sentIso,
+        })
+      }
+    })
+    .catch((err) => {
+      logger.warn('gmailService: last_contact_at update failed (non-blocking)', {
+        recipient: primary, error: err.message,
+      })
+    })
+}
+
 // Fire-and-forget nudge seeding. Never throws back to caller. Skips
 // internal-domain recipients. Idempotent at the status_board layer.
 function _seedFollowupNudgesPostSend({ thread_id, recipient, sent_at }) {
@@ -881,10 +919,17 @@ async function sendReply(threadId, body) {
 
   // Seed +2d / +7d / +14d follow-up nudges on external-recipient sends.
   // Fire-and-forget; internal-domain recipients are filtered inside.
+  const _sentAt = new Date().toISOString()
   _seedFollowupNudgesPostSend({
     thread_id: threadId,
     recipient: thread.from_email,
-    sent_at: new Date().toISOString(),
+    sent_at: _sentAt,
+  })
+  // Bump clients.last_contact_at on external sends. Fixes the 42-day silent-
+  // stale issue surfaced in 2026-05-18 audit. Fire-and-forget.
+  _updateClientLastContactPostSend({
+    recipient: thread.from_email,
+    sent_at: _sentAt,
   })
 }
 
@@ -1234,10 +1279,17 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
     // Fire-and-forget; internal-domain recipients are filtered inside.
     // _capturedThreadId is the gmail-allocated thread id from the send
     // response; threadId param is the upstream hint (already-known thread).
+    const _sentAt = new Date().toISOString()
     _seedFollowupNudgesPostSend({
       thread_id: _capturedThreadId || threadId || null,
       recipient: to,
-      sent_at: new Date().toISOString(),
+      sent_at: _sentAt,
+    })
+    // Bump clients.last_contact_at on external sends. Fixes the 42-day
+    // silent-stale issue surfaced in 2026-05-18 audit. Fire-and-forget.
+    _updateClientLastContactPostSend({
+      recipient: to,
+      sent_at: _sentAt,
     })
   }
   return {
