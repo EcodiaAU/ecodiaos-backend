@@ -153,7 +153,9 @@ async function ensureSubscription(pubsub, projectId, topicFullName, sa) {
       },
       ackDeadlineSeconds: 60,
       messageRetentionDuration: '86400s',
-      expirationPolicy: { ttl: '' },  // never expire
+      // To make a subscription never expire, set ttl to '0s' OR omit the
+      // expirationPolicy entirely. Empty-string ttl is invalid (must end 's').
+      expirationPolicy: { ttl: '0s' },
     },
   })
   return { name: subFullName, action: 'created' }
