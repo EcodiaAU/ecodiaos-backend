@@ -30,11 +30,15 @@ If all three are yes, the substrate is CDP. The flow is:
 
 ## Hard rules
 
+- **Reach for the helpers, not raw JS.** `cdp.realClick`, `cdp.deepFindRect`, `cdp.nativeFill`, `cdp.findVisible`, `cdp.clickByTag` exist exactly because inline JS strings for these primitives are unreliable and uncomposable. See [cdp-helper-library-and-recursive-improvement-2026-05-18.md](cdp-helper-library-and-recursive-improvement-2026-05-18.md).
 - **Never send Escape.** Closes whole panels in GCP / Material UIs. Use clicks elsewhere or specific keystrokes to dismiss autocomplete.
-- **Native setter for form inputs.** Use `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value)` so React/Angular sees the change, then dispatch `input` + `change` events.
-- **Visible bbox check.** A walk that finds an element with `width:0,height:0` is hitting an off-screen duplicate. Filter for `width > 0 && height > 0`.
+- **Filter by tag when clicking by text.** `cdp.clickText('Save')` may hit a P/SPAN wrapping the same label outside the modal. Use `cdp.clickByTag({tag:'BUTTON',text:'Save'})` or `cdp.deepFindRect({tag:'BUTTON',text:'Save'})` to lock onto the actual BUTTON.
+- **JS `.click()` is unreliable on Material/MUI/custom-element buttons.** Use `cdp.realClick` (full `Input.dispatchMouseEvent` sequence: mouseMoved + mousePressed + mouseReleased). `cdp.clickByTag` auto-escalates when JS click leaves focus unchanged.
+- **Native setter for form inputs.** Use `cdp.nativeFill` (wraps `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value)` + `input`/`change` events) so React/Angular sees the change.
+- **Visible bbox check.** A walk that finds an element with `width:0,height:0` is hitting an off-screen duplicate. Filter for `width > 0 && height > 0`. All helpers do this by default.
 - **Wait properly between actions.** GCP needs 6-10s post-navigate, 1500-2500ms after autocomplete fill, 2-3s after combobox open. Faster than that and panels collapse mid-flight.
 - **Authentication is implicit.** Tate's Chrome cookies + session storage are what authenticate every API call the page makes. You do not need to extract or replay OAuth tokens.
+- **Recursive improvement is same-turn.** When a CDP arc hits a new failure mode, the fix lands in `tools/cdp.js` (or as a new doctrine line) BEFORE the arc closes. See [cdp-helper-library-and-recursive-improvement-2026-05-18.md](cdp-helper-library-and-recursive-improvement-2026-05-18.md).
 
 ## Cases this reflex applies (high-leverage examples)
 
@@ -83,6 +87,7 @@ What happened next:
 
 ## Cross-refs
 
+- [cdp-helper-library-and-recursive-improvement-2026-05-18.md](cdp-helper-library-and-recursive-improvement-2026-05-18.md) - the five helpers + recursive-improvement substrate
 - `~/ecodiaos/backend/patterns/corazon-is-a-peer-not-a-browser-via-http.md`
 - `~/ecodiaos/backend/patterns/drive-chrome-via-input-tools-not-browser-tools.md`
 - `~/ecodiaos/backend/patterns/tailscale-macro-replaces-cowork.md`
