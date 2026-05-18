@@ -1,5 +1,8 @@
 ---
-triggers: macro-recipe, captured-recipe, xcode-signing-team-select, xcode, signing, team, select, eos-mobile, ios-release, ios-build, codesign, automatic-signing, macincloud-full-screen, sy094-macincloud-com, mstsc-exe, mac-via-rdp
+triggers: macro-recipe, captured-recipe, xcode-signing-team-select, xcode-automatic-signing-team, xcode-target-signing-pane, eos-mobile, ios-release, codesign, automatic-signing, macincloud-full-screen, sy094-macincloud-com, mstsc-exe, mac-via-rdp
+# Triggers narrowed 2026-05-18 per captured-recipe-triggers-default-broad-narrow-before-validation-2026-05-18.md.
+# OLD: included xcode, signing, team, select (four bare common nouns) plus ios-build (overly broad cross-domain compound).
+# NEW set above: all compounds or literal identifiers, narrow to Xcode signing-team-select pane.
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.080Z
 flow_slug: xcode-signing-team-select

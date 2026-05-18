@@ -1,5 +1,8 @@
 ---
-triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
+triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple-developer-portal-keys, apns-p8-create, developer-apple-com-keys, push-notifications
+# Triggers narrowed 2026-05-18 per captured-recipe-triggers-default-broad-narrow-before-validation-2026-05-18.md.
+# OLD: included apple, dev, certificates, identifiers, profiles, developer (six bare common nouns).
+# NEW set above: all compounds or literal identifiers, narrow to APNs auth-key creation flow.
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
 flow_slug: apple-dev-apns-auth-key-create

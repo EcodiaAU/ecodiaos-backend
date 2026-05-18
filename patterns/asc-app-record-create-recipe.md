@@ -1,5 +1,8 @@
 ---
-triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-create-app-record, asc-apps-new, app-store-connect-bootstrap, ios-app-record-bootstrap, asc-internal-group-access, chrome-exe, tate-at-ecodia-au-access-user
+# Triggers narrowed 2026-05-18 per captured-recipe-triggers-default-broad-narrow-before-validation-2026-05-18.md.
+# OLD: included asc, app, record, create, new, google, chrome, store, connect (nine bare common nouns).
+# NEW set above: all compounds or literal identifiers, narrow to ASC create-app-record flow.
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.169Z
 flow_slug: asc-app-record-create
