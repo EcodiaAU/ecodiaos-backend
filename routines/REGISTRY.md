@@ -34,7 +34,7 @@ Pipe-separated table. Comments use `<!-- ... -->`. Empty rows are skipped by the
 <!-- money@ schedule-trigger -->
 | money@ecodia.au | parallel-builder |  |  | forks.spawn |
 | money@ecodia.au | marketing-outreach |  |  | linkedin.list_dms,gmail.send |
-| money@ecodia.au | marketing-cadence-monitor |  |  | kv_store.set,status_board.upsert |
+| money@ecodia.au | marketing-cadence-monitor | https://api.anthropic.com/v1/claude_code/routines/trig_01M9LwP5XpPNQcCnoCsaaBL1/fire | schedule-trigger-only-no-api-token | kv_store.set,status_board.upsert |
 | money@ecodia.au | weekly-financial-review |  |  | stripe.list_charges,bookkeeping.list_staged_transactions |
 <!-- API-trigger routines -->
 | code@ecodia.au | inbound-email-handler | https://api.anthropic.com/v1/claude_code/routines/trig_01775aASgZk6tindvW7r8XJ9/fire | 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 | email_threads.read,kv_store.set |
