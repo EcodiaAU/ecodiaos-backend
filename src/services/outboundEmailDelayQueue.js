@@ -34,44 +34,77 @@ const KNOWN_RECIPIENT_WINDOW_DAYS = 30
 async function isKnownRecipient(emailAddress) {
   if (!emailAddress || typeof emailAddress !== 'string') return false
   const lowered = emailAddress.toLowerCase()
-  // Audit 2026-05-13 P1: previous query used `email_threads.last_message_at`
-  // — but the canonical column on email_threads is `received_at`. The
-  // primary query silently failed via the .catch, fallback used the same
-  // (broken) column. Net: isKnownRecipient returned `false` for ~everyone,
-  // every email got queued including replies to known clients. Use
-  // COALESCE(last_message_at, received_at, updated_at) so the query works
-  // across both observed schemas.
+  const domain = lowered.includes('@') ? lowered.split('@')[1] : null
+
+  // 2026-05-18: full rewrite. The previous query referenced `to_email`
+  // which does not exist on email_threads (canonical columns are
+  // from_email, gmail_thread_id, received_at). Both the primary path AND
+  // the fallback referenced it, so the function ALWAYS errored and
+  // returned false - every outbound email queued for 24h regardless of
+  // prior relationship. The audit comment about last_message_at fixed
+  // half the drift but missed to_email entirely.
+  //
+  // Known-recipient evidence (any of these qualifies):
+  //   1. Tier-3 pattern allowlist: recipient domain has an active
+  //      authorized_action_patterns row for gmail_send_external. This
+  //      represents Tate's pre-blessed routine-comms allowlist - bypass
+  //      the queue because the gate has already vouched for the domain.
+  //   2. Inbound history: email_threads.from_email matches in last 30d
+  //      (they emailed us, we're replying or following up).
+  //   3. Outbound history: outbound_email_delay_queue has a status='sent'
+  //      row for this address in last 30d (we successfully sent before,
+  //      so the relationship exists).
+  //   4. CRM activity: crm_activities.contact_email touched in last 30d.
+  //
+  // Any error in one path falls through to the next; final answer is
+  // false (queue it, safety net wins).
+
+  // 1. Tier-3 pattern allowlist - domain-level.
+  if (domain) {
+    try {
+      const rows = await db`
+        SELECT 1 FROM authorized_action_patterns
+        WHERE active = TRUE
+          AND action_type = 'gmail_send_external'
+          AND matcher_json -> 'to_domain' -> '$in' @> to_jsonb(${domain}::text)
+        LIMIT 1
+      `
+      if (rows.length > 0) return true
+    } catch (err) {
+      logger.debug('delay queue: pattern allowlist check skipped', { error: err.message })
+    }
+  }
+
+  // 2. Inbound history on email_threads.from_email.
   try {
     const rows = await db`
       SELECT 1
       FROM email_threads
-      WHERE (
-        LOWER(from_email) = ${lowered}
-        OR LOWER(to_email) = ${lowered}
-        OR ${lowered} = ANY(ARRAY(SELECT LOWER(unnest(COALESCE(participants, ARRAY[]::text[])))))
-      )
+      WHERE LOWER(from_email) = ${lowered}
         AND COALESCE(received_at, updated_at) >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
       LIMIT 1
     `
     if (rows.length > 0) return true
   } catch (err) {
-    // If the schema differs (e.g. no participants column yet), fall back
-    // to the simpler check. Log once per outage; don't fail-close here.
-    logger.debug('delay queue: email_threads check fell back', { error: err.message })
-    try {
-      const rows2 = await db`
-        SELECT 1 FROM email_threads
-        WHERE (LOWER(from_email) = ${lowered} OR LOWER(to_email) = ${lowered})
-          AND COALESCE(received_at, updated_at) >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
-        LIMIT 1
-      `
-      if (rows2.length > 0) return true
-    } catch (err2) {
-      logger.warn('delay queue: known-recipient fallback failed', { error: err2.message })
-    }
+    logger.debug('delay queue: email_threads check skipped', { error: err.message })
   }
 
-  // Secondary: crm_activities.contact_email.
+  // 3. Outbound history - our own sent rows.
+  try {
+    const rows = await db`
+      SELECT 1
+      FROM outbound_email_delay_queue
+      WHERE LOWER(to_address) = ${lowered}
+        AND status = 'sent'
+        AND sent_at >= NOW() - (${KNOWN_RECIPIENT_WINDOW_DAYS} || ' days')::INTERVAL
+      LIMIT 1
+    `
+    if (rows.length > 0) return true
+  } catch (err) {
+    logger.debug('delay queue: outbound history check skipped', { error: err.message })
+  }
+
+  // 4. CRM activity.
   try {
     const rows = await db`
       SELECT 1 FROM crm_activities

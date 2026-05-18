@@ -1367,17 +1367,34 @@ async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessi
   })
 
   if (issue.status === 'pending_otp') {
-    // No matching authorized_action_patterns row. SMS-OTP challenge is
-    // now pending - caller should surface it to Tate via sms_tate or
-    // similar, then re-invoke with the completed token. We do NOT dispatch
-    // the SMS here (decoupled from twilio per tier3GateService docs).
-    logger.warn('sendEmailAuto: no matching pattern - SMS-OTP challenge pending', {
-      to: Array.isArray(to) ? to[0] : to,
-      subject,
-      otp_id: issue.otp_id,
-      sessionId: effectiveSessionId,
-      context,
-    })
+    // No matching authorized_action_patterns row. SMS-OTP challenge has
+    // been recorded in tier3_otp_pending; we now dispatch the code to
+    // Tate via Twilio so he can reply "Y <code>" (inbound SMS reflex
+    // routes to a Corazon Claude Code tab that calls
+    // tier3GateService.completeOtpChallenge + retries the send).
+    //
+    // 2026-05-18: this used to silently strip otp_code and return -
+    // the comment said "caller should surface it to Tate via sms_tate"
+    // but no caller did. Net effect: external sends to non-allowlisted
+    // domains stalled forever. Wiring the dispatch directly here is the
+    // single shortest path that closes the loop without coupling tier3
+    // itself to Twilio (tier3 still returns the code; we, the caller,
+    // dispatch).
+    const recipient = Array.isArray(to) ? to[0] : to
+    const subjectPreview = String(subject || '').slice(0, 60)
+    const smsBody = `OTP ${issue.otp_code}: email send to ${recipient} - "${subjectPreview}". Reply Y ${issue.otp_code} to confirm (10min).`
+    try {
+      const alerting = require('./osAlertingService')
+      const ok = await alerting.sendSmsToTate(smsBody)
+      logger.info('sendEmailAuto: OTP SMS dispatched', {
+        to: recipient, subject, otp_id: issue.otp_id, sms_ok: !!ok,
+      })
+    } catch (err) {
+      logger.error('sendEmailAuto: OTP SMS dispatch failed (gate still pending)', {
+        to: recipient, subject, otp_id: issue.otp_id, error: err.message,
+      })
+    }
+
     return {
       pending_otp: true,
       otp_id: issue.otp_id,

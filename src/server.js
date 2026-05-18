@@ -443,13 +443,19 @@ server.listen(env.PORT, async () => {
   // Closes the 24h delay-queue safety net: Tate-approved rows ready to
   // send get atomically claimed and dispatched. Audit 2026-05-13 P0 #21
   // (the only consumer for outboundEmailDelayQueue.listReadyToSend).
-  if (!CONDUCTOR_DETACHED) {
-    try {
-      const delayQueueWorker = require('./workers/outboundEmailDelayQueueWorker')
-      delayQueueWorker.start()
-    } catch (err) {
-      logger.warn('Delay queue worker failed to start', { error: err.message })
-    }
+  //
+  // 2026-05-18: moved OUT of the `!CONDUCTOR_DETACHED` block. The delay
+  // queue worker is comms infrastructure (the "deliverer" leg of the
+  // Tier-3 gate composite), NOT conductor infrastructure. Gating it
+  // behind CONDUCTOR_DETACHED meant the substrate-only VPS post-local-
+  // first-migration silently dropped every external email - the gate
+  // approved sends but nothing flushed the queue. Comms delivery must
+  // run wherever the API host runs.
+  try {
+    const delayQueueWorker = require('./workers/outboundEmailDelayQueueWorker')
+    delayQueueWorker.start()
+  } catch (err) {
+    logger.warn('Delay queue worker failed to start', { error: err.message })
   }
 
   // ── Boot: OS Heartbeat ────────────────────────────────────────────
