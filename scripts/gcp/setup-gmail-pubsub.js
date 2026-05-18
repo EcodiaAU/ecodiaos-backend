@@ -153,9 +153,10 @@ async function ensureSubscription(pubsub, projectId, topicFullName, sa) {
       },
       ackDeadlineSeconds: 60,
       messageRetentionDuration: '86400s',
-      // To make a subscription never expire, set ttl to '0s' OR omit the
-      // expirationPolicy entirely. Empty-string ttl is invalid (must end 's').
-      expirationPolicy: { ttl: '0s' },
+      // Omitting expirationPolicy = default 31-day-inactivity expiry. The
+      // gmail-watch-refresh cron re-fires daily so the subscription is
+      // continuously active. '0s' = immediate-expire (rejected with 'too
+      // small, minimum 24h'), '' = invalid format. Omit is the correct path.
     },
   })
   return { name: subFullName, action: 'created' }
