@@ -21,8 +21,55 @@
 
 const logger = require('../config/logger')
 const db = require('../config/db')
+const crypto = require('crypto')
 
 const ALERT_TO = process.env.ALERT_EMAIL_TO || 'tate@ecodia.au'
+
+// ─── Quiet hours + content-hash dedupe (substrate hardening, 2026-05-18) ────
+//
+// Quiet hours: 22:00 - 07:00 AEST (Australia/Brisbane, no DST). Non-critical
+// SMS is dropped during this window. severity='critical_outage' bypasses.
+//
+// Content-hash dedupe: 30min TTL per body hash. Suppresses storms when a
+// failure-mode flaps and the same alert body would fire repeatedly inside
+// the per-alertType cooldown window's edges. Lives in-memory; resets on
+// process restart (intentional - persistent dedupe is the cooldown's job).
+const QUIET_HOURS_START = 22
+const QUIET_HOURS_END = 7
+const SMS_DEDUPE_TTL_MS = 30 * 60 * 1000
+const _recentHashes = new Map()
+
+function _isQuietHours(now = new Date()) {
+  // Brisbane is UTC+10 year-round (no DST). Compute the AEST hour from the
+  // current UTC ms epoch so this is deterministic regardless of host TZ.
+  const aestMs = now.getTime() + 10 * 60 * 60 * 1000
+  const aestHour = new Date(aestMs).getUTCHours()
+  if (QUIET_HOURS_START > QUIET_HOURS_END) {
+    // Window wraps midnight - active when hour >= start OR hour < end.
+    return aestHour >= QUIET_HOURS_START || aestHour < QUIET_HOURS_END
+  }
+  return aestHour >= QUIET_HOURS_START && aestHour < QUIET_HOURS_END
+}
+
+function _hashBody(body) {
+  return crypto.createHash('sha256').update(String(body || '')).digest('hex').slice(0, 24)
+}
+
+function _pruneHashes(now) {
+  for (const [h, exp] of _recentHashes) {
+    if (exp <= now) _recentHashes.delete(h)
+  }
+}
+
+function _seenRecently(body) {
+  const now = Date.now()
+  _pruneHashes(now)
+  const h = _hashBody(body)
+  const exp = _recentHashes.get(h)
+  if (exp && exp > now) return true
+  _recentHashes.set(h, now + SMS_DEDUPE_TTL_MS)
+  return false
+}
 
 // Per-alert cooldowns in ms. After firing, same alert type blocked until elapsed.
 const COOLDOWNS = {
@@ -112,8 +159,37 @@ async function _sendTwilio(body) {
 /**
  * SMS to Tate via Twilio. iMessage substrate removed Tate-directed
  * 11 May 2026 16:44 AEST. Twilio is the sole contact channel.
+ *
+ * Quiet-hours + content-hash dedupe gates added 2026-05-18:
+ *   - 22:00-07:00 AEST: non-critical SMS is dropped unless severity is
+ *     'critical_outage' (case-insensitive).
+ *   - sha256(body) seen inside the last 30min: dropped as duplicate.
+ *
+ * Both gates return a structured `{skipped: '...'}` object instead of a
+ * boolean to give callers visibility. Existing callers that treat the
+ * return as truthy still see falsy on a skip (Boolean({skipped:...}) is
+ * true - callers checking `if (ok)` will still see it as success, which
+ * matches the prior fire-and-forget contract). Callers that want to
+ * distinguish skip vs send check the object shape.
  */
-async function _sendSms(body) {
+async function _sendSms(body, opts = {}) {
+  const severity = (opts && typeof opts.severity === 'string')
+    ? opts.severity.toLowerCase()
+    : null
+  const isCritical = severity === 'critical_outage'
+
+  if (!isCritical && _isQuietHours()) {
+    logger.info('alerting: SMS suppressed by quiet-hours gate', {
+      severity: severity || 'unspecified',
+    })
+    return { skipped: 'quiet_hours' }
+  }
+
+  if (_seenRecently(body)) {
+    logger.info('alerting: SMS suppressed by 30min content-hash dedupe')
+    return { skipped: 'duplicate_30min' }
+  }
+
   return _sendTwilio(body)
 }
 
@@ -149,10 +225,13 @@ async function _fire(alertType, subject, body) {
       return false
     }
   }
-  // SMS first for urgent alert types - so Tate gets it even if email fails
+  // SMS first for urgent alert types - so Tate gets it even if email fails.
+  // _sendSms now applies quiet-hours + dedupe gates internally; we pass
+  // severity so the gate can recognise a true critical_outage. The cooldowns
+  // declared in COOLDOWNS still bind; this is additional defence-in-depth.
   if (SMS_ALERT_TYPES.has(alertType)) {
     const smsBody = `[EcodiaOS] ${subject}\n${body.split('\n')[0]}`
-    _sendSms(smsBody).catch(() => {})
+    _sendSms(smsBody, { severity: 'operational' }).catch(() => {})
   }
   const ok = await _send(subject, body)
   if (ok) {
@@ -239,13 +318,18 @@ System is alive. No action needed if numbers look sane.`
 
 /**
  * Generic Twilio SMS to Tate bypassing the alert-cooldown table. Used by
- * securityIncidentResponse.wireServices so incident SMS always fires - 
+ * securityIncidentResponse.wireServices so incident SMS always fires -
  * an incident is not subject to the per-alertType cooldowns.
  *
- * Returns boolean success; never throws.
+ * Returns boolean success or {skipped} on gate hit; never throws.
+ *
+ * Accepts opts.severity to bypass quiet-hours when the caller knows the
+ * payload is a critical_outage (e.g. security incident, host down,
+ * substrate-level breakage). Default severity is 'operational' which
+ * respects quiet hours.
  */
-async function sendSmsToTate(body) {
-  return _sendSms(String(body || ''))
+async function sendSmsToTate(body, opts = {}) {
+  return _sendSms(String(body || ''), opts)
 }
 
 /**
@@ -292,4 +376,9 @@ module.exports = {
   sendSmsToTate,
   pushApns,
   notifyTateMultiChannel,
+  // Exposed for tests + callers that need to know whether the gate would
+  // currently fire before composing an SMS.
+  _isQuietHours,
+  _recentHashes,
+  _hashBody,
 }

@@ -14,6 +14,7 @@
 
 const logger = require('../../config/logger')
 const axios = require('axios')
+const db = require('../../config/db')
 // §2.1 untrusted-input boundary. The wake message embeds external-derived
 // fields - row.kind comes from email envelope classification, and any
 // future addition of row.subject / row.from / row.snippet / row.body
@@ -95,6 +96,52 @@ module.exports = {
     )
     logger.info('emailArrival: handle invoked', { eventId: row.id })
     try { require('../perceptionBus').publish({ source: 'email', kind: row.kind || 'email_arrival', data: { id: row.id, kind: row.kind }, confidence: 1.0 }) } catch {}
+    // pipeline-stage signal: if this inbound has prior outbound from us in
+    // the last 14d (crm_activity_log activity_type='email_sent' for the
+    // linked client), publish a perception suggesting stage='engaged'.
+    // Fire-and-forget; never blocks the wake.
+    ;(async () => {
+      try {
+        if (!row.client_id) return
+        // TODO: prior-outbound detection currently uses crm_activity_log
+        // (source='gmail', activity_type='email_sent') as a proxy for
+        // "outbound from us". When email_messages / per-message direction
+        // tracking ships, replace with a direct email_threads join.
+        const recent = await db`
+          SELECT 1 FROM crm_activity_log
+          WHERE client_id = ${row.client_id}
+            AND activity_type = 'email_sent'
+            AND source = 'gmail'
+            AND created_at > now() - interval '14 days'
+          LIMIT 1
+        `
+        if (recent.length === 0) return
+        let threadId = null
+        try {
+          const t = await db`
+            SELECT id FROM email_threads
+            WHERE ${row.gmail_message_id} = ANY(gmail_message_ids)
+            LIMIT 1
+          `
+          threadId = t[0]?.id || null
+        } catch { /* non-fatal */ }
+        require('../perceptionBus').publish({
+          source: 'email',
+          kind: 'pipeline_stage_signal',
+          data: {
+            thread_id: threadId,
+            client_id: row.client_id,
+            suggested_stage: 'engaged',
+            confidence: 0.6,
+            reason: 'inbound reply to our outbound',
+            email_event_id: row.id,
+          },
+          confidence: 0.6,
+        })
+      } catch (err) {
+        logger.debug('emailArrival: pipeline_stage_signal emit failed', { error: err.message })
+      }
+    })()
     // working_set: open a thread for this email arrival so conductor has typed state
     ;(async () => {
       try {

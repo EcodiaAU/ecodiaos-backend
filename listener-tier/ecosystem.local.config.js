@@ -31,6 +31,10 @@ module.exports = {
       kill_timeout: 5000,
       env: {
         NODE_ENV: 'production',
+        // Backend is its own git repo at D:/.code/ecodiaos/backend/.git
+        // (not the parent D:/.code/ecodiaos/). Override the default so the
+        // commit-pattern-detector listener can resolve. 2026-05-18 ship.
+        LISTENER_TIER_GIT_DIR: 'D:\\.code\\ecodiaos\\backend\\.git',
       },
     },
   ],

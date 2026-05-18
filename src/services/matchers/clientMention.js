@@ -24,13 +24,19 @@ const perceptionBus = require('../perceptionBus')
 
 // Active client patterns. Hardcoded for v1; future iteration loads from
 // SELECT slug, name FROM clients WHERE archived_at IS NULL on a 60min cadence.
+// [redacted] archived 2026-05-17, swept from matcher 2026-05-18. See pattern:
+// archived-client-sweep-must-touch-code-not-just-dossier-2026-05-18.md.
+// Wildmountains added 2026-05-18 (verbally locked as Ecodia dev shop).
+// Goodreach + Sidequests added 2026-05-18 as active pipeline.
 const _activeClients = [
-  { slug: '[redacted]',       name: '[redacted]',       pattern: /\b([redacted]|[redacted]|spatial[-_ ]?compliance|[redacted]|[redacted])\b/i },
-  { slug: 'coexist',     name: 'Co-Exist',    pattern: /\b(co[-_ ]?exist|coexist|kurt)\b/i },
-  { slug: 'roam',        name: 'Roam',        pattern: /\broam\b/i },
-  { slug: 'resonaverde', name: 'Resonaverde', pattern: /\b(resonaverde|angelica)\b/i },
-  { slug: 'landcare',    name: 'Landcare',    pattern: /\blandcare\b/i },
-  { slug: 'cetin',       name: 'CETIN',       pattern: /\bcetin\b/i },
+  { slug: 'coexist',       name: 'Co-Exist',       pattern: /\b(co[-_ ]?exist|coexist|kurt(?!\s+vonnegut))\b/i },
+  { slug: 'roam',          name: 'Roam',           pattern: /\broam\b/i },
+  { slug: 'resonaverde',   name: 'Resonaverde',    pattern: /\b(resonaverde|angelica)\b/i },
+  { slug: 'wildmountains', name: 'Wildmountains',  pattern: /\b(wild[-_ ]?mountains?|ACEL|fellowship)\b/i },
+  { slug: 'goodreach',     name: 'Goodreach',      pattern: /\bgoodreach\b/i },
+  { slug: 'sidequests',    name: 'Sidequests',     pattern: /\bside[-_ ]?quests?\b/i },
+  { slug: 'landcare',      name: 'Landcare',       pattern: /\blandcare\b/i },
+  { slug: 'cetin',         name: 'CETIN',          pattern: /\bcetin\b/i },
 ]
 
 module.exports = {
