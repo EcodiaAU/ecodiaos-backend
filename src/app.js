@@ -92,6 +92,13 @@ app.use('/api/webhooks/apple-asn', require('./routes/webhooks/apple-asn-fire-shi
 // own json parser scoped to itself.
 app.use('/api/webhooks/telegram', require('./routes/webhooks/telegram-bot'))
 
+// Gmail Pub/Sub push receiver (2026-05-18). Receives OIDC-authed POSTs from
+// the gmail-inbound-to-webhook subscription on every Gmail inbox change.
+// Drops inbound-email latency from 60min (triage cron floor) to sub-30s.
+// Auth: OIDC bearer JWT, audience checked against GMAIL_PUSH_EXPECTED_AUDIENCE,
+// service account checked against GMAIL_PUSH_ALLOWED_SA_EMAIL.
+app.use('/api/webhooks/gmail-push', require('./routes/webhooks/gmail-push'))
+
 // GKG (GUI Knowledge Graph) ingest - capture daemon on Corazon POSTs
 // HMAC-signed NDJSON. MUST mount before express.json() so the raw body
 // the daemon HMACed is the body we verify. See src/routes/gkg.js +
@@ -384,13 +391,8 @@ app.use(require('./routes/voiceChunk'))
 app.use('/api/meetings', require('./routes/meetings'))
 // /api/voice/* REST tools - Deepgram transcribe/synthesize/live-session.
 // /api/voice/incoming and /api/voice/relay are registered directly in
-<<<<<<< Updated upstream
 // voiceRelay.js (TwiML POST + Twilio Media Streams WS). Express matches the
 // direct app.post/app.ws routes first, then falls through to this router.
-=======
-// voiceRelay.js (TwiML POST + Twilio Media Streams WS). Mounting the router
-// after those direct routes lets express match exact paths first.
->>>>>>> Stashed changes
 app.use('/api/voice', require('./routes/voiceTools'))
 
 // Error handler (must be last)
