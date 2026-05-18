@@ -1,0 +1,20 @@
+{
+  "kv_store_key_target": "cowork.last_strategic_session",
+  "timestamp_aest": "2026-05-18T14:00:00+10:00",
+  "core_insight": "Security-revenue sequencing inverted: Phase 0.5 security gates Goal #5 revenue, but Goal #4 (dual-reviewer enforce) is unblockable, and the autonomous-VPS-runtime substrate the security project defended was deprecated 17 May. Reorder: revenue becomes Goal #1, client work becomes the security test bed.",
+  "file_handle": "drafts/strategic-thinking-2026-05-18-revenue-vs-security-sequencing.md",
+  "neo4j_node_id": null,
+  "neo4j_node_target_label": "Strategic_Direction",
+  "neo4j_node_target_name": "strategic-thinking 2026-05-18 AEST - revenue-vs-security sequencing inverted post 17 May pivot",
+  "emailed_tate": false,
+  "sms_tate": false,
+  "mcp_blocked": true,
+  "mcp_block_reason": "Both ecodia-core and ecodia-crm MCP servers returned 'requires re-authorization (token expired)' at 14:00 AEST 2026-05-18. No HTTP bypass token available in env.",
+  "deliverable_substrate": "git_repo",
+  "branch": "claude/busy-allen-lT4sL",
+  "promotion_actions_for_next_mcp_session": [
+    "neo4j_write_decision label=Strategic_Direction with name + description from the .md file",
+    "status_board_upsert entity_type=strategic name='SELF.md goal-stack rewrite post 17 May pivot' next_action_by=tate priority=2 context=link-to-md-file",
+    "kv_store_set key=cowork.last_strategic_session value=this-json-with-neo4j_node_id-filled"
+  ]
+}
