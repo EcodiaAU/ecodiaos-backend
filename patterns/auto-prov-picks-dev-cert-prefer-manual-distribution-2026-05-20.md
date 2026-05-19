@@ -6,13 +6,13 @@ triggers: auto-provisioning-picks-dev-cert, xcodebuild-archive-wrong-cert, ios-t
 
 `xcodebuild -allowProvisioningUpdates` paired with the ASC API key fetches/creates a fresh "iOS Team Provisioning Profile" with the Apple Development certificate even when an explicit Distribution profile + cert exist on the team. The archive succeeds, altool accepts the upload, but Apple TestFlight validation rejects the binary post-upload with "missing valid distribution certificate" or "wrong code signing identity" because TestFlight builds require Apple Distribution (not Development) signing.
 
-Observed across builds 1-3 of `ecodia-native` (2026-05-19 to 2026-05-20). Every auto-prov archive picked the Apple Development cert + "iOS Team Provisioning Profile: au.ecodia.native" instead of the explicit "EcodiaOS Native App Store 2026-05-19" Distribution profile that already existed. Build 1 also caused a related variant — App Group capability auto-stripped from entitlements because the auto-created profile had an empty `application-groups` array, masking the wrong-cert issue behind a separate signing failure.
+Observed across builds 1-3 of `ecodia-native` (2026-05-19 to 2026-05-20). Every auto-prov archive picked the Apple Development cert + "iOS Team Provisioning Profile: au.ecodia.native" instead of the explicit "EcodiaOS Native App Store 2026-05-19" Distribution profile that already existed. Build 1 also caused a related variant - App Group capability auto-stripped from entitlements because the auto-created profile had an empty `application-groups` array, masking the wrong-cert issue behind a separate signing failure.
 
 ## Why it recurs
 
 - ASC API key has full team scope; the auto-prov path treats "any valid certificate" as success, and Development certs are cheaper to provision than Distribution.
 - The Distribution profile must be EXPLICITLY pinned per target via `PROVISIONING_PROFILE_SPECIFIER` with manual signing, OR the bundle ID's primary provisioning profile must be set in Apple Dev portal (Settings -> Provisioning Profiles -> Make Default).
-- Apple's UI doesn't surface this — the archive completes "successfully" with a green checkmark in Organizer.
+- Apple's UI doesn't surface this - the archive completes "successfully" with a green checkmark in Organizer.
 
 ## Fix
 
