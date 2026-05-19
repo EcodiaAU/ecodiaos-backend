@@ -49,4 +49,4 @@ This is one of several cowork-scope ceilings worth knowing before reaching for a
 
 Capability stress-test 2026-05-19. The umbrella row was planted with `entity_type=infrastructure` and inserted fine. A mid-arc update attempt to push status forward returned scope_denied. The Episode-write workaround landed the same information. Codified within the same arc.
 
-See also: [[cowork-v2-api-shape-conventions]], [[scope-asymmetry-insert-vs-update]] (will be created), [[cred-rotation-must-propagate-to-all-consumers]].
+See also: [[cowork-v2-api-shape-conventions]], [[scope-asymmetry-insert-vs-update]], [[cred-rotation-must-propagate-to-all-consumers]].

@@ -107,6 +107,8 @@ Empirically derived by fork_moku5bge_23b7a5 30 Apr 12:00-12:10 AEST during full 
 ## 8. Cross-references
 
 - `~/ecodiaos/patterns/conductor-cowork-duo-roles-and-handoffs.md` (parent doctrine; this gotcha list is operationalised inside the duo handoff protocol)
+- `~/ecodiaos/patterns/scope-asymmetry-insert-vs-update.md` (the general rule that gotcha 4 is one instance of: bearer scope is per-verb, successful insert does not imply successful update)
+- `~/ecodiaos/patterns/cowork-scope-cannot-update-entity_type-infrastructure-2026-05-19.md` (specific case: cowork bearer can INSERT infrastructure/legal rows but cannot UPDATE them afterward)
 - `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` (meta-rule: V2 substrate uses Anthropic MCP standard, not custom JSON-RPC vocabulary)
 - `~/ecodiaos/drafts/cowork-v2-endpoint-coverage-2026-04-30.md` (empirical coverage map)
 - `src/routes/mcp/cowork.js` (the 17 REST handlers - line numbers per endpoint listed in coverage map)
