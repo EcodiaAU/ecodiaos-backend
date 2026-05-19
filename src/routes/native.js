@@ -16,6 +16,7 @@
  */
 
 const express = require('express')
+const multer = require('multer')
 const router = express.Router()
 const db = require('../config/db')
 const env = require('../config/env')
@@ -45,6 +46,13 @@ const SIGNED_READ_TTL_SECONDS = 86400 // 24h
 
 router.use(express.json({ limit: '5mb' }))
 router.use(nativeAuth)
+
+// Multer for the multipart audio upload on /voice/transcribe. Memory storage,
+// 5MB cap (Whisper one-shot tier; longer dictation should chunk via /voice/chunk).
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+})
 
 const NATIVE_MIRROR_KEY = 'cowork.message_thread.native.tate'
 const LA_TOKEN_KEY = 'cowork.native.live_activity_token.tate'
@@ -326,6 +334,60 @@ router.post('/attachments/sign', async (req, res) => {
   } catch (err) {
     logger.error('native /attachments/sign: error', { error: err.message, stack: err.stack })
     return res.status(500).json({ error: 'internal_error', detail: err.message })
+  }
+})
+
+// ---------- POST /voice/transcribe ----------
+// Push-to-talk one-shot: iOS records an m4a, posts it here, we Whisper it and
+// return the transcript text. Does NOT buffer into the OS-session conductor;
+// the iOS app uses the returned text as a regular message body it then submits
+// via /inbound. Hallucination filter mirrors /api/voice/chunk so near-silent
+// inputs return text='' instead of "Thanks for watching." style noise.
+
+const HALLUCINATIONS = new Set([
+  '',
+  '.',
+  '..',
+  '...',
+  'thanks.',
+  'thank you.',
+  'thanks for watching.',
+  'thanks for watching!',
+  'you',
+  'thank you for watching.',
+  'bye.',
+  'thanks!',
+  'thank you!',
+  'okay.',
+  'ok.',
+])
+
+router.post('/voice/transcribe', audioUpload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ error: 'audio_required' })
+    }
+    const { transcribeChunk } = require('../services/voiceTranscription')
+    const mimeType = req.file.mimetype || 'audio/m4a'
+    const filename = req.file.originalname || 'voice.m4a'
+    const text = String(
+      await transcribeChunk({
+        buffer: req.file.buffer,
+        mimeType,
+        filename,
+      }) || '',
+    ).trim()
+    const lower = text.toLowerCase()
+    const looksHallucinated = HALLUCINATIONS.has(lower) || (text.length < 4 && !/\d/.test(text))
+    return res.json({
+      ok: true,
+      text: looksHallucinated ? '' : text,
+      raw_text: text,
+      hallucinated: looksHallucinated,
+    })
+  } catch (err) {
+    logger.error('native /voice/transcribe error', { error: err.message })
+    return res.status(500).json({ error: 'transcribe_failed', detail: err.message })
   }
 })
 
