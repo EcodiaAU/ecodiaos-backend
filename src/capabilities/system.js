@@ -308,42 +308,10 @@ Discard: discard_rules`,
     },
   },
 
-  // ─── Send Message to Running CC Session ──────────────────────────
-  {
-    name: 'send_cc_message',
-    description: 'Send a follow-up message to a running CC session. Use this to provide additional context, redirect the session, or answer questions the CC session is asking.',
-    tier: 'write',
-    domain: 'factory',
-    priority: 'critical',
-    params: {
-      sessionId: { type: 'number', required: true, description: 'CC session ID to message' },
-      content: { type: 'string', required: true, description: 'Message content to send' },
-    },
-    handler: async (params) => {
-      const bridge = require('../services/factoryBridge')
-      bridge.publishSendMessage(params.sessionId, params.content)
-      return { message: `Message sent to session ${params.sessionId}` }
-    },
-  },
-
+  // send_cc_message - registered in capabilities/factory.js (single source)
   // get_cc_session_details - registered in capabilities/factory.js (single source)
 
-  // ─── List Registered Codebases ───────────────────────────────────
-  {
-    name: 'list_codebases',
-    description: 'List all registered codebases the Factory can target, including their paths, languages, and deploy configs.',
-    tier: 'read',
-    domain: 'factory',
-    params: {},
-    handler: async () => {
-      const db = require('../config/db')
-      const codebases = await db`
-        SELECT id, name, language, repo_path, meta, created_at
-        FROM codebases ORDER BY name
-      `
-      return { codebases, count: codebases.length }
-    },
-  },
+  // list_codebases - registered in capabilities/factory.js (single source)
 
   // ─── Dispatch Parallel CC Sessions ───────────────────────────────
   {

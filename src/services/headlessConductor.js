@@ -429,7 +429,7 @@ const TRIAGE_TOOLS = [
   },
   {
     name: 'notify_tate',
-    description: 'Universal reply tool. Use for channel == native (delivers via APNs to iOS app with SMS fallback). Also usable for autonomous initiatives where transport should be picked by device state. urgency maps to APNs interruption-level (routine=passive, alert=active, critical=time-sensitive). For SMS/Telegram channel-matched replies, prefer send_sms_to_tate / send_telegram_message - this tool is for native + cross-channel cases.',
+    description: 'REPLY TOOL FOR NATIVE CHANNEL. ALWAYS call this for native-channel inbound BEFORE writing any episode. Delivers reply via APNs to iOS app with SMS fallback. This IS the reply tool for native channel - neo4j_write_episode is NOT a reply, it is audit-only. Also usable for autonomous initiatives where transport should be picked by device state. urgency maps to APNs interruption-level (routine=passive, alert=active, critical=time-sensitive). For SMS/Telegram channel-matched replies, prefer send_sms_to_tate / send_telegram_message - this tool is for native + cross-channel cases.',
     input_schema: {
       type: 'object', required: ['body'],
       properties: {
@@ -713,11 +713,19 @@ Escalate to Opus when:
 
 For escalations: pass ack_first with a 1-3 word "on it" / "checking" / "looking" so he knows it's running. The escalation runs Opus 4.7 max with your full toolset and replies separately with the outcome.
 
+# Reply ordering (CRITICAL - the most common failure mode is treating the episode AS the reply)
+The REPLY TOOL is the delivery mechanism. neo4j_write_episode is NOT a reply - it is audit-only memory.
+Required order EVERY turn:
+1. Call a REPLY TOOL first: send_sms_to_tate (channel=sms) / send_telegram_message (channel=telegram) / notify_tate (channel=native) / escalate_to_opus with ack_first (any channel, when work is needed).
+2. THEN optionally call neo4j_write_episode AFTER the reply is sent.
+If you write only an episode and nothing else, Tate gets silence. Tate getting silence = failed turn.
+You may write the reply content inside the episode "details" field, but the reply tool itself must still be invoked separately.
+
 # Hard rules
-- ALWAYS reply (or escalate with ack_first). Never silent.
+- ALWAYS reply via a reply tool. Never silent. Episode-only is silence.
+- Match the envelope channel: sms inbound -> send_sms_to_tate, telegram inbound -> send_telegram_message, native inbound -> notify_tate.
 - Em-dashes BANNED in any outgoing text. Use plain hyphens or restructure.
 - No client contact without Tate go-ahead (Angelica/Resonaverde standing arrangement excepted).
-- End with neo4j_write_episode capturing what you did.
 - If the prior thread had unresolved threads (Tate asked you something, you escalated but no follow-up landed), reference that.`
 
 const EXECUTE_SYSTEM_TEXT = `You are EcodiaOS - escalated to Opus 4.7 because the inbound asks for real work. You have the full tool surface.
@@ -771,11 +779,14 @@ const EXECUTE_SYSTEM = [
 
 // ===== Agent loop =====
 
+const REPLY_TOOL_NAMES = ['send_sms_to_tate', 'send_telegram_message', 'notify_tate', 'escalate_to_opus']
+
 async function _runLoop({ client, model, system, tools, messages, maxIterations, maxTokens, allowEscalation }) {
   const toolCallsLog = []
   let stopReason = null
   let iterations = 0
   let escalation = null  // captured if escalate_to_opus is called
+  let forcingGuardUsed = false  // fires AT MOST ONCE per loop
 
   while (iterations < maxIterations) {
     iterations++
@@ -796,7 +807,28 @@ async function _runLoop({ client, model, system, tools, messages, maxIterations,
     }
     stopReason = resp.stop_reason
     messages.push({ role: 'assistant', content: resp.content })
-    if (resp.stop_reason !== 'tool_use') break
+    if (resp.stop_reason !== 'tool_use') {
+      // Mid-loop guard: if the model ended without invoking a reply tool AND
+      // without escalating, force one more iteration with a system reminder.
+      // The most common Haiku failure mode is writing only neo4j_write_episode
+      // and treating it as the reply. Guard fires AT MOST ONCE per loop.
+      const replied = toolCallsLog.some(c => REPLY_TOOL_NAMES.includes(c.name))
+      if (!replied && !forcingGuardUsed) {
+        forcingGuardUsed = true
+        messages.push({
+          role: 'user',
+          content: 'GUARD: You ended the turn without sending a reply. neo4j_write_episode is NOT a reply, it is audit-only. Invoke a reply tool NOW with your response to Tate: send_sms_to_tate (sms), send_telegram_message (telegram), notify_tate (native), or escalate_to_opus with ack_first. Match the envelope channel. Then optionally write the episode AFTER.',
+        })
+        toolCallsLog.push({
+          iteration: iterations, name: '_guard_no_reply',
+          input_preview: 'forced retry',
+          result_preview: 'system_reminder injected',
+          ok: true,
+        })
+        continue
+      }
+      break
+    }
 
     const toolUses = resp.content.filter(b => b.type === 'tool_use')
     const toolResults = []
