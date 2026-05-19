@@ -23,6 +23,10 @@ jest.mock('../../src/config/db', () => {
       mockKvWrites.push({ sql, vals })
       return []
     }
+    if (sql.includes('delete') && sql.includes('kv_store')) {
+      mockKvWrites.push({ sql, vals })
+      return []
+    }
     return []
   })
   return fn
@@ -76,9 +80,9 @@ describe('update', () => {
     const r = await la.update({ state: 'done', body: 'done' })
     expect(r.event).toBe('end')
     expect(r.ok).toBe(true)
-    // _clearLaState writes 'null'::jsonb
-    const writes = mockKvWrites.filter(w => w.sql.includes('insert into kv_store'))
-    expect(writes.length).toBeGreaterThan(0)
+    // _clearLaState issues a DELETE on the LA kv row
+    const deletes = mockKvWrites.filter(w => /delete\s+from\s+kv_store/i.test(w.sql))
+    expect(deletes.length).toBeGreaterThan(0)
   })
 
   test('apns non-200 propagates ok=false', async () => {

@@ -19,13 +19,19 @@ let cachedAt = 0
 const CACHE_TTL_MS = 5 * 60 * 1000
 
 async function getBearer() {
+  if (process.env.TEST_NATIVE_BEARER) return process.env.TEST_NATIVE_BEARER
   const now = Date.now()
   if (cachedBearer && now - cachedAt < CACHE_TTL_MS) return cachedBearer
-  if (process.env.TEST_NATIVE_BEARER) return process.env.TEST_NATIVE_BEARER
   const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.tate_native_app_bearer' LIMIT 1`
   const raw = rows?.[0]?.value
-  // jsonb decode: string -> raw string; object -> {bearer: '...'}; fallback identity
-  const v = typeof raw === 'string' ? raw : (raw?.bearer || raw)
+  // kv_store.value is text; may be a raw string or a JSON-stringified value.
+  let parsed = null
+  if (typeof raw === 'string') {
+    try { parsed = JSON.parse(raw) } catch { parsed = raw }
+  } else if (raw && typeof raw === 'object') {
+    parsed = raw
+  }
+  const v = typeof parsed === 'string' ? parsed : (parsed?.bearer || null)
   cachedBearer = v
   cachedAt = now
   return v

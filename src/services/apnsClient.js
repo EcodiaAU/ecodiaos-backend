@@ -111,9 +111,7 @@ function buildAlertPayload({ body, urgency, message_id, deep_link }) {
     alert: { body: String(body || '') },
     'interruption-level': level,
   }
-  if (urgency === 'critical' || urgency === 'alert') {
-    aps.sound = 'default'
-  }
+  if (urgency === 'critical') aps.sound = 'default'
   const payload = { aps }
   if (message_id) payload.message_id = message_id
   if (deep_link) payload.deep_link = deep_link
@@ -160,6 +158,10 @@ async function push({ deviceToken, payload, topic, pushType, priority, expiratio
   const path = `/3/device/${deviceToken}`
   const body = Buffer.from(JSON.stringify(payload || {}))
 
+  const effectivePushType = pushType || 'alert'
+  const effectivePriority = typeof priority === 'number' ? priority : 10
+  const effectiveExpiration = typeof expiration === 'number' ? expiration : 0
+
   const headers = {
     ':method': 'POST',
     ':path': path,
@@ -167,10 +169,10 @@ async function push({ deviceToken, payload, topic, pushType, priority, expiratio
     'content-type': 'application/json',
     'content-length': body.length,
     'apns-topic': topic || DEFAULT_BUNDLE_ID,
+    'apns-push-type': effectivePushType,
+    'apns-priority': String(effectivePriority),
+    'apns-expiration': String(effectiveExpiration),
   }
-  if (pushType) headers['apns-push-type'] = pushType
-  if (typeof priority === 'number') headers['apns-priority'] = String(priority)
-  if (typeof expiration === 'number') headers['apns-expiration'] = String(expiration)
 
   return new Promise((resolve) => {
     let settled = false
@@ -191,9 +193,9 @@ async function push({ deviceToken, payload, topic, pushType, priority, expiratio
     stream.on('data', (c) => chunks.push(c))
     stream.on('end', () => {
       const text = Buffer.concat(chunks).toString('utf8')
-      let parsed = null
-      try { parsed = JSON.parse(text) } catch {}
-      settle({ status, body: parsed || text })
+      let body = null
+      try { body = JSON.parse(text) } catch { body = { raw: text } }
+      settle({ status, body })
     })
     stream.on('error', (err) => settle({ status: 0, error: err.message }))
     stream.write(body)

@@ -47,11 +47,7 @@ async function _readLaState() {
 
 async function _clearLaState() {
   try {
-    await db`
-      INSERT INTO kv_store (key, value, updated_at)
-      VALUES (${LA_KEY}, ${'null'}::jsonb, NOW())
-      ON CONFLICT (key) DO UPDATE SET value = 'null'::jsonb, updated_at = NOW()
-    `
+    await db`DELETE FROM kv_store WHERE key = ${LA_KEY}`
   } catch (err) {
     logger.warn('liveActivityPush: _clearLaState failed', { error: err.message })
   }

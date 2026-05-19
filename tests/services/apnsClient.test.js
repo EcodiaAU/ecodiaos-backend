@@ -37,6 +37,12 @@ describe('buildAlertPayload', () => {
     const p = apns.buildAlertPayload({ body: 'hi', urgency: 'alert' })
     expect(p.aps.alert.body).toBe('hi')
     expect(p.aps['interruption-level']).toBe('active')
+    // only critical attaches sound per spec
+    expect(p.aps.sound).toBeUndefined()
+  })
+  test('critical attaches default sound', () => {
+    const p = apns.buildAlertPayload({ body: 'fire', urgency: 'critical' })
+    expect(p.aps['interruption-level']).toBe('time-sensitive')
     expect(p.aps.sound).toBe('default')
   })
   test('routine omits sound', () => {

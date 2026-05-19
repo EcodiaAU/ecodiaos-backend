@@ -111,6 +111,16 @@ async function gracefulShutdown(signal) {
     patternEvolution.stop()
   } catch {}
 
+  try {
+    const tatePriorityCurator = require('./services/tatePriorityCurator')
+    tatePriorityCurator.stopCron()
+  } catch {}
+
+  try {
+    const liveActivityPush = require('./services/liveActivityPush')
+    liveActivityPush.stopExpiryScan()
+  } catch {}
+
   // Force-destroy open connections (especially WebSockets) so server.close()
   // doesn't hang waiting for them to end. Without this, PM2 SIGKILLs the
   // process at kill_timeout and sessions that weren't yet marked in DB become orphans.
@@ -588,6 +598,26 @@ server.listen(env.PORT, async () => {
     logger.warn('Rescue service failed to load', { error: err.message })
   }
   process.stderr.write('[boot] post-rescueService\n')
+
+  // ── Boot: Ecodia Native (iOS) supporting services ─────────────────
+  // tatePriorityCurator: every 20 min, re-rank top-3 status_board pins so
+  //   the iOS widget + headlessConductor _loadTurnContext priority filter
+  //   stay warm even when Opus hasn't explicitly pinned anything.
+  // liveActivityPush.startExpiryScan: every 5 min, end any Live Activity
+  //   that's been open >4h so iOS dismisses the stale lock-screen UI.
+  // Both are idempotent; failure non-fatal.
+  // Per backend/docs/specs/2026-05-19-ecodia-native-ios-app-design.md.
+  try {
+    require('./services/tatePriorityCurator').startCron()
+  } catch (err) {
+    logger.warn('tatePriorityCurator cron failed to start (non-fatal)', { error: err.message })
+  }
+  try {
+    require('./services/liveActivityPush').startExpiryScan()
+  } catch (err) {
+    logger.warn('liveActivityPush expiry scan failed to start (non-fatal)', { error: err.message })
+  }
+  process.stderr.write('[boot] post-nativeIosServices\n')
 
   // ── Boot: Nightly Restart ─────────────────────────────────────────
   // Scheduled `pm2 restart ecodia-api` at 03:00 AEST with a T-5min heads-up

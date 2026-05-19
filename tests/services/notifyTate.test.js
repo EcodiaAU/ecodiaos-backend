@@ -44,16 +44,17 @@ const { notifyTate } = require('../../src/services/notifyTate')
 
 beforeEach(() => {
   jest.clearAllMocks()
+  process.env.TATE_TELEGRAM_CHAT_ID = '999'
 })
 
 describe('notifyTate: channel=sms', () => {
   test('routes to sms transport, returns transport=sms', async () => {
     sendSmsToTate.mockResolvedValue({ ok: true, sid: 'SM123' })
     const r = await notifyTate({ body: 'hi', channel: 'sms' })
-    expect(sendSmsToTate).toHaveBeenCalledWith({ body: 'hi' })
+    expect(sendSmsToTate).toHaveBeenCalledWith({ body: 'hi', append_to_mirror: true })
     expect(r.ok).toBe(true)
     expect(r.transport).toBe('sms')
-    expect(r.sms_sid).toBe('SM123')
+    expect(r.message_id).toBe('SM123')
   })
 
   test('propagates sms failure', async () => {
@@ -68,14 +69,15 @@ describe('notifyTate: channel=telegram', () => {
   test('routes to telegram transport with thread_id', async () => {
     sendTelegramMessage.mockResolvedValue({ ok: true, message_id: 42 })
     const r = await notifyTate({ body: 'yo', channel: 'telegram', thread_id: '999' })
-    expect(sendTelegramMessage).toHaveBeenCalledWith({ chat_id: '999', text: 'yo' })
+    expect(sendTelegramMessage).toHaveBeenCalledWith({ chat_id: '999', text: 'yo', append_to_mirror: true })
     expect(r.ok).toBe(true)
     expect(r.transport).toBe('telegram')
-    expect(r.tg_message_id).toBe(42)
+    expect(r.message_id).toBe('42')
   })
 
   test('fails when no chat_id available', async () => {
     delete process.env.TATE_TELEGRAM_CHAT_ID
+    // db mock returns [] so kv_store loader yields null chat_id
     const r = await notifyTate({ body: 'yo', channel: 'telegram' })
     expect(r.ok).toBe(false)
     expect(r.error).toBe('no_telegram_chat_id')
@@ -90,6 +92,7 @@ describe('notifyTate: channel=native', () => {
     expect(r.ok).toBe(true)
     expect(r.transport).toBe('sms')
     expect(r.fallback_reason).toBe('no_apns_token')
+    expect(r.message_id).toBe('SM_fallback')
   })
 
   test('apns 200 -> ok via native', async () => {
@@ -99,7 +102,7 @@ describe('notifyTate: channel=native', () => {
     expect(apns.push).toHaveBeenCalled()
     expect(deviceState.recordApnsDelivery).toHaveBeenCalledWith({ ok: true })
     expect(r.ok).toBe(true)
-    expect(r.transport).toBe('apns')
+    expect(r.transport).toBe('native')
   })
 
   test('apns 410 (token retired) -> falls back to sms', async () => {
@@ -110,7 +113,7 @@ describe('notifyTate: channel=native', () => {
     expect(deviceState.recordApnsDelivery).toHaveBeenCalledWith({ ok: false })
     expect(r.ok).toBe(true)
     expect(r.transport).toBe('sms')
-    expect(r.fallback_reason).toBe('apns_failed')
+    expect(r.fallback_reason).toBe('apns_410')
   })
 
   test('apns unprovisioned (status 0) -> falls back to sms', async () => {
@@ -119,12 +122,12 @@ describe('notifyTate: channel=native', () => {
     sendSmsToTate.mockResolvedValue({ ok: true, sid: 'SM_fb' })
     const r = await notifyTate({ body: 'x', channel: 'native' })
     expect(r.transport).toBe('sms')
-    expect(r.fallback_reason).toBe('apns_failed')
+    expect(r.fallback_reason).toBe('apns_not_provisioned')
   })
 })
 
 describe('notifyTate: channel=auto', () => {
-  test('delegates to deviceState.pickChannel and recurses', async () => {
+  test('delegates to deviceState.pickChannel', async () => {
     deviceState.pickChannel.mockResolvedValue('sms')
     sendSmsToTate.mockResolvedValue({ ok: true, sid: 'SM_auto' })
     const r = await notifyTate({ body: 'hi', channel: 'auto' })
@@ -141,10 +144,10 @@ describe('notifyTate: channel=auto', () => {
   })
 })
 
-describe('notifyTate: unsupported channel', () => {
-  test('returns error', async () => {
+describe('notifyTate: unknown channel', () => {
+  test('returns unknown_channel_ error', async () => {
     const r = await notifyTate({ body: 'x', channel: 'fax' })
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/unsupported channel/)
+    expect(r.error).toMatch(/unknown_channel_/)
   })
 })
