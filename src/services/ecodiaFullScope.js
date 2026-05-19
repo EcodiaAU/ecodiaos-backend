@@ -119,10 +119,37 @@ const KV_WRITE_NAMESPACES = Object.freeze([
 
 const KV_WRITE_ALLOWLIST = Object.freeze([])
 
-// creds.* still deny-read - the bearer should never be able to read its own
-// bearer row or any other credential.
+// creds.* default-deny - the bearer should never read its own bearer row,
+// MCP signing secrets, or vendor API keys it doesn't need. But denying the
+// ENTIRE prefix forces the conductor to bypass via direct db_query SQL every
+// time it needs a routine ops-cred (SY094 SSH password for headless iOS
+// builds, GitHub PAT for cross-machine git ops, etc). The explicit
+// KV_READ_ALLOWLIST below carves out specific ops-cred keys that automation
+// legitimately needs. Keep this list narrow - never list a row that would
+// let a caller escalate (mcp_bearer, conductor_loopback_secret, vendor API
+// keys for systems the conductor doesn't automate).
 const KV_READ_DENY_PREFIXES = Object.freeze([
   'creds.',
+])
+
+const KV_READ_ALLOWLIST = Object.freeze([
+  // Remote-machine SSH for headless iOS builds + cross-machine ops
+  'creds.macincloud',
+  'creds.github_pat',
+  // Cross-project Supabase (per supabase-pat-reaches-every-owned-project doctrine)
+  'creds.supabase_access_token',
+  'creds.coexist_supabase',
+  'creds.chambers_supabase',
+  'creds.wildmountains_supabase',
+  // Vercel / Bitbucket / Apple Connect IDs - ops-tier, referenced by automation
+  'creds.vercel_api_token',
+  'creds.bitbucket_api_token',
+  'creds.bitbucket_account_email',
+  'creds.asc_api_key_id',
+  'creds.asc_api_issuer_id',
+  // Laptop substrate - already referenced in user-global doctrine
+  'creds.laptop_agent',
+  'creds.laptop_passkey',
 ])
 
 // status_board: ecodia-full CAN update entity_type=infrastructure
@@ -205,6 +232,7 @@ function kvKeyIsWritable(key) {
 
 function kvKeyIsReadable(key) {
   if (typeof key !== 'string' || !key) return false
+  if (KV_READ_ALLOWLIST.includes(key)) return true
   if (KV_READ_DENY_PREFIXES.some(prefix => key.startsWith(prefix))) return false
   return true
 }
@@ -231,6 +259,7 @@ module.exports = {
   KV_WRITE_NAMESPACES,
   KV_WRITE_ALLOWLIST,
   KV_READ_DENY_PREFIXES,
+  KV_READ_ALLOWLIST,
   STATUS_BOARD_DENIED_UPDATE_TYPES,
   NEO4J_EPISODE_TYPES,
   RATE_CAPS,
