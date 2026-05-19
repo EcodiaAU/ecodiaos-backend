@@ -10,9 +10,7 @@
  *   POST /messages/:id/ack  - mark a thread mirror message acked
  *   GET  /tate-priority     - top-3 pinned status_board rows (widget)
  *   POST /tate-priority/set - explicit pin set (rare; usually conductor)
- *
- * Deferred to Phase 2: POST /attachments/sign (depends on Supabase signed-URL
- * substrate not yet probed).
+ *   POST /attachments/sign  - presigned PUT URL for Share Extension image uploads
  *
  * Per backend/docs/specs/2026-05-19-ecodia-native-ios-app-design.md.
  */
@@ -20,6 +18,7 @@
 const express = require('express')
 const router = express.Router()
 const db = require('../config/db')
+const env = require('../config/env')
 const logger = require('../config/logger')
 const { nativeAuth } = require('../middleware/nativeAuth')
 const {
@@ -29,6 +28,20 @@ const {
 } = require('../services/inboundConductorRouter')
 const deviceState = require('../services/deviceState')
 const tatePriorityCurator = require('../services/tatePriorityCurator')
+
+// Lazy Supabase client for storage signing
+let _supabase = null
+function getSupabase() {
+  if (_supabase) return _supabase
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return null
+  const { createClient } = require('@supabase/supabase-js')
+  _supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY)
+  return _supabase
+}
+
+const ATTACHMENT_BUCKET = 'documents'
+const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024 // 25MB cap
+const SIGNED_READ_TTL_SECONDS = 86400 // 24h
 
 router.use(express.json({ limit: '5mb' }))
 router.use(nativeAuth)
@@ -242,6 +255,71 @@ router.post('/tate-priority/set', async (req, res) => {
   } catch (err) {
     logger.error('native /tate-priority/set: error', { error: err.message })
     return res.status(500).json({ error: 'internal_error' })
+  }
+})
+
+// ---------- POST /attachments/sign ----------
+// Body: { filename: string, content_type: string, bytes: number }
+// Returns: { put_url, signed_url, path, bytes }
+// iOS Share Extension flow: client gets put_url, PUTs the file body to it with
+// Content-Type matching content_type, then attaches signed_url to the envelope.
+
+function _sanitizeFilename(name) {
+  const base = String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
+  return base || 'file'
+}
+
+router.post('/attachments/sign', async (req, res) => {
+  try {
+    const { filename, content_type, bytes } = req.body || {}
+    if (!filename || typeof filename !== 'string') {
+      return res.status(400).json({ error: 'filename_required' })
+    }
+    if (!content_type || typeof content_type !== 'string') {
+      return res.status(400).json({ error: 'content_type_required' })
+    }
+    const sizeNum = Number(bytes)
+    if (!Number.isFinite(sizeNum) || sizeNum < 0 || sizeNum > ATTACHMENT_MAX_BYTES) {
+      return res.status(400).json({ error: 'bytes_out_of_range', max: ATTACHMENT_MAX_BYTES })
+    }
+
+    const sb = getSupabase()
+    if (!sb) {
+      return res.status(503).json({ error: 'storage_unconfigured' })
+    }
+
+    const day = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    const safeName = _sanitizeFilename(filename)
+    const path = `native/${day}/${Date.now()}-${safeName}`
+
+    // Ensure bucket exists (idempotent). Documents bucket already exists in prod.
+    await sb.storage.createBucket(ATTACHMENT_BUCKET, { public: false }).catch(() => {})
+
+    const { data: putData, error: putErr } = await sb.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUploadUrl(path)
+    if (putErr || !putData?.signedUrl) {
+      logger.error('native /attachments/sign: put url failed', { error: putErr?.message })
+      return res.status(500).json({ error: 'put_url_failed', detail: putErr?.message })
+    }
+
+    const { data: getData, error: getErr } = await sb.storage
+      .from(ATTACHMENT_BUCKET)
+      .createSignedUrl(path, SIGNED_READ_TTL_SECONDS)
+    if (getErr || !getData?.signedUrl) {
+      logger.error('native /attachments/sign: read url failed', { error: getErr?.message })
+      return res.status(500).json({ error: 'signed_url_failed', detail: getErr?.message })
+    }
+
+    return res.json({
+      put_url: putData.signedUrl,
+      signed_url: getData.signedUrl,
+      path,
+      bytes: sizeNum,
+    })
+  } catch (err) {
+    logger.error('native /attachments/sign: error', { error: err.message, stack: err.stack })
+    return res.status(500).json({ error: 'internal_error', detail: err.message })
   }
 })
 
