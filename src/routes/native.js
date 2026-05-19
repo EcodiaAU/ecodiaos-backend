@@ -292,8 +292,9 @@ router.post('/attachments/sign', async (req, res) => {
     const safeName = _sanitizeFilename(filename)
     const path = `native/${day}/${Date.now()}-${safeName}`
 
-    // Ensure bucket exists (idempotent). Documents bucket already exists in prod.
-    await sb.storage.createBucket(ATTACHMENT_BUCKET, { public: false }).catch(() => {})
+    // Ensure bucket exists (idempotent). Documents bucket already exists and is
+    // public-read in prod (see src/routes/documents.js).
+    await sb.storage.createBucket(ATTACHMENT_BUCKET, { public: true }).catch(() => {})
 
     const { data: putData, error: putErr } = await sb.storage
       .from(ATTACHMENT_BUCKET)
@@ -303,19 +304,24 @@ router.post('/attachments/sign', async (req, res) => {
       return res.status(500).json({ error: 'put_url_failed', detail: putErr?.message })
     }
 
-    const { data: getData, error: getErr } = await sb.storage
+    // Bucket is public-read so getPublicUrl returns a URL that resolves once the
+    // PUT lands. createSignedUrl is rejected pre-upload (object_not_found) so we
+    // can't pre-sign a read URL; the public URL is the cleanest 1-roundtrip flow.
+    const { data: pubData } = sb.storage
       .from(ATTACHMENT_BUCKET)
-      .createSignedUrl(path, SIGNED_READ_TTL_SECONDS)
-    if (getErr || !getData?.signedUrl) {
-      logger.error('native /attachments/sign: read url failed', { error: getErr?.message })
-      return res.status(500).json({ error: 'signed_url_failed', detail: getErr?.message })
+      .getPublicUrl(path)
+    const readUrl = pubData?.publicUrl
+    if (!readUrl) {
+      logger.error('native /attachments/sign: public url derivation failed')
+      return res.status(500).json({ error: 'signed_url_failed' })
     }
 
     return res.json({
       put_url: putData.signedUrl,
-      signed_url: getData.signedUrl,
+      signed_url: readUrl,
       path,
       bytes: sizeNum,
+      ttl_seconds: SIGNED_READ_TTL_SECONDS,
     })
   } catch (err) {
     logger.error('native /attachments/sign: error', { error: err.message, stack: err.stack })
