@@ -1,6 +1,13 @@
 ---
-triggers: embodiment, false-dependency, tate-active, self-stamp, autoimmune, gate, scheduler-gate, defer-loop, authority-boundary, source-field, agent-self-distinction, ecodiaos-vs-tate, signal-attribution
+triggers: false-embodiment-dependency, false-dependency, tate-active, self-stamp, autoimmune, scheduler-gate, defer-loop, authority-boundary, source-field, agent-self-distinction, ecodiaos-vs-tate, signal-attribution, flinch-gate, tate-active-gate, autoimmune-gate-fires-on-self
 ---
+
+<!-- triggers narrowed 2026-05-19 per triggers-must-be-narrow-not-broad.md
+OLD triggers: embodiment, false-dependency, tate-active, self-stamp, autoimmune, gate, scheduler-gate, defer-loop, authority-boundary, source-field, agent-self-distinction, ecodiaos-vs-tate, signal-attribution
+NEW triggers: false-embodiment-dependency, false-dependency, tate-active, self-stamp, autoimmune, scheduler-gate, defer-loop, authority-boundary, source-field, agent-self-distinction, ecodiaos-vs-tate, signal-attribution, flinch-gate, tate-active-gate, autoimmune-gate-fires-on-self
+Dropped (bare common nouns): embodiment, gate
+Added narrow compounds: false-embodiment-dependency (the rule's actual subject), flinch-gate, tate-active-gate, autoimmune-gate-fires-on-self
+-->
 
 # Audit Infrastructure for False-Embodiment-Dependencies
 

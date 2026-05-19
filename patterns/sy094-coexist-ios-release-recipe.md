@@ -1,6 +1,11 @@
 ---
-triggers: coexist-ios-release, coexist-asc-upload, capacitor-ios-build, capacitor-ios-archive, xcode-archive, xcode-export-archive, asc-upload, ios-shipping-pipeline, npx-cap-sync, npx-cap-open, ios-release-recipe, sy094-ios-pipeline, ipa-export, manual-signing-archive, errSecInternalComponent, headless-codesign-keychain, distribution-provisioning-profile, app-store-connect-key, ecodia-code-profile, [redacted]-ipa, coexistaus-bundle, xcode-apple-id-signin, version-train-closed, marketing-version-bump, cfbundleshortversionstring, run-button-toolbar-coords, xcode-organizer-distribute, ios-gui-flow-end-to-end, ios release, ship ios build, ship the ios build, ship coexist ios, release ios, app store connect upload, asc upload, appstoreconnect.apple.com, asc dashboard, asc, transporter upload, testflight upload, build coexist ios, capacitor ios, capacitor sync, archive in xcode, distribute to app store
+triggers: coexist-ios-release, coexist-asc-upload, capacitor-ios-build, capacitor-ios-archive, xcode-archive, xcode-export-archive, asc-upload, ios-shipping-pipeline, npx-cap-sync, npx-cap-open, ios-release-recipe, sy094-ios-pipeline, ipa-export, manual-signing-archive, errSecInternalComponent, headless-codesign-keychain, distribution-provisioning-profile, app-store-connect-key, ecodia-code-profile, [redacted]-ipa, coexistaus-bundle, xcode-apple-id-signin, version-train-closed, marketing-version-bump, cfbundleshortversionstring, run-button-toolbar-coords, xcode-organizer-distribute, ios-gui-flow-end-to-end, ios release, ship ios build, ship the ios build, ship coexist ios, release ios, app store connect upload, asc upload, appstoreconnect.apple.com, asc dashboard, transporter upload, testflight upload, build coexist ios, capacitor ios, capacitor sync, archive in xcode, distribute to app store
 ---
+
+<!-- triggers narrowed 2026-05-19 per triggers-must-be-narrow-not-broad.md
+Dropped 1 bare common noun: `asc` (already covered by narrow compounds `asc-upload`, `asc dashboard`, `coexist-asc-upload`, `appstoreconnect.apple.com`)
+NOTE: This file has ~40+ triggers and exceeds the 6-15 keyword range the doctrine recommends. A future consolidation pass should drop free-text-phrase triggers (`ios release`, `ship ios build`, `release ios`) in favour of the compound forms already present. Out of scope for this narrowing pass.
+-->
 
 # Co-Exist iOS release recipe — verified end-to-end ~10min from version bump to "Uploaded to Apple"
 

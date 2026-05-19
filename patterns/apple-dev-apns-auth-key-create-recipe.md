@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
+triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, developer-apple-com-keys-section, apns-p8-file-create, capacitor-ios-apns-key-create, apns-auth-key-team-86PUY7393S
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
 flow_slug: apple-dev-apns-auth-key-create
@@ -13,6 +13,13 @@ vision_skipped_count: 12
 vision_auth_source: os_oauth_chain
 session_id: 2026-05-07-1226-wzhn9t
 ---
+
+<!-- triggers narrowed 2026-05-19 per triggers-must-be-narrow-not-broad.md
+OLD triggers added: apple, dev, certificates, identifiers, profiles, developer, push-notifications
+NEW triggers (compound replacements): developer-apple-com-keys-section, apns-p8-file-create, capacitor-ios-apns-key-create, apns-auth-key-team-86PUY7393S
+Dropped (bare common nouns + over-generic compound): apple, dev, certificates, identifiers, profiles, developer, push-notifications
+Kept narrow set: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys
+-->
 
 # Apple Dev Bundle Id Register (captured via os-hook-recorder)
 

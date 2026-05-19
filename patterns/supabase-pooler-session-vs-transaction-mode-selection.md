@@ -1,6 +1,13 @@
 ---
-triggers: supabase, pooler, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, LISTEN, dbBridge
+triggers: supabase-pooler, supabase-session-mode-port-5432, supabase-transaction-mode-port-6543, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, DATABASE_URL_LISTEN, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, dbBridge
 ---
+
+<!-- triggers narrowed 2026-05-19 per triggers-must-be-narrow-not-broad.md
+OLD triggers: supabase, pooler, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, LISTEN, dbBridge
+NEW triggers: supabase-pooler, supabase-session-mode-port-5432, supabase-transaction-mode-port-6543, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, DATABASE_URL_LISTEN, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, dbBridge
+Dropped (bare common nouns explicitly blacklisted by triggers-must-be-narrow-not-broad.md): supabase, LISTEN
+Pooler kept narrow by promoting standalone `pooler` to `supabase-pooler` compound. `LISTEN` dropped in favour of explicit `DATABASE_URL_LISTEN` env var literal which uniquely identifies the rule's subject.
+-->
 
 # Supabase Pooler: Use Transaction Mode for App Pools, Direct for LISTEN
 

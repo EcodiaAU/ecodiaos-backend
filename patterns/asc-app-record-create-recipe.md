@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-create-new-app, asc-new-app-record, asc-internal-group-access, asc-internal-testing-group, app-store-connect-create-app, ios-release-pipeline-setup, eos-mobile-class-app-asc-setup, per-app-one-time-asc-side
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.169Z
 flow_slug: asc-app-record-create
@@ -12,6 +12,13 @@ vision_skipped_count: 0
 vision_auth_source: skipped
 session_id: 2026-05-07-1245-brmt01
 ---
+
+<!-- triggers narrowed 2026-05-19 per triggers-must-be-narrow-not-broad.md
+OLD triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+NEW triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-create-new-app, asc-new-app-record, asc-internal-group-access, asc-internal-testing-group, app-store-connect-create-app, ios-release-pipeline-setup, eos-mobile-class-app-asc-setup, per-app-one-time-asc-side
+Dropped (bare common nouns; would surface on any brief mentioning these everyday words): asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+Added compound replacements that only match when the ASC new-app-record flow is genuinely the subject.
+-->
 
 # Asc App Record Create (captured via os-hook-recorder)
 
