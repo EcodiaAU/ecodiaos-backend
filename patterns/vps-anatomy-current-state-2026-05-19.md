@@ -19,13 +19,15 @@ The VPS is now a focused **MCP HTTP gateway** with an **in-process ambient organ
 | `ecodia-api` | `src/server.js` | :3001 | The Express service. Mounts ~80 routes including all `/api/mcp/*` HTTP gateway endpoints. Also boots the ambient organism in-process (13 listeners + 6 observers + proactivityEngine + perceptionDispatcher + patternEvolution + fsWatcher + 5 pollers + Voice relay + DeepSeek proxy on :19721). |
 | `ecodia-meetings` | `src/meetingsServer.js` | :3003 | Meeting recorder, decoupled from api so api restarts don't drop chunks. |
 
-### PM2 processes STOPPED (Tier 1, 2026-05-19, reversible)
+### PM2 processes DELETED (Tier 1 stop + Phase 2 delete, 2026-05-19)
 
-| Process | Reason stopped | Resurrection path |
+These were `pm2 stop`-d at the start of the arc, then `pm2 delete`-d after Tate authorized the full kill. They no longer appear in `pm2 list`. `dump.pm2` has been re-saved so a VPS reboot or `pm2 resurrect` will NOT bring them back. They still have apps blocks in `ecosystem.config.js` though, so `pm2 reload ecosystem.config.js` WOULD re-launch them. Either edit the config to remove their apps blocks before the next reload, or remember to launch only specific names.
+
+| Process | Reason removed | Resurrection path |
 |---|---|---|
-| `ecodia-conductor` | Was running Claude Agent SDK stream + cron poller + token refresh + nightly restart. ~225MB resident, 4d uptime. Self-called `/api/mcp/ecodia-full` ~663 times/day generating ~30% of MCP traffic as pure loopback. This was the SDK burn we are eliminating before the 15 June 2026 Anthropic $200/mo programmatic Agent SDK cap. Wrote 138 status_board rows in 7 days but 0 Neo4j nodes (sensor not actor). | `pm2 start ecodia-conductor` if needed. Definition in `ecosystem.config.js`. Not deleted from PM2 process list. |
-| `ecodia-factory` | Dispatched cloud Factory Claude Code child processes via Redis pub/sub. Replaced by `cowork.dispatch_worker` on Corazon laptop-agent (port 7456). Local IDE tab is the dispatch primitive now. | `pm2 start ecodia-factory`. But: the replacement is `cowork.dispatch_worker` so think twice. |
-| `ecodia-rescue` | Rescue CC session, always-alive backup when api was wedged. Replaced by spawning a local CC tab on Corazon when needed. | `pm2 start ecodia-rescue`. Same caveat: local CC tab is the new rescue. |
+| `ecodia-conductor` | Was running Claude Agent SDK stream + cron poller + token refresh + nightly restart. ~225MB resident, 4d uptime. Self-called `/api/mcp/ecodia-full` ~663 times/day generating ~30% of MCP traffic as pure loopback. This was the SDK burn we are eliminating before the 15 June 2026 Anthropic $200/mo programmatic Agent SDK cap. Wrote 138 status_board rows in 7 days but 0 Neo4j nodes (sensor not actor). | `pm2 start ecosystem.config.js --only ecodia-conductor`. But: the apps block is still in `ecosystem.config.js`, so once you trust the post-cleanup state, remove the block. |
+| `ecodia-factory` | Dispatched cloud Factory Claude Code child processes via Redis pub/sub. Replaced by `cowork.dispatch_worker` on Corazon laptop-agent (port 7456). Local IDE tab is the dispatch primitive now. | `pm2 start ecosystem.config.js --only ecodia-factory`. But: the replacement is `cowork.dispatch_worker` so think twice. |
+| `ecodia-rescue` | Rescue CC session, always-alive backup when api was wedged. Replaced by spawning a local CC tab on Corazon when needed. | `pm2 start ecosystem.config.js --only ecodia-rescue`. Same caveat: local CC tab is the new rescue. |
 
 ### Nginx
 
@@ -89,11 +91,28 @@ These are in-process inside `ecodia-api` and survived Tier 1. They are NOT separ
 
 Open question for future-me: which of these still produce value with conductor stopped, and which are noise? Defer decision until ~48h surface time on the Tier 1 stops.
 
-## What was moved to `~/.cull-2026-05-19/` (Tier 3, 4 - reversible)
+## Phase 2 deeper cull (post-authorization 2026-05-19)
 
-Total: 471MB moved. Disk unchanged until backup is hard-deleted.
+After Tate explicitly authorized "clean up and kill anything left that isnt needed", a second pass cleaned more:
+
+- **2 orphan `claude setup-token` PIDs** (2401811 + 2401704, from 11 May, 260MB combined) killed
+- **`[redacted]-mysql` docker container** stopped + removed (was 469MB resident, supporting the now-archived [redacted] client and the now-removed `[redacted]-dev` nginx site)
+- **`mysql:8` docker image** removed (1.09GB on disk)
+- **3 unused supabase edge-runtime docker images** (v1.65.3 + v1.73.13 + v1.73.3) pruned (1.1GB on disk)
+- **1 orphan docker volume** removed
+- **`pm2 delete`** of conductor + factory + rescue (definitive removal, dump.pm2 re-saved)
+- **`rm -rf ~/.cull-2026-05-19/`** finalised the Tier 3+4 cull (471MB)
+- **`~/repos/` moved to `~/.cull-2026-05-19/repos/`** (116MB; 9 bare git repos for Factory clone source, no longer needed with Factory deleted)
+- **12 coexist-* Factory worktrees** in `~/workspaces/` moved to `~/.cull-2026-05-19/workspaces-coexist-worktrees/` (180MB; coexist-android-sso, coexist-delete-map-page, coexist-dupe-prevention, coexist-leaflet, coexist-reactions, coexist-spa-base-fix, coexist-sync, coexist-task-clear-from-excel, coexist-w1-excelsync, coexist-w2-impactstats, coexist-w3-leadercheckin, coexist-w4-baseline)
+
+Total disk recovered in Phase 2: ~4GB. RAM dropped from 1.9GB used to 1.3GB used.
+
+## Tier 3+4 original cull list (already finalised)
+
+The original Tier 3+4 staging dir was created, populated, and then `rm -rf`-d during Phase 2:
 
 ```
+ORIGINAL CONTENTS (now deleted):
 ~/.cull-2026-05-19/ecodiaos-doctrine/  (71M)
     patterns/  drafts/  dao/  research/  journal/  documents/  recipes/  clients/
     verify-artefacts/  streaming/  skills/  tools/  listener-tier/
@@ -111,7 +130,14 @@ Total: 471MB moved. Disk unchanged until backup is hard-deleted.
     migration-snapshots-2026-05-15/, test_indempotent.txt
 ```
 
-To finalise (delete backup, free disk): `rm -rf ~/.cull-2026-05-19/`. Recommend waiting at least 48h from 2026-05-19T04:00 AEST.
+## Current `~/.cull-2026-05-19/` re-populated state
+
+Phase 2 moved more stuff in. Current contents (296MB total):
+
+- `~/.cull-2026-05-19/repos/` (116MB) - bare git clones for Factory
+- `~/.cull-2026-05-19/workspaces-coexist-worktrees/` (180MB) - Factory dispatch worktrees
+
+These can be `rm -rf`-d any time. They are reversible only via DigitalOcean snapshot.
 
 ## What was NOT touched and why
 
@@ -158,15 +184,40 @@ To finalise (delete backup, free disk): `rm -rf ~/.cull-2026-05-19/`. Recommend 
 9. **Watchdog** (`scripts/api-watchdog.sh` updating `.watchdog-last-healthy`) is still running. If it stops updating, `ecodia-api` is down.
 10. **VPS public IP is `170.64.170.191`. Tailscale IP is `100.103.227.90`.** When you see traffic from `170.64.170.191` in nginx logs hitting `/api/mcp/*`, that USED TO be the conductor's own SDK loop calling itself. After Tier 1 that source is silent.
 
+## Final resource baseline (post Phase 2)
+
+- **CPU**: 4 vCPU, 98%+ idle, load avg ~0.1 on a 4-core box
+- **RAM**: 1.3GB used / 7.8GB total / 6.5GB available (was 1.9GB used before Phase 2)
+- **Disk**: 28GB / 48GB (58% used, was 67% before Phase 2)
+- **Docker**: 0 running containers, 1 unused image (redis:7-alpine 18MB), 0 volumes
+- **PM2**: 2 online (ecodia-api + ecodia-meetings)
+- **Nginx**: 1 site (ecodia-api only)
+
+The box is now 4-5x over-provisioned for actual usage. Recommended droplet downgrade: DigitalOcean **2vCPU / 4GB / 80GB ($24/mo)** for ~$288/yr savings.
+
+## Resize execution path
+
+`doctl` is NOT installed on the VPS. The resize is done via DigitalOcean control panel:
+
+1. Take snapshot at `cloud.digitalocean.com -> droplet -> Snapshots` (free, ~5min)
+2. Power off droplet
+3. `Resize` -> 2vCPU/4GB/80GB
+4. Power on
+5. Confirm `api.admin.ecodia.au/api/health` returns 200
+6. Confirm PM2 has 2 processes online (`ecodia-api` + `ecodia-meetings`)
+
+Downtime window: ~5-10 minutes. Inbound webhook retries will fire (gmail-push and Twilio will retry; Telegram may miss one). Pick a low-traffic window.
+
 ## Followups (not done today)
 
-- **Tier 2**: audit which ambient-organism listeners + observers produce value vs noise. Defer until 48h post Tier 1 to see what breaks.
-- **Tier 5**: rip dead code paths from `src/` (conductor.js, workers/factoryRunner.js, rescue/rescueRunner.js, routes/osSession.js, webhooks/{stripe,vercel,github,apple-asn,resend}-fire-shim.js, services/factoryBridge.js + factoryDispatch.js + factoryOversightService.js). Best done on the GitHub `D:/.code/EcodiaOS/backend/` tree to keep VPS-local refactor (smsWebhook + telegram-bot rewrite) untangled.
-- **Tier 7**: architecture call on full git decoupling. For now, both trees still pointed at `github.com/EcodiaTate/ecodiaos-backend` origin/main. VPS evolves independently and is no longer auto-pulled on doctrine commits.
-- `pm2 delete` of conductor + factory + rescue once the 48h surface time confirms nothing important breaks.
-- `rm -rf ~/.cull-2026-05-19/` once the 48h surface time confirms no needed file lives in there.
-- Cleanup of `~/workspaces/` Factory worktrees (~7.4G) and `~/repos/` bare repos (116M) after `pm2 delete` of Factory.
-- `~/.claude*` multi-dir investigation.
+- **Tier 2**: audit which ambient-organism listeners + observers produce value vs noise. Defer for a few days post Phase 2 to see what breaks.
+- **Tier 5**: rip dead code paths from `src/` on the GitHub `D:/.code/EcodiaOS/backend/` tree (conductor.js, workers/factoryRunner.js, rescue/rescueRunner.js, routes/osSession.js, webhooks/{stripe,vercel,github,apple-asn,resend}-fire-shim.js, services/factoryBridge.js + factoryDispatch.js + factoryOversightService.js). Keep VPS-local refactor (smsWebhook + telegram-bot rewrite) untangled.
+- **Tier 7**: architecture call on full git decoupling. For now, both trees still point at `github.com/EcodiaTate/ecodiaos-backend` origin/main. VPS evolves independently and is no longer auto-pulled on doctrine commits.
+- Edit `~/ecodiaos/ecosystem.config.js` on VPS to remove the conductor + factory + rescue apps blocks. Currently they still exist there; `pm2 reload ecosystem.config.js` would re-launch them. Fold into Tate's mid-flight inbound-channel refactor commit when ready.
+- `rm -rf ~/.cull-2026-05-19/` final (296MB after the repos + coexist-worktrees additions) once happy.
+- `~/.claude*` multi-dir investigation. Sizes: `.claude` 2.1GB (likely large, contains session state, do not touch without knowing), `.claude2` 22MB (probably old, candidate), others 16K-400K (small, defensive keep). 
+- Decision on the 11 large `~/workspaces/*` main client clones (~7.2GB total). With Factory dead they have no auto-consumer. Each is a git working tree of a client codebase that you may or may not still reference here. Conservative call: leave alone until known unused.
+- Droplet resize itself (see Resize execution path above).
 
 ## Related doctrine
 
