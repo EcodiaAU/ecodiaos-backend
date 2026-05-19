@@ -319,6 +319,11 @@ app.use('/api/message-queue', require('./routes/messageQueue'))
 app.use('/api/cortex', require('./routes/cortexAttachments'))
 app.use('/api/os-session', require('./routes/osSession'))
 app.use('/api/sms', require('./routes/smsWebhook'))
+// /api/native - ecodia-native iOS channel adapter (third channel alongside
+// SMS + Telegram). All decision logic lives in headlessConductor; this is
+// inbound envelope ingest + outbound APNs + tate_priority widget surface.
+// Per backend/docs/specs/2026-05-19-ecodia-native-ios-app-design.md.
+app.use('/api/native', require('./routes/native'))
 app.use('/api/docs', require('./routes/documents'))
 app.use('/api/dashboard', require('./routes/dashboard'))
 // /api/status-board - read-only active rows for the Cortex Ambient FE
