@@ -185,6 +185,7 @@ const PUBLIC_PATH_PATTERNS = [
   // Webhooks — verified by HMAC at the route layer
   /^\/api\/webhooks\/(stripe|vercel|telegram)(\/|$)/, // telegram: URL-path secret + header secret check inside route
   /^\/api\/sms(\/|$)/, // Twilio request signature validated by twilioValidation middleware
+  /^\/api\/native(\/|$)/, // ecodia-native iOS bearer validated by nativeAuth middleware
   /^\/api\/gkg(\/|$)/, // HMAC validated by validateGkgSignature
   /^\/api\/hands(\/|$)/, // HMAC validated inside the route by handsBridge.verifyInbound
   // MCP cowork discovery (initialize/tools/list/prompts/list/resources/list)
