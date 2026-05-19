@@ -93,7 +93,7 @@ pm2 save
 
 **Current VPS plan:** DigitalOcean droplet 8GB RAM / 4 vCPU / 160GB SSD, ~$48/mo (estimated based on standard DigitalOcean pricing).
 
-**Post-cutover plan target:** DigitalOcean Premium AMD 2GB RAM / 1 vCPU / 60GB SSD, $21/mo OR DigitalOcean Premium Intel 2GB / 1 vCPU / 70GB SSD, $24/mo.
+**Post-cutover plan target (executed 2026-05-19):** DigitalOcean 2vCPU / 2GB / 60GB at $18/mo. Saves ~$360/yr vs original $48/mo tier. Tate's framing 2026-05-19: the box that runs api.admin.ecodia.au MCP gateway substrate is now spec-comparable to a 2017 grade-7 school laptop. Pre-resize prep: 1GB swap added, ecodia-api max_memory_restart lowered from 3G to 1G, redis maxmemory capped at 256MB. See [[vps-anatomy-current-state-2026-05-19]] for full anatomy.
 
 **Headroom check:**
 - ~250 MB RSS for 3 processes leaves 1.75GB free on a 2GB plan.
@@ -102,7 +102,7 @@ pm2 save
 - Express + Deepgram audio buffer + watchdog easily fit 1 vCPU.
 - Disk: post-cleanup ~24GB used; the 60GB SSD has 36GB headroom.
 
-**Estimated monthly savings: $24-27/mo recurring** (about $300/yr).
+**Achieved monthly savings: ~$30/mo recurring (~$360/yr)** via 2vCPU/2GB tier at $18/mo plus the 2026-05-19 cleanup arc (pm2 delete conductor/factory/rescue + docker mysql removal + cull staging + workspaces Factory worktree purge).
 
 ---
 

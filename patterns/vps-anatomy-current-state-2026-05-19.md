@@ -193,7 +193,7 @@ These can be `rm -rf`-d any time. They are reversible only via DigitalOcean snap
 - **PM2**: 2 online (ecodia-api + ecodia-meetings)
 - **Nginx**: 1 site (ecodia-api only)
 
-The box is now 4-5x over-provisioned for actual usage. Recommended droplet downgrade: DigitalOcean **2vCPU / 4GB / 80GB ($24/mo)** for ~$288/yr savings.
+The box is now 4-5x over-provisioned for actual usage. Final droplet target: DigitalOcean **2vCPU / 2GB / 60GB ($18/mo)** for ~$360/yr savings. Tate's framing 2026-05-19: the box that runs api.admin.ecodia.au MCP gateway substrate is now spec-comparable to a 2017 grade-7 school laptop. Pre-resize prep on 2026-05-19 added 1GB swap (swappiness 10), lowered ecodia-api max_memory_restart from 3G to 1G, capped redis maxmemory at 256MB.
 
 ## Resize execution path
 
