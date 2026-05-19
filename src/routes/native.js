@@ -137,14 +137,23 @@ router.post('/devices/register', async (req, res) => {
 })
 
 // ---------- GET /recent ----------
+// Thread mirror stores exchanges in channel-agnostic shape: {from, sender_name?, body, at}.
+// iOS expects canonical Message shape: {id, direction, text, ts, source?, acked?}.
+// from='tate'   -> direction='out' (sent from phone)
+// from='ecodia' -> direction='in'  (reply received on phone)
 
-const STRIP_FIELDS = ['_twilio_sid', '_telegram_update_id', 'push_token', 'apns_token']
-
-function _stripCruft(msg) {
-  if (!msg || typeof msg !== 'object') return msg
-  const out = { ...msg }
-  for (const f of STRIP_FIELDS) delete out[f]
-  return out
+function _toCanonicalMessage(exchange, idx) {
+  if (!exchange || typeof exchange !== 'object') return null
+  const id = exchange.id || exchange.at || `msg_${idx}`
+  const direction = exchange.from === 'ecodia' ? 'in' : 'out'
+  return {
+    id,
+    direction,
+    text: String(exchange.body || ''),
+    ts: exchange.at || new Date().toISOString(),
+    source: exchange.source || 'chat',
+    acked: exchange.acked === true,
+  }
 }
 
 router.get('/recent', async (req, res) => {
@@ -155,11 +164,7 @@ router.get('/recent', async (req, res) => {
     const raw = rows[0].value
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
     const exchanges = Array.isArray(parsed?.exchanges) ? parsed.exchanges : []
-    // Attach a stable id (use `id` if present, else fall back to `at` timestamp).
-    let messages = exchanges.map((m, i) => {
-      const id = m.id || m.at || `msg_${i}`
-      return _stripCruft({ ...m, id })
-    })
+    let messages = exchanges.map(_toCanonicalMessage).filter(Boolean)
     if (since) {
       const idx = messages.findIndex((m) => m.id === since)
       if (idx >= 0) messages = messages.slice(idx + 1)
