@@ -296,6 +296,11 @@ function handleConnection(ws, { onClose } = {}) {
     let msg = null
     try { msg = JSON.parse(data.toString()) } catch { return }
     if (msg && msg.type === 'bye') { try { ws.close() } catch {} }
+    else if (msg && msg.type === 'interrupt') {
+      // Manual (tap) interrupt from the client: abort current TTS + drop the queue.
+      if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
+      pending.length = 0
+    }
   })
 
   ws.on('close', () => {
