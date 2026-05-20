@@ -105,16 +105,32 @@ function urgencyToInterruptionLevel(u) {
   return 'passive'
 }
 
-function buildAlertPayload({ body, urgency, message_id, deep_link }) {
+function buildAlertPayload({ body, urgency, message_id, deep_link, sender, category, threadId, conversational = true }) {
   const level = urgencyToInterruptionLevel(urgency)
   const aps = {
     alert: { body: String(body || '') },
     'interruption-level': level,
   }
   if (urgency === 'critical') aps.sound = 'default'
+  if (conversational) {
+    // category -> the app attaches a "Reply" text-input action, so Tate can
+    // voice-reply to the notification from the lock screen AND hands-free via
+    // Siri "Announce Notifications" in CarPlay/AirPods (this is what makes
+    // replies reach him while driving without a CarPlay app or SMS cost).
+    aps.category = category || 'ECODIA_REPLY'
+    // thread-id groups the conversation. mutable-content lets an optional
+    // Notification Service Extension upgrade this into a communication
+    // notification (Siri announces it as "Ecodia", threaded). Harmless if no
+    // NSE is installed - iOS just delivers the alert normally.
+    aps['thread-id'] = threadId || 'tate'
+    aps['mutable-content'] = 1
+  }
   const payload = { aps }
   if (message_id) payload.message_id = message_id
   if (deep_link) payload.deep_link = deep_link
+  // Sender name for the NSE comms-notification upgrade (and for the app to
+  // show who the reply is from). Always Ecodia on this single-user surface.
+  payload.sender = sender || 'Ecodia'
   return payload
 }
 
