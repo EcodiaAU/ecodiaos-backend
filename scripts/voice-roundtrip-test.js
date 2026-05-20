@@ -29,17 +29,30 @@ const PHRASE = process.argv[2] || 'hey ecodia whats two plus two'
   let audioBytes = 0
   const events = []
 
-  ws.on('message', (data, isBinary) => {
-    if (!isBinary) {
+  // ws v7 (VPS) delivers text frames as String and binary as Buffer with no
+  // isBinary arg; v8 adds (data, isBinary). Detect by trying JSON first, else
+  // treat as audio. Robust across both.
+  ws.on('message', (data) => {
+    if (typeof data === 'string') {
       try {
-        const m = JSON.parse(data.toString())
+        const m = JSON.parse(data)
         events.push(m.type)
         if (m.type === 'transcript') transcript = m.transcript
         if (m.type === 'reply') replyText = m.text
       } catch { /* ignore */ }
-    } else {
-      audioBytes += data.length
+      return
     }
+    // Buffer: could be a text frame (older ws) or binary audio. Try JSON.
+    try {
+      const m = JSON.parse(data.toString('utf8'))
+      if (m && m.type) {
+        events.push(m.type)
+        if (m.type === 'transcript') transcript = m.transcript
+        if (m.type === 'reply') replyText = m.text
+        return
+      }
+    } catch { /* not json -> audio */ }
+    audioBytes += data.length
   })
 
   ws.on('open', async () => {
