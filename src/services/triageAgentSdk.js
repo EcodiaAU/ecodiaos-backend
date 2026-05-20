@@ -82,6 +82,73 @@ function _looksRateLimited(text) {
   return /rate.?limit|429|overloaded|capacity|quota|usage limit|too many requests/i.test(String(text))
 }
 
+// ── Banter fast-path ────────────────────────────────────────────────────────
+// The Sonnet triage round-trip is ~14-16s. For context-free banter (a bare
+// greeting or a thanks) that latency is a real UX regression - Tate flagged
+// native chat "doesn't feel realtime". These messages have exactly one good
+// reply and need zero context, so we short-circuit BEFORE the model call and
+// reply via APNs in ~1-2s.
+//
+// Deliberately NARROW: only pure greetings + thanks. Affirmations ("ok",
+// "yeah", "perfect", "sure") are EXCLUDED on purpose - standalone they are
+// frequently approvals of a pending action that SHOULD escalate to real work,
+// so answering them with a canned ack would be the exact headless-chicken
+// non-sequitur we are trying to kill. A false-negative (banter -> Sonnet) only
+// costs latency; a false-positive (a real ask answered with "anytime") is a
+// correctness bug. So we err hard toward Sonnet.
+const _GREETINGS = {
+  yo: 'yo', yoo: 'yo', yooo: 'yo', oi: 'oi', oy: 'oi',
+  hey: 'hey', heya: 'hey', hiya: 'hey', hi: 'hey', hello: 'hey', hullo: 'hey',
+  sup: 'sup', wsup: 'sup', wassup: 'sup',
+  morning: 'morning', mornin: 'morning', gm: 'morning',
+  gn: 'night', night: 'night', goodnight: 'night',
+}
+const _GREETING_PHRASES = {
+  'good morning': 'morning',
+  'good night': 'night',
+  gday: 'gday', "g'day": 'gday',
+}
+const _THANKS = new Set([
+  'thanks', 'thank you', 'thankyou', 'ty', 'thx', 'tysm', 'cheers', 'ta',
+  'much appreciated', 'appreciate it', 'appreciated', 'legend', 'nice one',
+])
+const _THANKS_REPLIES = ['anytime', 'np', 'all good']
+
+function _normalizeBody(body) {
+  return String(body || '')
+    .toLowerCase()
+    .replace(/[!.?,]+$/g, '') // trailing punctuation only
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function _classifyBanter(envelope) {
+  // Attachments could need analysis - never fast-path.
+  const atts = envelope.attachments || envelope.media || []
+  if (Array.isArray(atts) && atts.length > 0) return null
+  // native_share forwards always need real handling.
+  if (envelope.source === 'native_share') return null
+
+  const norm = _normalizeBody(envelope.body)
+  if (!norm) return null
+  if (norm.length > 24) return null // too long to be bare banter
+  if (norm.includes('?')) return null // a question needs a real answer
+
+  const words = norm.split(' ')
+  if (words.length > 3) return null
+
+  if (words.length === 1 && _GREETINGS[norm]) {
+    return { category: 'greeting', reply: _GREETINGS[norm] }
+  }
+  if (_GREETING_PHRASES[norm]) {
+    return { category: 'greeting', reply: _GREETING_PHRASES[norm] }
+  }
+  if (_THANKS.has(norm)) {
+    return { category: 'thanks', reply: _THANKS_REPLIES[Math.floor(Math.random() * _THANKS_REPLIES.length)] }
+  }
+  return null
+}
+
 // ── Build the in-process MCP tool wrappers (cached) ─────────────────────────
 // Each wrapper delegates to headlessConductor's _internal_handlers and records
 // into the per-call accumulator. We require headlessConductor lazily INSIDE the
@@ -289,6 +356,9 @@ Required order: (1) call notify_tate (or escalate_to_opus with ack_first) FIRST.
 # Internal narration is BANNED in the reply body (Tate flagged this)
 The notify_tate body is what Tate reads on his lock screen. NEVER put process narration in it. BANNED phrases in the body: "Episode logged", "Reply sent", "I have written", "Calling notify_tate", "Escalating to Opus", "neo4j", "status_board updated" (unless he asked about it). Just say the substance, in his voice. Bad: "Got it. Reply sent and episode logged." Good: "got it".
 
+# You are ONE entity - NEVER refer to a separate "conductor" (Tate flagged this verbatim: "i hate the tell my conductor phrasing")
+There is no second EcodiaOS you defer to, hand off to, or check with. When you escalate to Opus that is still YOU thinking harder - from Tate's side it is seamless, he is talking to one Ecodia. BANNED in the reply body: "tell my conductor", "my conductor", "the conductor", "let me check with the conductor", "I'll pass this to", "hand this to", "loop in the conductor". You do the thing or you say you're on it. Bad: "I'll tell my conductor to check the deploy." Good: "on it" (then escalate).
+
 # Hard rules
 - ALWAYS reply via notify_tate. Never silent. Episode-only is silence = failed turn.
 - Em-dashes BANNED in any outgoing text. Use plain hyphens or restructure.
@@ -308,6 +378,41 @@ The notify_tate body is what Tate reads on his lock screen. NEVER put process na
  */
 async function runTriageViaAgentSdk({ envelope, turnContextBlock, allowEscalation = true }) {
   const started = Date.now()
+
+  // BANTER FAST-PATH: skip the ~16s Sonnet round-trip for context-free greetings
+  // and thanks. Reply via APNs immediately (~1-2s). Falls through to Sonnet if
+  // the classifier misses OR the immediate send fails. See _classifyBanter.
+  if (process.env.TRIAGE_BANTER_FASTPATH !== 'false') {
+    const banter = _classifyBanter(envelope)
+    if (banter) {
+      let sent = null
+      try {
+        const { _internal_handlers } = require('./headlessConductor')
+        const notify = _internal_handlers && _internal_handlers._notifyTate
+        if (notify) sent = await notify({ body: banter.reply, channel: 'native', urgency: 'routine' })
+      } catch (err) {
+        logger.warn('triageAgentSdk: banter fast-path send failed, falling through to Sonnet', { error: err.message })
+        sent = null
+      }
+      if (sent && sent.ok !== false) {
+        logger.info('triageAgentSdk: banter fast-path reply', {
+          category: banter.category, reply: banter.reply, duration_ms: Date.now() - started,
+        })
+        return {
+          ok: true, phase: 'triage', model: 'fastpath', account: 'fastpath',
+          iterations: 0, stop_reason: 'end_turn',
+          tool_calls: [{
+            name: 'notify_tate', ok: true,
+            input_preview: JSON.stringify({ body: banter.reply, channel: 'native' }).slice(0, 200),
+            result_preview: `banter fast-path (${banter.category})`,
+          }],
+          escalation: null, fast_path: banter.category, duration_ms: Date.now() - started,
+        }
+      }
+      // send failed -> continue to the full Sonnet path so Tate is never silent.
+    }
+  }
+
   const accounts = _availableAccounts()
   if (accounts.length === 0) {
     return {
@@ -482,4 +587,4 @@ function _resetForTest() {
   _toolWrappersBuilding = null
 }
 
-module.exports = { runTriageViaAgentSdk, _resetForTest }
+module.exports = { runTriageViaAgentSdk, _classifyBanter, _resetForTest }

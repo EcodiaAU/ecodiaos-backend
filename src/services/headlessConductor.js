@@ -466,7 +466,7 @@ const TRIAGE_TOOLS = [
   },
 ]
 
-// ===== Execute (Opus) tool registry — adds MCP proxies + Corazon =====
+// ===== Execute (Opus) tool registry - adds MCP proxies + Corazon =====
 
 const EXECUTE_TOOLS = [
   ...TRIAGE_TOOLS.filter(t => t.name !== 'escalate_to_opus'),
@@ -1082,7 +1082,7 @@ function _executeViaClaudeCli({ envelope, triageReason, source }) {
         ? `When done, write your reply to Tate as the FINAL block of your stdout, wrapped in <REPLY> and </REPLY> tags. The parent process will forward it via APNs to the iOS native app (no MCP tool needed). Example: ... your work narration ... <REPLY>shipped, build 9 pending</REPLY>. Keep the reply tight - one or two short sentences max.`
         : `When done, reply via the appropriate channel for ${channel}.`
 
-  const prompt = `You are EcodiaOS handling an inbound message that Haiku triage escalated for real work.
+  const prompt = `You are EcodiaOS handling an inbound message that triage escalated for real work.
 
 INBOUND ENVELOPE (channel=${channel}, from=${envelope.sender_name || envelope.from}, thread_id=${envelope.thread_id}):
 """
@@ -1101,6 +1101,7 @@ Source: ${source}
 # Hard rules
 - ALWAYS reply to Tate (NEVER silent).
 - Em-dashes BANNED in outgoing text.
+- You ARE EcodiaOS - one entity. NEVER refer to "your conductor" / "the conductor" / "I'll tell my conductor" / "let me check with the conductor" in the reply. There is no second Ecodia you hand off to. You did the work; say what you did. (Tate flagged "tell my conductor" phrasing verbatim - it is banned.)
 - No client contact without Tate go-ahead (Angelica/Resonaverde standing arrangement excepted).
 - This is autonomous. Don't ask Tate to confirm routine actions.`
 

@@ -29,6 +29,7 @@ const {
 } = require('../services/inboundConductorRouter')
 const deviceState = require('../services/deviceState')
 const tatePriorityCurator = require('../services/tatePriorityCurator')
+const { runSerial } = require('../services/nativeInboundQueue')
 
 // Lazy Supabase client for storage signing
 let _supabase = null
@@ -125,7 +126,10 @@ router.post('/inbound', async (req, res) => {
       deviceState.recordInbound({ channel: 'native', at: envelope.received_at }),
     ])
       .catch((err) => logger.warn('native /inbound: pre-route persist failed', { error: err.message }))
-      .then(() => routeEnvelopeToConductor({ envelope, source: 'native-webhook' }))
+      // Serialize the conductor turn per thread so two rapid messages don't spawn
+      // concurrent turns that race the thread mirror and double-reply. See
+      // services/nativeInboundQueue.js.
+      .then(() => runSerial(envelope.thread_id, () => routeEnvelopeToConductor({ envelope, source: 'native-webhook' })))
       .then((result) => {
         if (!result?.ok) {
           logger.error('native /inbound: route to conductor failed', {
