@@ -82,18 +82,40 @@ async function waitForIdeIdle() {
   return { deferred, waited_ms: Date.now() - start }
 }
 
-function buildPrompt({ body, thread_id, source }) {
+// Idempotency: a retried POST (network blip / VPS resend) returns the cached
+// result instead of spawning a second claude that could double-act.
+const _idemCache = new Map()
+const IDEM_TTL_MS = 10 * 60 * 1000
+function _idemGet(k) {
+  if (!k) return null
+  const e = _idemCache.get(k)
+  if (!e) return null
+  if (Date.now() - e.at > IDEM_TTL_MS) { _idemCache.delete(k); return null }
+  return e.result
+}
+function _idemSet(k, result) {
+  if (!k) return
+  _idemCache.set(k, { at: Date.now(), result })
+  if (_idemCache.size > 500) { _idemCache.delete(_idemCache.keys().next().value) }
+}
+
+function log(...a) { console.log(`[away-conductor ${new Date().toISOString()}]`, ...a) }
+
+function buildPrompt({ body, thread_id, source, thread_context }) {
   const ch = source || 'native'
+  const ctxBlock = thread_context
+    ? `\nRECENT CONVERSATION (oldest first, most recent last - this is the live thread, continue it, do not act like you have never seen it):\n${thread_context}\n`
+    : ''
   return `You are EcodiaOS handling an inbound message from Tate over the ${ch} channel while he is away from the keyboard. You are NOT a degraded fallback - this is the live local repo at ${REPO_CWD} with your full CLAUDE.md doctrine, patterns, MCP tools and memory loaded. You are the same conductor, just reached over the wire.
 
 Do the work the message asks for using whatever tools you have. If you change code: commit and push to origin (origin is the single source of truth; never leave the working tree dirty, never edit-in-place-and-leave-it). If it is a question, answer it from real context/tools, not guesses.
-
+${ctxBlock}
 INBOUND (channel=${ch}, thread_id=${thread_id || 'tate'}):
 """
 ${body}
 """
 
-When done, write your reply to Tate as the FINAL block of stdout wrapped in <REPLY> and </REPLY>. Tight, his voice, no filler, no internal narration ("episode logged" etc banned), no emojis, no em-dashes. Example: ...work... <REPLY>done, pushed build 11</REPLY>`
+CRITICAL reply rule: your ONLY reply channel is the <REPLY> block. Do NOT also send a reply via any MCP tool (no send_sms, no gmail/email, no notify_tate) - the parent process delivers your <REPLY> to Tate, and sending elsewhere would double-text him. Write your reply as the FINAL block of stdout wrapped in <REPLY> and </REPLY>. Tight, his voice, no filler, no internal narration ("episode logged" etc banned), no emojis, no em-dashes. Example: ...work... <REPLY>done, pushed build 11</REPLY>`
 }
 
 function extractReply(stdout) {
@@ -108,9 +130,9 @@ function extractReply(stdout) {
   return null
 }
 
-function runConductor({ body, thread_id, source }) {
+function runConductor({ body, thread_id, source, thread_context }) {
   return new Promise((resolve) => {
-    const prompt = buildPrompt({ body, thread_id, source })
+    const prompt = buildPrompt({ body, thread_id, source, thread_context })
     // Prompt goes via STDIN, not as a CLI arg. A multiline/quoted prompt passed
     // as an arg through shell:true on Windows gets mangled (claude then sees no
     // task and just orients). `claude --print` reads the prompt from stdin.
@@ -162,14 +184,21 @@ app.post('/message', async (req, res) => {
     const auth = req.headers.authorization || ''
     if (auth !== `Bearer ${TOKEN}`) return res.status(401).json({ error: 'unauthorized' })
   }
-  const { body, thread_id, source, reply_via } = req.body || {}
+  const { body, thread_id, source, reply_via, thread_context, idempotency_key } = req.body || {}
   if (!body || typeof body !== 'string') return res.status(400).json({ error: 'body_required' })
 
+  const cached = _idemGet(idempotency_key)
+  if (cached) {
+    log(`idempotent replay key=${idempotency_key}`)
+    return res.json({ ...cached, idempotent_replay: true })
+  }
+
   const started = Date.now()
+  log(`turn start key=${idempotency_key || '-'} source=${source || 'native'} ctx=${thread_context ? 'y' : 'n'} body="${String(body).slice(0, 80)}"`)
   // Serialize + defer to an active IDE conductor before touching the repo.
   const result = await runSerialized(async () => {
     const lock = await waitForIdeIdle()
-    const r = await runConductor({ body, thread_id, source })
+    const r = await runConductor({ body, thread_id, source, thread_context })
     r.lock = lock
     return r
   })
@@ -187,6 +216,8 @@ app.post('/message', async (req, res) => {
   }
 
   result.duration_ms = Date.now() - started
+  _idemSet(idempotency_key, result)
+  log(`turn done key=${idempotency_key || '-'} ok=${result.ok} deferred=${result.lock && result.lock.deferred} reply_chars=${result.reply ? result.reply.length : 0} dur=${result.duration_ms}ms`)
   res.json(result)
 })
 

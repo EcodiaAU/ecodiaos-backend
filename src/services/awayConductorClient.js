@@ -20,9 +20,36 @@
  */
 
 const logger = require('../config/logger')
+const db = require('../config/db')
 
 function isEnabled() {
   return !!process.env.AWAY_CONDUCTOR_URL
+}
+
+// Fetch the last N exchanges from a channel thread mirror so the away-conductor
+// has conversational continuity (it spawns a fresh claude per message, which has
+// the repo + doctrine but not the recent back-and-forth). Returns a compact
+// transcript string, or '' on any miss (best-effort - never block the turn).
+async function _recentThreadContext(channel, threadId, limit = 10) {
+  try {
+    const key = `cowork.message_thread.${channel || 'native'}.${threadId || 'tate'}`
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${key} LIMIT 1`
+    if (!rows[0]) return ''
+    const raw = rows[0].value
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const exchanges = Array.isArray(parsed?.exchanges) ? parsed.exchanges : []
+    if (!exchanges.length) return ''
+    const recent = exchanges.slice(-limit)
+    return recent
+      .map((e) => {
+        const who = e.from === 'ecodia' ? 'You (Ecodia)' : 'Tate'
+        return `${who}: ${String(e.body || '').slice(0, 500)}`
+      })
+      .join('\n')
+  } catch (err) {
+    logger.warn('awayConductorClient: thread context fetch failed (non-fatal)', { error: err.message })
+    return ''
+  }
 }
 
 /**
@@ -41,6 +68,7 @@ async function routeToAwayConductor({ envelope, triageReason }) {
   const timeoutMs = parseInt(process.env.AWAY_CONDUCTOR_CLIENT_TIMEOUT_MS || '300000', 10)
 
   const started = Date.now()
+  const threadContext = await _recentThreadContext(envelope.channel, envelope.thread_id)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -55,6 +83,8 @@ async function routeToAwayConductor({ envelope, triageReason }) {
         body: triageReason ? `${envelope.body}\n\n[triage note: ${triageReason}]` : envelope.body,
         thread_id: envelope.thread_id || 'tate',
         source: envelope.source || envelope.channel || 'native',
+        thread_context: threadContext || undefined,
+        idempotency_key: envelope.idempotency_key || undefined,
       }),
       signal: controller.signal,
     })
