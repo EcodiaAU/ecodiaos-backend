@@ -138,6 +138,30 @@ function handleConnection(ws, { onClose } = {}) {
   const pending = []         // final utterances awaiting processing
   let pumping = false
 
+  // Echo guard (defense in depth behind client-side AEC). Ecodia's own TTS can
+  // bleed into the mic and get transcribed as a "user" turn, making him answer
+  // himself in a loop. We drop a final transcript that matches what we are
+  // currently / just-finished saying. Real interruptions never match our own
+  // words, so barge-in is preserved.
+  let lastSpokenText = ''
+  let lastSpokenAt = 0
+  const ECHO_GRACE_MS = 1500
+  const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const looksLikeEcho = (transcript) => {
+    const t = norm(transcript)
+    if (t.length < 4) return false
+    const ref = lastSpokenText
+    if (!ref) return false
+    // Only guard while speaking or within the grace window right after.
+    if (!speaking && Date.now() - lastSpokenAt > ECHO_GRACE_MS) return false
+    if (ref.includes(t)) return true
+    const tt = t.split(' ')
+    const refSet = new Set(ref.split(' '))
+    let hit = 0
+    for (const w of tt) if (refSet.has(w)) hit++
+    return tt.length > 0 && hit / tt.length >= 0.6
+  }
+
   const sendJson = (obj) => { try { ws.send(JSON.stringify(obj)) } catch { /* ignore */ } }
   const sendAudio = (buf) => { try { ws.send(buf) } catch { /* ignore */ } }
 
@@ -159,12 +183,14 @@ function handleConnection(ws, { onClose } = {}) {
         const res = await streamReply({
           userText,
           history,
-          onText: (t) => sendJson({ type: 'reply', text: t }),
+          onText: (t) => { lastSpokenText = norm(t); sendJson({ type: 'reply', text: t }) },
           onAudioChunk: (buf) => sendAudio(buf),
           shouldAbort: () => bargeIn || closed,
         })
         logger.info('[voiceCall] turn complete', { chars: res.text.length, tts_bytes: res.bytes, aborted: res.aborted })
         history.push({ role: 'assistant', text: res.text })
+        lastSpokenText = norm(res.text)
+        lastSpokenAt = Date.now()
         speaking = false
         sendJson({ type: 'idle' })
       }
@@ -181,11 +207,17 @@ function handleConnection(ws, { onClose } = {}) {
         model: 'nova-3',
         interim_results: true,
         onTranscript: ({ transcript, speech_final }) => {
-          if (transcript) sendJson({ type: 'transcript', transcript, final: !!speech_final })
           if (speech_final && transcript && transcript.trim()) {
+            if (looksLikeEcho(transcript)) {
+              logger.info('[voiceCall] dropped echo transcript', { transcript: transcript.slice(0, 60) })
+              return
+            }
+            if (transcript) sendJson({ type: 'transcript', transcript, final: true })
             if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) } // real interruption
             pending.push(transcript.trim())
             pump()
+          } else if (transcript) {
+            sendJson({ type: 'transcript', transcript, final: false })
           }
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
