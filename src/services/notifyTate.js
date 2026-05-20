@@ -30,6 +30,47 @@ const { appendOutbound } = require('./threadMirror')
 let _tgChatCache = { value: null, expiresAt: 0 }
 const TG_CHAT_TTL_MS = 5 * 60 * 1000
 
+// ── Outbound capture gate (test affordance) ─────────────────────────────────
+// When OUTBOUND_TEST_CAPTURE_UNTIL is set to a future ISO timestamp, notifyTate
+// mirrors the reply into the thread (so /recent + next-turn context still work)
+// but DOES NOT push to Tate's device. Lets the full triage->reply->escalate
+// pipeline be stress-tested without buzzing his phone (e.g. overnight). It is
+// SELF-EXPIRING: once the timestamp passes, normal delivery resumes even if the
+// flag is never unset, so a forgotten gate heals itself. Captured payloads land
+// in kv_store 'cowork.outbound_capture.log' (last 100) for inspection.
+const CAPTURE_LOG_KEY = 'cowork.outbound_capture.log'
+
+function _captureWindowActive() {
+  const until = process.env.OUTBOUND_TEST_CAPTURE_UNTIL
+  if (!until) return false
+  const t = Date.parse(until)
+  return Number.isFinite(t) && Date.now() < t
+}
+
+async function _captureOutbound({ body, channel, urgency }) {
+  const ch = channel === 'auto' || !channel ? 'native' : channel
+  // Still mirror so thread context + the iOS /recent feed stay coherent.
+  try { appendOutbound({ channel: ch, thread_id: 'tate', body }).catch(() => {}) } catch { /* best effort */ }
+  const entry = { at: new Date().toISOString(), channel: channel || 'auto', urgency: urgency || null, body: String(body || '').slice(0, 500) }
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${CAPTURE_LOG_KEY} LIMIT 1`
+    let log = []
+    if (rows[0]) { try { log = JSON.parse(rows[0].value) } catch { log = [] } }
+    if (!Array.isArray(log)) log = []
+    log.push(entry)
+    if (log.length > 100) log = log.slice(-100)
+    const value = JSON.stringify(log)
+    await db`
+      INSERT INTO kv_store (key, value, updated_at) VALUES (${CAPTURE_LOG_KEY}, ${value}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `
+  } catch (err) {
+    logger.warn('notifyTate: capture log write failed (non-fatal)', { error: err.message })
+  }
+  logger.info('notifyTate: OUTBOUND CAPTURED (device delivery suppressed)', { channel: channel || 'auto', body: String(body || '').slice(0, 80) })
+  return { ok: true, transport: 'capture', captured: true, message_id: randomUUID() }
+}
+
 async function _loadTelegramChatId() {
   if (process.env.TATE_TELEGRAM_CHAT_ID) return process.env.TATE_TELEGRAM_CHAT_ID
   if (_tgChatCache.expiresAt > Date.now() && _tgChatCache.value) return _tgChatCache.value
@@ -79,6 +120,9 @@ async function _sendNative({ body, urgency, message_id, deep_link }) {
  * unless every path errors, in which case { ok: false, error }.
  */
 async function notifyTate({ body, urgency, channel, thread_id, deep_link } = {}) {
+  // Test capture gate (self-expiring) - suppress device delivery, mirror only.
+  if (_captureWindowActive()) return _captureOutbound({ body, channel, urgency })
+
   const message_id = randomUUID()
   const ch = channel || 'auto'
 
