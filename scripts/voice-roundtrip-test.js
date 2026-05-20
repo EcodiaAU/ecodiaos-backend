@@ -14,16 +14,34 @@
 require('dotenv').config()
 const WebSocket = require('ws')
 const dg = require('../src/services/deepgramVoiceService')
+const db = require('../src/config/db')
 
 const PORT = process.env.VOICE_CALL_PORT || '7461'
 const PHRASE = process.argv[2] || 'hey ecodia whats two plus two'
+
+// The voice-call wss is gated on the native app bearer; resolve it the same way
+// the server does so the test authenticates.
+async function resolveBearer() {
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${'creds.tate_native_app_bearer'} LIMIT 1`
+    const raw = rows && rows[0] && rows[0].value
+    let p = null
+    if (typeof raw === 'string') { try { p = JSON.parse(raw) } catch { p = raw } }
+    else if (raw && typeof raw === 'object') { p = raw }
+    return typeof p === 'string' ? p : (p && p.bearer) || ''
+  } catch { return '' }
+}
 
 ;(async () => {
   console.log('[test] synthesizing phrase:', JSON.stringify(PHRASE))
   const pcm = await dg.synthesizeBuffer({ text: PHRASE, encoding: 'linear16', sample_rate: 16000, container: 'none' })
   console.log('[test] phrase pcm bytes:', pcm.length)
 
-  const ws = new WebSocket(`ws://localhost:${PORT}${process.env.VOICE_CALL_WS_PATH || '/api/voice/call'}`)
+  const bearer = await resolveBearer()
+  const ws = new WebSocket(
+    `ws://localhost:${PORT}${process.env.VOICE_CALL_WS_PATH || '/api/voice/call'}`,
+    bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : undefined
+  )
   let transcript = ''
   let replyText = ''
   let audioBytes = 0
