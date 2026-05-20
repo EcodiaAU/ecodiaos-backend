@@ -250,18 +250,29 @@ function handleConnection(ws, { onClose } = {}) {
         model: 'nova-3',
         interim_results: true,
         onTranscript: ({ transcript, speech_final }) => {
-          if (speech_final && transcript && transcript.trim()) {
-            if (looksLikeEcho(transcript)) {
-              logger.info('[voiceCall] dropped echo transcript', { transcript: transcript.slice(0, 60) })
-              return
+          const tx = (transcript || '').trim()
+          if (!tx) return
+          if (!speech_final) {
+            // Interim result. Snappy talk-to-interrupt: if Tate starts speaking
+            // while we are mid-TTS, abort immediately (full-duplex + client AEC
+            // means this is real speech, not echo). The echo guard blocks any
+            // residual bleed from triggering a false interrupt.
+            if (speaking && tx.length >= 3 && !looksLikeEcho(tx)) {
+              bargeIn = true
+              sendJson({ type: 'barge_in' })
             }
-            if (transcript) sendJson({ type: 'transcript', transcript, final: true })
-            if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) } // real interruption
-            pending.push(transcript.trim())
-            pump()
-          } else if (transcript) {
-            sendJson({ type: 'transcript', transcript, final: false })
+            sendJson({ type: 'transcript', transcript: tx, final: false })
+            return
           }
+          // Final utterance.
+          if (looksLikeEcho(tx)) {
+            logger.info('[voiceCall] dropped echo transcript', { transcript: tx.slice(0, 60) })
+            return
+          }
+          sendJson({ type: 'transcript', transcript: tx, final: true })
+          if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
+          pending.push(tx)
+          pump()
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
       })
