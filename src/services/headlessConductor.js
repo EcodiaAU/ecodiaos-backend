@@ -1048,7 +1048,9 @@ function _executeViaClaudeCli({ envelope, triageReason, source }) {
     ? `When done, reply to Tate via SMS. Use the sms_tate skill or the send_sms tool from ecodia-comms MCP (to=${envelope.from}).`
     : channel === 'telegram'
       ? `When done, reply to Tate via Telegram. Use the send_telegram tool from ecodia-comms (chat_id=${envelope.thread_id}) - if not available, POST to the bot directly.`
-      : `When done, reply via the appropriate channel for ${channel}.`
+      : channel === 'native'
+        ? `When done, write your reply to Tate as the FINAL block of your stdout, wrapped in <REPLY> and </REPLY> tags. The parent process will forward it via APNs to the iOS native app (no MCP tool needed). Example: ... your work narration ... <REPLY>shipped, build 9 pending</REPLY>. Keep the reply tight - one or two short sentences max.`
+        : `When done, reply via the appropriate channel for ${channel}.`
 
   const prompt = `You are EcodiaOS handling an inbound message that Haiku triage escalated for real work.
 
@@ -1092,8 +1094,8 @@ Source: ${source}
     child.on('error', err => {
       resolve({ ok: false, error: `spawn failed: ${err.message}`, exit_code: null })
     })
-    child.on('close', (code, signal) => {
-      resolve({
+    child.on('close', async (code, signal) => {
+      const result = {
         ok: code === 0,
         exit_code: code,
         signal: signal || null,
@@ -1102,7 +1104,39 @@ Source: ${source}
         model: EXECUTE_CLI_MODEL,
         effort: EXECUTE_CLI_EFFORT,
         timed_out: signal === 'SIGTERM' && code === null,
-      })
+      }
+      // NATIVE-CHANNEL REPLY FORWARDING.
+      // Opus CLI subprocess has no notify_tate MCP exposure, so for native
+      // channel we parse its stdout for a <REPLY>...</REPLY> block and forward
+      // it via notifyTate from this parent process. Falls back to the last
+      // non-empty paragraph if no tags are present (covers older Opus replies
+      // that predate the directive update). Diagnosed 2026-05-20 - native
+      // inbound was silently dropping every Opus reply because no tool was
+      // ever named for native in the directive.
+      if (code === 0 && channel === 'native') {
+        try {
+          let replyBody = null
+          const m = String(stdout).match(/<REPLY>([\s\S]*?)<\/REPLY>/i)
+          if (m && m[1]) replyBody = m[1].trim()
+          if (!replyBody) {
+            const paras = String(stdout).trim().split(/\n\s*\n/)
+            for (let i = paras.length - 1; i >= 0; i--) {
+              const p = paras[i].trim()
+              if (p && p.length < 500) { replyBody = p; break }
+            }
+          }
+          if (replyBody && replyBody.length > 0) {
+            const { notifyTate } = require('./notifyTate')
+            const nr = await notifyTate({ body: replyBody.slice(0, 1500), channel: 'native', urgency: 'alert' })
+            result.native_reply = { sent: !!nr?.ok, transport: nr?.transport, body_chars: replyBody.length }
+          } else {
+            result.native_reply = { sent: false, reason: 'no_reply_extracted' }
+          }
+        } catch (err) {
+          result.native_reply = { sent: false, error: err.message }
+        }
+      }
+      resolve(result)
     })
   })
 }
