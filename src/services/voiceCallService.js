@@ -200,10 +200,13 @@ function handleConnection(ws, { onClose } = {}) {
   let pumping = false
   // Utterance assembly: Deepgram finalizes segments on small pauses, which would
   // split one sentence into fragments and feed the brain a scrap. We accumulate
-  // finalized segments and only hand over the FULL utterance after a real pause.
+  // finalized segments and process the FULL utterance only when Deepgram's
+  // audio-VAD says the turn ended (UtteranceEnd, based on a real silence gap), NOT
+  // on SDK event cadence. The safety timer is a backstop if UtteranceEnd never
+  // arrives - it is long enough that it never fires mid-speech.
   let utterance = []
-  let uttTimer = null
-  const UTT_GAP_MS = 800
+  let safetyTimer = null
+  const SAFETY_MS = 4000
 
   // Echo guard (defense in depth behind client-side AEC). Ecodia's own TTS can
   // bleed into the mic and get transcribed as a "user" turn, making him answer
@@ -319,7 +322,7 @@ function handleConnection(ws, { onClose } = {}) {
   // Fires after UTT_GAP_MS of silence: the assembled utterance is the user's full
   // turn. Hand it to the brain as one piece.
   function flushUtterance() {
-    uttTimer = null
+    if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null }
     const full = utterance.join(' ').replace(/\s+/g, ' ').trim()
     utterance = []
     if (!full || closed) return
@@ -340,6 +343,9 @@ function handleConnection(ws, { onClose } = {}) {
         sample_rate: STT_SAMPLE_RATE,
         model: 'nova-3',
         interim_results: true,
+        // Turn ends after ~1.1s of real silence (audio VAD), tolerating natural
+        // mid-sentence pauses. This is the turn boundary, via onUtteranceEnd.
+        utterance_end_ms: 1100,
         onTranscript: ({ transcript, is_final }) => {
           const tx = (transcript || '').trim()
           if (!tx) return
@@ -353,10 +359,15 @@ function handleConnection(ws, { onClose } = {}) {
           if (is_final) utterance.push(tx)
           const live = (utterance.join(' ') + (is_final ? '' : ' ' + tx)).replace(/\s+/g, ' ').trim()
           sendJson({ type: 'transcript', transcript: live, final: false })
-          // Debounce: hand the FULL utterance to the brain only after a real pause,
-          // so a mid-sentence breath does not chop it into fragments.
-          if (uttTimer) clearTimeout(uttTimer)
-          uttTimer = setTimeout(flushUtterance, UTT_GAP_MS)
+          // Backstop only (the real turn end is UtteranceEnd below). Long enough it
+          // never fires mid-speech; just rescues a missed UtteranceEnd.
+          if (safetyTimer) clearTimeout(safetyTimer)
+          safetyTimer = setTimeout(flushUtterance, SAFETY_MS)
+        },
+        onUtteranceEnd: () => {
+          // Deepgram's audio VAD detected a real silence gap (utterance_end_ms) =
+          // Tate finished his turn. Hand the assembled utterance to the brain.
+          flushUtterance()
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
       })
@@ -383,7 +394,7 @@ function handleConnection(ws, { onClose } = {}) {
 
   ws.on('close', () => {
     closed = true
-    if (uttTimer) { try { clearTimeout(uttTimer) } catch {} }
+    if (safetyTimer) { try { clearTimeout(safetyTimer) } catch {} }
     if (stt) { try { stt.close() } catch {} }
     if (onClose) { try { onClose() } catch {} }
   })
