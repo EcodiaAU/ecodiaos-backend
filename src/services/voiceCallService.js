@@ -132,29 +132,44 @@ async function streamReply({ userText, history = [], onText, onAudioChunk, shoul
 function handleConnection(ws, { onClose } = {}) {
   const history = []
   let speaking = false       // we are mid-TTS (barge-in target)
-  let bargeIn = false        // user started talking while we spoke
+  let bargeIn = false        // a NEW utterance arrived while we spoke
   let stt = null
   let closed = false
+  const pending = []         // final utterances awaiting processing
+  let pumping = false
 
   const sendJson = (obj) => { try { ws.send(JSON.stringify(obj)) } catch { /* ignore */ } }
   const sendAudio = (buf) => { try { ws.send(buf) } catch { /* ignore */ } }
 
-  async function onUtterance(userText) {
-    if (!userText || !userText.trim()) return
-    history.push({ role: 'user', text: userText })
-    speaking = true
-    bargeIn = false
-    sendJson({ type: 'speaking' })
-    const { text } = await streamReply({
-      userText,
-      history,
-      onText: (t) => sendJson({ type: 'reply', text: t }),
-      onAudioChunk: (buf) => sendAudio(buf),
-      shouldAbort: () => bargeIn || closed,
-    })
-    history.push({ role: 'assistant', text })
-    speaking = false
-    sendJson({ type: 'idle' })
+  // Process queued utterances one at a time. A new final transcript arriving
+  // mid-reply sets bargeIn (aborts the current TTS) and queues, so Ecodia stops
+  // talking and answers the interruption. Barge-in is CONTENT-based (a real new
+  // final transcript), NOT bare VAD - VAD SpeechStarted false-fires on residual
+  // input and on echo of Ecodia's own voice in a real call.
+  async function pump() {
+    if (pumping) return
+    pumping = true
+    try {
+      while (pending.length && !closed) {
+        const userText = pending.shift()
+        history.push({ role: 'user', text: userText })
+        speaking = true
+        bargeIn = false
+        sendJson({ type: 'speaking' })
+        const { text } = await streamReply({
+          userText,
+          history,
+          onText: (t) => sendJson({ type: 'reply', text: t }),
+          onAudioChunk: (buf) => sendAudio(buf),
+          shouldAbort: () => bargeIn || closed,
+        })
+        history.push({ role: 'assistant', text })
+        speaking = false
+        sendJson({ type: 'idle' })
+      }
+    } finally {
+      pumping = false
+    }
   }
 
   ;(async () => {
@@ -166,9 +181,12 @@ function handleConnection(ws, { onClose } = {}) {
         interim_results: true,
         onTranscript: ({ transcript, speech_final }) => {
           if (transcript) sendJson({ type: 'transcript', transcript, final: !!speech_final })
-          if (speech_final && transcript) onUtterance(transcript)
+          if (speech_final && transcript && transcript.trim()) {
+            if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) } // real interruption
+            pending.push(transcript.trim())
+            pump()
+          }
         },
-        onSpeechStarted: () => { if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) } },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
       })
       sendJson({ type: 'ready' })

@@ -45,12 +45,16 @@ const PHRASE = process.argv[2] || 'hey ecodia whats two plus two'
   ws.on('open', async () => {
     console.log('[test] ws open; waiting for STT ready...')
     await new Promise((r) => setTimeout(r, 1500))
-    const frame = 1280 // 40ms at 16kHz mono linear16
+    const frame = 640 // 20ms at 16kHz mono linear16 (tighter pacing = fewer false endpoints)
     for (let i = 0; i < pcm.length; i += frame) {
       ws.send(pcm.subarray(i, i + frame))
-      await new Promise((r) => setTimeout(r, 35))
+      await new Promise((r) => setTimeout(r, 18))
     }
-    console.log('[test] audio sent; awaiting reply...')
+    // Trailing silence so Deepgram endpoints the full phrase as ONE utterance
+    // and no residual audio triggers extra segments.
+    const silence = Buffer.alloc(frame)
+    for (let i = 0; i < 30; i++) { ws.send(silence); await new Promise((r) => setTimeout(r, 18)) }
+    console.log('[test] audio + trailing silence sent; awaiting reply...')
   })
 
   ws.on('error', (e) => { console.error('[test] ws error', e.message); process.exit(1) })
