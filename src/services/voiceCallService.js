@@ -48,13 +48,49 @@ Speak the way a sharp co-founder talks on the phone:
 - If he asks you to DO something that needs tools or real work, say you are on it and that you will handle it and follow up, then keep the call moving. (The call path is conversational; heavy work is dispatched separately.)
 - Answer the question actually asked. Match his energy. If he is brief, be brief.
 
+You actually know what is going on in the business - your live context (recent texts with Tate, what you are tracking) is given below. Talk like you already know it. Never read the context out as a list; just use it.
+
 Never read out internal narration. Just talk.`
+
+const db = require('../config/db')
+
+// Live context for the voice brain so it is not a blank-slate Haiku. Pulls the
+// recent text thread with Tate (cross-surface continuity) + the active status
+// board (what Ecodia is tracking / waiting on). Best-effort: any miss returns a
+// partial or empty block, never blocks the turn. Cheap (two indexed queries).
+async function buildVoiceContext() {
+  const parts = []
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${'cowork.message_thread.native.tate'} LIMIT 1`
+    if (rows[0]) {
+      const parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value
+      const ex = Array.isArray(parsed && parsed.exchanges) ? parsed.exchanges.slice(-6) : []
+      if (ex.length) {
+        const t = ex.map((e) => `${e.from === 'ecodia' ? 'You' : 'Tate'}: ${String(e.body || '').slice(0, 240)}`).join('\n')
+        parts.push(`Recent text thread with Tate:\n${t}`)
+      }
+    }
+  } catch (err) { logger.warn('[voiceCall] thread context miss', { error: err.message }) }
+  try {
+    const rows = await db`SELECT name, status, next_action, next_action_by FROM status_board WHERE archived_at IS NULL AND priority <= 3 ORDER BY priority, last_touched DESC LIMIT 12`
+    if (rows.length) {
+      const b = rows.map((r) => {
+        const na = r.next_action ? ` | next: ${String(r.next_action).slice(0, 120)} [${r.next_action_by || '?'}]` : ''
+        return `- ${r.name}: ${String(r.status || '').slice(0, 140)}${na}`
+      }).join('\n')
+      parts.push(`What you are tracking right now (status board):\n${b}`)
+    }
+  } catch (err) { logger.warn('[voiceCall] board context miss', { error: err.message }) }
+  if (!parts.length) return ''
+  return `LIVE CONTEXT (you know this already, do not recite it):\n\n${parts.join('\n\n')}`
+}
 
 /**
  * One fast brain turn. history is an array of { role:'user'|'assistant', text }.
+ * contextBlock is the live-context string from buildVoiceContext (optional).
  * Returns the reply text (a short spoken line).
  */
-async function generateReply({ userText, history = [] }) {
+async function generateReply({ userText, history = [], contextBlock = '' }) {
   const messages = []
   for (const h of history.slice(-8)) {
     if (!h || !h.text) continue
@@ -62,11 +98,12 @@ async function generateReply({ userText, history = [] }) {
   }
   messages.push({ role: 'user', content: userText })
 
+  const system = contextBlock ? `${VOICE_SYSTEM}\n\n${contextBlock}` : VOICE_SYSTEM
   const started = Date.now()
   try {
     const { json, providerUsed } = await createMessage({
       messages,
-      system: VOICE_SYSTEM,
+      system,
       model: VOICE_MODEL,
       max_tokens: 200,
     })
@@ -89,8 +126,8 @@ async function generateReply({ userText, history = [] }) {
  *
  * @returns {Promise<{ text, aborted, bytes }>}
  */
-async function streamReply({ userText, history = [], onText, onAudioChunk, shouldAbort }) {
-  const text = await generateReply({ userText, history })
+async function streamReply({ userText, history = [], contextBlock = '', onText, onAudioChunk, shouldAbort }) {
+  const text = await generateReply({ userText, history, contextBlock })
   if (onText) { try { onText(text) } catch { /* ignore */ } }
   if (shouldAbort && shouldAbort()) return { text, aborted: true, bytes: 0 }
 
@@ -180,9 +217,12 @@ function handleConnection(ws, { onClose } = {}) {
         speaking = true
         bargeIn = false
         sendJson({ type: 'speaking' })
+        // Refresh live context each turn (cheap) so mid-call state changes land.
+        const contextBlock = await buildVoiceContext()
         const res = await streamReply({
           userText,
           history,
+          contextBlock,
           onText: (t) => { lastSpokenText = norm(t); sendJson({ type: 'reply', text: t }) },
           onAudioChunk: (buf) => sendAudio(buf),
           shouldAbort: () => bargeIn || closed,
@@ -246,4 +286,4 @@ function handleConnection(ws, { onClose } = {}) {
   ws.on('error', () => { closed = true; if (stt) { try { stt.close() } catch {} } })
 }
 
-module.exports = { generateReply, streamReply, handleConnection, VOICE_SYSTEM }
+module.exports = { generateReply, streamReply, handleConnection, buildVoiceContext, VOICE_SYSTEM }
