@@ -1069,11 +1069,40 @@ Source: ${opts.source || 'unknown'}.`
 
 // ===== CLI subprocess executor =====
 
-function _executeViaClaudeCli({ envelope, triageReason, source }) {
+async function _executeViaClaudeCli({ envelope, triageReason, source }) {
+  const channel = envelope.channel
+
+  // PREFER THE CORAZON AWAY-CONDUCTOR for native: same brain (full CLAUDE.md
+  // context + the live local repo) reached by a plain HTTP POST over Tailscale,
+  // instead of a context-poor VPS Opus that diverges from local/main. Falls
+  // THROUGH to the VPS Opus CLI below if Corazon is unreachable, so Tate is
+  // never silent. Flag-gated on AWAY_CONDUCTOR_URL; sms/telegram are untouched.
+  // See services/awayConductorClient.js + Neo4j Decision 1111.
+  if (channel === 'native') {
+    try {
+      const away = require('./awayConductorClient')
+      if (away.isEnabled()) {
+        const r = await away.routeToAwayConductor({ envelope, triageReason })
+        if (r.ok && r.reply) {
+          let native_reply = { sent: false }
+          try {
+            const { notifyTate } = require('./notifyTate')
+            const nr = await notifyTate({ body: r.reply.slice(0, 1500), channel: 'native', urgency: 'alert' })
+            native_reply = { sent: !!nr && nr.ok !== false, transport: nr && nr.transport, body_chars: r.reply.length }
+          } catch (e) { native_reply = { sent: false, error: e.message } }
+          logger.info('escalation handled by Corazon away-conductor', { duration_ms: r.duration_ms, replied: native_reply.sent })
+          return { ok: true, via: 'away_conductor', duration_ms: r.duration_ms, native_reply, reply_preview: r.reply.slice(0, 200) }
+        }
+        logger.warn('away-conductor unavailable/no-reply, falling back to VPS Opus CLI', { error: r.error })
+      }
+    } catch (err) {
+      logger.warn('away-conductor branch errored, falling back to VPS Opus CLI', { error: err.message })
+    }
+  }
+
   const { spawn } = require('child_process')
   // The directive tells the CLI to (1) do the work via whatever tools it has,
   // (2) reply via the right channel when done, (3) write an Episode.
-  const channel = envelope.channel
   const channelDirective = channel === 'sms'
     ? `When done, reply to Tate via SMS. Use the sms_tate skill or the send_sms tool from ecodia-comms MCP (to=${envelope.from}).`
     : channel === 'telegram'
