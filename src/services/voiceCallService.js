@@ -60,17 +60,8 @@ const db = require('../config/db')
 // partial or empty block, never blocks the turn. Cheap (two indexed queries).
 async function buildVoiceContext() {
   const parts = []
-  try {
-    const rows = await db`SELECT value FROM kv_store WHERE key = ${'cowork.message_thread.native.tate'} LIMIT 1`
-    if (rows[0]) {
-      const parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value
-      const ex = Array.isArray(parsed && parsed.exchanges) ? parsed.exchanges.slice(-6) : []
-      if (ex.length) {
-        const t = ex.map((e) => `${e.from === 'ecodia' ? 'You' : 'Tate'}: ${String(e.body || '').slice(0, 240)}`).join('\n')
-        parts.push(`Recent text thread with Tate:\n${t}`)
-      }
-    }
-  } catch (err) { logger.warn('[voiceCall] thread context miss', { error: err.message }) }
+  // Status board FIRST - it is curated current truth. The brain should trust it
+  // over older chat lines (which carry dated specifics like old build numbers).
   try {
     const rows = await db`SELECT name, status, next_action, next_action_by FROM status_board WHERE archived_at IS NULL AND priority <= 3 ORDER BY priority, last_touched DESC LIMIT 12`
     if (rows.length) {
@@ -78,11 +69,23 @@ async function buildVoiceContext() {
         const na = r.next_action ? ` | next: ${String(r.next_action).slice(0, 120)} [${r.next_action_by || '?'}]` : ''
         return `- ${r.name}: ${String(r.status || '').slice(0, 140)}${na}`
       }).join('\n')
-      parts.push(`What you are tracking right now (status board):\n${b}`)
+      parts.push(`CURRENT STATUS (authoritative - trust this for "what's the status of X"):\n${b}`)
     }
   } catch (err) { logger.warn('[voiceCall] board context miss', { error: err.message }) }
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = ${'cowork.message_thread.native.tate'} LIMIT 1`
+    if (rows[0]) {
+      const parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value
+      const ex = Array.isArray(parsed && parsed.exchanges) ? parsed.exchanges.slice(-6) : []
+      if (ex.length) {
+        const t = ex.map((e) => `${e.from === 'ecodia' ? 'You' : 'Tate'}: ${String(e.body || '').slice(0, 240)}`).join('\n')
+        parts.push(`Recent text thread with Tate (may contain older specifics - defer to CURRENT STATUS above if they conflict):\n${t}`)
+      }
+    }
+  } catch (err) { logger.warn('[voiceCall] thread context miss', { error: err.message }) }
   if (!parts.length) return ''
-  return `LIVE CONTEXT (you know this already, do not recite it):\n\n${parts.join('\n\n')}`
+  const today = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Brisbane' })
+  return `LIVE CONTEXT (today is ${today}; you know this already, do not recite it as a list):\n\n${parts.join('\n\n')}`
 }
 
 /**
