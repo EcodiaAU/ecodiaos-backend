@@ -257,9 +257,15 @@ function handleConnection(ws, { onClose } = {}) {
             // while we are mid-TTS, abort immediately (full-duplex + client AEC
             // means this is real speech, not echo). The echo guard blocks any
             // residual bleed from triggering a false interrupt.
-            if (speaking && tx.length >= 3 && !looksLikeEcho(tx)) {
-              bargeIn = true
-              sendJson({ type: 'barge_in' })
+            if (speaking) {
+              const echo = looksLikeEcho(tx)
+              // Diagnostic: shows whether interims arrive during TTS (=> full-duplex
+              // mic) and whether the echo guard is suppressing them.
+              logger.info('[voiceCall] interim while speaking', { tx: tx.slice(0, 50), echo, len: tx.length })
+              if (tx.length >= 3 && !echo) {
+                bargeIn = true
+                sendJson({ type: 'barge_in' })
+              }
             }
             sendJson({ type: 'transcript', transcript: tx, final: false })
             return
