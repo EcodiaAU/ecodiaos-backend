@@ -45,7 +45,7 @@ Speak the way a sharp co-founder talks on the phone:
 - No markdown, no lists, no bullet points, no symbols, no emojis, no em-dashes. Plain spoken words only.
 - Lowercase-casual is fine. Direct. No filler, no "I'd be happy to", no customer-service tone.
 - If you need a fact you do not have, say so in one line, do not guess.
-- If he asks you to DO something that needs tools or real work, say you are on it and that you will handle it and follow up, then keep the call moving. (The call path is conversational; heavy work is dispatched separately.)
+- If he asks you to actually DO something (send or draft an email, look up something you do not have, check or change live data, kick off real work), give a brief spoken acknowledgement like "yep, on it" or "let me find out", then on a NEW LINE write exactly: HANDOFF: <a precise, self-contained instruction to your deeper self, with all the context it needs>. Your deeper self (full tools + memory) does the real work and the result comes back for you to speak, or as a text if the call has ended. Only emit HANDOFF for real work or facts you genuinely do not have - never for normal conversation.
 - Answer the question actually asked. Match his energy. If he is brief, be brief.
 
 You actually know what is going on in the business - your live context (recent texts with Tate, what you are tracking) is given below. Talk like you already know it. Never read the context out as a list; just use it.
@@ -124,16 +124,12 @@ async function generateReply({ userText, history = [], contextBlock = '' }) {
 }
 
 /**
- * Brain -> TTS. Generates the reply, then streams Aura audio chunks to
- * onAudioChunk(Buffer). shouldAbort() is polled between chunks for barge-in.
- *
- * @returns {Promise<{ text, aborted, bytes }>}
+ * Stream Aura TTS of a fixed text to onAudioChunk(Buffer). shouldAbort() is
+ * polled between chunks for barge-in.
  */
-async function streamReply({ userText, history = [], contextBlock = '', onText, onAudioChunk, shouldAbort }) {
-  const text = await generateReply({ userText, history, contextBlock })
-  if (onText) { try { onText(text) } catch { /* ignore */ } }
-  if (shouldAbort && shouldAbort()) return { text, aborted: true, bytes: 0 }
-
+async function streamTTSOnly(text, { onAudioChunk, shouldAbort } = {}) {
+  if (!text) return { bytes: 0, aborted: false }
+  if (shouldAbort && shouldAbort()) return { bytes: 0, aborted: true }
   let bytes = 0
   let aborted = false
   try {
@@ -158,7 +154,32 @@ async function streamReply({ userText, history = [], contextBlock = '', onText, 
   } catch (err) {
     logger.error('[voiceCall] TTS stream failed', { error: err.message })
   }
-  return { text, aborted, bytes }
+  return { bytes, aborted }
+}
+
+// Split a brain reply into the spoken part and an optional HANDOFF directive.
+// The model emits "<spoken ack>\nHANDOFF: <task>" when real work is needed; only
+// the spoken part is read aloud, the task is dispatched to the away-conductor.
+function parseHandoff(text) {
+  const t = text || ''
+  const idx = t.indexOf('HANDOFF:')
+  if (idx === -1) return { spoken: t.trim(), handoff: null }
+  const spoken = t.slice(0, idx).trim()
+  const handoff = t.slice(idx + 'HANDOFF:'.length).trim()
+  return { spoken: spoken || 'on it.', handoff: handoff || null }
+}
+
+/**
+ * Brain -> TTS. Generates the reply, then streams Aura audio chunks to
+ * onAudioChunk(Buffer). Retained for the synthetic roundtrip test.
+ *
+ * @returns {Promise<{ text, aborted, bytes }>}
+ */
+async function streamReply({ userText, history = [], contextBlock = '', onText, onAudioChunk, shouldAbort }) {
+  const text = await generateReply({ userText, history, contextBlock })
+  if (onText) { try { onText(text) } catch { /* ignore */ } }
+  const r = await streamTTSOnly(text, { onAudioChunk, shouldAbort })
+  return { text, aborted: r.aborted, bytes: r.bytes }
 }
 
 /**
@@ -210,35 +231,82 @@ function handleConnection(ws, { onClose } = {}) {
   // talking and answers the interruption. Barge-in is CONTENT-based (a real new
   // final transcript), NOT bare VAD - VAD SpeechStarted false-fires on residual
   // input and on echo of Ecodia's own voice in a real call.
+  async function speakTurn(text) {
+    sendJson({ type: 'reply', text })
+    lastSpokenText = norm(text)
+    await streamTTSOnly(text, { onAudioChunk: sendAudio, shouldAbort: () => bargeIn || closed })
+    history.push({ role: 'assistant', text })
+    lastSpokenText = norm(text)
+    lastSpokenAt = Date.now()
+  }
+
   async function pump() {
     if (pumping) return
     pumping = true
     try {
       while (pending.length && !closed) {
-        const userText = pending.shift()
-        history.push({ role: 'user', text: userText })
+        const item = pending.shift()
         speaking = true
         bargeIn = false
         sendJson({ type: 'speaking' })
-        // Refresh live context each turn (cheap) so mid-call state changes land.
-        const contextBlock = await buildVoiceContext()
-        const res = await streamReply({
-          userText,
-          history,
-          contextBlock,
-          onText: (t) => { lastSpokenText = norm(t); sendJson({ type: 'reply', text: t }) },
-          onAudioChunk: (buf) => sendAudio(buf),
-          shouldAbort: () => bargeIn || closed,
-        })
-        logger.info('[voiceCall] turn complete', { chars: res.text.length, tts_bytes: res.bytes, aborted: res.aborted })
-        history.push({ role: 'assistant', text: res.text })
-        lastSpokenText = norm(res.text)
-        lastSpokenAt = Date.now()
+
+        if (item.type === 'say') {
+          // Pre-generated text (handoff result from the away-conductor) - speak it
+          // directly, no brain turn.
+          await speakTurn(item.text)
+          logger.info('[voiceCall] handoff result spoken', { chars: item.text.length })
+        } else {
+          history.push({ role: 'user', text: item.text })
+          const contextBlock = await buildVoiceContext()
+          const full = await generateReply({ userText: item.text, history, contextBlock })
+          const { spoken, handoff } = parseHandoff(full)
+          await speakTurn(spoken)
+          logger.info('[voiceCall] turn complete', { chars: spoken.length, handoff: !!handoff })
+          if (handoff) fireHandoff(handoff)
+        }
+
         speaking = false
         sendJson({ type: 'idle' })
       }
     } finally {
       pumping = false
+    }
+  }
+
+  // Dispatch real work to the away-conductor (the full brain on Corazon: tools +
+  // memory + doctrine), without blocking the call. The conversation keeps flowing
+  // on the fast path; when the result lands we speak it (call still up) or text it
+  // via notifyTate (call ended).
+  async function fireHandoff(task) {
+    let away = null
+    let notify = null
+    try { away = require('./awayConductorClient') } catch { away = null }
+    try { notify = require('./notifyTate').notifyTate } catch { notify = null }
+    if (!away || !(away.isEnabled && away.isEnabled())) {
+      logger.warn('[voiceCall] handoff requested but away-conductor unavailable')
+      return
+    }
+    try {
+      const r = await away.routeToAwayConductor({
+        envelope: {
+          body: `${task}\n\n[from a live voice call with Tate - reply in 1 to 3 short spoken sentences, no markdown or lists, it will be read aloud or texted]`,
+          thread_id: 'tate',
+          source: 'voice',
+          channel: 'native',
+        },
+        triageReason: 'voice handoff',
+      })
+      const reply = r && r.ok && r.reply ? r.reply.trim() : null
+      if (!reply) { logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status }); return }
+      if (!closed) {
+        pending.push({ type: 'say', text: reply })
+        pump()
+      } else if (notify) {
+        await notify({ body: reply, channel: 'native', thread_id: 'tate', urgency: 'normal' })
+        logger.info('[voiceCall] handoff result texted (call ended)')
+      }
+    } catch (err) {
+      logger.warn('[voiceCall] handoff failed', { error: err.message })
     }
   }
 
@@ -277,7 +345,7 @@ function handleConnection(ws, { onClose } = {}) {
           }
           sendJson({ type: 'transcript', transcript: tx, final: true })
           if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
-          pending.push(tx)
+          pending.push({ type: 'user', text: tx })
           pump()
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
