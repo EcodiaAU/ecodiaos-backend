@@ -19,7 +19,7 @@
  */
 
 const http = require('http')
-const { WebSocketServer } = require('ws')
+const WebSocket = require('ws')
 const voiceCall = require('../src/services/voiceCallService')
 
 const PORT = parseInt(process.env.VOICE_CALL_PORT || '7461', 10)
@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(404); res.end()
 })
 
-const wss = new WebSocketServer({ server, path: '/call' })
+const wss = new WebSocket.Server({ server, path: '/call' })
 
 wss.on('connection', (ws, req) => {
   if (TOKEN) {
