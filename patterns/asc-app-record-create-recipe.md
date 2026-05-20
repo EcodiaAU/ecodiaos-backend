@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+triggers: macro-recipe, captured-recipe, asc-app-record-create, app-store-connect-create-app, new-app-record-asc, appstoreconnect-add-app, asc-app-creation, ios-app-record-bootstrap, asc-new-app-flow, register-new-app-asc
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.169Z
 flow_slug: asc-app-record-create
@@ -14,6 +14,13 @@ session_id: 2026-05-07-1245-brmt01
 ---
 
 # Asc App Record Create (captured via os-hook-recorder)
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+NEW triggers: macro-recipe, captured-recipe, asc-app-record-create, app-store-connect-create-app, new-app-record-asc, appstoreconnect-add-app, asc-app-creation, ios-app-record-bootstrap, asc-new-app-flow, register-new-app-asc
+Why: 9 of the 13 OLD triggers were bare common nouns (`asc`, `app`, `record`, `create`, `new`, `google`, `chrome`, `chrome-exe`, `store`, `connect`) that match any brief mentioning an app, chrome, the verb "create", or a new anything. Per triggers-must-be-narrow-not-broad.md, replaced with compounds tying ASC + new-app-record creation together.
+-->
 
 ## Origin
 

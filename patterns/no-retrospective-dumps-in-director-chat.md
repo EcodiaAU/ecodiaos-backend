@@ -1,8 +1,17 @@
 ---
-triggers: retrospective, summary, lesson-learned, today-i-learned, pattern-emerged, doctrine-summary, narration, director-chat-pollution, long-message, recap, today's-discipline, pattern-is-clear, four-failures, ledger, day's-running, self-reflection-in-chat, post-action-summary, multi-paragraph-self-analysis
+triggers: lesson-learned, today-i-learned, pattern-emerged, doctrine-summary, director-chat-pollution, long-message, todays-discipline, pattern-is-clear, four-failures, days-running, self-reflection-in-chat, post-action-summary, multi-paragraph-self-analysis, retrospective-dump, chat-retro-dump, chat-summary-dump, recap-in-chat, ledger-in-chat, narration-in-chat-not-doctrine
 ---
 
 # Director chat is for actions and decisions. Retrospectives go in doctrine files. Period.
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD bare-word triggers removed: `retrospective`, `summary`, `narration`, `recap`, `ledger` (5 common nouns that match nearly any reflective or summarising brief).
+ALSO normalised: `today's-discipline` -> `todays-discipline`, `day's-running` -> `days-running` (apostrophes are not part of the brief-consistency hook's tokeniser whitelist).
+NEW compounds added: `retrospective-dump`, `chat-retro-dump`, `chat-summary-dump`, `recap-in-chat`, `ledger-in-chat`, `narration-in-chat-not-doctrine`.
+Why: bare `summary`, `recap`, `ledger`, `narration` would fire this pattern on briefs that mention writing summaries to status_board or ledger reconciliation - completely unrelated. Per triggers-must-be-narrow-not-broad.md, scope to the chat-pollution context with `-in-chat` suffix.
+-->
+
 
 ## TOP-LINE INVARIANT (29 Apr 2026, Tate flagged me dumping a self-reflection list into chat)
 

@@ -1,8 +1,16 @@
 ---
-triggers: white screen, white-screen, blank screen, blank page, capacitor ios build, capacitor android build, webview empty, CAPACITOR_BUILD, vite base path, npm run build ios, npm run build android, absolute path assets, relative path assets, webDir, cap sync, dist index.html, build:ios, build:android
+triggers: capacitor-white-screen, white-screen, capacitor-blank-screen, capacitor-blank-page, capacitor-ios-build, capacitor-android-build, capacitor-webview-empty, CAPACITOR_BUILD, vite-base-path, npm-run-build-ios, npm-run-build-android, capacitor-absolute-path-assets, capacitor-relative-path-assets, webDir, cap-sync, dist-index-html, build:ios, build:android, capacitor-asset-path-bug
 ---
 
 # Capacitor white-screen: absolute asset paths from web-mode build
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD whitespace-separated triggers normalised to hyphenated compounds: `white screen` -> `capacitor-white-screen` (the bare `white-screen` is kept since it is a specific UI failure description but anchored to Capacitor in the new triggers), `blank screen` -> `capacitor-blank-screen`, `blank page` -> `capacitor-blank-page`, `capacitor ios build` -> `capacitor-ios-build`, `capacitor android build` -> `capacitor-android-build`, `webview empty` -> `capacitor-webview-empty`, `vite base path` -> `vite-base-path`, `npm run build ios` -> `npm-run-build-ios`, `npm run build android` -> `npm-run-build-android`, `absolute path assets` -> `capacitor-absolute-path-assets`, `relative path assets` -> `capacitor-relative-path-assets`, `cap sync` -> `cap-sync`, `dist index.html` -> `dist-index-html`.
+NEW compound added: `capacitor-asset-path-bug`.
+Why: per triggers-must-be-narrow-not-broad.md, the hook tokeniser does fixed-string substring matching. Whitespace-separated multi-word triggers do not behave reliably; hyphenated compounds anchored to the Capacitor context are the right form. Also drops bare `blank screen`/`white screen` (generic UI bug terms that would false-positive on any frontend rendering brief) in favour of capacitor-prefixed compounds.
+-->
+
 
 Recurring failure class. Every time `npm run build` is used instead of the Capacitor-specific build script, the resulting IPA ships absolute-path asset references that the WKWebView cannot resolve. White screen on launch.
 

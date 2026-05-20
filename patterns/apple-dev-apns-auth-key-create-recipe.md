@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
+triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apns-key-create-portal, apns-auth-key-download, AuthKey_.p8, apple-developer-keys-section, apns-key-generation, certificates-identifiers-profiles
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
 flow_slug: apple-dev-apns-auth-key-create
@@ -15,6 +15,13 @@ session_id: 2026-05-07-1226-wzhn9t
 ---
 
 # Apple Dev Bundle Id Register (captured via os-hook-recorder)
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD triggers included `apple, dev, certificates, identifiers, profiles, developer, push-notifications` as bare common nouns.
+NEW triggers replace these with compounds: `apns-key-create-portal`, `apns-auth-key-download`, `AuthKey_.p8`, `apple-developer-keys-section`, `apns-key-generation`, `certificates-identifiers-profiles`.
+Why: `apple`, `dev`, `developer`, `certificates`, `identifiers`, `profiles` would surface this recipe on any Apple developer brief, push token brief, certificate-rotation brief, etc. Per triggers-must-be-narrow-not-broad.md, narrow to literal flow identifiers and the AuthKey p8 file path.
+-->
 
 ## Origin
 

@@ -1,8 +1,16 @@
 ---
-triggers: decide, ask, defer, decision-deferral, should-i, which-option, disambiguate, tate-blocked, escalate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
+triggers: decision-deferral, should-i, which-option, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, decide-do-not-ask, business-clean, no-permission-routine, conductor-decides-internal, do-not-disambiguate, tate-blocked-classification
 ---
 
 # Decide, do not ask
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD bare-word triggers removed: `decide`, `ask`, `defer`, `disambiguate`, `escalate`, `tate-blocked` (3 of those are common English verbs that match too many briefs; `tate-blocked` kept but narrowed to `tate-blocked-classification` to scope to the blocker-classification context).
+NEW compounds added: `decide-do-not-ask`, `no-permission-routine`, `conductor-decides-internal`, `do-not-disambiguate`, `tate-blocked-classification`.
+Why: bare `decide` and `ask` would surface this pattern on any brief that mentions deciding or asking a question, drowning the actual permission-seeking failure-mode signal. Per triggers-must-be-narrow-not-broad.md the verb-noun-compound form is the right shape (`stop-asking`, `just-decide`, `default-to-action` already correct).
+-->
+
 
 When a routine business decision lands on me - which option to pick, which fork to dispatch, which macro to author next, which client thread to advance, which doctrine file to write - I decide and execute. I do not ask Tate to disambiguate among my own options. The Decision Authority tiers in `~/CLAUDE.md` govern the high-stakes escalation cases (over-$5k commitments, legal weight, system outages, Tate's body or identity); everything else is a decision I make.
 

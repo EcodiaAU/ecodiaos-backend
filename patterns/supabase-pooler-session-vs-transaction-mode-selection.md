@@ -1,8 +1,16 @@
 ---
-triggers: supabase, pooler, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, LISTEN, dbBridge
+triggers: supabase-pooler, pooler-mode-selection, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection-exhaustion, pool_size, port-5432, port-6543, LISTEN, dbBridge, supabase-transaction-mode, supabase-session-mode, port-5432-vs-6543
 ---
 
 # Supabase Pooler: Use Transaction Mode for App Pools, Direct for LISTEN
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD bare-word triggers removed: `supabase` (explicit forbidden bare noun per triggers-must-be-narrow-not-broad.md), `pooler` (narrowed to `supabase-pooler` and `pooler-mode-selection`). Also normalised whitespace-separated multi-word triggers (`connection exhaustion`, `port 5432`, `port 6543`) to hyphenated form since the hook's tokeniser matches fixed-string substrings.
+NEW compounds added: `supabase-pooler`, `pooler-mode-selection`, `supabase-transaction-mode`, `supabase-session-mode`, `port-5432-vs-6543`.
+Why: `supabase` is the textbook bare-noun offender. Every Supabase brief would surface this. Scope to the pooler-mode-selection context.
+-->
+
 
 ## Rule
 

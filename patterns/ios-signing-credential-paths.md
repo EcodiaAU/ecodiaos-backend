@@ -1,8 +1,16 @@
 ---
-triggers: ios, xcodebuild, code-signing, provisioning-profile, app-store, asc-api-key, testflight, mac, sy094, exportarchive, manual-signing
+triggers: xcodebuild, code-signing, provisioning-profile, app-store-connect-credentials, asc-api-key, testflight, sy094, exportarchive, manual-signing, ios-signing-credentials, ios-ship-blocked-on-signing, mac-signing-paths, three-unblock-paths-ios, ios-archive-signing-error, exportArchive-signing-error
 ---
 
 # iOS ship pipeline blocks on signing credentials - pick one of three unblock paths in this order
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD bare-word triggers removed: `ios`, `mac`, `app-store` (3 broad common nouns/compounds that match nearly every iOS or app-store brief).
+NEW compounds added: `app-store-connect-credentials`, `ios-signing-credentials`, `ios-ship-blocked-on-signing`, `mac-signing-paths`, `three-unblock-paths-ios`, `ios-archive-signing-error`, `exportArchive-signing-error`.
+Why: bare `ios` and `mac` are how nearly every release brief is described; `app-store` is a compound but matches broadly. Per triggers-must-be-narrow-not-broad.md, scope to the actual signing-credential-failure-on-archive context.
+-->
+
 
 ## The rule
 

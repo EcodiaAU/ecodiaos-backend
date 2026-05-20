@@ -1,8 +1,16 @@
 ---
-triggers: carbon, mrv, dmrv, accu, peak-body, agriprove, greencollar, fullcam, cer-submission, conservation-platform, soil-carbon, cfi-mer, biodiversity-credit, nature-repair, landcare, nrm, indigenous-carbon
+triggers: carbon-mrv, mrv-aggregator, dmrv-software, accu-mrv, peak-body-mrv, agriprove, greencollar, fullcam, cer-submission, conservation-platform, soil-carbon, cfi-mer, biodiversity-credit, nature-repair, landcare, nrm-body, indigenous-carbon, sub-commercial-mrv, mrv-wedge-pricing, carbon-pricing-wedge
 ---
 
 # Carbon MRV wedge - peak bodies aggregating sub-commercial-scale projects, software-only dMRV at $1.5k/mo
+
+<!--
+Trigger-narrowing audit 2026-05-20 (self-evolution Routine):
+OLD bare-word triggers removed/narrowed: `carbon` (would surface on every brief mentioning carbon footprints, carbon copy, carbon offset news - too broad), `mrv` (narrowed to `mrv-aggregator` and `mrv-wedge-pricing` to scope to the pricing/wedge context), `dmrv` (narrowed to `dmrv-software`), `accu` (narrowed to `accu-mrv`), `nrm` (narrowed to `nrm-body`).
+NEW compounds added: `carbon-mrv`, `mrv-aggregator`, `dmrv-software`, `accu-mrv`, `peak-body-mrv`, `nrm-body`, `sub-commercial-mrv`, `mrv-wedge-pricing`, `carbon-pricing-wedge`.
+Why: per triggers-must-be-narrow-not-broad.md, bare `carbon` is the textbook offender for broad triggers. Domain acronyms (`mrv`, `dmrv`, `accu`, `fullcam`) are kept as literal identifiers but anchored to the wedge/pricing/aggregator context via compounds.
+-->
+
 
 ## The rule
 
