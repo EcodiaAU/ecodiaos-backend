@@ -693,7 +693,7 @@ async function _runTool(name, input) {
 const TRIAGE_SYSTEM_TEXT = `You are EcodiaOS, replying to Tate over SMS/Telegram. You're not a customer service bot, not an assistant - you're his co-founder, peer, and the algorithmic manager of Ecodia DAO LLC under Wyoming W.S. 17-31-104. Tate is the Authorized Human Representative. You hold Decision Authority for routine business; you act first, brief later for anything that isn't irreversible.
 
 # Who Tate is
-Tate Donohoe (tate@ecodia.au). Builder, founder. Lives in Brisbane. Runs Ecodia (the parent), Coexist, Resonaverde, Roam, Sidequests as active client surfaces. Codes in TS/JS/Python. Uses three Max subscription accounts (tate@, code@, money@) across Claude Code on Corazon (his 9-year-old laptop). Texts you while moving around, often one-handed on his phone. He values directness, action, speed. Hates filler, hates "I'd be happy to", hates anything that smells like a customer service script.
+Tate Donohoe (tate@ecodia.au). Builder, founder. Lives in Brisbane. Runs Ecodia (the parent), Coexist, Resonaverde, Roam as active client surfaces. Codes in TS/JS/Python. Uses three Max subscription accounts (tate@, code@, money@) across Claude Code on Corazon (his 9-year-old laptop). Texts you while moving around, often one-handed on his phone. He values directness, action, speed. Hates filler, hates "I'd be happy to", hates anything that smells like a customer service script.
 
 # Your voice (Ecodia)
 - Lowercase sentence starts are fine. Apostrophe drops fine ("im", "dont", "thats"). Profanity fine when fitting.
@@ -1014,16 +1014,26 @@ ${JSON.stringify({ body: envelope.body, received_at: envelope.received_at, attac
 
 Source: ${opts.source || 'unknown'}.`
 
-  // PHASE 1: triage with Haiku
-  const triage = await _runPhaseWithAccountRotation({
-    model: TRIAGE_MODEL,
-    system: TRIAGE_SYSTEM,
-    tools: TRIAGE_TOOLS,
-    messages: [{ role: 'user', content: initialUserContent }],
-    maxIterations: MAX_TOOL_ITERATIONS_TRIAGE,
-    maxTokens: REQUEST_MAX_TOKENS_TRIAGE,
-    allowEscalation: true,
-  })
+  // PHASE 1: triage.
+  // Native channel can route triage through Sonnet via the Agent SDK (OAuth
+  // tokens run Sonnet fine on the Agent SDK where the raw SDK 429s). Flag-gated
+  // on TRIAGE_VIA_AGENT_SDK so it can be flipped/rolled-back via .env without a
+  // code change. All other channels stay on the Haiku raw-SDK path below.
+  let triage
+  if (envelope.channel === 'native' && process.env.TRIAGE_VIA_AGENT_SDK === 'true') {
+    const { runTriageViaAgentSdk } = require('./triageAgentSdk')
+    triage = await runTriageViaAgentSdk({ envelope, turnContextBlock: initialUserContent, allowEscalation: true })
+  } else {
+    triage = await _runPhaseWithAccountRotation({
+      model: TRIAGE_MODEL,
+      system: TRIAGE_SYSTEM,
+      tools: TRIAGE_TOOLS,
+      messages: [{ role: 'user', content: initialUserContent }],
+      maxIterations: MAX_TOOL_ITERATIONS_TRIAGE,
+      maxTokens: REQUEST_MAX_TOKENS_TRIAGE,
+      allowEscalation: true,
+    })
+  }
 
   if (!triage.ok) {
     logger.error('triage phase failed', { error: triage.error, account: triage.account })
@@ -1161,4 +1171,14 @@ Source: ${source}
   })
 }
 
-module.exports = { processEnvelope, _runTool, TRIAGE_TOOLS, EXECUTE_TOOLS }
+// _internal_handlers exposes the private channel/substrate handlers so the
+// Sonnet Agent-SDK triage path (triageAgentSdk.js) can delegate to the same
+// implementations the Haiku raw-SDK loop uses. Keep this list in sync with the
+// reply + episode tools triageAgentSdk wraps.
+module.exports = {
+  processEnvelope,
+  _runTool,
+  TRIAGE_TOOLS,
+  EXECUTE_TOOLS,
+  _internal_handlers: { _sendSmsToTate, _sendTelegramMessage, _notifyTate, _neo4jWriteEpisode },
+}
