@@ -24,6 +24,9 @@ const voiceCall = require('../src/services/voiceCallService')
 
 const PORT = parseInt(process.env.VOICE_CALL_PORT || '7461', 10)
 const TOKEN = process.env.VOICE_CALL_TOKEN || null
+// Match the public path so nginx proxies straight through (no URI rewrite):
+// wss://api.admin.ecodia.au/api/voice/call -> 127.0.0.1:7461/api/voice/call
+const WS_PATH = process.env.VOICE_CALL_WS_PATH || '/api/voice/call'
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health' || req.url === '/') {
@@ -34,7 +37,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(404); res.end()
 })
 
-const wss = new WebSocket.Server({ server, path: '/call' })
+const wss = new WebSocket.Server({ server, path: WS_PATH })
 
 wss.on('connection', (ws, req) => {
   if (TOKEN) {

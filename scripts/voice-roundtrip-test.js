@@ -23,7 +23,7 @@ const PHRASE = process.argv[2] || 'hey ecodia whats two plus two'
   const pcm = await dg.synthesizeBuffer({ text: PHRASE, encoding: 'linear16', sample_rate: 16000, container: 'none' })
   console.log('[test] phrase pcm bytes:', pcm.length)
 
-  const ws = new WebSocket(`ws://localhost:${PORT}/call`)
+  const ws = new WebSocket(`ws://localhost:${PORT}${process.env.VOICE_CALL_WS_PATH || '/api/voice/call'}`)
   let transcript = ''
   let replyText = ''
   let audioBytes = 0
