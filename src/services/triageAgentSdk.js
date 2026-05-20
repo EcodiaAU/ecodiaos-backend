@@ -253,11 +253,30 @@ async function _buildToolWrappers() {
             input_preview: JSON.stringify(args).slice(0, 200),
             result_preview: 'escalating to Opus',
           })
+          // Send the ack NOW so Tate isn't left in silence for the ~30-60s Opus
+          // run. Default to "on it" if the model gave no ack_first. Skip if a
+          // reply already went out this turn (avoid double-texting).
+          if (!acc.replied) {
+            const ackBody = (args.ack_first && String(args.ack_first).trim()) || 'on it'
+            try {
+              const sent = await H._notifyTate({ body: ackBody, channel: acc.channel || 'native', urgency: 'routine' })
+              if (sent && sent.ok !== false) {
+                acc.replied = true
+                acc.tool_calls.push({
+                  name: 'notify_tate', ok: true,
+                  input_preview: JSON.stringify({ body: ackBody, channel: acc.channel || 'native' }).slice(0, 120),
+                  result_preview: 'escalation ack',
+                })
+              }
+            } catch (err) {
+              logger.warn('triageAgentSdk: escalation ack send failed (non-fatal)', { error: err.message })
+            }
+          }
         }
-        // escalate_to_opus does NO work here - just signals. processEnvelope
-        // reads result.escalation and spawns the Opus execute phase.
+        // escalate_to_opus does NO further work here - just signals + acks.
+        // processEnvelope reads result.escalation and spawns the Opus execute phase.
         return {
-          content: [{ type: 'text', text: JSON.stringify({ ok: true, escalating: true, note: 'Opus will continue from here. You may stop now.' }) }],
+          content: [{ type: 'text', text: JSON.stringify({ ok: true, escalating: true, note: 'Ack sent. Opus will continue from here and reply with the outcome. You may stop now.' }) }],
         }
       },
     )
@@ -446,7 +465,7 @@ Decide now. Reply to Tate via notify_tate (native channel). Escalate via escalat
 
     // Per-call accumulator - bound via AsyncLocalStorage so the SDK-invoked
     // tool handlers can record into it without a module global.
-    const acc = { tool_calls: [], escalation: null, replied: false }
+    const acc = { tool_calls: [], escalation: null, replied: false, channel: envelope.channel || 'native' }
 
     // FRESH server per query (per-query-not-singleton rule). Build inside the
     // loop so each account attempt gets its own server instance too.
