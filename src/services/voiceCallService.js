@@ -198,15 +198,26 @@ function handleConnection(ws, { onClose } = {}) {
   let closed = false
   const pending = []         // turns awaiting processing ({type:'user'|'say', text})
   let pumping = false
-  // Utterance assembly: Deepgram finalizes segments on small pauses, which would
-  // split one sentence into fragments and feed the brain a scrap. We accumulate
-  // finalized segments and process the FULL utterance only when Deepgram's
-  // audio-VAD says the turn ended (UtteranceEnd, based on a real silence gap), NOT
-  // on SDK event cadence. The safety timer is a backstop if UtteranceEnd never
-  // arrives - it is long enough that it never fires mid-speech.
+  // Utterance assembly + smart endpointing. We accumulate finalized segments and
+  // decide the turn boundary by whether the sentence sounds FINISHED:
+  //  - speech_final (fast endpointing ~0.5s) + complete sentence => flush now (snappy).
+  //  - trailing off on a continuation word ("and", "so", "um", "the"...) => wait,
+  //    he is mid-thought; UtteranceEnd (~1s) then an extension gives him room.
+  // This serves both "I'm done, answer me" and "let me think" without one rigid
+  // silence threshold. Safety timer is a long backstop only.
   let utterance = []
   let safetyTimer = null
-  const SAFETY_MS = 4000
+  let extendTimer = null
+  const SAFETY_MS = 6000
+  const EXTEND_MS = 1600
+  const CONTINUATIONS = new Set(['and', 'or', 'but', 'so', 'because', 'the', 'a', 'an', 'to', 'of', 'for', 'with', 'my', 'our', 'your', 'um', 'uh', 'er', 'erm', 'like', 'that', 'is', 'was', 'are', 'were', 'i', 'we', 'if', 'when', 'then', 'as', 'at', 'in', 'on', 'by', 'this', 'these', 'those', 'also', 'plus', 'well', 'hmm', 'its', "it's"])
+  const looksIncomplete = (text) => {
+    const t = (text || '').trim().toLowerCase()
+    if (!t) return true
+    if (/[.?!]$/.test(t)) return false        // terminal punctuation = finished
+    const m = t.match(/[a-z']+$/)
+    return m ? CONTINUATIONS.has(m[0]) : false  // trailed off on a continuation word
+  }
 
   // Echo guard (defense in depth behind client-side AEC). Ecodia's own TTS can
   // bleed into the mic and get transcribed as a "user" turn, making him answer
@@ -319,10 +330,14 @@ function handleConnection(ws, { onClose } = {}) {
     }
   }
 
-  // Fires after UTT_GAP_MS of silence: the assembled utterance is the user's full
-  // turn. Hand it to the brain as one piece.
-  function flushUtterance() {
+  function clearTurnTimers() {
     if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null }
+    if (extendTimer) { clearTimeout(extendTimer); extendTimer = null }
+  }
+
+  // Commit the assembled utterance as one turn.
+  function flushNow() {
+    clearTurnTimers()
     const full = utterance.join(' ').replace(/\s+/g, ' ').trim()
     utterance = []
     if (!full || closed) return
@@ -336,6 +351,18 @@ function handleConnection(ws, { onClose } = {}) {
     pump()
   }
 
+  // Decide whether to commit now or give him more time to finish thinking.
+  function maybeFlush() {
+    if (!utterance.length) return
+    const full = utterance.join(' ').replace(/\s+/g, ' ').trim()
+    if (looksIncomplete(full)) {
+      if (extendTimer) clearTimeout(extendTimer)
+      extendTimer = setTimeout(flushNow, EXTEND_MS)  // mid-thought: wait a bit more
+    } else {
+      flushNow()
+    }
+  }
+
   ;(async () => {
     try {
       stt = await dg.openSTTStream({
@@ -343,10 +370,11 @@ function handleConnection(ws, { onClose } = {}) {
         sample_rate: STT_SAMPLE_RATE,
         model: 'nova-3',
         interim_results: true,
-        // Turn ends after ~1.1s of real silence (audio VAD), tolerating natural
-        // mid-sentence pauses. This is the turn boundary, via onUtteranceEnd.
-        utterance_end_ms: 1100,
-        onTranscript: ({ transcript, is_final }) => {
+        // endpointing = fast silence for speech_final (snappy "I'm done").
+        // utterance_end_ms = audio-VAD turn end for the trailing-off case.
+        endpointing: 500,
+        utterance_end_ms: 1000,
+        onTranscript: ({ transcript, is_final, speech_final }) => {
           const tx = (transcript || '').trim()
           if (!tx) return
           // While Ecodia is speaking: drop echo of his own voice; treat genuine
@@ -355,19 +383,26 @@ function handleConnection(ws, { onClose } = {}) {
             if (looksLikeEcho(tx)) return
             if (tx.length >= 3) { bargeIn = true; sendJson({ type: 'barge_in' }) }
           }
+          // He resumed talking - cancel any pending "finish thinking" extension.
+          if (extendTimer) { clearTimeout(extendTimer); extendTimer = null }
           // Accumulate finalized segments; emit a live running transcript.
           if (is_final) utterance.push(tx)
           const live = (utterance.join(' ') + (is_final ? '' : ' ' + tx)).replace(/\s+/g, ' ').trim()
           sendJson({ type: 'transcript', transcript: live, final: false })
-          // Backstop only (the real turn end is UtteranceEnd below). Long enough it
-          // never fires mid-speech; just rescues a missed UtteranceEnd.
+          // Fast path: a finished-sounding sentence at the speech_final endpoint
+          // commits immediately (snappy). A trailing-off one waits for UtteranceEnd.
+          if (speech_final && is_final && !looksIncomplete(utterance.join(' '))) {
+            flushNow()
+            return
+          }
+          // Long backstop only; never fires mid-speech.
           if (safetyTimer) clearTimeout(safetyTimer)
-          safetyTimer = setTimeout(flushUtterance, SAFETY_MS)
+          safetyTimer = setTimeout(flushNow, SAFETY_MS)
         },
         onUtteranceEnd: () => {
-          // Deepgram's audio VAD detected a real silence gap (utterance_end_ms) =
-          // Tate finished his turn. Hand the assembled utterance to the brain.
-          flushUtterance()
+          // Deepgram's audio VAD detected a real silence gap = end of turn. Commit
+          // unless he trailed off mid-thought, in which case give an extension.
+          maybeFlush()
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
       })
@@ -394,7 +429,7 @@ function handleConnection(ws, { onClose } = {}) {
 
   ws.on('close', () => {
     closed = true
-    if (safetyTimer) { try { clearTimeout(safetyTimer) } catch {} }
+    try { clearTurnTimers() } catch {}
     if (stt) { try { stt.close() } catch {} }
     if (onClose) { try { onClose() } catch {} }
   })
