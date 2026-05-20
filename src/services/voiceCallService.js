@@ -156,14 +156,15 @@ function handleConnection(ws, { onClose } = {}) {
         speaking = true
         bargeIn = false
         sendJson({ type: 'speaking' })
-        const { text } = await streamReply({
+        const res = await streamReply({
           userText,
           history,
           onText: (t) => sendJson({ type: 'reply', text: t }),
           onAudioChunk: (buf) => sendAudio(buf),
           shouldAbort: () => bargeIn || closed,
         })
-        history.push({ role: 'assistant', text })
+        logger.info('[voiceCall] turn complete', { chars: res.text.length, tts_bytes: res.bytes, aborted: res.aborted })
+        history.push({ role: 'assistant', text: res.text })
         speaking = false
         sendJson({ type: 'idle' })
       }
