@@ -27,6 +27,7 @@
 
 const express = require('express')
 const { spawn } = require('child_process')
+const fs = require('fs')
 
 const REPO_CWD = process.env.AWAY_CONDUCTOR_CWD || 'D:/.code/EcodiaOS/backend'
 const PORT = parseInt(process.env.AWAY_CONDUCTOR_PORT || '7460', 10)
@@ -34,6 +35,52 @@ const CLAUDE_BIN = process.env.AWAY_CONDUCTOR_CLAUDE || 'claude'
 const MODEL = process.env.AWAY_CONDUCTOR_MODEL || 'opus'
 const TIMEOUT_MS = parseInt(process.env.AWAY_CONDUCTOR_TIMEOUT_MS || '300000', 10)
 const TOKEN = process.env.AWAY_CONDUCTOR_TOKEN || null
+
+// ---- Concurrency + IDE-conductor coordination (the "never two writers" lock) -
+// 1. Serialize: only one conductor turn runs at a time, so two rapid app
+//    messages never spawn concurrent claudes that fight over the local repo.
+// 2. Defer to the interactive IDE conductor: if Tate is actively in a turn at
+//    the keyboard, wait until it goes idle before we touch the working tree. He
+//    does not text the app while at the keyboard, so this is an edge guard, but
+//    it guarantees the away-conductor is never the second concurrent writer.
+const HEARTBEAT_PATH = process.env.CONDUCTOR_HEARTBEAT_PATH
+  || 'D:/.code/EcodiaOS/coordination/conductors/current.json'
+const IDE_TURN_FRESH_MS = parseInt(process.env.AWAY_CONDUCTOR_IDE_FRESH_MS || '300000', 10)
+const IDE_WAIT_MAX_MS = parseInt(process.env.AWAY_CONDUCTOR_IDE_WAIT_MS || '90000', 10)
+
+let _chain = Promise.resolve()
+function runSerialized(fn) {
+  const next = _chain.then(fn, fn)
+  _chain = next.then(() => {}, () => {}) // never let a failed turn poison the chain
+  return next
+}
+
+function ideInTurn() {
+  try {
+    const j = JSON.parse(fs.readFileSync(HEARTBEAT_PATH, 'utf8'))
+    if (!j.in_turn) return false
+    // in_turn can get stuck true if a Stop hook is missed; treat a stale flag as
+    // idle so we never block forever.
+    const setAt = j.in_turn_set_at ? Date.parse(j.in_turn_set_at)
+      : (j.last_seen_at ? Date.parse(j.last_seen_at) : 0)
+    return Number.isFinite(setAt) && (Date.now() - setAt < IDE_TURN_FRESH_MS)
+  } catch {
+    return false // no/unreadable heartbeat => assume no active IDE conductor
+  }
+}
+
+async function waitForIdeIdle() {
+  const start = Date.now()
+  let deferred = false
+  while (ideInTurn()) {
+    deferred = true
+    if (Date.now() - start >= IDE_WAIT_MAX_MS) {
+      return { deferred, waited_ms: Date.now() - start, timed_out: true }
+    }
+    await new Promise((r) => setTimeout(r, 3000))
+  }
+  return { deferred, waited_ms: Date.now() - start }
+}
 
 function buildPrompt({ body, thread_id, source }) {
   const ch = source || 'native'
@@ -119,7 +166,13 @@ app.post('/message', async (req, res) => {
   if (!body || typeof body !== 'string') return res.status(400).json({ error: 'body_required' })
 
   const started = Date.now()
-  const result = await runConductor({ body, thread_id, source })
+  // Serialize + defer to an active IDE conductor before touching the repo.
+  const result = await runSerialized(async () => {
+    const lock = await waitForIdeIdle()
+    const r = await runConductor({ body, thread_id, source })
+    r.lock = lock
+    return r
+  })
 
   // Optionally deliver the reply straight from Corazon via APNs (VPS becomes
   // pure transport). reply_via omitted -> just return the reply to the caller.
