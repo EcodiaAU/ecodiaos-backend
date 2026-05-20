@@ -608,10 +608,30 @@ async function _notifyTate({ body, urgency, channel, thread_id, deep_link }) {
 }
 
 async function _liveActivityUpdate({ state, body }) {
+  // BUILD 10 - in-session preview LA updates suppressed at sender.
+  //
+  // The live-preview lifecycle (received -> thinking -> progress) ticking
+  // through the lock-screen banner during an active reply added noise
+  // without value. Tate's reply latency is short enough that the banner
+  // sequence read as visual chatter rather than status.
+  //
+  // KEEP: the final reply alert via notifyTate (separate APNs path).
+  // KEEP: background task-status notifications (forks/crons completing
+  // when Tate is away) - those go via notifyTate too, never via LAs.
+  // REMOVE: all LA state pushes (received/thinking/progress) during
+  // in-session reply. We still process state=done so any LA that an
+  // older client started gets cleanly ended rather than left dangling.
+  //
+  // iOS client (build 10+) also no longer starts the Live Activity on
+  // outbound send - belt and braces. This gate is the defensive layer
+  // for older client builds still in TestFlight.
+  if (state !== 'done') {
+    logger.debug('live_activity_update suppressed (preview-state, build 10+)', { state, body })
+    return { ok: true, suppressed: true, reason: 'preview_states_disabled' }
+  }
   if (_liveActivityPushService?.update) {
     return _liveActivityPushService.update({ state, body })
   }
-  // No-op stub. Don't error - LA is best-effort.
   logger.info('live_activity_update no-op (native service not deployed)', { state, body })
   return { ok: true, no_op: true, reason: 'liveActivityPush service not deployed' }
 }
