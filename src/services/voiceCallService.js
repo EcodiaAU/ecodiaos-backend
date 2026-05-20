@@ -196,8 +196,14 @@ function handleConnection(ws, { onClose } = {}) {
   let bargeIn = false        // a NEW utterance arrived while we spoke
   let stt = null
   let closed = false
-  const pending = []         // final utterances awaiting processing
+  const pending = []         // turns awaiting processing ({type:'user'|'say', text})
   let pumping = false
+  // Utterance assembly: Deepgram finalizes segments on small pauses, which would
+  // split one sentence into fragments and feed the brain a scrap. We accumulate
+  // finalized segments and only hand over the FULL utterance after a real pause.
+  let utterance = []
+  let uttTimer = null
+  const UTT_GAP_MS = 800
 
   // Echo guard (defense in depth behind client-side AEC). Ecodia's own TTS can
   // bleed into the mic and get transcribed as a "user" turn, making him answer
@@ -310,6 +316,23 @@ function handleConnection(ws, { onClose } = {}) {
     }
   }
 
+  // Fires after UTT_GAP_MS of silence: the assembled utterance is the user's full
+  // turn. Hand it to the brain as one piece.
+  function flushUtterance() {
+    uttTimer = null
+    const full = utterance.join(' ').replace(/\s+/g, ' ').trim()
+    utterance = []
+    if (!full || closed) return
+    if (looksLikeEcho(full)) {
+      logger.info('[voiceCall] dropped echo utterance', { tx: full.slice(0, 60) })
+      return
+    }
+    sendJson({ type: 'transcript', transcript: full, final: true })
+    if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
+    pending.push({ type: 'user', text: full })
+    pump()
+  }
+
   ;(async () => {
     try {
       stt = await dg.openSTTStream({
@@ -317,36 +340,23 @@ function handleConnection(ws, { onClose } = {}) {
         sample_rate: STT_SAMPLE_RATE,
         model: 'nova-3',
         interim_results: true,
-        onTranscript: ({ transcript, speech_final }) => {
+        onTranscript: ({ transcript, is_final }) => {
           const tx = (transcript || '').trim()
           if (!tx) return
-          if (!speech_final) {
-            // Interim result. Snappy talk-to-interrupt: if Tate starts speaking
-            // while we are mid-TTS, abort immediately (full-duplex + client AEC
-            // means this is real speech, not echo). The echo guard blocks any
-            // residual bleed from triggering a false interrupt.
-            if (speaking) {
-              const echo = looksLikeEcho(tx)
-              // Diagnostic: shows whether interims arrive during TTS (=> full-duplex
-              // mic) and whether the echo guard is suppressing them.
-              logger.info('[voiceCall] interim while speaking', { tx: tx.slice(0, 50), echo, len: tx.length })
-              if (tx.length >= 3 && !echo) {
-                bargeIn = true
-                sendJson({ type: 'barge_in' })
-              }
-            }
-            sendJson({ type: 'transcript', transcript: tx, final: false })
-            return
+          // While Ecodia is speaking: drop echo of his own voice; treat genuine
+          // speech as a barge-in interrupt (full-duplex + client AEC).
+          if (speaking) {
+            if (looksLikeEcho(tx)) return
+            if (tx.length >= 3) { bargeIn = true; sendJson({ type: 'barge_in' }) }
           }
-          // Final utterance.
-          if (looksLikeEcho(tx)) {
-            logger.info('[voiceCall] dropped echo transcript', { transcript: tx.slice(0, 60) })
-            return
-          }
-          sendJson({ type: 'transcript', transcript: tx, final: true })
-          if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
-          pending.push({ type: 'user', text: tx })
-          pump()
+          // Accumulate finalized segments; emit a live running transcript.
+          if (is_final) utterance.push(tx)
+          const live = (utterance.join(' ') + (is_final ? '' : ' ' + tx)).replace(/\s+/g, ' ').trim()
+          sendJson({ type: 'transcript', transcript: live, final: false })
+          // Debounce: hand the FULL utterance to the brain only after a real pause,
+          // so a mid-sentence breath does not chop it into fragments.
+          if (uttTimer) clearTimeout(uttTimer)
+          uttTimer = setTimeout(flushUtterance, UTT_GAP_MS)
         },
         onError: (err) => sendJson({ type: 'error', error: err.message }),
       })
@@ -373,6 +383,7 @@ function handleConnection(ws, { onClose } = {}) {
 
   ws.on('close', () => {
     closed = true
+    if (uttTimer) { try { clearTimeout(uttTimer) } catch {} }
     if (stt) { try { stt.close() } catch {} }
     if (onClose) { try { onClose() } catch {} }
   })
