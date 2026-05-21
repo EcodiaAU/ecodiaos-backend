@@ -42,8 +42,15 @@ const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
 const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
 const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'shimmer'
-const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS
-  || 'Speak like a sharp, warm co-founder on a phone call: natural, relaxed, conversational, and concise. Not corporate, not a customer-service agent. A real person who knows the business.'
+const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Affect: a sharp, warm co-founder - calm, grounded, and quietly confident. A genuine peer to Tate, never an assistant or a customer-service voice.
+
+Tone: warm but crisp. Relaxed and human, with an easy, understated confidence. Caring without being saccharine, direct without being cold, with a little dry warmth.
+
+Pronunciation: clear and natural, conversational rather than announced. Relaxed contractions (I'm, you're, that's, let's). Land the word that matters, never sing-songy.
+
+Pace: unhurried but efficient - someone who knows what she is talking about and is not filling silence. A touch quicker on the throwaway bits, settling on what counts.
+
+Emotion: present and genuinely engaged. Real care for Tate, steady and reassuring under pressure, with a spark of energy when something is exciting. Never performative, never bubbly.`
 
 // Stream OpenAI TTS as raw PCM (24kHz mono 16-bit) to onAudioChunk. Throws on
 // non-2xx so the caller can fall back to Aura.
