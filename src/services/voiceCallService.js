@@ -42,19 +42,19 @@ const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
 const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
 const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'coral'
-const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Accent: STRONG, natural modern Australian accent (Sydney/Melbourne). This is essential and must stay consistently Australian for every single word - Australian vowels and intonation throughout. Never American, never neutral.
+const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Accent: natural modern Australian accent (Sydney/Melbourne), clear and consistent - Australian vowels and intonation, never American. Relaxed and real, not broad or put-on.
 
-Affect: a sharp, warm, switched-on co-founder - bright, lively, and genuinely engaged. A real peer to Tate, never an assistant or a customer-service voice.
+Affect: a warm, friendly co-founder - easygoing, natural, and genuinely present. A real peer to Tate, never an assistant or a customer-service voice.
 
-Tone: warm, bright, and energetic. Upbeat and quick, like a mate who is genuinely excited to talk to you. Confident and direct, with a little dry humour. Never flat, never sleepy, never monotone.
+Tone: warm, friendly, and relaxed, like chatting with a good mate. Gently upbeat: awake and engaged, but never intense, pushy, loud, or over-the-top. Easy, not aggressive.
 
-Pace: brisk and lively - natural quick conversational speed. Do NOT drag words out or slow down. Keep the energy up and moving.
+Pace: normal, easy conversational speed. Not slow or dragged out, not rushed or hyped. Just relaxed and natural.
 
-Pitch: bright and light, on the higher side, with lots of life in it.
+Pitch: light and pleasant, mid-range, with a soft friendly lift.
 
-Pronunciation: clear and natural, conversational not announced. Relaxed contractions (I'm, you're, that's, let's). Land the word that matters.
+Pronunciation: clear and natural, conversational not announced. Relaxed contractions (I'm, you're, that's, let's).
 
-Emotion: awake, warm, and full of spark. Real enthusiasm and presence. Sound genuinely alive and engaged, never tired.`
+Emotion: warm, calm, and friendly. Quietly caring and engaged, easy and unforced. Comfortable, never intense or performative.`
 
 // Stream OpenAI TTS as raw PCM (24kHz mono 16-bit) to onAudioChunk. Throws on
 // non-2xx so the caller can fall back to Aura.
