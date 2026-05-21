@@ -43,11 +43,13 @@ npm install -g pm2-windows-startup
 # 6. Wire pm2 resurrect into a Windows Scheduled Task that fires at logon
 pm2-startup install
 
-# 7. Verify the Scheduled Task is registered
-Get-ScheduledTask | Where-Object { $_.TaskName -like '*pm2*' }
+# 7. Verify the persistence is wired (Registry Run key, NOT a Scheduled Task)
+(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'PM2').PM2
 ```
 
-After step 7 returns a row, reboots stop breaking the fleet.
+Step 7 should print `wscript.exe "...invisible.vbs" "...pm2_resurrect.cmd"`. That's pm2-windows-startup's actual mechanism on Windows: a Registry Run key under `HKCU\...\CurrentVersion\Run`, not a Scheduled Task. Fires on user logon (not system boot - if the laptop reboots and stays at the lock screen overnight, services don't come back until you log in).
+
+Verified 2026-05-21 on Corazon: after the 7-step run, reboot -> logon -> all 4 services online without manual intervention.
 
 ## Verification checklist (run after any Corazon reboot, any PM2 install, any "process died" report)
 
@@ -60,8 +62,8 @@ curl http://localhost:7460/health   # away-conductor
 curl http://localhost:7456/api/health  # eos-laptop-agent
 # (add others as the fleet grows)
 
-# Scheduled Task is wired
-Get-ScheduledTask | Where-Object { $_.TaskName -like '*pm2*' } | Select-Object TaskName, State
+# Persistence mechanism is wired (Registry Run key)
+(Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'PM2' -ErrorAction SilentlyContinue).PM2
 ```
 
 If `pm2 list` errors with `connect EPERM //./pipe/rpc.sock`, that's the stale-daemon stall. Restart at step 1 above.
