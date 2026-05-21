@@ -488,4 +488,4 @@ function handleConnection(ws, { onClose } = {}) {
   ws.on('error', () => { closed = true; if (stt) { try { stt.close() } catch {} } })
 }
 
-module.exports = { generateReply, streamReply, handleConnection, buildVoiceContext, VOICE_SYSTEM }
+module.exports = { generateReply, streamReply, streamTTSOnly, handleConnection, buildVoiceContext, VOICE_SYSTEM }
