@@ -28,6 +28,13 @@
 const express = require('express')
 const { spawn } = require('child_process')
 const fs = require('fs')
+// Best-effort imports for stateful coordination. If the backend module path is
+// unavailable (e.g. running this script from outside the repo for smoke), the
+// server still functions - just without case resolution + thread_log append.
+let cf = null
+let tl = null
+try { cf = require('../src/services/caseFile') } catch { cf = null }
+try { tl = require('../src/services/threadLog') } catch { tl = null }
 
 const REPO_CWD = process.env.AWAY_CONDUCTOR_CWD || 'D:/.code/EcodiaOS/backend'
 const PORT = parseInt(process.env.AWAY_CONDUCTOR_PORT || '7460', 10)
@@ -101,15 +108,21 @@ function _idemSet(k, result) {
 
 function log(...a) { console.log(`[away-conductor ${new Date().toISOString()}]`, ...a) }
 
-function buildPrompt({ body, thread_id, source, thread_context }) {
+function buildPrompt({ body, thread_id, source, thread_context, case_id, voice_call_id }) {
   const ch = source || 'native'
   const ctxBlock = thread_context
-    ? `\nRECENT CONVERSATION (oldest first, most recent last - this is the live thread, continue it, do not act like you have never seen it):\n${thread_context}\n`
+    ? `\nRECENT CONVERSATION ACROSS ALL CHANNELS (oldest first, most recent last - this is the live thread, continue it, do not act like you have never seen it):\n${thread_context}\n`
+    : ''
+  // Case framing: if a case_id is present, the away-conductor knows it is
+  // resolving a specific in-flight piece of work (probably from a voice call).
+  // Spec one-brain-stateful-coordination §3.4.
+  const caseBlock = case_id
+    ? `\nCASE ${case_id}: you are resolving this in-flight case. ${voice_call_id ? `It was opened on voice call ${voice_call_id}.` : ''} When you finish, your <REPLY> IS the answer for this case. The parent process will resolveCase + append to thread_log + deliver to Tate.\n`
     : ''
   return `You are EcodiaOS handling an inbound message from Tate over the ${ch} channel while he is away from the keyboard. You are NOT a degraded fallback - this is the live local repo at ${REPO_CWD} with your full CLAUDE.md doctrine, patterns, MCP tools and memory loaded. You are the same conductor, just reached over the wire.
 
 Do the work the message asks for using whatever tools you have. If you change code: commit and push to origin (origin is the single source of truth; never leave the working tree dirty, never edit-in-place-and-leave-it). If it is a question, answer it from real context/tools, not guesses.
-${ctxBlock}
+${ctxBlock}${caseBlock}
 INBOUND (channel=${ch}, thread_id=${thread_id || 'tate'}):
 """
 ${body}
@@ -118,21 +131,23 @@ ${body}
 CRITICAL reply rule: your ONLY reply channel is the <REPLY> block. Do NOT also send a reply via any MCP tool (no send_sms, no gmail/email, no notify_tate) - the parent process delivers your <REPLY> to Tate, and sending elsewhere would double-text him. Write your reply as the FINAL block of stdout wrapped in <REPLY> and </REPLY>. Tight, his voice, no filler, no internal narration ("episode logged" etc banned), no emojis, no em-dashes. Example: ...work... <REPLY>done, pushed build 11</REPLY>`
 }
 
+// Tightened per spec one-brain-stateful-coordination §7.3: the previous
+// "last short paragraph" fallback produced phantom resolutions from partial
+// output (case marked resolved with garbage). Now we ONLY trust <REPLY>...
+// </REPLY> tagged content. Missing tags = null = caller marks case blocked
+// with reason 'no_reply_extracted' for triage on next connect.
 function extractReply(stdout) {
   const m = String(stdout).match(/<REPLY>([\s\S]*?)<\/REPLY>/i)
-  if (m && m[1]) return m[1].trim()
-  // Fallback: last short non-empty paragraph (covers replies missing the tags).
-  const paras = String(stdout).trim().split(/\n\s*\n/)
-  for (let i = paras.length - 1; i >= 0; i--) {
-    const p = paras[i].trim()
-    if (p && p.length < 800) return p
+  if (m && m[1]) {
+    const reply = m[1].trim()
+    return reply.length ? reply : null
   }
   return null
 }
 
-function runConductor({ body, thread_id, source, thread_context }) {
+function runConductor({ body, thread_id, source, thread_context, case_id, voice_call_id }) {
   return new Promise((resolve) => {
-    const prompt = buildPrompt({ body, thread_id, source, thread_context })
+    const prompt = buildPrompt({ body, thread_id, source, thread_context, case_id, voice_call_id })
     // Prompt goes via STDIN, not as a CLI arg. A multiline/quoted prompt passed
     // as an arg through shell:true on Windows gets mangled (claude then sees no
     // task and just orients). `claude --print` reads the prompt from stdin.
@@ -184,7 +199,7 @@ app.post('/message', async (req, res) => {
     const auth = req.headers.authorization || ''
     if (auth !== `Bearer ${TOKEN}`) return res.status(401).json({ error: 'unauthorized' })
   }
-  const { body, thread_id, source, reply_via, thread_context, idempotency_key } = req.body || {}
+  const { body, thread_id, source, reply_via, thread_context, idempotency_key, case_id, voice_call_id } = req.body || {}
   if (!body || typeof body !== 'string') return res.status(400).json({ error: 'body_required' })
 
   const cached = _idemGet(idempotency_key)
@@ -194,14 +209,40 @@ app.post('/message', async (req, res) => {
   }
 
   const started = Date.now()
-  log(`turn start key=${idempotency_key || '-'} source=${source || 'native'} ctx=${thread_context ? 'y' : 'n'} body="${String(body).slice(0, 80)}"`)
+  log(`turn start key=${idempotency_key || '-'} source=${source || 'native'} ctx=${thread_context ? 'y' : 'n'} case=${case_id || '-'} body="${String(body).slice(0, 80)}"`)
   // Serialize + defer to an active IDE conductor before touching the repo.
   const result = await runSerialized(async () => {
     const lock = await waitForIdeIdle()
-    const r = await runConductor({ body, thread_id, source, thread_context })
+    const r = await runConductor({ body, thread_id, source, thread_context, case_id, voice_call_id })
     r.lock = lock
     return r
   })
+
+  // Case resolution + thread_log append. Single writer per state transition:
+  // the away-conductor owns the case from markWorking -> resolveCase. If
+  // <REPLY> was not extracted (defect or truncated output), mark blocked so
+  // next connect surfaces it for retry. Best-effort: any failure here does NOT
+  // block the response to the caller - voice/headless still hear back.
+  // Per spec one-brain-stateful-coordination-2026-05-21 §3.4 + §7.3.
+  if (case_id && cf) {
+    try {
+      if (result.ok && result.reply) {
+        await cf.resolveCase(case_id, { result: result.reply })
+        if (tl) {
+          await tl.appendThreadLog({
+            channel: 'away', role: 'ecodia', body: result.reply,
+            case_id, voice_call_id: voice_call_id || null,
+            thread_id: thread_id || 'tate',
+          })
+        }
+      } else {
+        const reason = result.ok ? 'no_reply_extracted' : `away_error: ${result.error || `exit_${result.exit_code}`}`
+        await cf.markBlocked(case_id, { reason })
+      }
+    } catch (err) {
+      log(`case-resolve failed (non-fatal) case=${case_id} err=${err.message}`)
+    }
+  }
 
   // Optionally deliver the reply straight from Corazon via APNs (VPS becomes
   // pure transport). reply_via omitted -> just return the reply to the caller.

@@ -29,6 +29,9 @@
 const logger = require('../config/logger')
 const dg = require('./deepgramVoiceService')
 const { createMessage } = require('./anthropicMessagesClient')
+const { randomUUID } = require('crypto')
+const tl = require('./threadLog')
+const cf = require('./caseFile')
 
 const VOICE_MODEL = process.env.VOICE_CALL_MODEL || 'claude-haiku-4-5'
 const VOICE_TTS = process.env.VOICE_CALL_VOICE || (dg.AURA2_VOICES && dg.AURA2_VOICES.orion) || 'aura-2-orion-en'
@@ -101,6 +104,62 @@ You actually know what is going on in the business - your live context (recent t
 Never read out internal narration. Just talk.`
 
 const db = require('../config/db')
+
+/**
+ * On-connect context. Runs ONCE per WS connect. Returns a "what's happened
+ * since you were last present" block built from the unified thread_log + any
+ * open cases + any results that landed while the previous call ended.
+ *
+ * Per spec one-brain-stateful-coordination-2026-05-21 §3.4 (voice wiring) +
+ * §5.2 (compression strategy - summarize the tail rather than dump 30 entries
+ * raw into Haiku's attention).
+ *
+ * Cheap: 3 db queries + an optional Haiku summary call (only when tail is
+ * substantial). Best-effort - any miss returns empty + logs, never blocks the
+ * call. Returns { contextBlock, cursor }. cursor is the ts of the newest entry
+ * read; caller persists it on ws.on('close').
+ */
+async function buildOnConnectContext({ thread_id = 'tate' } = {}) {
+  const parts = []
+  let cursor = null
+  try {
+    const lastCursor = await tl.readCursor('voice', thread_id)
+    const tail = await tl.tailThreadLog({ thread_id, since: lastCursor, limit: 30 })
+    cursor = tail.cursor
+    if (tail.entries.length) {
+      // For voice's tight context budget we summarize the tail rather than
+      // injecting all entries. Tail formatter caps each line; full block stays
+      // under ~3KB.
+      const formatted = tl.formatTailForPrompt(tail.entries, { maxLineChars: 140 })
+      parts.push(`SINCE YOU WERE LAST PRESENT (across all channels - voice / native / sms / ide / away):\n${formatted}`)
+    }
+  } catch (err) {
+    logger.warn('[voiceCall] tail-on-connect failed (non-fatal)', { error: err.message })
+  }
+  try {
+    const open = await cf.listOpenCases({ thread_id, limit: 5 })
+    if (open.length) {
+      const lines = open.map((c) => `- ${cf.formatCaseForPrompt(c)}`).join('\n')
+      parts.push(`STILL OPEN (work in flight you can reference if Tate asks):\n${lines}`)
+    }
+  } catch (err) {
+    logger.warn('[voiceCall] open-cases load failed (non-fatal)', { error: err.message })
+  }
+  try {
+    const unacked = await cf.listResolvedUnacked({ thread_id, limit: 5 })
+    if (unacked.length) {
+      const lines = unacked.map((c) => `- ${cf.formatCaseForPrompt(c)}`).join('\n')
+      parts.push(`LANDED WHILE YOU WERE OFF (Tate may not have seen these yet - mention if relevant):\n${lines}`)
+    }
+  } catch (err) {
+    logger.warn('[voiceCall] unacked-cases load failed (non-fatal)', { error: err.message })
+  }
+  if (!parts.length) return { contextBlock: '', cursor }
+  return {
+    contextBlock: `CONTINUITY (from prior calls + other channels - treat as already-known):\n\n${parts.join('\n\n')}`,
+    cursor,
+  }
+}
 
 // Live context for the voice brain so it is not a blank-slate Haiku. Pulls the
 // recent text thread with Tate (cross-surface continuity) + the active status
@@ -279,6 +338,22 @@ async function streamReply({ userText, history = [], contextBlock = '', onText, 
  * Mountable onto any ws connection (standalone server or main-server upgrade).
  */
 function handleConnection(ws, { onClose } = {}) {
+  // Mint a stable id for THIS connection. Every thread_log entry written this
+  // call carries it so we can group "what happened on call X" cleanly. Lives
+  // until the WS closes.
+  const voiceCallId = `vc_${Date.now()}_${randomUUID().slice(0, 8)}`
+  // Lazily populated on-connect continuity block. Injected into the FIRST turn
+  // only (subsequent turns are handled by the in-call `history` array). Set
+  // inside the async stt-open scope below.
+  let onConnectContext = ''
+  let firstTurnInjected = false
+  // The newest thread_log ts we have observed during this call. Persisted on
+  // ws close so the next connect picks up strictly-newer entries.
+  let lastSeenCursor = null
+  // case_files opened by this call. We do NOT abandon them on close - they
+  // survive and surface on the next connect via listOpenCases.
+  const callCaseIds = new Set()
+
   const history = []
   let speaking = false       // we are mid-TTS (barge-in target)
   let bargeIn = false        // a NEW utterance arrived while we spoke
@@ -346,6 +421,12 @@ function handleConnection(ws, { onClose } = {}) {
     history.push({ role: 'assistant', text })
     lastSpokenText = norm(text)
     lastSpokenAt = Date.now()
+    // Durable record: this turn now lives in thread_log so subsequent calls
+    // (and IDE conductor + away) can see it.
+    tl.appendThreadLog({
+      channel: 'voice', role: 'ecodia', body: text,
+      voice_call_id: voiceCallId,
+    }).then((r) => { if (r.ok) lastSeenCursor = r.ts }).catch(() => { /* best effort */ })
   }
 
   async function pump() {
@@ -360,17 +441,30 @@ function handleConnection(ws, { onClose } = {}) {
 
         if (item.type === 'say') {
           // Pre-generated text (handoff result from the away-conductor) - speak it
-          // directly, no brain turn.
+          // directly, no brain turn. Mark the case as voice-delivered + acked
+          // (Tate just heard it).
           await speakTurn(item.text)
-          logger.info('[voiceCall] handoff result spoken', { chars: item.text.length })
+          if (item.case_id) {
+            cf.markDelivered(item.case_id, { via: 'voice' }).catch(() => {})
+            cf.ackCase(item.case_id).catch(() => {})
+          }
+          logger.info('[voiceCall] handoff result spoken', { chars: item.text.length, case_id: item.case_id || null })
         } else {
           history.push({ role: 'user', text: item.text })
-          const contextBlock = await buildVoiceContext()
+          // On the FIRST turn of this connection, prepend the on-connect
+          // continuity (tail summary + open cases + unacked) to the live
+          // context block. Subsequent turns rely on the in-call history array.
+          const liveContext = await buildVoiceContext()
+          let contextBlock = liveContext
+          if (!firstTurnInjected && onConnectContext) {
+            contextBlock = `${onConnectContext}\n\n${liveContext}`.trim()
+            firstTurnInjected = true
+          }
           const full = await generateReply({ userText: item.text, history, contextBlock })
           const { spoken, handoff } = parseHandoff(full)
           await speakTurn(spoken)
           logger.info('[voiceCall] turn complete', { chars: spoken.length, handoff: !!handoff })
-          if (handoff) fireHandoff(handoff)
+          if (handoff) fireHandoff(handoff, item.text)
         }
 
         speaking = false
@@ -385,7 +479,12 @@ function handleConnection(ws, { onClose } = {}) {
   // memory + doctrine), without blocking the call. The conversation keeps flowing
   // on the fast path; when the result lands we speak it (call still up) or text it
   // via notifyTate (call ended).
-  async function fireHandoff(task) {
+  //
+  // Stateful: opens a case_file scoped to this voice_call_id so the work is
+  // discoverable on the next call (still-open or resolved-unacked). Passes the
+  // case_id to the away-conductor so the server-side resolveCase + thread_log
+  // append happen there - one writer per state transition.
+  async function fireHandoff(task, originatingUserText) {
     let away = null
     let notify = null
     try { away = require('./awayConductorClient') } catch { away = null }
@@ -394,6 +493,22 @@ function handleConnection(ws, { onClose } = {}) {
       logger.warn('[voiceCall] handoff requested but away-conductor unavailable')
       return
     }
+    let caseId = null
+    try {
+      const opened = await cf.openCase({
+        opened_by: 'voice',
+        opened_in_call: voiceCallId,
+        prompt: task,
+        meta: { originating_turn: (originatingUserText || '').slice(0, 200) },
+      })
+      if (opened.ok) {
+        caseId = opened.id
+        callCaseIds.add(caseId)
+        await cf.markWorking(caseId)
+      }
+    } catch (err) {
+      logger.warn('[voiceCall] case open failed (proceeding without case)', { error: err.message })
+    }
     try {
       const r = await away.routeToAwayConductor({
         envelope: {
@@ -401,20 +516,30 @@ function handleConnection(ws, { onClose } = {}) {
           thread_id: 'tate',
           source: 'voice',
           channel: 'native',
+          case_id: caseId,
+          voice_call_id: voiceCallId,
         },
         triageReason: 'voice handoff',
       })
       const reply = r && r.ok && r.reply ? r.reply.trim() : null
-      if (!reply) { logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status }); return }
+      if (!reply) {
+        logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status, case_id: caseId })
+        if (caseId) cf.markBlocked(caseId, { reason: 'away_no_reply' }).catch(() => {})
+        return
+      }
+      // Away-conductor server is responsible for resolveCase + thread_log
+      // append on its side. We just consume the reply here.
       if (!closed) {
-        pending.push({ type: 'say', text: reply })
+        pending.push({ type: 'say', text: reply, case_id: caseId })
         pump()
       } else if (notify) {
         await notify({ body: reply, channel: 'native', thread_id: 'tate', urgency: 'normal' })
-        logger.info('[voiceCall] handoff result texted (call ended)')
+        if (caseId) cf.markDelivered(caseId, { via: 'apns' }).catch(() => {})
+        logger.info('[voiceCall] handoff result texted (call ended)', { case_id: caseId })
       }
     } catch (err) {
       logger.warn('[voiceCall] handoff failed', { error: err.message })
+      if (caseId) cf.markBlocked(caseId, { reason: `dispatch_failed: ${err.message}` }).catch(() => {})
     }
   }
 
@@ -435,6 +560,12 @@ function handleConnection(ws, { onClose } = {}) {
     }
     sendJson({ type: 'transcript', transcript: full, final: true })
     if (speaking) { bargeIn = true; sendJson({ type: 'barge_in' }) }
+    // Durable record of what Tate just said (post-echo-guard, post-incomplete-
+    // check). Lands in thread_log so subsequent calls and other brains see it.
+    tl.appendThreadLog({
+      channel: 'voice', role: 'tate', body: full,
+      voice_call_id: voiceCallId,
+    }).then((r) => { if (r.ok) lastSeenCursor = r.ts }).catch(() => { /* best effort */ })
     pending.push({ type: 'user', text: full })
     pump()
   }
@@ -450,6 +581,23 @@ function handleConnection(ws, { onClose } = {}) {
       flushNow()
     }
   }
+
+  // Load on-connect continuity in parallel with STT open. The first turn will
+  // splice it in once both have landed. If continuity load fails we still take
+  // the call - voice degrades to today's behavior, never blocks.
+  ;(async () => {
+    try {
+      const cc = await buildOnConnectContext({ thread_id: 'tate' })
+      onConnectContext = cc.contextBlock || ''
+      if (cc.cursor) lastSeenCursor = cc.cursor
+      logger.info('[voiceCall] on-connect continuity loaded', {
+        chars: onConnectContext.length,
+        voice_call_id: voiceCallId,
+      })
+    } catch (err) {
+      logger.warn('[voiceCall] on-connect continuity load failed (non-fatal)', { error: err.message })
+    }
+  })()
 
   ;(async () => {
     try {
@@ -519,6 +667,20 @@ function handleConnection(ws, { onClose } = {}) {
     closed = true
     try { clearTurnTimers() } catch {}
     if (stt) { try { stt.close() } catch {} }
+    // Persist the newest thread_log cursor we observed this call so the next
+    // call picks up strictly-newer entries. Cases opened this call are NOT
+    // abandoned - they keep their status (open / working / blocked / resolved)
+    // and surface on next connect.
+    if (lastSeenCursor) {
+      tl.writeCursor('voice', lastSeenCursor).catch((err) => {
+        logger.warn('[voiceCall] cursor persist failed', { error: err.message })
+      })
+    }
+    logger.info('[voiceCall] close', {
+      voice_call_id: voiceCallId,
+      cases_opened: callCaseIds.size,
+      cursor_persisted: !!lastSeenCursor,
+    })
     if (onClose) { try { onClose() } catch {} }
   })
   ws.on('error', () => { closed = true; if (stt) { try { stt.close() } catch {} } })

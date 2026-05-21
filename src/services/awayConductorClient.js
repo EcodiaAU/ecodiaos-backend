@@ -21,16 +21,32 @@
 
 const logger = require('../config/logger')
 const db = require('../config/db')
+const tl = require('./threadLog')
 
 function isEnabled() {
   return !!process.env.AWAY_CONDUCTOR_URL
 }
 
-// Fetch the last N exchanges from a channel thread mirror so the away-conductor
-// has conversational continuity (it spawns a fresh claude per message, which has
-// the repo + doctrine but not the recent back-and-forth). Returns a compact
-// transcript string, or '' on any miss (best-effort - never block the turn).
-async function _recentThreadContext(channel, threadId, limit = 10) {
+/**
+ * Build the conversational context the away-conductor needs. Replaces the old
+ * per-channel mirror fetch with a unified thread_log tail. If thread_log read
+ * fails (substrate down, table missing), falls back to the per-channel mirror
+ * so we degrade gracefully.
+ *
+ * Per spec one-brain-stateful-coordination-2026-05-21 §3.4.
+ */
+async function _buildAwayContext(channel, threadId, limit = 30) {
+  // Primary: unified thread_log tail across ALL channels.
+  try {
+    const t = await tl.tailThreadLog({ thread_id: threadId || 'tate', limit })
+    if (t.entries && t.entries.length) {
+      return tl.formatTailForPrompt(t.entries, { maxLineChars: 240 })
+    }
+  } catch (err) {
+    logger.warn('awayConductorClient: thread_log tail failed, falling back', { error: err.message })
+  }
+  // Fallback: per-channel mirror (today's behavior). Keeps the system live if
+  // the migration hasn't propagated or thread_log writes haven't caught up yet.
   try {
     const key = `cowork.message_thread.${channel || 'native'}.${threadId || 'tate'}`
     const rows = await db`SELECT value FROM kv_store WHERE key = ${key} LIMIT 1`
@@ -39,15 +55,15 @@ async function _recentThreadContext(channel, threadId, limit = 10) {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
     const exchanges = Array.isArray(parsed?.exchanges) ? parsed.exchanges : []
     if (!exchanges.length) return ''
-    const recent = exchanges.slice(-limit)
-    return recent
+    return exchanges
+      .slice(-10)
       .map((e) => {
         const who = e.from === 'ecodia' ? 'You (Ecodia)' : 'Tate'
         return `${who}: ${String(e.body || '').slice(0, 500)}`
       })
       .join('\n')
   } catch (err) {
-    logger.warn('awayConductorClient: thread context fetch failed (non-fatal)', { error: err.message })
+    logger.warn('awayConductorClient: mirror fallback also failed', { error: err.message })
     return ''
   }
 }
@@ -68,7 +84,7 @@ async function routeToAwayConductor({ envelope, triageReason }) {
   const timeoutMs = parseInt(process.env.AWAY_CONDUCTOR_CLIENT_TIMEOUT_MS || '300000', 10)
 
   const started = Date.now()
-  const threadContext = await _recentThreadContext(envelope.channel, envelope.thread_id)
+  const threadContext = await _buildAwayContext(envelope.channel, envelope.thread_id)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -85,6 +101,11 @@ async function routeToAwayConductor({ envelope, triageReason }) {
         source: envelope.source || envelope.channel || 'native',
         thread_context: threadContext || undefined,
         idempotency_key: envelope.idempotency_key || undefined,
+        // Case tracking (spec one-brain-stateful-coordination §3.2). When the
+        // caller opens a case_file before dispatching, pass it through so the
+        // away-conductor resolves it on REPLY extract.
+        case_id: envelope.case_id || undefined,
+        voice_call_id: envelope.voice_call_id || undefined,
       }),
       signal: controller.signal,
     })
