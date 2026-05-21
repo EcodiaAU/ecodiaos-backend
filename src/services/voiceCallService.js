@@ -182,11 +182,36 @@ async function streamTTSOnly(rawText, { onAudioChunk, shouldAbort } = {}) {
     .trim()
   if (!text) return { bytes: 0, aborted: false }
   if (shouldAbort && shouldAbort()) return { bytes: 0, aborted: true }
+
+  // Re-frame whatever the provider emits into even, uniform 100ms frames before
+  // sending to the client. Providers (esp. OpenAI at stream start) emit tiny and
+  // sometimes odd-byte PCM chunks; odd-byte chunks misalign the client's Int16
+  // decode into static, and micro-chunks glitch playback. 4800 bytes = 100ms @
+  // 24kHz mono s16le. This is the fix for the start-of-reply static.
+  const FRAME_BYTES = 4800
+  let acc = Buffer.alloc(0)
+  const emitFramed = (buf) => {
+    acc = acc.length ? Buffer.concat([acc, buf]) : Buffer.from(buf)
+    while (acc.length >= FRAME_BYTES) {
+      const frame = Buffer.from(acc.subarray(0, FRAME_BYTES))
+      acc = acc.subarray(FRAME_BYTES)
+      if (onAudioChunk) { try { onAudioChunk(frame) } catch { /* ignore */ } }
+    }
+  }
+  const flushFramed = () => {
+    const even = acc.length - (acc.length % 2)
+    if (even > 0 && onAudioChunk) { try { onAudioChunk(Buffer.from(acc.subarray(0, even))) } catch { /* ignore */ } }
+    acc = Buffer.alloc(0)
+  }
+
   if (TTS_PROVIDER === 'openai') {
     try {
-      return await openaiTTSStream(text, { onAudioChunk, shouldAbort })
+      const r = await openaiTTSStream(text, { onAudioChunk: emitFramed, shouldAbort })
+      if (!r.aborted) flushFramed(); else acc = Buffer.alloc(0)
+      return r
     } catch (err) {
       logger.warn('[voiceCall] OpenAI TTS failed, falling back to Aura', { error: err.message })
+      acc = Buffer.alloc(0)
     }
   }
   let bytes = 0
@@ -207,9 +232,10 @@ async function streamTTSOnly(rawText, { onAudioChunk, shouldAbort } = {}) {
       if (value) {
         const buf = Buffer.from(value)
         bytes += buf.length
-        if (onAudioChunk) { try { onAudioChunk(buf) } catch { /* ignore */ } }
+        emitFramed(buf)
       }
     }
+    if (!aborted) flushFramed()
   } catch (err) {
     logger.error('[voiceCall] TTS stream failed', { error: err.message })
   }
