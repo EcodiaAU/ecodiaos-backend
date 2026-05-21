@@ -28,13 +28,33 @@
 const express = require('express')
 const { spawn } = require('child_process')
 const fs = require('fs')
-// Best-effort imports for stateful coordination. If the backend module path is
-// unavailable (e.g. running this script from outside the repo for smoke), the
-// server still functions - just without case resolution + thread_log append.
-let cf = null
-let tl = null
-try { cf = require('../src/services/caseFile') } catch { cf = null }
-try { tl = require('../src/services/threadLog') } catch { tl = null }
+
+// Lazy resolvers for case_files / thread_log services. Loaded ON FIRST USE
+// inside the request handler with try/catch around require(). This server
+// historically did not need DATABASE_URL etc; the case_files + thread_log
+// services transitively pull in config/db.js which process.exit(1)s on
+// missing env. A top-level try/catch does NOT catch a child-module exit, so
+// we defer the require until a request actually needs case state - any
+// env-validation failure just becomes "case ops unavailable" instead of
+// "server fails to boot."
+let _cfMod = undefined
+let _tlMod = undefined
+function getCaseFile() {
+  if (_cfMod !== undefined) return _cfMod
+  try { _cfMod = require('../src/services/caseFile') } catch (err) {
+    log(`caseFile module unavailable: ${err.message}`)
+    _cfMod = null
+  }
+  return _cfMod
+}
+function getThreadLog() {
+  if (_tlMod !== undefined) return _tlMod
+  try { _tlMod = require('../src/services/threadLog') } catch (err) {
+    log(`threadLog module unavailable: ${err.message}`)
+    _tlMod = null
+  }
+  return _tlMod
+}
 
 const REPO_CWD = process.env.AWAY_CONDUCTOR_CWD || 'D:/.code/EcodiaOS/backend'
 const PORT = parseInt(process.env.AWAY_CONDUCTOR_PORT || '7460', 10)
@@ -224,23 +244,27 @@ app.post('/message', async (req, res) => {
   // next connect surfaces it for retry. Best-effort: any failure here does NOT
   // block the response to the caller - voice/headless still hear back.
   // Per spec one-brain-stateful-coordination-2026-05-21 §3.4 + §7.3.
-  if (case_id && cf) {
-    try {
-      if (result.ok && result.reply) {
-        await cf.resolveCase(case_id, { result: result.reply })
-        if (tl) {
-          await tl.appendThreadLog({
-            channel: 'away', role: 'ecodia', body: result.reply,
-            case_id, voice_call_id: voice_call_id || null,
-            thread_id: thread_id || 'tate',
-          })
+  if (case_id) {
+    const cf = getCaseFile()
+    const tl = getThreadLog()
+    if (cf) {
+      try {
+        if (result.ok && result.reply) {
+          await cf.resolveCase(case_id, { result: result.reply })
+          if (tl) {
+            await tl.appendThreadLog({
+              channel: 'away', role: 'ecodia', body: result.reply,
+              case_id, voice_call_id: voice_call_id || null,
+              thread_id: thread_id || 'tate',
+            })
+          }
+        } else {
+          const reason = result.ok ? 'no_reply_extracted' : `away_error: ${result.error || `exit_${result.exit_code}`}`
+          await cf.markBlocked(case_id, { reason })
         }
-      } else {
-        const reason = result.ok ? 'no_reply_extracted' : `away_error: ${result.error || `exit_${result.exit_code}`}`
-        await cf.markBlocked(case_id, { reason })
+      } catch (err) {
+        log(`case-resolve failed (non-fatal) case=${case_id} err=${err.message}`)
       }
-    } catch (err) {
-      log(`case-resolve failed (non-fatal) case=${case_id} err=${err.message}`)
     }
   }
 
