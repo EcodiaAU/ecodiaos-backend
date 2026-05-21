@@ -41,7 +41,7 @@ const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 // fallback if OpenAI errors.
 const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
 const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
-const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'onyx'
+const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'coral'
 const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS
   || 'Speak like a sharp, warm co-founder on a phone call: natural, relaxed, conversational, and concise. Not corporate, not a customer-service agent. A real person who knows the business.'
 
