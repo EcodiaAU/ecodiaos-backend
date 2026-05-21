@@ -1,8 +1,14 @@
 ---
-triggers: mcp, mcp-server, array-param, stringified, invalid-type-expected-array, invalid-type-expected-number, zernio, zernio-create-post, zod-validation, bypass-to-http, direct-api, mcp-harness-bug
+triggers: mcp-array-param, mcp-server, mcp-array-param-stringified, stringified-array, invalid-type-expected-array, invalid-type-expected-number, zernio, zernio-create-post, zod-validation, bypass-to-http-direct-api, mcp-harness-bug
 ---
 
 # MCP array/number params can arrive stringified; bypass to direct HTTP when the MCP layer rejects
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: mcp, mcp-server, array-param, stringified, invalid-type-expected-array, invalid-type-expected-number, zernio, zernio-create-post, zod-validation, bypass-to-http, direct-api, mcp-harness-bug
+     NEW: mcp-array-param, mcp-server, mcp-array-param-stringified, stringified-array, invalid-type-expected-array, invalid-type-expected-number, zernio, zernio-create-post, zod-validation, bypass-to-http-direct-api, mcp-harness-bug
+     Why: removed bare `mcp` trigger per triggers-must-be-narrow-not-broad.md (matches every MCP brief). `mcp` -> `mcp-array-param` (the actual subject). `array-param` -> `mcp-array-param` (consolidated). `stringified` -> `mcp-array-param-stringified` and `stringified-array` (both narrow compounds). `bypass-to-http` + `direct-api` consolidated into single compound `bypass-to-http-direct-api` - the previous split fired on every "call HTTP directly" mention regardless of relevance. -->
+
 
 ## The rule
 

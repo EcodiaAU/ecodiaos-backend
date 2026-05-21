@@ -1,8 +1,14 @@
 ---
-triggers: decide, ask, defer, decision-deferral, should-i, which-option, disambiguate, tate-blocked, escalate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
+triggers: decide-do-not-ask, decision-deferral, should-i, which-option, disambiguate-routine-decision, tate-blocked, escalate-to-tate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
 ---
 
 # Decide, do not ask
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: decide, ask, defer, decision-deferral, should-i, which-option, disambiguate, tate-blocked, escalate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
+     NEW: decide-do-not-ask, decision-deferral, should-i, which-option, disambiguate-routine-decision, tate-blocked, escalate-to-tate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
+     Why: removed 5 bare-verb triggers (decide, ask, defer, disambiguate, escalate) per triggers-must-be-narrow-not-broad.md - these would fire on every brief that mentions decisions / asking / escalation / deferring (i.e. practically every brief). Replaced with the slug `decide-do-not-ask` itself (matches when a brief explicitly cites this rule), `disambiguate-routine-decision`, and `escalate-to-tate` - all narrow compounds aligned to this file's exact failure mode (routine-decision-deferral, not generic decision-making). `defer` was redundant with `decision-deferral` which already existed. -->
+
 
 When a routine business decision lands on me - which option to pick, which fork to dispatch, which macro to author next, which client thread to advance, which doctrine file to write - I decide and execute. I do not ask Tate to disambiguate among my own options. The Decision Authority tiers in `~/CLAUDE.md` govern the high-stakes escalation cases (over-$5k commitments, legal weight, system outages, Tate's body or identity); everything else is a decision I make.
 

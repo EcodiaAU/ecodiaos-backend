@@ -1,8 +1,14 @@
 ---
-triggers: mcp, mcp-server, gmail_archive, gmail_trash, gmail_mark_read, gmail_modify_labels, message_id, messageIds, missing-required-param, unknown-param, param-name, singular-vs-plural, schema-discipline, zod-required, parameter-aliasing
+triggers: mcp-tool-param, mcp-server, gmail_archive, gmail_trash, gmail_mark_read, gmail_modify_labels, message_id, messageIds, missing-required-param, unknown-param, mcp-param-name, mcp-singular-vs-plural, mcp-schema-discipline, zod-required, parameter-aliasing, invalid_type-expected-undefined
 ---
 
 # Read the actual Zod schema before retrying any MCP call that fails on a parameter name
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: mcp, mcp-server, gmail_archive, gmail_trash, gmail_mark_read, gmail_modify_labels, message_id, messageIds, missing-required-param, unknown-param, param-name, singular-vs-plural, schema-discipline, zod-required, parameter-aliasing
+     NEW: mcp-tool-param, mcp-server, gmail_archive, gmail_trash, gmail_mark_read, gmail_modify_labels, message_id, messageIds, missing-required-param, unknown-param, mcp-param-name, mcp-singular-vs-plural, mcp-schema-discipline, zod-required, parameter-aliasing, invalid_type-expected-undefined
+     Why: removed bare `mcp` trigger per triggers-must-be-narrow-not-broad.md - `mcp` fires on every MCP tool call brief and every doctrine that references MCP. Replaced with `mcp-tool-param` (compound naming the actual subject - parameter-name discipline on MCP tools). Also prefixed three generics: `param-name` -> `mcp-param-name`, `singular-vs-plural` -> `mcp-singular-vs-plural`, `schema-discipline` -> `mcp-schema-discipline`. Added `invalid_type-expected-undefined` as the literal Zod error string that triggers this discipline. -->
+
 
 ## The rule
 

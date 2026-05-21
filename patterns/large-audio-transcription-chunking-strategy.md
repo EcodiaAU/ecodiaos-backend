@@ -1,5 +1,5 @@
 ---
-triggers: transcription,audio,whisper,deepgram,large-file,ffmpeg,chunk,webm,mp3,oom,heap,memory,storage-limit,supabase-limit
+triggers: large-audio-transcription, audio-chunking, whisper-25mb-limit, deepgram-transcribe, ffmpeg-mp3-downmix, audio-chunk-merge, webm-opus-recording, mp3-segmenting, audio-heap-oom, transcribeWithChunking, transcribeAudio, storage-50mb-limit, supabase-upload-limit, MediaRecorder-webm
 status: active
 authored: 2026-05-12
 origin_fork: fork_mp20l3c2_ec3799
@@ -7,6 +7,12 @@ origin_commit: 72a267e
 ---
 
 # Large audio transcription: ffmpeg pre-processing + chunk-safe storage
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: transcription, audio, whisper, deepgram, large-file, ffmpeg, chunk, webm, mp3, oom, heap, memory, storage-limit, supabase-limit
+     NEW: large-audio-transcription, audio-chunking, whisper-25mb-limit, deepgram-transcribe, ffmpeg-mp3-downmix, audio-chunk-merge, webm-opus-recording, mp3-segmenting, audio-heap-oom, transcribeWithChunking, transcribeAudio, storage-50mb-limit, supabase-upload-limit, MediaRecorder-webm
+     Why: removed 8 bare-noun triggers (transcription, audio, whisper, ffmpeg, chunk, oom, heap, memory) per triggers-must-be-narrow-not-broad.md - these surface on every voice-call / transcription / audio / memory brief. Replaced with compound names that scope to THIS file's failure mode (large-file >25MB transcription with chunk-safe storage). Added literal function-name identifiers `transcribeWithChunking` and `transcribeAudio` per the rule's tier-2 (literal identifier) form. `large-file` dropped - the slug-prefix `large-audio-transcription` carries the same surfacing without the false-positive risk. -->
+
 
 ## Rule
 

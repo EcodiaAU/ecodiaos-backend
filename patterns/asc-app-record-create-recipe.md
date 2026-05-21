@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-create-app, asc-new-app, app-store-connect-new-app, internal-group-access, asc-internal-testers, ios-release-pipeline-setup, eos-mobile-asc-setup
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.169Z
 flow_slug: asc-app-record-create
@@ -14,6 +14,11 @@ session_id: 2026-05-07-1245-brmt01
 ---
 
 # Asc App Record Create (captured via os-hook-recorder)
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+     NEW: macro-recipe, captured-recipe, asc-app-record-create, asc-create-app, asc-new-app, app-store-connect-new-app, internal-group-access, asc-internal-testers, ios-release-pipeline-setup, eos-mobile-asc-setup
+     Why: removed 7 bare common-noun triggers (asc, app, record, create, new, google, chrome, chrome-exe, store, connect) per triggers-must-be-narrow-not-broad.md - these caused [CONTEXT-SURFACE WARN] on every ASC/Chrome/app/create brief. Replaced with ASC-specific compound triggers that only match this recipe's true scope (creating a new ASC app record + internal-group access setup). -->
 
 ## Origin
 

@@ -1,11 +1,17 @@
 ---
-triggers: decision-quality-classifier, dq-classifier, backlog, unclassified, outcome_event, heartbeat, backpressure, classification-deficit, silent-accumulation
+triggers: decision-quality-classifier, dq-classifier, dq-classifier-backlog, outcome_event-unclassified, outcome_event, dq-classifier-heartbeat, dq-classifier-backpressure, classification-deficit, silent-accumulation, dq-classifier-starvation, dq-classifier-budget
 status: active
 authored_at: 2026-05-13
 origin_fork: fork_mp3o3hvx_9a7222
 ---
 
 # Decision-quality classifier must heartbeat and alert on backlog accumulation
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: decision-quality-classifier, dq-classifier, backlog, unclassified, outcome_event, heartbeat, backpressure, classification-deficit, silent-accumulation
+     NEW: decision-quality-classifier, dq-classifier, dq-classifier-backlog, outcome_event-unclassified, outcome_event, dq-classifier-heartbeat, dq-classifier-backpressure, classification-deficit, silent-accumulation, dq-classifier-starvation, dq-classifier-budget
+     Why: removed 4 bare-noun triggers (backlog, unclassified, heartbeat, backpressure) per triggers-must-be-narrow-not-broad.md - these would fire on every queue/health/backpressure brief. Replaced with `dq-classifier-` prefixed compounds and `outcome_event-unclassified` (compound of the literal table-column-style name with the state). Added `dq-classifier-starvation` and `dq-classifier-budget` for the per-tick budget starvation failure mode covered in the body. -->
+
 
 ## Rule
 

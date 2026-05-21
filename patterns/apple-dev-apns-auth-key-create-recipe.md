@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
+triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple-developer-portal, apple-dev-certificates-identifiers-profiles, AuthKey_.p8, push-notification-key-create, apns-p8-rotation
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
 flow_slug: apple-dev-apns-auth-key-create
@@ -15,6 +15,11 @@ session_id: 2026-05-07-1226-wzhn9t
 ---
 
 # Apple Dev Bundle Id Register (captured via os-hook-recorder)
+
+<!-- Trigger narrowing 2026-05-21 (self-evolution routine).
+     OLD: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple, dev, certificates, identifiers, profiles, developer, push-notifications
+     NEW: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-auth-key, apns-key-download, p8-download, push-notification-key, apple-dev-keys, apple-developer-portal, apple-dev-certificates-identifiers-profiles, AuthKey_.p8, push-notification-key-create, apns-p8-rotation
+     Why: removed 6 bare common-noun triggers (apple, dev, certificates, identifiers, profiles, developer, push-notifications) per triggers-must-be-narrow-not-broad.md - these surfaced on every iOS / dev / developer / certificate brief. Replaced with the Apple Developer portal section name (apple-dev-certificates-identifiers-profiles is one compound that matches that portal section title) and the literal AuthKey_.p8 filename identifier. push-notifications is replaced by the compound push-notification-key-create that names this recipe's true scope. -->
 
 ## Origin
 
