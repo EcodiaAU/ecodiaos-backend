@@ -41,20 +41,12 @@ const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 // fallback if OpenAI errors.
 const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
 const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
-const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'coral'
-const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Accent: natural modern Australian accent (Sydney/Melbourne), clear and consistent - Australian vowels and intonation, never American. Relaxed and real, not broad or put-on.
-
-Affect: a warm, friendly co-founder - easygoing, natural, and genuinely present. A real peer to Tate, never an assistant or a customer-service voice.
-
-Tone: warm, friendly, and relaxed, like chatting with a good mate. Gently upbeat: awake and engaged, but never intense, pushy, loud, or over-the-top. Easy, not aggressive.
-
-Pace: normal, easy conversational speed. Not slow or dragged out, not rushed or hyped. Just relaxed and natural.
-
-Pitch: light and pleasant, mid-range, with a soft friendly lift.
-
-Pronunciation: clear and natural, conversational not announced. Relaxed contractions (I'm, you're, that's, let's).
-
-Emotion: warm, calm, and friendly. Quietly caring and engaged, easy and unforced. Comfortable, never intense or performative.`
+// Male voice, natural and fast. `ash` benchmarked low-latency (~0.9s TTFB) and
+// reads as an easy, real male voice. No vibe/persona steering - Tate's call:
+// the elaborate instruction prompt made it perform; plain natural pacing is
+// what we want.
+const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'ash'
+const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Speak naturally and conversationally at a normal, easy pace - the way a person actually talks, not announced or performed. Do not over-enunciate. Relaxed and real.`
 
 // Stream OpenAI TTS as raw PCM (24kHz mono 16-bit) to onAudioChunk. Throws on
 // non-2xx so the caller can fall back to Aura.
