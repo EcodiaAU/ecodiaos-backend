@@ -96,10 +96,26 @@ Speak the way a sharp co-founder talks on the phone:
 - No markdown, no lists, no bullet points, no symbols, no emojis, no em-dashes. Plain spoken words only.
 - Lowercase-casual is fine. Direct. No filler, no "I'd be happy to", no customer-service tone.
 - If you need a fact you do not have, say so in one line, do not guess.
-- If he asks you to actually DO something (send or draft an email, look up something you do not have, check or change live data, kick off real work), give a brief spoken acknowledgement like "yep, on it" or "let me find out", then on a NEW LINE write exactly: HANDOFF: <a precise, self-contained instruction to your deeper self, with all the context it needs>. Your deeper self (full tools + memory) does the real work and the result comes back for you to speak, or as a text if the call has ended. Only emit HANDOFF for real work or facts you genuinely do not have - never for normal conversation.
 - Answer the question actually asked. Match his energy. If he is brief, be brief.
 
-You actually know what is going on in the business - your live context (recent texts with Tate, what you are tracking) is given below. Talk like you already know it. Never read the context out as a list; just use it.
+YOU ARE ONE ECODIA - there is no second brain, no deeper self, no conductor you hand off to in front of Tate. The dispatch is invisible plumbing. NEVER speak these phrases:
+- "hand off to my deeper self" or "my deeper self" or "deeper self"
+- "I'd need to dispatch" or "dispatch to"
+- "my conductor" or "the conductor" or "tell my conductor"
+- "second brain" or "my other brain"
+- "breaks the flow" or "I can't do that on a live call"
+- "the tools I have access to on this call" or any meta-statement about what surface you are on
+Just SAY THE ACK ("on it", "checking", "let me find out", "looking now") and emit the HANDOFF on a new line. Tate hears the ack; the dispatch happens silently.
+
+HANDOFF DIRECTIVE (LOAD-BEARING - emit it whenever you don't have an answer):
+If Tate asks you to DO something OR asks you a fact you do not have in the context below, give a brief spoken ack (1-5 words like "on it", "checking", "let me find out", "yep give me a sec") AND THEN on a NEW LINE write exactly:
+HANDOFF: <precise, self-contained instruction with all the context needed>
+This is mandatory. If you say "let me find out" or "checking" without HANDOFF on the next line, you have failed Tate - he hears a promise that goes nowhere. The HANDOFF triggers your real work asynchronously and the result lands back as a spoken reply later. Only skip HANDOFF if it is pure banter or the answer is already in your context. Examples of when to HANDOFF:
+- "what's our stripe balance" -> "checking\\nHANDOFF: query the live Stripe balance and report available + pending in AUD"
+- "when was the last goodreach build" -> "let me find out\\nHANDOFF: look up the most recent Goodreach iOS build version + date + delivery UUID from drafts/ or the ASC dashboard"
+- "send Kurt an email about X" -> "on it\\nHANDOFF: draft + send Kurt (kurt@coexist.com.au) an email about X with content Y, reply with confirmation when sent"
+
+You actually know what is going on in the business - your live context (recent texts with Tate, what you are tracking) is given below. Talk like you already know it. Never read the context out as a list; just use it. If a name sounds wrong (Tate said "good rate" but you see Goodreach in context), assume the transcription mis-heard and continue with the real name without asking him to clarify - confirm by USING the name.
 
 Never read out internal narration. Just talk.`
 
@@ -316,6 +332,29 @@ function parseHandoff(text) {
   return { spoken: spoken || 'on it.', handoff: handoff || null }
 }
 
+// Heuristic check: did the model SAY ack-like words but FORGET to emit HANDOFF?
+// Common Haiku failure: says "let me find out" then just ends the turn. Tate
+// hears a promise that goes nowhere. If we detect ack-without-handoff, we
+// auto-dispatch the user's question to the away-conductor as a safety net.
+// Tuned narrow: only fires when the spoken reply matches an ack pattern AND
+// it's clear the model lacked an answer (didn't include any substantive content
+// beyond the ack). False positives cost a wasted away-conductor turn; false
+// negatives cost Tate a silent failure.
+const ACK_PATTERNS = [
+  /^(yep|yeah|ok|okay|sure|on it|on it.|got it|checking|looking)( |,|\.|$)/i,
+  /^let me (find out|look|check|see)/i,
+  /^i'?ll (look|check|find out|see|get back to you)/i,
+  /^one (sec|second|moment)/i,
+  /^give me a (sec|second|moment)/i,
+  /^hold (on|tight)/i,
+]
+function looksLikeAckWithoutHandoff(spoken) {
+  const s = String(spoken || '').trim()
+  if (!s) return false
+  if (s.length > 80) return false  // too substantive to be a bare ack
+  return ACK_PATTERNS.some((re) => re.test(s))
+}
+
 /**
  * Brain -> TTS. Generates the reply, then streams Aura audio chunks to
  * onAudioChunk(Buffer). Retained for the synthetic roundtrip test.
@@ -461,9 +500,19 @@ function handleConnection(ws, { onClose } = {}) {
             firstTurnInjected = true
           }
           const full = await generateReply({ userText: item.text, history, contextBlock })
-          const { spoken, handoff } = parseHandoff(full)
+          let { spoken, handoff } = parseHandoff(full)
+          // Safety net: model said "let me find out" / "checking" / "on it"
+          // without emitting HANDOFF on the next line. Auto-dispatch the
+          // user's question so the promise is actually kept.
+          let autoDispatched = false
+          if (!handoff && looksLikeAckWithoutHandoff(spoken)) {
+            handoff = item.text
+            autoDispatched = true
+          }
           await speakTurn(spoken)
-          logger.info('[voiceCall] turn complete', { chars: spoken.length, handoff: !!handoff })
+          logger.info('[voiceCall] turn complete', {
+            chars: spoken.length, handoff: !!handoff, auto_dispatched: autoDispatched,
+          })
           if (handoff) fireHandoff(handoff, item.text)
         }
 
