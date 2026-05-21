@@ -35,6 +35,51 @@ const VOICE_TTS = process.env.VOICE_CALL_VOICE || (dg.AURA2_VOICES && dg.AURA2_V
 const TTS_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_TTS_RATE || '24000', 10)
 const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 
+// TTS provider: OpenAI gpt-4o-mini-tts is far more natural than Aura and is
+// steerable via `instructions`. It streams raw PCM at 24kHz mono 16-bit LE, which
+// is exactly the client's expected wire format - no resampling. Aura is the
+// fallback if OpenAI errors.
+const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
+const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
+const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'ash'
+const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS
+  || 'Speak like a sharp, warm co-founder on a phone call: natural, relaxed, conversational, and concise. Not corporate, not a customer-service agent. A real person who knows the business.'
+
+// Stream OpenAI TTS as raw PCM (24kHz mono 16-bit) to onAudioChunk. Throws on
+// non-2xx so the caller can fall back to Aura.
+async function openaiTTSStream(text, { onAudioChunk, shouldAbort } = {}) {
+  const key = process.env.OPENAI_API_KEY
+  if (!key) throw new Error('OPENAI_API_KEY not set')
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OPENAI_TTS_MODEL,
+      voice: OPENAI_TTS_VOICE,
+      input: text,
+      instructions: OPENAI_TTS_INSTRUCTIONS,
+      response_format: 'pcm', // 24kHz mono s16le
+    }),
+  })
+  if (!res.ok || !res.body) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`openai tts ${res.status} ${t.slice(0, 120)}`)
+  }
+  const reader = res.body.getReader()
+  let bytes = 0
+  while (true) {
+    if (shouldAbort && shouldAbort()) { try { reader.cancel() } catch {} return { bytes, aborted: true } }
+    const { value, done } = await reader.read()
+    if (done) break
+    if (value) {
+      const buf = Buffer.from(value)
+      bytes += buf.length
+      if (onAudioChunk) { try { onAudioChunk(buf) } catch { /* ignore */ } }
+    }
+  }
+  return { bytes, aborted: false }
+}
+
 // Spoken-register persona. Different from the chat/triage prompt: this is read
 // aloud by TTS, so it must be conversational, short, no markdown, no lists, no
 // symbols, no em-dashes. Ecodia on a phone call with his co-founder.
@@ -130,6 +175,13 @@ async function generateReply({ userText, history = [], contextBlock = '' }) {
 async function streamTTSOnly(text, { onAudioChunk, shouldAbort } = {}) {
   if (!text) return { bytes: 0, aborted: false }
   if (shouldAbort && shouldAbort()) return { bytes: 0, aborted: true }
+  if (TTS_PROVIDER === 'openai') {
+    try {
+      return await openaiTTSStream(text, { onAudioChunk, shouldAbort })
+    } catch (err) {
+      logger.warn('[voiceCall] OpenAI TTS failed, falling back to Aura', { error: err.message })
+    }
+  }
   let bytes = 0
   let aborted = false
   try {
