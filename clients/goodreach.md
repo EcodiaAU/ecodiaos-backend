@@ -1,6 +1,6 @@
 # Goodreach - product dossier
 
-Last touched: 2026-05-21 (master-audit ship pushed at goodreach commit 8a23bcc).
+Last touched: 2026-05-21 (master-audit ship pushed at goodreach commit `a56c6fa`, mobile-native merged + Supabase migrations applied + 13 edge functions deployed + ARCHITECTURE/BACKLOG split landed; TestFlight build 3 ship in flight on SY094).
 Canonical audit: [drafts/goodreach-master-audit-2026-05-21.md](../drafts/goodreach-master-audit-2026-05-21.md).
 Repo: `D:/.code/goodreach` + worktree `D:/.code/goodreach-mobile`.
 Live web: https://goodreach-ecodia.vercel.app (push to `main` auto-deploys; commit author MUST be `tate@ecodia.au` or Vercel blocks the build).
