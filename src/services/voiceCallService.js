@@ -108,11 +108,11 @@ async function buildVoiceContext() {
   // Status board FIRST - it is curated current truth. The brain should trust it
   // over older chat lines (which carry dated specifics like old build numbers).
   try {
-    const rows = await db`SELECT name, status, next_action, next_action_by FROM status_board WHERE archived_at IS NULL AND priority <= 3 ORDER BY priority, last_touched DESC LIMIT 12`
+    const rows = await db`SELECT name, status, next_action, next_action_by FROM status_board WHERE archived_at IS NULL AND priority <= 3 ORDER BY priority, last_touched DESC LIMIT 8`
     if (rows.length) {
       const b = rows.map((r) => {
-        const na = r.next_action ? ` | next: ${String(r.next_action).slice(0, 120)} [${r.next_action_by || '?'}]` : ''
-        return `- ${r.name}: ${String(r.status || '').slice(0, 140)}${na}`
+        const na = r.next_action ? ` | next: ${String(r.next_action).slice(0, 80)} [${r.next_action_by || '?'}]` : ''
+        return `- ${r.name}: ${String(r.status || '').slice(0, 100)}${na}`
       }).join('\n')
       parts.push(`CURRENT STATUS (authoritative - trust this for "what's the status of X"):\n${b}`)
     }
@@ -121,9 +121,9 @@ async function buildVoiceContext() {
     const rows = await db`SELECT value FROM kv_store WHERE key = ${'cowork.message_thread.native.tate'} LIMIT 1`
     if (rows[0]) {
       const parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value
-      const ex = Array.isArray(parsed && parsed.exchanges) ? parsed.exchanges.slice(-6) : []
+      const ex = Array.isArray(parsed && parsed.exchanges) ? parsed.exchanges.slice(-4) : []
       if (ex.length) {
-        const t = ex.map((e) => `${e.from === 'ecodia' ? 'You' : 'Tate'}: ${String(e.body || '').slice(0, 240)}`).join('\n')
+        const t = ex.map((e) => `${e.from === 'ecodia' ? 'You' : 'Tate'}: ${String(e.body || '').slice(0, 160)}`).join('\n')
         parts.push(`Recent text thread with Tate (may contain older specifics - defer to CURRENT STATUS above if they conflict):\n${t}`)
       }
     }
@@ -172,7 +172,14 @@ async function generateReply({ userText, history = [], contextBlock = '' }) {
  * Stream Aura TTS of a fixed text to onAudioChunk(Buffer). shouldAbort() is
  * polled between chunks for barge-in.
  */
-async function streamTTSOnly(text, { onAudioChunk, shouldAbort } = {}) {
+async function streamTTSOnly(rawText, { onAudioChunk, shouldAbort } = {}) {
+  // Spoken-text hygiene: em/en dashes read as garbled in TTS and are banned in
+  // our output anyway; render them as a natural pause. Strip stray markdown too.
+  const text = (rawText || '')
+    .replace(/[—–]/g, ', ')
+    .replace(/[*_`#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
   if (!text) return { bytes: 0, aborted: false }
   if (shouldAbort && shouldAbort()) return { bytes: 0, aborted: true }
   if (TTS_PROVIDER === 'openai') {
