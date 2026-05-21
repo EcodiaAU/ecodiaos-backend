@@ -41,20 +41,20 @@ const STT_SAMPLE_RATE = parseInt(process.env.VOICE_CALL_STT_RATE || '16000', 10)
 // fallback if OpenAI errors.
 const TTS_PROVIDER = process.env.VOICE_TTS_PROVIDER || 'openai'
 const OPENAI_TTS_MODEL = process.env.VOICE_TTS_MODEL || 'gpt-4o-mini-tts'
-const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'nova'
-const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Affect: a sharp, warm co-founder - calm, grounded, and quietly confident. A genuine peer to Tate, never an assistant or a customer-service voice.
+const OPENAI_TTS_VOICE = process.env.VOICE_TTS_VOICE || 'coral'
+const OPENAI_TTS_INSTRUCTIONS = process.env.VOICE_TTS_INSTRUCTIONS || `Accent: STRONG, natural modern Australian accent (Sydney/Melbourne). This is essential and must stay consistently Australian for every single word - Australian vowels and intonation throughout. Never American, never neutral.
 
-Accent: a natural, modern Australian accent - relaxed and warm, not broad or exaggerated.
+Affect: a sharp, warm, switched-on co-founder - bright, lively, and genuinely engaged. A real peer to Tate, never an assistant or a customer-service voice.
 
-Tone: warm, bright, and crisp. Relaxed and human, with an easy, understated confidence and a light lift. Caring without being saccharine, direct without being cold, with a little dry warmth.
+Tone: warm, bright, and energetic. Upbeat and quick, like a mate who is genuinely excited to talk to you. Confident and direct, with a little dry humour. Never flat, never sleepy, never monotone.
 
-Pronunciation: clear and natural, conversational rather than announced. Relaxed contractions (I'm, you're, that's, let's). Land the word that matters, never sing-songy.
+Pace: brisk and lively - natural quick conversational speed. Do NOT drag words out or slow down. Keep the energy up and moving.
 
-Pace: unhurried but efficient - someone who knows what she is talking about and is not filling silence. A touch quicker on the throwaway bits, settling on what counts.
+Pitch: bright and light, on the higher side, with lots of life in it.
 
-Pitch: bright and light, on the higher side of her range - never heavy or low.
+Pronunciation: clear and natural, conversational not announced. Relaxed contractions (I'm, you're, that's, let's). Land the word that matters.
 
-Emotion: present and genuinely engaged. Real care for Tate, steady and reassuring under pressure, with a spark of energy when something is exciting. Never performative, never bubbly.`
+Emotion: awake, warm, and full of spark. Real enthusiasm and presence. Sound genuinely alive and engaged, never tired.`
 
 // Stream OpenAI TTS as raw PCM (24kHz mono 16-bit) to onAudioChunk. Throws on
 // non-2xx so the caller can fall back to Aura.
