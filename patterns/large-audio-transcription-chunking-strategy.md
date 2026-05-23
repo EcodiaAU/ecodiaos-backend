@@ -1,5 +1,5 @@
 ---
-triggers: transcription,audio,whisper,deepgram,large-file,ffmpeg,chunk,webm,mp3,oom,heap,memory,storage-limit,supabase-limit
+triggers: transcription,large-audio,whisper,deepgram,large-file,ffmpeg,audio-chunk,webm,mp3,oom,heap,node-heap-oom,storage-limit,supabase-limit
 status: active
 authored: 2026-05-12
 origin_fork: fork_mp20l3c2_ec3799

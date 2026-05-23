@@ -1,4 +1,4 @@
-triggers: cron, fork-report, enqueue, suppress, silent-exit, clean-noop, main-chat-pollution
+triggers: cron-fork-report, fork-report, fork-report-enqueue, report-suppression, silent-exit, clean-noop, main-chat-pollution
 
 # Cron-spawned fork reports that are clean no-ops must be suppressed from main chat
 

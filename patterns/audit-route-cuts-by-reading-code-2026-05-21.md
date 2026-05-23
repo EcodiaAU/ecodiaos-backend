@@ -1,5 +1,5 @@
 ---
-triggers: audit, route-cut, feature-cut, refactor-plan, code-audit, verify-before-asserting, file-audit, route-collapse, feature-plan-audit
+triggers: route-cut, feature-cut, refactor-plan, code-audit, verify-before-asserting, file-audit, route-collapse, feature-plan-audit
 ---
 
 # Audit route or feature cuts by reading the code. Not by reading the names

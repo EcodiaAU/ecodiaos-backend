@@ -1,4 +1,4 @@
-triggers: client-code, factory-client-dispatch, scope-creep, prisma, migration, pipeline, bitbucket-pipelines, pr-review, eugene, [redacted], production-ready, fix-everything
+triggers: client-code, factory-client-dispatch, scope-creep, prisma, migration-scope-creep, pipeline-switch, bitbucket-pipelines, pr-review, eugene, [redacted], production-ready, fix-everything
 
 # Client code scope discipline — never expand scope even when Tate says "production ready"
 

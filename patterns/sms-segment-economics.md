@@ -1,5 +1,5 @@
 ---
-triggers: sms, twilio, send_sms, mcp__sms__send_sms, sms-cost, segment, 160-chars, 70-chars, sms-concise, sms-to-tate, outbound-sms, text-tate, sms-length
+triggers: twilio, send_sms, mcp__sms__send_sms, sms-cost, sms-segment, 160-chars, 70-chars, sms-concise, sms-to-tate, outbound-sms, text-tate, sms-length
 ---
 
 # SMS segment economics — be concise, stay under one segment

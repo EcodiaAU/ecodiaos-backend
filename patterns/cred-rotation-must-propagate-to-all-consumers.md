@@ -1,5 +1,5 @@
 ---
-triggers: rotation, propagation, kv_store, vercel-env, supabase-secrets, edge-function, smtp, resend, credential-update, all-consumers, cred-rotation, rotate-credential, rotate-key, key-rotation, secret-rotation, vendor-rotation, smtp-rotation, oauth-rotation, api-key-rotation, password-rotation, deploy-env-vars, supabase-edge-secrets, secrets-list, multi-surface-rotation, post-rotation-audit, downstream-consumers
+triggers: rotation-propagation, vercel-env, supabase-secrets, edge-function, smtp, resend, credential-update, all-consumers, cred-rotation, rotate-credential, rotate-key, key-rotation, secret-rotation, vendor-rotation, smtp-rotation, oauth-rotation, api-key-rotation, password-rotation, deploy-env-vars, supabase-edge-secrets, secrets-list, multi-surface-rotation, post-rotation-audit, downstream-consumers
 ---
 
 # Credential rotation must propagate to all consumer surfaces, not just kv_store

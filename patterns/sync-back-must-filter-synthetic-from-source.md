@@ -1,5 +1,5 @@
 ---
-triggers: sync, trigger, fan-out, synthetic event, event_impact, push-back, duplicate, sync-back, syncToExcel, syncFromExcel, reverse-sync, alias, collective alias, sheet sync, excel-sync
+triggers: sync-back-trigger, fan-out, synthetic event, event_impact, push-back, sync-duplicate-rows, sync-back, syncToExcel, syncFromExcel, reverse-sync, collective alias, sheet sync, excel-sync
 ---
 
 # Sync-back paths must filter rows that originated from the source they would push back to

@@ -1,5 +1,5 @@
 ---
-triggers: supabase, pooler, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, LISTEN, dbBridge
+triggers: supabase-pooler, pooler, session-mode, transaction-mode, EMAXCONNSESSION, DATABASE_URL, pg_bouncer, pgbouncer, connection exhaustion, pool_size, port 5432, port 6543, LISTEN, dbBridge
 ---
 
 # Supabase Pooler: Use Transaction Mode for App Pools, Direct for LISTEN
