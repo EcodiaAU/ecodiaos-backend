@@ -24,7 +24,7 @@ const db = require('../config/db')
 const tl = require('./threadLog')
 
 function isEnabled() {
-  return !!process.env.AWAY_CONDUCTOR_URL
+  return !!process.env.AWAY_CONDUCTOR_URL || !!process.env.RESIDENT_BRAIN_URL
 }
 
 /**
@@ -77,8 +77,18 @@ async function _buildAwayContext(channel, threadId, limit = 30) {
  * @returns {Promise<{ok, reply?, error?, duration_ms, status?}>}
  */
 async function routeToAwayConductor({ envelope, triageReason }) {
+  // Prefer the resident brain (persistent claude session, ~10-17s) when set.
+  // Falls back to the legacy away-conductor (fresh subprocess per turn, ~60-120s)
+  // if resident brain unavailable or errors.
+  // Per spec backend/drafts/voice-fast-and-intelligent-2026-05-24.md §3.2.
+  const residentUrl = process.env.RESIDENT_BRAIN_URL
+  if (residentUrl) {
+    const r = await _routeToResidentBrain({ envelope, triageReason, residentUrl })
+    if (r.ok || r.error !== 'fetch failed') return r
+    logger.warn('awayConductorClient: resident brain unreachable, falling back to away-conductor', { error: r.error })
+  }
   const base = process.env.AWAY_CONDUCTOR_URL
-  if (!base) return { ok: false, error: 'AWAY_CONDUCTOR_URL not set' }
+  if (!base) return { ok: false, error: 'neither RESIDENT_BRAIN_URL nor AWAY_CONDUCTOR_URL set' }
   const url = base.replace(/\/$/, '') + '/message'
   const token = process.env.AWAY_CONDUCTOR_TOKEN || null
   const timeoutMs = parseInt(process.env.AWAY_CONDUCTOR_CLIENT_TIMEOUT_MS || '300000', 10)
@@ -128,6 +138,56 @@ async function routeToAwayConductor({ envelope, triageReason }) {
     const aborted = err.name === 'AbortError'
     logger.warn('awayConductorClient: request failed', { error: err.message, aborted })
     return { ok: false, error: aborted ? 'timeout' : err.message, duration_ms: Date.now() - started }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function _routeToResidentBrain({ envelope, triageReason, residentUrl }) {
+  const url = residentUrl.replace(/\/$/, '') + '/prompt'
+  const token = process.env.RESIDENT_BRAIN_TOKEN || null
+  const timeoutMs = parseInt(process.env.RESIDENT_BRAIN_CLIENT_TIMEOUT_MS || '180000', 10)
+  const started = Date.now()
+  const threadContext = await _buildAwayContext(envelope.channel, envelope.thread_id)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await fetch(url, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        body: triageReason ? `${envelope.body}\n\n[triage note: ${triageReason}]` : envelope.body,
+        thread_id: envelope.thread_id || 'tate',
+        source: envelope.source || envelope.channel || 'native',
+        thread_context: threadContext || undefined,
+        idempotency_key: envelope.idempotency_key || undefined,
+        case_id: envelope.case_id || undefined,
+        voice_call_id: envelope.voice_call_id || undefined,
+      }),
+      signal: controller.signal,
+    })
+    const status = res.status
+    let data = null
+    try { data = await res.json() } catch { data = null }
+    if (!res.ok) {
+      logger.warn('awayConductorClient: resident-brain non-2xx', { status })
+      return { ok: false, error: `resident-brain http ${status}`, status, duration_ms: Date.now() - started }
+    }
+    const reply = data && typeof data.reply === 'string' ? data.reply.trim() : null
+    return {
+      ok: !!(data && data.ok) && !!reply,
+      reply,
+      via: 'resident_brain',
+      raw_ok: !!(data && data.ok),
+      cost_usd: data && data.cost_usd,
+      turn_count: data && data.turn_count,
+      status, duration_ms: Date.now() - started,
+    }
+  } catch (err) {
+    const aborted = err.name === 'AbortError'
+    logger.warn('awayConductorClient: resident-brain request failed', { error: err.message, aborted })
+    return { ok: false, error: aborted ? 'timeout' : 'fetch failed', duration_ms: Date.now() - started }
   } finally {
     clearTimeout(timer)
   }
