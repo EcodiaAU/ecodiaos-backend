@@ -32,6 +32,11 @@ const { createMessage } = require('./anthropicMessagesClient')
 const { randomUUID } = require('crypto')
 const tl = require('./threadLog')
 const cf = require('./caseFile')
+const entityIndex = require('./entityIndex')
+
+// Boot the entity index at module load. Refreshes every 5 min in-process.
+// Per spec backend/drafts/voice-fast-and-intelligent-2026-05-24.md §3.1.
+entityIndex.start()
 
 const VOICE_MODEL = process.env.VOICE_CALL_MODEL || 'claude-haiku-4-5'
 const VOICE_TTS = process.env.VOICE_CALL_VOICE || (dg.AURA2_VOICES && dg.AURA2_VOICES.orion) || 'aura-2-orion-en'
@@ -177,24 +182,28 @@ async function buildOnConnectContext({ thread_id = 'tate' } = {}) {
   }
 }
 
-// Live context for the voice brain so it is not a blank-slate Haiku. Pulls the
-// recent text thread with Tate (cross-surface continuity) + the active status
-// board (what Ecodia is tracking / waiting on). Best-effort: any miss returns a
-// partial or empty block, never blocks the turn. Cheap (two indexed queries).
-async function buildVoiceContext() {
+// Live context for the voice brain so it is not a blank-slate Haiku. The PRIMARY
+// substrate is the entity index (entityIndex.js) - relevance-driven retrieval
+// from status_board + thread_log + case_files + clients/*.md. The picker only
+// loads facts for entities Tate just mentioned. Recent text thread mirror is
+// the secondary block for conversational continuity.
+//
+// `utterance` is the user's most recent transcript - drives entity extraction.
+// Per spec backend/drafts/voice-fast-and-intelligent-2026-05-24.md §3.1.
+async function buildVoiceContext(utterance = '') {
   const parts = []
-  // Status board FIRST - it is curated current truth. The brain should trust it
-  // over older chat lines (which carry dated specifics like old build numbers).
+  // PRIMARY: entity-driven facts. If utterance has entity mentions, return facts
+  // about those entities; otherwise fall back to top client/active rows.
   try {
-    const rows = await db`SELECT name, status, next_action, next_action_by FROM status_board WHERE archived_at IS NULL AND priority <= 3 ORDER BY priority, last_touched DESC LIMIT 8`
-    if (rows.length) {
-      const b = rows.map((r) => {
-        const na = r.next_action ? ` | next: ${String(r.next_action).slice(0, 80)} [${r.next_action_by || '?'}]` : ''
-        return `- ${r.name}: ${String(r.status || '').slice(0, 100)}${na}`
-      }).join('\n')
-      parts.push(`CURRENT STATUS (authoritative - trust this for "what's the status of X"):\n${b}`)
+    const { facts, matched_entities, fallback } = entityIndex.getFacts(utterance, { max: 15 })
+    if (facts.length) {
+      const lines = entityIndex.formatFactsForPrompt(facts)
+      const header = fallback
+        ? `CURRENT WORK (top active rows - no specific entity matched in what Tate said):`
+        : `RELEVANT FACTS for what Tate just said (entities: ${matched_entities.join(', ')}):`
+      parts.push(`${header}\n${lines}`)
     }
-  } catch (err) { logger.warn('[voiceCall] board context miss', { error: err.message }) }
+  } catch (err) { logger.warn('[voiceCall] entityIndex.getFacts failed', { error: err.message }) }
   try {
     const rows = await db`SELECT value FROM kv_store WHERE key = ${'cowork.message_thread.native.tate'} LIMIT 1`
     if (rows[0]) {
@@ -493,7 +502,7 @@ function handleConnection(ws, { onClose } = {}) {
           // On the FIRST turn of this connection, prepend the on-connect
           // continuity (tail summary + open cases + unacked) to the live
           // context block. Subsequent turns rely on the in-call history array.
-          const liveContext = await buildVoiceContext()
+          const liveContext = await buildVoiceContext(item.text)
           let contextBlock = liveContext
           if (!firstTurnInjected && onConnectContext) {
             contextBlock = `${onConnectContext}\n\n${liveContext}`.trim()
