@@ -1,5 +1,5 @@
 ---
-triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-app-record, app-store-connect, create-app-record, asc
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:50.169Z
 flow_slug: asc-app-record-create
@@ -11,9 +11,18 @@ vision_errored_count: 0
 vision_skipped_count: 0
 vision_auth_source: skipped
 session_id: 2026-05-07-1245-brmt01
+narrowed_at: 2026-05-24
+narrowed_reason: 'pattern-corpus-health-check 2026-W21: 9 surfaces over the last-active 7d window (07 to 14 May), 0 of 2 tag judgments applied (applied_rate 0.00, tagged_silent 2 of 2). Auto-captured triggers included bare common nouns (app, record, create, new, google, chrome, store, connect) that false-fire on unrelated briefs; tightened to specific ASC compounds per triggers-must-be-narrow-not-broad.md. The status field below stays untested_spec (macro-validation lifecycle, separate from the active/narrowed pattern lifecycle).'
 ---
 
 # Asc App Record Create (captured via os-hook-recorder)
+
+<!--
+TRIGGER NARROW 2026-05-24 (pattern-corpus-health-check 2026-W21):
+OLD triggers: macro-recipe, captured-recipe, asc-app-record-create, asc, app, record, create, new, google, chrome, chrome-exe, store, connect
+NEW triggers: macro-recipe, captured-recipe, asc-app-record-create, asc-app-record, app-store-connect, create-app-record, asc
+REASON: dropped bare common-noun triggers (app, record, create, new, google, chrome, chrome-exe, store, connect) that false-fire on unrelated briefs. Telemetry over the last-active 7d window (07 to 14 May 2026; decision-quality pipeline dark since 14 May): 9 surfaces, applied_rate 0.00, tagged_silent 2 of 2. Per triggers-must-be-narrow-not-broad.md and pattern-lifecycle-active-narrowed-archived.md.
+-->
 
 ## Origin
 
