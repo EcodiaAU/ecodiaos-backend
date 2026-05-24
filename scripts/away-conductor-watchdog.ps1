@@ -17,21 +17,20 @@ $startCmd = "D:\.code\EcodiaOS\backend\scripts\start-away-conductor.cmd"
 
 $bound = Get-NetTCPConnection -LocalPort 7460 -State Listen -ErrorAction SilentlyContinue
 if ($bound) {
-    # Already up; quick health probe to confirm it's actually responsive (not zombie)
-    try {
-        $r = Invoke-WebRequest -Uri "http://localhost:7460/health" -UseBasicParsing -TimeoutSec 3
-        if ($r.StatusCode -eq 200) {
-            # silent success - don't spam log
-            exit 0
-        }
-    } catch {
-        # bound but not responsive => zombie. Kill and respawn.
-        try { Stop-Process -Id $bound.OwningProcess -Force -ErrorAction Stop } catch {}
-        Start-Sleep -Seconds 2
-    }
+    # Port bound = process alive. Do NOT health-probe + zombie-kill.
+    #
+    # Why: claude --print subprocess runs 30-60s+ for real work. During that
+    # time the Express event loop is fine to serve /health BUT the away-
+    # conductor's runSerialized lock means a second incoming request also
+    # blocks until the first claude --print returns, and /health under load
+    # can occasionally exceed our 3s probe budget. Killing mid-turn = voice
+    # handoff fails with "fetch failed" + the in-flight claude work is lost.
+    # Far cheaper to trust port-bound as liveness and let real crashes (which
+    # unbind the port) be the only respawn trigger.
+    exit 0
 }
 
-# Not bound or zombie - respawn
-Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss') respawn"
+# Port unbound = away-conductor genuinely dead. Respawn.
+Add-Content -Path $logFile -Value "$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss') respawn (port unbound)"
 & cmd /c $startCmd
 exit 0
