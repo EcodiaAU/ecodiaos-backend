@@ -145,6 +145,9 @@ should never be re-introduced as a daily-driver pattern.
 - [[ecodia-full-mcp-proxy-architecture-2026-05-15]] - the monolith this
   pattern superseded; its proxy code still serves the 30d migration
   alias.
+- [[mcp-connector-token-expiry-is-per-connector-route-to-sibling-substrate]] -
+  the operational reflex when one of these connectors returns token-expired:
+  route to a sibling reaching the same substrate, escalate the re-auth once.
 - [[cred-rotation-must-propagate-to-all-consumers]] - the rotation
   runbook each connector inherits.
 - [[mcp-tool-param-schema-discipline]] - tool schema rules; deferred-
