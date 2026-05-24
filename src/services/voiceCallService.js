@@ -572,8 +572,26 @@ function handleConnection(ws, { onClose } = {}) {
       })
       const reply = r && r.ok && r.reply ? r.reply.trim() : null
       if (!reply) {
-        logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status, case_id: caseId })
-        if (caseId) cf.markBlocked(caseId, { reason: 'away_no_reply' }).catch(() => {})
+        const why = (r && r.error) || (r && r.status ? `http_${r.status}` : 'no_reply')
+        logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status, error: why, case_id: caseId })
+        if (caseId) cf.markBlocked(caseId, { reason: `away_${why}` }).catch(() => {})
+        // Tell Tate something rather than silently blocking. If call still up,
+        // splice a spoken line; if call ended, APNs him.
+        const reachIssue = /timeout|fetch failed|ECONNREFUSED|ENETUNREACH/i.test(String(why))
+        const spoken = reachIssue
+          ? "couldn't reach my workstation just now, give me a sec and ask again"
+          : "didn't get an answer back, want me to try again?"
+        if (!closed) {
+          pending.push({ type: 'say', text: spoken })
+          pump()
+        } else if (notify) {
+          await notify({
+            body: reachIssue
+              ? "couldn't reach my workstation for your question - try again when you're back"
+              : `didn't get an answer to: "${task.slice(0, 80)}"`,
+            channel: 'native', thread_id: 'tate', urgency: 'normal',
+          })
+        }
         return
       }
       // Away-conductor server is responsible for resolveCase + thread_log

@@ -1057,10 +1057,18 @@ Source: ${opts.source || 'unknown'}.`
 
   if (!execute.ok) {
     logger.error('execute phase failed', { error: execute.error || execute.stderr?.slice(0, 200), exit_code: execute.exit_code })
-    // Surface to Tate so he knows the heavy path needs attention.
-    await _sendSmsToTate({
-      body: `headless execute failed (${execute.error || `exit ${execute.exit_code}`}). VPS claude CLI may need reauth.`,
-    }).catch(() => {})
+    // For NATIVE channel: _executeViaClaudeCli already surfaced a friendly
+    // APNs message via notifyTate (see friendly_surfaced flag). Do NOT also
+    // SMS - that's the "VPS claude CLI may need reauth" noise Tate flagged.
+    // For SMS/Telegram: the legacy VPS-CLI fallback still runs and could fail
+    // with auth issues that are genuinely VPS-side. Keep the SMS for those.
+    if (!execute.friendly_surfaced) {
+      const channel = envelope.channel
+      const body = channel === 'sms' || channel === 'telegram'
+        ? `headless ${channel} execute failed (${execute.error || `exit ${execute.exit_code}`}). VPS claude CLI may need reauth.`
+        : `escalation failed on ${channel} channel: ${execute.error || `exit ${execute.exit_code}`}`
+      await _sendSmsToTate({ body }).catch(() => {})
+    }
     return { ok: false, phase: 'execute', error: execute.error, triage, execute }
   }
 
@@ -1072,31 +1080,56 @@ Source: ${opts.source || 'unknown'}.`
 async function _executeViaClaudeCli({ envelope, triageReason, source }) {
   const channel = envelope.channel
 
-  // PREFER THE CORAZON AWAY-CONDUCTOR for native: same brain (full CLAUDE.md
-  // context + the live local repo) reached by a plain HTTP POST over Tailscale,
-  // instead of a context-poor VPS Opus that diverges from local/main. Falls
-  // THROUGH to the VPS Opus CLI below if Corazon is unreachable, so Tate is
-  // never silent. Flag-gated on AWAY_CONDUCTOR_URL; sms/telegram are untouched.
-  // See services/awayConductorClient.js + Neo4j Decision 1111.
+  // NATIVE CHANNEL: away-conductor on Corazon is the ONLY brain. There is no
+  // VPS-claude-CLI fallback - that path produced silent auth failures and the
+  // bogus "VPS claude CLI may need reauth" SMS Tate got 2026-05-21. When
+  // Corazon is unreachable, tell Tate honestly via APNs ("couldn't reach my
+  // workstation - try in a minute"). The work is NOT retried automatically;
+  // Tate will see it as an open case on next voice connect + can re-ask.
+  // See spec backend/drafts/one-brain-stateful-coordination-2026-05-21.md +
+  // backend/patterns/away-conductor-runs-on-corazon-not-vps-2026-05-20.md.
   if (channel === 'native') {
     try {
       const away = require('./awayConductorClient')
-      if (away.isEnabled()) {
-        const r = await away.routeToAwayConductor({ envelope, triageReason })
-        if (r.ok && r.reply) {
-          let native_reply = { sent: false }
-          try {
-            const { notifyTate } = require('./notifyTate')
-            const nr = await notifyTate({ body: r.reply.slice(0, 1500), channel: 'native', urgency: 'alert' })
-            native_reply = { sent: !!nr && nr.ok !== false, transport: nr && nr.transport, body_chars: r.reply.length }
-          } catch (e) { native_reply = { sent: false, error: e.message } }
-          logger.info('escalation handled by Corazon away-conductor', { duration_ms: r.duration_ms, replied: native_reply.sent })
-          return { ok: true, via: 'away_conductor', duration_ms: r.duration_ms, native_reply, reply_preview: r.reply.slice(0, 200) }
-        }
-        logger.warn('away-conductor unavailable/no-reply, falling back to VPS Opus CLI', { error: r.error })
+      if (!away.isEnabled()) {
+        const msg = "AWAY_CONDUCTOR_URL not set on VPS - can't reach my workstation. Set the env var + restart voice-call."
+        logger.error('native escalation aborted: AWAY_CONDUCTOR_URL missing', {})
+        try {
+          const { notifyTate } = require('./notifyTate')
+          await notifyTate({ body: msg, channel: 'native', urgency: 'alert' })
+        } catch (e) { /* best effort */ }
+        return { ok: false, via: 'away_conductor', error: 'AWAY_CONDUCTOR_URL not configured' }
       }
+      const r = await away.routeToAwayConductor({ envelope, triageReason })
+      if (r.ok && r.reply) {
+        let native_reply = { sent: false }
+        try {
+          const { notifyTate } = require('./notifyTate')
+          const nr = await notifyTate({ body: r.reply.slice(0, 1500), channel: 'native', urgency: 'alert' })
+          native_reply = { sent: !!nr && nr.ok !== false, transport: nr && nr.transport, body_chars: r.reply.length }
+        } catch (e) { native_reply = { sent: false, error: e.message } }
+        logger.info('escalation handled by Corazon away-conductor', { duration_ms: r.duration_ms, replied: native_reply.sent })
+        return { ok: true, via: 'away_conductor', duration_ms: r.duration_ms, native_reply, reply_preview: r.reply.slice(0, 200) }
+      }
+      // Away-conductor returned ok=false OR no reply. Do NOT fall back to VPS
+      // claude CLI - that path is broken on auth and produces noise. Tell Tate.
+      const why = r.error || (r.status ? `http_${r.status}` : 'no_reply')
+      const friendly = /timeout|fetch failed|ECONNREFUSED|ENETUNREACH/i.test(String(why))
+        ? "couldn't reach my workstation right now. try again in a minute - your question is still on the list."
+        : `away-conductor returned no reply (${why}). Probably the laptop is asleep or the claude CLI on it hit a snag.`
+      logger.error('away-conductor failed and VPS-claude fallback intentionally disabled', { error: why })
+      try {
+        const { notifyTate } = require('./notifyTate')
+        await notifyTate({ body: friendly, channel: 'native', urgency: 'alert' })
+      } catch (e) { /* best effort */ }
+      return { ok: false, via: 'away_conductor', error: why, friendly_surfaced: true }
     } catch (err) {
-      logger.warn('away-conductor branch errored, falling back to VPS Opus CLI', { error: err.message })
+      logger.error('away-conductor branch threw - native escalation aborted', { error: err.message })
+      try {
+        const { notifyTate } = require('./notifyTate')
+        await notifyTate({ body: "hit an unexpected snag reaching my workstation. try again shortly.", channel: 'native', urgency: 'alert' })
+      } catch (e) { /* best effort */ }
+      return { ok: false, via: 'away_conductor', error: err.message }
     }
   }
 
