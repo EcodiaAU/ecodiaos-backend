@@ -280,6 +280,12 @@ async function streamTTSOnly(rawText, { onAudioChunk, shouldAbort } = {}) {
   const emitFramed = (buf) => {
     acc = acc.length ? Buffer.concat([acc, buf]) : Buffer.from(buf)
     while (acc.length >= FRAME_BYTES) {
+      // Check shouldAbort PER FRAME, not just per upstream chunk. OpenAI
+      // returns 1-3 second chunks of audio; the old loop emitted ALL frames
+      // from a chunk in one synchronous burst even after barge_in fired,
+      // sending seconds of audio to iOS that iOS then had to flush. Per-frame
+      // check stops the burst on the very next 100ms boundary.
+      if (shouldAbort && shouldAbort()) { acc = Buffer.alloc(0); return }
       const frame = Buffer.from(acc.subarray(0, FRAME_BYTES))
       acc = acc.subarray(FRAME_BYTES)
       if (onAudioChunk) { try { onAudioChunk(frame) } catch { /* ignore */ } }
