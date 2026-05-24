@@ -238,35 +238,15 @@ app.post('/message', async (req, res) => {
     return r
   })
 
-  // Case resolution + thread_log append. Single writer per state transition:
-  // the away-conductor owns the case from markWorking -> resolveCase. If
-  // <REPLY> was not extracted (defect or truncated output), mark blocked so
-  // next connect surfaces it for retry. Best-effort: any failure here does NOT
-  // block the response to the caller - voice/headless still hear back.
-  // Per spec one-brain-stateful-coordination-2026-05-21 §3.4 + §7.3.
-  if (case_id) {
-    const cf = getCaseFile()
-    const tl = getThreadLog()
-    if (cf) {
-      try {
-        if (result.ok && result.reply) {
-          await cf.resolveCase(case_id, { result: result.reply })
-          if (tl) {
-            await tl.appendThreadLog({
-              channel: 'away', role: 'ecodia', body: result.reply,
-              case_id, voice_call_id: voice_call_id || null,
-              thread_id: thread_id || 'tate',
-            })
-          }
-        } else {
-          const reason = result.ok ? 'no_reply_extracted' : `away_error: ${result.error || `exit_${result.exit_code}`}`
-          await cf.markBlocked(case_id, { reason })
-        }
-      } catch (err) {
-        log(`case-resolve failed (non-fatal) case=${case_id} err=${err.message}`)
-      }
-    }
-  }
+  // Case resolution moved to VPS-side (voiceCallService.fireHandoff). The
+  // away-conductor is PURE: receive request, run claude, return <REPLY>. No
+  // DB ops on Corazon. Reason: case_files.js and thread_log.js transitively
+  // require config/env which process.exit(1)s on missing DATABASE_URL etc.
+  // The env isn't set in Corazon's away-conductor startup, and setting it
+  // would just duplicate VPS state. Single writer per state transition lives
+  // on the VPS where the env is already present.
+  // Removed 2026-05-24 after diagnosing mid-turn server crashes that killed
+  // in-flight voice handoffs (~1m into claude --print on first case_id call).
 
   // Optionally deliver the reply straight from Corazon via APNs (VPS becomes
   // pure transport). reply_via omitted -> just return the reply to the caller.

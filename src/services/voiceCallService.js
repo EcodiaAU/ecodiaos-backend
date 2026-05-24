@@ -571,6 +571,20 @@ function handleConnection(ws, { onClose } = {}) {
         triageReason: 'voice handoff',
       })
       const reply = r && r.ok && r.reply ? r.reply.trim() : null
+      // Case resolution lives HERE on the VPS (single writer per state).
+      // The away-conductor used to do this but its host doesn't have the env
+      // for config/db, so the requires process.exit'd mid-turn. VPS has env.
+      if (reply && caseId) {
+        try {
+          await cf.resolveCase(caseId, { result: reply })
+          await tl.appendThreadLog({
+            channel: 'away', role: 'ecodia', body: reply,
+            case_id: caseId, voice_call_id: voiceCallId, thread_id: 'tate',
+          })
+        } catch (resolveErr) {
+          logger.warn('[voiceCall] case resolve/log failed (non-fatal)', { error: resolveErr.message, case_id: caseId })
+        }
+      }
       if (!reply) {
         const why = (r && r.error) || (r && r.status ? `http_${r.status}` : 'no_reply')
         logger.warn('[voiceCall] handoff returned no reply', { status: r && r.status, error: why, case_id: caseId })
