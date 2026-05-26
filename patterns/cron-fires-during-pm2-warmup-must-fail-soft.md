@@ -68,7 +68,7 @@ Stamp: fork_mopny871_37bdaf, 3 May 2026 21:00 AEST. Audit input: `~/ecodiaos/dra
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` - sibling. Covers the inverse case (don't restart while Factory queue is active); together they form the "PM2 restart hygiene" pair: don't restart during outbound work, AND tolerate cron fires during inbound warmup.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` - sibling. Covers the inverse case (don't restart while Factory queue is active); together they form the "PM2 restart hygiene" pair: don't restart during outbound work, AND tolerate cron fires during inbound warmup.
 - `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` - upstream cause. If this pattern is followed (no scheduled self-restart), the only PM2 restarts are ad-hoc deploys and manual recovery, both of which are short windows. The 30-second grace is calibrated to those short windows.
 - `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md` - downstream consequence. A warmup-collided cron with an unconditional deliverable will ALSO trigger silent-fire detection. The classifier should suppress the silent-fire P1 if the cron's last_run_at is inside a known warmup window.
 - `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md` - sibling classifier rule. Same family of detector logic; both rules feed the cron-silent-fire-detector's verdict pipeline.

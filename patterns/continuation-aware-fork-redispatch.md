@@ -114,7 +114,7 @@ Codified by fork_mok57rx9_308d21 at 24:19 AEST 30 Apr 2026.
 ## Cross-references
 
 - `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md` - sibling pattern for pm2_restart-killed Factory sessions; same root rule different substrate (cc_sessions metadata vs git branch).
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` - filesystem is the source of truth for code state, not the metadata table.
+- `~/ecodiaos/patterns/_archived/factory-metadata-trust-filesystem.md` - filesystem is the source of truth for code state, not the metadata table.
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - narration is unreliable; probe before propagating.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the meta-rule; continuation-aware redispatch is one specific seam-failure recovery protocol.
 - `~/ecodiaos/patterns/parallel-forks-must-claim-numbered-resources-before-commit.md` - companion rule for when the redispatch needs the next number after the prior fork's commit.

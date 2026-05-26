@@ -37,7 +37,7 @@ The ecodia-api restart loop of 1 May 2026 (9 restarts overnight) was caused by e
 - For one-off "restart in N minutes after I do X" cases: use `at` from `shell_exec` once, never `schedule_delayed`. Example: `shell_exec 'echo "pm2 restart ecodia-api" | at now + 15 minutes'`.
 - For interactive restarts where you want the new session to pick up where you left off: pre-stage briefs in kv_store per `pre-stage-fork-briefs-before-session-killing-ops.md`, save handoff state, then issue `pm2_restart` directly from the live conductor session (not via the scheduler).
 - Audit `os_scheduled_tasks` regularly for any row whose `prompt` or `task` field contains `pm2 restart ecodia-api`, `pm2_restart('ecodia-api')`, `mcp__vps__pm2_restart`, or wrapper script names that include a restart. Cancel them and re-schedule out-of-band.
-- When killing the api in any way (deploy, patch, manual restart) check `mcp__factory__get_factory_status` AND `mcp__forks__list_forks` first - per `no-pm2-restart-during-active-factory-queue.md`. Out-of-band scheduling does not fix the in-flight-fork orphan problem; it only fixes the self-kill of the conductor that scheduled the task.
+- When killing the api in any way (deploy, patch, manual restart) check `mcp__factory__get_factory_status` AND `mcp__forks__list_forks` first - per `_archived/no-pm2-restart-during-active-factory-queue.md`. Out-of-band scheduling does not fix the in-flight-fork orphan problem; it only fixes the self-kill of the conductor that scheduled the task.
 
 ## Do not
 
@@ -75,7 +75,7 @@ Stamped: fork_momsy3wu_28b87b, 1 May 2026 21:00 AEST codification scan.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` - the manual-restart sibling rule. Check Factory queue before any pm2_restart, scheduled or interactive.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` - the manual-restart sibling rule. Check Factory queue before any pm2_restart, scheduled or interactive.
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - the right-way-to-restart-interactively rule. Pre-stage briefs, save handoff, then kill from the live session.
 - `~/ecodiaos/patterns/grace-timer-must-not-kill-chat-session.md` - the sibling rule for in-process timers that should not tear down their host. Same architectural class: a thing inside the api should not kill the api by default.
 - `~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md` - sibling rule for cron-fired redispatches. Cron-fired pm2_restart shares the failure-class of cron-fired redispatch (fires after world has moved on), but this rule is stricter: never schedule the kill at all, regardless of freshness.

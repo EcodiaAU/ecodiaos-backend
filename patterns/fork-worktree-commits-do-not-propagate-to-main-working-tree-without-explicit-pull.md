@@ -37,7 +37,7 @@ The conductor can ALWAYS distinguish "file genuinely missing" from "working tree
 
 If 1 fails AND 2 is empty AND 3 returns a blob, the working tree is stale. The fix is `git pull`, not re-authoring the file.
 
-If 1 fails AND 3 is also empty, the file genuinely does not exist on `main` and the narration that claimed it was shipped is wrong (separate failure mode — see `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` and `~/ecodiaos/patterns/factory-phantom-session-no-commit.md`).
+If 1 fails AND 3 is also empty, the file genuinely does not exist on `main` and the narration that claimed it was shipped is wrong (separate failure mode — see `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` and `~/ecodiaos/patterns/_archived/factory-phantom-session-no-commit.md`).
 
 ## The fix protocols
 
@@ -103,6 +103,6 @@ Same root cause as the 01:40 AEST `failureClassifier.js` not-on-disk failure ear
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule (narration is unreliable evidence; probe ground-truth substrate).
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` — the operational six-substrate probe checklist; this pattern is the git-ref-vs-working-tree instance of that checklist.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — architectural framing.
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` — companion: don't trust the session's reported `filesChanged`, probe the filesystem.
+- `~/ecodiaos/patterns/_archived/factory-metadata-trust-filesystem.md` — companion: don't trust the session's reported `filesChanged`, probe the filesystem.
 - `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md` — when the working tree has foreign uncommitted state.
 - `~/ecodiaos/patterns/sdk-forks-must-commit-deliverables-not-leave-untracked.md` — the sibling rule that authored work must be committed, not left as untracked working-tree state.

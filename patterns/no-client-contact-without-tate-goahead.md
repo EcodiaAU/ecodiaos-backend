@@ -69,4 +69,4 @@ If a future evolution adds a new outbound channel (Slack, Zernio DM, Bitbucket c
 - `never-contact-eugene-directly.md` - the predecessor, Eugene-specific, still accurate, this file supersedes it in scope.
 - `~/CLAUDE.md` "Client Communication" block currently tells me how to write as Ecodia. That block assumes I've been authorised to write. This pattern sits upstream of it.
 - `~/CLAUDE.md` "Decision Authority" block's "Act immediately (no confirmation needed): Respond to client emails" - that line is OUT OF DATE as of 2026-04-22. Update on next CLAUDE.md reflection pass.
-- `factory-phantom-session-no-commit.md` Mode 3 applies here: session 218ff29d had `cc_sessions.commit_sha=NULL` but delivered real work subsumed into e334c91. Reconciliation protocol used (manual UPDATE cc_sessions).
+- `_archived/factory-phantom-session-no-commit.md` Mode 3 applies here: session 218ff29d had `cc_sessions.commit_sha=NULL` but delivered real work subsumed into e334c91. Reconciliation protocol used (manual UPDATE cc_sessions).

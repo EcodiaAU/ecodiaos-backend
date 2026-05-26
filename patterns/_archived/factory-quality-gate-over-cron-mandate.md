@@ -1,5 +1,8 @@
 ---
 triggers: parallel-builder, factory-dispatch, always-have-work-queued, dispatch-quality-gate, speculative-factory, mediocre-dispatch, idle-factory, cron-mandate, quantity-vs-quality, factory-slot, no-slot-to-fill
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-worktree-hygiene-2026-05-26.md
 ---
 
 # Factory dispatch quality gate supersedes cron mandate to dispatch

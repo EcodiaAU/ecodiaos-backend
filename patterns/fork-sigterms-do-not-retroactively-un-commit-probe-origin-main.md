@@ -52,7 +52,7 @@ The most common sequence: fork writes code → runs `git commit` → runs `git p
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` — trust disk/git over reported metadata
+- `~/ecodiaos/patterns/_archived/factory-metadata-trust-filesystem.md` — trust disk/git over reported metadata
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` — reconcile disk vs narration
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — verify before asserting state
 - `~/ecodiaos/patterns/fork-recovery-must-probe-deliverables-not-just-flip-status.md` — probe deliverables first

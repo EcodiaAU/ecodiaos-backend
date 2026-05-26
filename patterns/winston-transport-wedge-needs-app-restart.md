@@ -23,7 +23,7 @@ If three or more independently-configured transports go silent at the same bound
 - After confirming the multi-substrate signature, schedule `pm2 reload ecodia-api` (graceful; recreates winston state on the new process) via `systemd-run --user --on-active=N <abs-path>/pm2 reload ecodia-api`. The user systemd manager survives the api reload, so the timer fires correctly.
 - Use `systemd-run --user` not a detached child of the api process — children of a wedged api die when reload kills the parent before sleep completes.
 - Use the **absolute path** to pm2 (`/home/tate/.nvm/versions/node/<v>/bin/pm2`). Per `~/ecodiaos/patterns/systemd-run-user-transient-no-nvm-path.md`, transient systemd-run units inherit a minimal PATH without nvm.
-- Time the reload window to land after sibling SDK forks have completed (per `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md`) — sibling forks running in-process inside ecodia-api die on reload.
+- Time the reload window to land after sibling SDK forks have completed (per `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md`) — sibling forks running in-process inside ecodia-api die on reload.
 - Update the status_board row tracking the freeze with: timestamp of cutoff, all three transport probes, scheduled reload time, expected post-reload verification recipe.
 - After reload fires, re-`stat` the log file and confirm Modify time advances within 60s; archive the row.
 
@@ -52,7 +52,7 @@ Three-transport-silent + same-line-cutoff = winston wedge. Schedule reload, do n
 
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — winston transports are seams between in-process logger calls and out-of-process substrates (file, DB, PM2 daemon socket). Multi-seam simultaneous failure points at the upstream stream, not the downstream substrate.
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — "log file frozen" is the narrated state; "all three transports frozen at same line" is the disk truth that supersedes assumption.
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` — the reload window must respect in-flight forks; schedule via systemd-run, do not reload immediately.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` — the reload window must respect in-flight forks; schedule via systemd-run, do not reload immediately.
 - `~/ecodiaos/patterns/systemd-run-user-transient-no-nvm-path.md` — absolute pm2 path required.
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` — same family of restart-coordination doctrine.
 - `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — winston transports are a 3-layer pipeline (logger.info call → transport.log → write end-substrate); same end-to-end verification discipline applies.

@@ -1,5 +1,8 @@
 ---
 triggers: factory-dispatch, factory-rejection, files_changed-empty, taskDiffAlignment-overlap-zero, factory-worktree-branch, factory-dispatcher-substrate, ecodiaos-backend, factory-false-negative, dispatched-branch-vs-checked-out-branch
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Factory diff review compares against the worktree's currently-checked-out branch, not the dispatched branch's base

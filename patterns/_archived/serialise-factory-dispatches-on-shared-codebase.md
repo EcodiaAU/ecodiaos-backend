@@ -1,5 +1,8 @@
 ---
 triggers: factory-dispatch, start_cc_session, parallel-factory, concurrent-factory, worktree-collision, factory-phantom-session, ecodiaos-backend, shared-codebase, dispatch-ordering, get_factory_status, serialise-dispatch
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-worktree-hygiene-2026-05-26.md
 ---
 
 # Serialise all Factory dispatches on a shared codebase — concurrent sessions collide via worktree

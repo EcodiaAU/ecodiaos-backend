@@ -69,6 +69,6 @@ Doctrine deferred to a fork that itself caught the false-negative on disk and sh
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` (the meta-rule this is a specialisation of)
 - `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` (the conductor's on-main probe is the trap; a fork's recon would have caught the actual file)
-- `~/ecodiaos/patterns/factory-codebase-staleness-check-before-dispatch.md` (`git pull` + branch verification BEFORE recon — sibling-branch state was a contributing factor)
+- `~/ecodiaos/patterns/_archived/factory-codebase-staleness-check-before-dispatch.md` (`git pull` + branch verification BEFORE recon — sibling-branch state was a contributing factor)
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` (broader narration-vs-truth doctrine)
 - `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` (when multiple absence-claims surface from one recon, the shared upstream cause is "recon was too narrow", not "all those features are absent")

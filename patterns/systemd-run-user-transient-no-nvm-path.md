@@ -85,5 +85,5 @@ Stamped: meta-loop turn 9 May 2026 21:30 AEST.
 - `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` — the rule that mandates out-of-band scheduling. systemd-run is the recommended substrate; this pattern is its operational gotcha.
 - `~/ecodiaos/patterns/dispatcher-fix-on-disk-does-not-equal-fix-in-running-process.md` — the rule that motivates the restart in the first place. Both patterns authored same meta-loop arc 9 May 2026.
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` — pair this with handoff pre-staging since the conductor session itself dies on the eventual successful restart.
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` — re-check Factory queue + forks rollup BEFORE the v2 schedule fires (still applies; v1 fail is unrelated to queue).
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` — re-check Factory queue + forks rollup BEFORE the v2 schedule fires (still applies; v1 fail is unrelated to queue).
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule. v1 was "scheduled" but not "ran"; only the post-fire `systemctl status` exit code reveals which.

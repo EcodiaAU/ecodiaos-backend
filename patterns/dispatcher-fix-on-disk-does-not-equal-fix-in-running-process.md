@@ -34,7 +34,7 @@ Compare `pm_uptime` (last start in epoch ms) to the commit's UTC timestamp from 
 - After any patch to a boot-loaded in-process service, restart `ecodia-api` to load. The patch is dark until you do.
 - Pre-stage handoff per `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` BEFORE the restart so the resumed session knows what to verify.
 - Restart out-of-band per `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`. Use `systemd-run --user --on-active=N`, host crontab, or interactive conductor session — never `os_scheduled_tasks` (self-kill cascade).
-- Audit `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` BEFORE any restart: probe `mcp__factory__get_factory_status` AND `mcp__forks__list_forks`.
+- Audit `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` BEFORE any restart: probe `mcp__factory__get_factory_status` AND `mcp__forks__list_forks`.
 - Verify the load: after pm_uptime > commit timestamp, dispatch a known-shape probe (e.g. spawn a dummy fork that errors out with credit-exhaustion abort_reason and confirm no auto-P1 inserted) before declaring the fix live.
 - Update the status_board row's status to `shipped_loaded` (or similar), distinguishing on-disk-only from running-process-active.
 
@@ -43,7 +43,7 @@ Compare `pm_uptime` (last start in epoch ms) to the commit's UTC timestamp from 
 - Do **not** mark a status_board row `status='shipped'` for a boot-loaded service patch without verifying `pm_uptime > shipped_at`.
 - Do **not** trust that the fix is live because the commit is on `origin/main`. The Vercel-style "deploy = ship" mental model does not apply to ecodia-api in-process services.
 - Do **not** use `schedule_delayed`, `schedule_cron`, or any `os_scheduled_tasks` row body that includes `pm2 restart ecodia-api`. Self-kill cascade per `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`.
-- Do **not** restart while a Factory CLI session is dispatched and unfinished. Per `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md`, drain the queue first or accept the loss with explicit briefing.
+- Do **not** restart while a Factory CLI session is dispatched and unfinished. Per `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md`, drain the queue first or accept the loss with explicit briefing.
 - Do **not** restart while `mcp__forks__list_forks` shows a substantial in-flight fork with multi-tool work pending. Cron telemetry probes are acceptable to lose; substantial fork work is not.
 
 ## What the dispatcher patch lifecycle should look like
@@ -88,7 +88,7 @@ Stamped: meta-loop turn 9 May 2026 21:14 AEST.
 ## Cross-references
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule. Narration is unreliable; probe substrate.
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` — Factory-queue gate before any restart.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` — Factory-queue gate before any restart.
 - `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` — out-of-band scheduling rule.
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` — pre-stage discipline.
 - `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` — the doctrine the inert fix was meant to enforce.

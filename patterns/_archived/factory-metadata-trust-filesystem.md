@@ -1,4 +1,9 @@
+---
 triggers: filesChanged, taskDiffAlignment, review_factory_session, approve_factory_deploy, factory-force-approve, stale-worktree, factory-metadata
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
+---
 
 # Factory metadata can lie - verify on disk before approve
 

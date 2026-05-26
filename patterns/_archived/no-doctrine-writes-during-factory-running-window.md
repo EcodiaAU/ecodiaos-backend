@@ -1,5 +1,8 @@
 ---
 triggers: factory-running, worktree-contamination, diff-baseline, taskDiffAlignment, doctrine-write-during-factory, pattern-write-during-factory, factory-post-dispatch-window
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-worktree-hygiene-2026-05-26.md
 ---
 
 # No doctrine writes to a worktree while Factory is running on it

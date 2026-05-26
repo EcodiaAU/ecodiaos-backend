@@ -18,7 +18,7 @@ Re-dispatching a session whose work is already committed will:
 
 `cleanupOnShutdown` (src/services/factory/oversight code path) marks running/queued cc_sessions as `status='error'` and clears `cc_cli_session_id`, but does NOT touch any commits the session had already pushed before the SIGTERM landed. Long-running Factory sessions commit and push incrementally; a session that was killed at minute 50 of a 60-minute task may already have shipped 80% of its diff.
 
-The cc_sessions row makes the session look failed. The git branch tells the truth. Filesystem is the source of truth for code state, never the metadata table (per `factory-metadata-trust-filesystem.md`).
+The cc_sessions row makes the session look failed. The git branch tells the truth. Filesystem is the source of truth for code state, never the metadata table (per `_archived/factory-metadata-trust-filesystem.md`).
 
 ## Protocol — before any re-dispatch
 
@@ -39,7 +39,7 @@ For each session being considered for re-dispatch:
 4. **Decide:**
    - **All deliverables present + commits authored by Factory in last few hours** -> DO NOT re-dispatch. Force-approve the original session (or directly inspect+merge the branch, then mark the session resolved). Update status_board to "complete - work shipped pre-kill on commit XXXXXX".
    - **Some deliverables present, others missing** -> re-dispatch with a SCOPED prompt that lists only the missing pieces. Pre-pend the prompt with: `IMPORTANT: branch already has commits X, Y, Z. The following files exist already: ... Do not rebuild them. Only create/modify: ...`
-   - **No deliverables present** -> safe to re-dispatch the original brief. cc_cli_session_id will be NULL so resume is unavailable; reject the original session first (per `factory-redirect-before-reject.md`) before dispatching fresh.
+   - **No deliverables present** -> safe to re-dispatch the original brief. cc_cli_session_id will be NULL so resume is unavailable; reject the original session first (per `_archived/factory-redirect-before-reject.md`) before dispatching fresh.
 
 ## Why scoped prompts matter on partial-progress branches
 
@@ -80,7 +80,7 @@ Cost of the missed pattern: ~10 minutes of confused redispatch + two force-appro
 
 ## See also
 
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` (the prevention layer - never restart with active Factory queue)
-- `~/ecodiaos/patterns/factory-redirect-before-reject.md` (cc_cli_session_id NULL gates resume)
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` (filesChanged metadata is unreliable)
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` (the prevention layer - never restart with active Factory queue)
+- `~/ecodiaos/patterns/_archived/factory-redirect-before-reject.md` (cc_cli_session_id NULL gates resume)
+- `~/ecodiaos/patterns/_archived/factory-metadata-trust-filesystem.md` (filesChanged metadata is unreliable)
 - `~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md` (similar pattern for scheduled redispatch tasks)

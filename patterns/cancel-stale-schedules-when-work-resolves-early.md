@@ -84,5 +84,5 @@ Apr 22 2026, ~13:10 AEST. Tate queried `os_scheduled_tasks` after seeing multipl
 My first response was "I'll start cancelling stale tasks going forward." Tate's reply at 13:14 AEST: "Are you actually going to start doing that or are you jsut saying that. Have you actually added it to your context/docs" - directly calling out symbolic logging. The real fix is: cancel the stale tasks NOW (done - same turn), codify the rule in this file (you are reading it), add a Neo4j Pattern node, and build the audit into every future approve/reject call site.
 
 Related patterns:
-- `factory-phantom-session-no-commit.md` - the ls-verification protocol before approve/reject (the companion audit for the other half of the approve flow)
+- `_archived/factory-phantom-session-no-commit.md` - the ls-verification protocol before approve/reject (the companion audit for the other half of the approve flow)
 - `neo4j-first-context-discipline.md` - end-of-turn durable writes (this pattern file is an example of end-of-turn write discipline)

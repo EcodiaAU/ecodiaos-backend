@@ -62,5 +62,5 @@ Fix shipped 4 May 2026 (fork_mor03y5f_41b5f9): all 11 entries moved to `HIGH_PRI
 - `~/ecodiaos/patterns/deploy-verify-or-the-fork-didnt-finish.md` — same discipline at the fork-deploy boundary; applies to the cron→fork→side-effect chain.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — `os_scheduled_tasks` ↔ PM2 ecodia-api ↔ os_forks is the fragile seam.
 - `~/ecodiaos/patterns/substrate-before-doer.md` — this fix is substrate (router) before doer (cron prompts). The prompts didn't change; the routing did. Recurring cron-pollutes-chat is solved at the substrate layer, not by rewriting individual prompts.
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` — apply when shipping this fix: only PM2-restart `ecodia-api` to pick up the new classifier when no fork queue is active.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` — apply when shipping this fix: only PM2-restart `ecodia-api` to pick up the new classifier when no fork queue is active.
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — this file authored same turn Tate stated the rule.

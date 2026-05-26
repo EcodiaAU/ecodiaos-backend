@@ -1,5 +1,8 @@
 ---
 triggers: factory-low-confidence, factory-confidence-0.4, factory-critical-path-audit, kv_store-accessor, sessionHandoff, mock-vs-production, test-mock-hides-bug, jsonb-vs-text, postgres-type-mismatch, second-attempt-fix, cold-start-recovery, factory-quality-gate, factory-audit-window
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Audit low-confidence Factory commits within 24h on critical-path files

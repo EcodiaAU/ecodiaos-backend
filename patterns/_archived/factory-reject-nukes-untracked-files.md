@@ -1,5 +1,8 @@
 ---
 triggers: reject_factory_session, factory-reject, untracked-files, git-reset, worktree-clean, untracked-loss, dirty-worktree-dispatch, pre-dispatch-commit, factory-cleanup, factory-untracked-deleted
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-worktree-hygiene-2026-05-26.md
 ---
 
 # Always commit pre-existing untracked files BEFORE dispatching Factory

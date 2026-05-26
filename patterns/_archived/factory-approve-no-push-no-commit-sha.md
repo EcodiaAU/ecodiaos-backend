@@ -1,5 +1,8 @@
 ---
 triggers: approve-factory-deploy, approve_factory_deploy, commit_sha, deploy_status, factory-no-push, origin-drift, cc_sessions, manual-reconcile, factory-state-drift, approve-pipeline-bug
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Factory approve returns success but does not push or populate commit_sha

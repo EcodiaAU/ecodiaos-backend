@@ -104,7 +104,7 @@ Note: PR #44 (merged 01:48 AEST 1 May 2026) was the LAST instance of the old bra
 
 - `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` — the on-main vs fork choice; this rule is downstream (once a fork is shipping, how it ships).
 - `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` — the working-tree contention problem branches don't solve.
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` — sibling discipline at the Factory layer; same outcome (commit SHA on origin) reached without PR ceremony.
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` — sibling discipline at the Factory layer; same outcome (commit SHA on origin) reached without PR ceremony.
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — the PR ceremony was symbolic when no review happens; this rule strips the symbol.
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — the meta-rule that triggered this file's authoring.
 - `~/ecodiaos/patterns/client-push-pre-submission-pipeline.md` — the OPPOSITE rule for client repos (branch + PR + reviewer-persona is mandatory there).

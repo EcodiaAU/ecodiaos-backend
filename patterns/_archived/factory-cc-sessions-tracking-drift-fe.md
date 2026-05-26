@@ -1,5 +1,8 @@
 ---
 triggers: cc_sessions, tracking-drift, factory-fe, factory-frontend, files_changed-empty, confidence-misleading, factory-review, [redacted]-fe, coexist-fe, fe-worktree, phantom-vs-real, dispatcher-hard-gate, factory-attribution
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # cc_sessions tracking drift on Factory FE dispatches — confidence + files_changed are unreliable. Inspect the worktree.
@@ -40,3 +43,9 @@ Apr 27 2026. Reviewing [redacted] Cognito follow-up dispatches `df377081` (BE) +
 Fork `mogzk70n` audited prior "FE phantoms" (XML `19229e36`, UI-lag `3d78a398`) and confirmed the same signature — work landed, tracking lost attribution. This downgrades the urgency of the previously-stated dispatcher hard-gate work (Decision 2985), since the failure mode is post-run attribution loss inside cc_sessions writes, not pre-run codebase staleness causing phantom dispatches.
 
 Paired patterns: `factory-phantom-session-no-commit.md` (genuine phantom mode where commit_sha is null), `factory-codebase-staleness-check-before-dispatch.md`, `factory-approve-no-push-no-commit-sha.md`.
+
+
+## Cross-refs
+
+- [[factory-approve-no-push-no-commit-sha]]
+- [[factory-worktree-branch-substrate-bug]]

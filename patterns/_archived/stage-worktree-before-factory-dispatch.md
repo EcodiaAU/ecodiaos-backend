@@ -1,4 +1,9 @@
+---
 triggers: factory-dispatch, worktree-contamination, taskDiffAlignment, alignment-flagged, force-approve, phantom-files, uncommitted-drafts, pre-dispatch-hygiene, factory-snapshot, alignment-overlap, low-overlap-score, factory-baseline, dirty-worktree, start_cc_session, drafts-pollution
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-worktree-hygiene-2026-05-26.md
+---
 
 # Stage or commit drafts BEFORE dispatching Factory
 

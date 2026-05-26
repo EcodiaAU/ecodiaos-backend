@@ -54,7 +54,7 @@ The protocol cost is 30-90 seconds. The cost of skipping it is split-brain on a 
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the parent meta-rule (narration unreliable, six-substrate probe). This file specialises that rule for multi-phase migrations.
 - `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` - the related git-ref-vs-working-tree drift instance (commit SHA exists on origin, working-tree on VPS does not have it).
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` - sibling at the Factory layer (approve without commit SHA = phantom approval).
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` - sibling at the Factory layer (approve without commit SHA = phantom approval).
 - `~/ecodiaos/patterns/verify-empirically-not-by-log-tail.md` - the listener/process variant (process running per logs, listener silently not loaded).
 - `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - the 5-layer end-to-end verification for listener subsystems; same shape rule applied to a different surface.
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` - this file is itself an instance (rule stated 8 May 2026 21:43 AEST, codified same arc).

@@ -161,7 +161,7 @@ Stamped: fork_mp1xbay8_19c59d.
 ## Cross-references
 
 - `~/ecodiaos/src/services/conductedRestart.js` - the chokepoint service (Node.js module + HTTP endpoint)
-- `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md` - sibling rule: check Factory queue before any restart
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` - sibling rule: check Factory queue before any restart
 - `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` - sibling rule: never schedule via os_scheduled_tasks
 - `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - right way to restart: pre-stage briefs first
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the architectural meta-frame

@@ -90,7 +90,7 @@ This pattern was authored at the moment per `codify-at-the-moment-a-rule-is-stat
 - `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` — the redispatch-side sibling rule (what the conductor does AFTER a fork is classified as lost). This pattern is the upstream half: how the classifier itself must work.
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule. The bug here IS narration (`status='crashed'`) drifting from disk reality (commit on origin/main).
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — the existing recovery's [SYSTEM:] message saying "go check yourself" was symbolic; the probe must be IN the recovery.
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` — sibling discipline at the Factory layer; same principle (work without push is not deliverable).
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` — sibling discipline at the Factory layer; same principle (work without push is not deliverable).
 - `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md` — sibling: before redispatching a killed Factory session, check the branch tip for commits the session landed before it died.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — the architectural framing: `os_forks.status` and `git log` are two substrates and the seam between them needs an explicit consistency protocol.
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — the meta-rule that triggered this file's authoring.

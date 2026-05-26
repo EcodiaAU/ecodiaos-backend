@@ -151,9 +151,9 @@ Codified by fork_mok57rx9_308d21 at 24:19 AEST 30 Apr 2026.
 
 - `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` - sibling pattern for the substrate-already-shipped case (this pattern handles the dirty-tree case; that pattern handles the committed-but-interrupted case).
 - `~/ecodiaos/patterns/parallel-forks-must-claim-numbered-resources-before-commit.md` - related concern when sibling forks may have written numbered resources mid-flight.
-- `~/ecodiaos/patterns/factory-reject-nukes-untracked-files.md` - parallel rule for the Factory case; reject_factory_session destroys untracked files. Stash-first is the protective pattern in both cases.
+- `~/ecodiaos/patterns/_archived/factory-reject-nukes-untracked-files.md` - parallel rule for the Factory case; reject_factory_session destroys untracked files. Stash-first is the protective pattern in both cases.
 - `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md` - related pattern: check committed work on the branch before redispatch. This pattern covers the uncommitted-work case the same applies for committed work.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the meta-rule; uncommitted sibling-fork state on a shared branch is one specific seam.
-- `~/ecodiaos/patterns/stage-worktree-before-factory-dispatch.md` - prevention layer; clean baselines before dispatch reduce the frequency of this pattern firing.
+- `~/ecodiaos/patterns/_archived/stage-worktree-before-factory-dispatch.md` - prevention layer; clean baselines before dispatch reduce the frequency of this pattern firing.
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - "the stash worked" without writing the pattern is symbolic; this file is the act.
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` - the meta-rule that triggered this file's authoring.

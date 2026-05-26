@@ -14,7 +14,7 @@ This is the META-RULE. It subsumes:
 
 - `~/ecodiaos/patterns/forks-self-assessment-is-input-not-substitute.md` (a fork's "I shipped X" report is INPUT, not ground truth)
 - `~/ecodiaos/patterns/visual-verify-is-the-merge-gate-not-tate-review.md` (the visual smoke test gates merge, Tate reviewing later does not)
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` (approve without commit_sha is phantom approval)
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` (approve without commit_sha is phantom approval)
 - `~/ecodiaos/patterns/verify-empirically-not-by-log-tail.md` (log tail is not empirical evidence)
 
 When in doubt: read the parent rule (this file) for WHY, then the child rule for WHICH probe.
@@ -76,11 +76,11 @@ Companion file: `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` - the six-substrate probe checklist (operational sibling).
 - `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` - when 3+ surface failures show the same shape, treat as ONE failure with a shared upstream cause.
 - `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` - the git-ref-vs-working-tree instance.
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` - phantom approval instance.
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` - phantom approval instance.
 - `~/ecodiaos/patterns/shipped-infra-never-activated-decision-vs-disk-drift.md` - the multi-phase-migration specialisation: a Decision claiming "shipped" for a multi-phase ship where only Phase 1 landed. Second-strike codification 8 May 2026 (Phase-D hooks 30 Apr + conductor-sibling 8 May).
 
 ## 7. Origin
 
-29 Apr 2026 10:24 AEST. Tate verbatim: "You didnt visually verify the website bro........... thats NOT acceptable, learn from it" (EcodiaSite v2 ship-without-verify). Same day: kv_store query for `newsletter.qoo.edition_003` returned `[]` after fork report claimed the write succeeded. Same day: status_board sweep claimed 5 rows archived but two retained stale "blocked"/"rejected" context. Three independent drift catches in one day made this the meta-rule that subsumes `forks-self-assessment-is-input-not-substitute.md`, `visual-verify-is-the-merge-gate-not-tate-review.md`, `factory-approve-no-push-no-commit-sha.md`, and `verify-empirically-not-by-log-tail.md`.
+29 Apr 2026 10:24 AEST. Tate verbatim: "You didnt visually verify the website bro........... thats NOT acceptable, learn from it" (EcodiaSite v2 ship-without-verify). Same day: kv_store query for `newsletter.qoo.edition_003` returned `[]` after fork report claimed the write succeeded. Same day: status_board sweep claimed 5 rows archived but two retained stale "blocked"/"rejected" context. Three independent drift catches in one day made this the meta-rule that subsumes `forks-self-assessment-is-input-not-substitute.md`, `visual-verify-is-the-merge-gate-not-tate-review.md`, `_archived/factory-approve-no-push-no-commit-sha.md`, and `verify-empirically-not-by-log-tail.md`.
 
 Authored on disk by fork_mol5vy5w_250614 on 30 Apr 2026 evening as part of ambient-OS cleanup-night Wave-1 ship pass. The pattern had been narrated and cross-referenced from CLAUDE.md but the file did not exist on disk - which was itself an instance of the rule it documents.

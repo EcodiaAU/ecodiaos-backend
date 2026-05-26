@@ -68,9 +68,9 @@ The combined event is the canonical demonstration of why uncommitted-on-disk is 
 ## Cross-references
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule. This file is the SDK-fork instance of that meta-rule. The meta-rule says "narration drifts from reality, probe both"; this rule says "the probe must distinguish three states, not two."
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` — the Factory-CLI sibling rule. SDK forks have the same failure mode but with different mechanics (no PR, no commit-or-revert default, just direct working-tree mutation).
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` — the Factory analogue for the post-completion verify gap.
-- `~/ecodiaos/patterns/factory-phantom-session-no-commit.md` — same Factory analogue, different angle.
+- `~/ecodiaos/patterns/_archived/factory-metadata-trust-filesystem.md` — the Factory-CLI sibling rule. SDK forks have the same failure mode but with different mechanics (no PR, no commit-or-revert default, just direct working-tree mutation).
+- `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` — the Factory analogue for the post-completion verify gap.
+- `~/ecodiaos/patterns/_archived/factory-phantom-session-no-commit.md` — same Factory analogue, different angle.
 - `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md` — the sibling rule for the fork that finds untracked sibling work; explains why blanket `git add -A` is wrong AND why blanket `git clean` is wrong.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — the architectural meta-frame. State stores (Neo4j, status_board, kv_store) and the git tree are two of ~10 substrates EcodiaOS state lives in. Fork-shipped-but-uncommitted is exactly the seam-write inconsistency this rule catalogues.
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — uncommitted-but-narrated-as-shipped IS symbolic logging at the state-store layer.

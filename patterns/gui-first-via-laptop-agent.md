@@ -58,7 +58,7 @@ The pattern surfaces whenever the actual ground-truth lives in a system Tate has
 
 - `doctrine-corpus-is-for-evolution-weekly-synthesis.md` - the broader rule that doctrine without action is wasted.
 - `verify-before-asserting-in-durable-memory.md` - applied here as "verify the agent is up before claiming GUI access".
-- `factory-quality-gate-over-cron-mandate.md` - "always have Factory busy" was the wrong framing; "use the right tool for the answer-shape" is the right framing.
+- `_archived/factory-quality-gate-over-cron-mandate.md` - "always have Factory busy" was the wrong framing; "use the right tool for the answer-shape" is the right framing.
 
 ## Origin
 

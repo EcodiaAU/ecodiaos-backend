@@ -224,7 +224,7 @@ Downtime window: ~5-10 minutes. Inbound webhook retries will fire (gmail-push an
 - [[feedback-vps-does-not-need-doctrine-corpus]] - the auto-memory rule that triggered this fuller investigation.
 - [[laptop-agent-api-tool-route-shape-2026-05-19]] - cowork.dispatch_worker primitive details.
 - [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]] - the doctrine that supersedes Factory + Rescue.
-- [[factory-dispatch-drifts-to-self-mod-on-readonly-diagnostic-2026-05-19]] - why Factory was bad even before Tier 1.
+- [[_archived/factory-dispatch-drifts-to-self-mod-on-readonly-diagnostic-2026-05-19]] - why Factory was bad even before Tier 1.
 - [[cowork-scope-cannot-update-entity_type-infrastructure-2026-05-19]] - related scope-asymmetry findings.
 - [[destructive-tear-down-requires-tate-gate-per-step-2026-05-15]] - the gate doctrine I followed (per-tier Tate sign-off).
 - [[recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18]] - the substrate-driven approach that produced this pattern.

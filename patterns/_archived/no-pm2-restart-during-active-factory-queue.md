@@ -1,5 +1,8 @@
 ---
 triggers: pm2-restart, ecodia-api, factory-queue, cleanup-on-shutdown, listener-subsystem-deploy, infrastructure-restart, factory-session-killed
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Never PM2-restart ecodia-api while Factory sessions are running or queued

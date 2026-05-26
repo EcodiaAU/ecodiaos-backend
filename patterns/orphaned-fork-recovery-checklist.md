@@ -51,7 +51,7 @@ When `[FORK_REPORT] no_report_emitted=true` arrives:
 - `~/ecodiaos/patterns/fork-recovery-must-probe-deliverables-not-just-flip-status.md` - sister rule: classifies fork status from substrate state, not narrated state. This pattern is the procedural counterpart.
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - parent doctrine: narration-vs-disk reconciliation is the universal anti-drift discipline.
 - `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` - applies in REVERSE here: the conductor already has the recon from substrate probes; forking the recovery would force a fresh fork to redo all probes.
-- `~/ecodiaos/patterns/factory-reject-nukes-untracked-files.md` - related: untracked files can be nuked by reject paths; surgical staging avoids this risk on recovery.
+- `~/ecodiaos/patterns/_archived/factory-reject-nukes-untracked-files.md` - related: untracked files can be nuked by reject paths; surgical staging avoids this risk on recovery.
 
 ## Origin
 

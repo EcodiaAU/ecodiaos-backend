@@ -1,5 +1,8 @@
 ---
 triggers: factory-dispatch-drift, factory-readonly-diagnostic-fails, factory-off-task, factory-confidence-0.49, factory-zero-files-changed, factory-watchdog-touch-only, factory-task-diff-alignment-flagged, factory-empty-files-changed, factory-diagnostic-no-deliverable, factory-self-mod-bias, factory-write-only-bias, factory-three-worker-test-2026-05-19, factory-vs-cowork-dispatch, when-to-not-use-factory, factory-anti-pattern-readonly, factory-rejects-readonly-prompt
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Factory dispatches drift off-task on read-only diagnostic prompts (2026-05-19)

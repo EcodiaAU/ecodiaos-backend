@@ -1,5 +1,8 @@
 ---
 triggers: factory-dispatch, cc-session, approve_factory_deploy, factory-phantom-session, files-changed-empty, commit-sha-null, deploy-status-deployed, ecodiaos-backend, worktree-drift, deliverable-verification
+archived_at: 2026-05-26
+archived_reason: factory-substrate-deprecated-2026-05-17
+superseded_by: backend/CLAUDE.md-deprecations-table-2026-05-17
 ---
 
 # Factory phantom sessions: never trust filesChanged or deploy_status without verifying the file on disk
