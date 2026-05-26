@@ -63,7 +63,7 @@ After extending an existing cron:
 
 Parallel-builder fired at 04:15 AEST into a cold-idle Factory state. The reflexive move would have been to dispatch a fluff Factory session to build a redundant "completion-row archiver" - violating queueing-is-not-a-verb, building a second cron that fights the existing one.
 
-Instead: pattern-grep surfaced `status-board-drift-prevention.md` which named the existing reconciliation cron as the enforcement layer. The 5-day `last_touched` filter was the gap (completion-row drift can happen WITHIN the fresh window when a Factory session ships and the row is never archived). The 4th-instance pattern combined with the named enforcement layer made the diagnostic obvious: extend, don't build.
+Instead: pattern-grep surfaced `_archived/status-board-drift-prevention.md` which named the existing reconciliation cron as the enforcement layer. The 5-day `last_touched` filter was the gap (completion-row drift can happen WITHIN the fresh window when a Factory session ships and the row is never archived). The 4th-instance pattern combined with the named enforcement layer made the diagnostic obvious: extend, don't build.
 
 Shipped: 1-paragraph step 1.5 extension to the cron prompt at 04:18 AEST. Step 1.5 dual-tests `(status ILIKE completion-pattern)` AND `(next_action ILIKE non-actionable like 'monitor'/'watch'/'observe')` before archiving fresh-window rows, preserving rows where work has shipped but follow-up genuinely remains. Per-row UPDATE discipline preserved per the no-CASE-WHEN doctrine. Logged to `ceo.last_parallel_build`. Neo4j Episode 3227 + Pattern 3228 mirror the doctrine.
 

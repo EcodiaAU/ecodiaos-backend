@@ -39,7 +39,7 @@ Same audit caught 5 unrelated rows (`651ae5a5` NRM Mat Hardy, `6b9161e1` NSW LLS
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/status-board-drift-prevention.md` (parent doctrine — audit ruthlessly, archive aggressively, probe ground truth)
+- `~/ecodiaos/patterns/_archived/status-board-drift-prevention.md` (parent doctrine — audit ruthlessly, archive aggressively, probe ground truth)
 - `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (Phase 2 mechanic — slice-query first to surface clusters)
 - `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md` (per-row writes only, never multi-row CASE WHEN)
 - `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md` (when the meta-loop fork executes the audit)

@@ -1,4 +1,9 @@
+---
 triggers: status_board-drift, status_board-stale, status-rot, status-audit, status_board-duplicate-row, status_board-completed-row, archived_at, last_touched, source-of-truth-drift, status_board-prevention
+archived_at: 2026-05-26
+archived_reason: drift-prevention-modes-folded-into-canonical-2026-05-26
+nuance_transferred_to: status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md
+---
 
 # Status board drift prevention — audit ruthlessly, archive aggressively, probe ground truth
 

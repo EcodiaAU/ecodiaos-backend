@@ -75,5 +75,5 @@ Forced re-query with the slice template. Slice answered the actual audit questio
 ## Cross-references
 
 - Parent pattern this is the technique for: `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`.
-- Original drift doctrine: `~/ecodiaos/patterns/status-board-drift-prevention.md`.
+- Original drift doctrine: `~/ecodiaos/patterns/_archived/status-board-drift-prevention.md`.
 - Related at-scale audit discipline: `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (the slice surfaces the work; the writes are the artefact), `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md` (one statement per row when writing back).

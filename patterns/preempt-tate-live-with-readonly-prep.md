@@ -43,6 +43,6 @@ Row `6cbabaab` manual journal: next_action said "Ask Tate when he is back, or di
 
 ## Related
 
-- `~/ecodiaos/patterns/status-board-drift-prevention.md` - drift audit protocol that surfaces these rows
+- `~/ecodiaos/patterns/_archived/status-board-drift-prevention.md` - drift audit protocol that surfaces these rows
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - act, don't just note
 - `~/CLAUDE.md` section "Proactivity Mandate" - default-to-action parent doctrine
