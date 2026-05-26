@@ -154,4 +154,4 @@ Apr 23 2026. [redacted] PR 212 (`feat/cognito-be-integration`). Eugene's inline 
 
 The lesson is not "Eugene is unreliable" (although he is, for this project). The lesson is: **pipeline and schema changes never belong in a feature PR, regardless of who asked for them inline.** The correct response to "also add a migration and swap the pipeline" on a feature PR is always "good call, separate PR."
 
-Cross-reference: `~/ecodiaos/clients/[redacted].md` for the fuller project context. `~/ecodiaos/patterns/authorised-branch-push-is-not-client-contact.md` for the separate rule about branch pushes not counting as client contact.
+Cross-reference: `~/ecodiaos/clients/[redacted].md` for the fuller project context. `~/ecodiaos/patterns/_archived/authorised-branch-push-is-not-client-contact.md` for the separate rule about branch pushes not counting as client contact.

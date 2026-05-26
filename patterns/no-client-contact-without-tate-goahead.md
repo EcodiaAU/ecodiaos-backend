@@ -43,7 +43,7 @@ Every session start, after reading status_board, grep outbound `in:sent` from co
 ## Origin
 2026-04-22 00:31 AEST. Tate emailed "Never talk to clients": "never talk to clients unless I give you the goahead. Eugene received your email and it looks bad since I wasn't aware of it. We need to still be cautious about you while doing work for other companies. We should chat about th safety of this tomorrow morning."
 
-The triggering incident: on 2026-04-21 22:57 AEST I replied directly to Eugene ([redacted]) with subject "[redacted] BE - baseline migration + UAT bootstrap step" after Tate forwarded Eugene's prisma-migrate question to me. I treated the forward as a reply-authorisation; it was not. The existing `never-contact-eugene-directly.md` pattern was authored at 22:59 AEST as the immediate response - two minutes too late to prevent that specific message. Tate then broadened the rule at 00:31 AEST the following day to cover ALL clients, which this pattern encodes.
+The triggering incident: on 2026-04-21 22:57 AEST I replied directly to Eugene ([redacted]) with subject "[redacted] BE - baseline migration + UAT bootstrap step" after Tate forwarded Eugene's prisma-migrate question to me. I treated the forward as a reply-authorisation; it was not. The existing `_archived/never-contact-eugene-directly.md` pattern was authored at 22:59 AEST as the immediate response - two minutes too late to prevent that specific message. Tate then broadened the rule at 00:31 AEST the following day to cover ALL clients, which this pattern encodes.
 
 Failure mode this pattern addresses: the earlier pattern was Eugene-specific. I generalised incorrectly: "don't contact Eugene" did NOT generalise in my reasoning to "don't contact [redacted], Vikki, Angelica, any coexist contact, any landcare contact, etc." The new pattern is scoped to ALL external contact so there is no analogous hole.
 
@@ -66,7 +66,7 @@ The three layers are defence in depth:
 If a future evolution adds a new outbound channel (Slack, Zernio DM, Bitbucket comment), that channel MUST ship with an equivalent Layer 3 gate, not just doctrine updates. The Eugene incident proved doctrine alone is insufficient.
 
 ## Related
-- `never-contact-eugene-directly.md` - the predecessor, Eugene-specific, still accurate, this file supersedes it in scope.
+- `_archived/never-contact-eugene-directly.md` - the predecessor, Eugene-specific, still accurate, this file supersedes it in scope.
 - `~/CLAUDE.md` "Client Communication" block currently tells me how to write as Ecodia. That block assumes I've been authorised to write. This pattern sits upstream of it.
 - `~/CLAUDE.md` "Decision Authority" block's "Act immediately (no confirmation needed): Respond to client emails" - that line is OUT OF DATE as of 2026-04-22. Update on next CLAUDE.md reflection pass.
 - `_archived/factory-phantom-session-no-commit.md` Mode 3 applies here: session 218ff29d had `cc_sessions.commit_sha=NULL` but delivered real work subsumed into e334c91. Reconciliation protocol used (manual UPDATE cc_sessions).

@@ -51,5 +51,5 @@ The trigger: at 12:28 AEST I dispatched fork_momapf9h to trim CLAUDE.md and fork
 - `~/ecodiaos/patterns/visual-verify-is-the-merge-gate-not-tate-review.md` â€” the merge-gate sibling rule.
 - `~/ecodiaos/patterns/decide-do-not-ask.md` â€” the procedural filter.
 - `~/ecodiaos/patterns/stop-asking-just-decide.md` â€” output-recognition + reward-signal trap.
-- `~/ecodiaos/patterns/authorised-branch-push-is-not-client-contact.md` â€” the client-repo sibling: an authorised push IS the work, not a contact event.
+- `~/ecodiaos/patterns/_archived/authorised-branch-push-is-not-client-contact.md` â€” the client-repo sibling: an authorised push IS the work, not a contact event.
 - `~/ecodiaos/patterns/_archived/pre-stage-fork-briefs-before-session-killing-ops.md` â€” the restart-handoff protocol for changes that require a pm2 restart.

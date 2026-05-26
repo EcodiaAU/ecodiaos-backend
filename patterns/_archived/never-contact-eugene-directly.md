@@ -2,6 +2,9 @@
 triggers: eugene, [redacted], [redacted], [redacted], [redacted], PR 212, [redacted] review, [redacted] comms
 status: archived_client_doctrine
 archived_client_note: [redacted] archived 2026-05-17. Doctrine preserved as comms boundary precedent and in case of any residual cleanup contact.
+archived_at: 2026-05-26
+archived_reason: [redacted]-client-archived-2026-05-17
+superseded_by: archived-client-sweep-must-touch-code-not-just-dossier-2026-05-18.md
 ---
 
 # Never contact Eugene (or any [redacted] technical contact) directly - Tate handles all human-side comms

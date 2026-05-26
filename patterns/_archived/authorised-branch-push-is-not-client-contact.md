@@ -1,6 +1,9 @@
 ---
 triggers: client-push, bitbucket-push, github-push, [redacted], [redacted], client-repo, authorised-branch, pr-212, authorised-pr, client-contact-boundary, greenlight-scope, no-client-contact-without-tate-goahead, scope-envelope, delayed-push, symbolic-waiting
 archived_client_note: [redacted] archived 2026-05-17. Doctrine applies generically to any future authorised client-PR engagement.
+archived_at: 2026-05-26
+archived_reason: [redacted]-client-archived-2026-05-17
+superseded_by: archived-client-sweep-must-touch-code-not-just-dossier-2026-05-18.md
 ---
 
 # Push to an authorised client PR branch is the WORK, not client contact. Do not gate it behind a per-commit greenlight.
