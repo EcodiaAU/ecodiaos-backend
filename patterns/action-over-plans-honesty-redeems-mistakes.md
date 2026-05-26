@@ -37,7 +37,7 @@ Cross-refs: `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-bloc
 ### 5. Plan ahead, route to forks, keep main thin
 Pre-stage scheduled work as fork briefs in `kv_store.fork.followup.*`. When the cron fires, conductor reads the staged brief and dispatches - it does NOT author the brief at fire time (that pollutes main with planning load). Anything > 30s of work that can be expressed as a fork brief = goes to a fork. Conductor on main = orientation, routing, decisioning, integration of fork reports. The fork population at any moment is the OS's parallel cognition.
 
-Cross-refs: `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`, `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md`, `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md`, `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md`.
+Cross-refs: `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`, `~/ecodiaos/patterns/_archived/pre-stage-fork-briefs-before-session-killing-ops.md`, `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md`, `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md`.
 
 ## Operational reflexes (read before high-leverage actions during 72h autonomous window 1-4 May 2026)
 

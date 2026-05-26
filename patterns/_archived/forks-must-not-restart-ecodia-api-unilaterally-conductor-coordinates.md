@@ -1,5 +1,8 @@
 ---
 triggers: pm2-restart, pm2_restart, ecodia-api-restart, fork-restart, unilateral-restart, conducted-restart, conductedRestart, pending_restart_requests, fork-kills-siblings, sigterm-cascade, conductor-coordinates, restart-coordination, lifecycle-ownership
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Forks must not restart ecodia-api unilaterally - the conductor coordinates

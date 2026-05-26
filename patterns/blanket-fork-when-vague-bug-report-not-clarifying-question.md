@@ -8,7 +8,7 @@ triggers: vague-bug-report, which-page, fe-error-no-context, blanket-fork-recon,
 
 When Tate reports a bug or symptom in a single line without specifying location ("FE is throwing X", "site is broken", "app says undefined.length", "something's off with Y", "it's not working") - **fork blanket recon immediately**. Do NOT call `AskUserQuestion`. Do NOT prompt Tate for the URL, the page, the component, the stack trace, or the reproduction steps. The fork does its own recon via Tailscale screenshot + DevTools console + git log + source read.
 
-This is a special case of `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md`, and `~/ecodiaos/patterns/minimize-tate-approval-queue.md`, but specifically for the bug-report shape that triggers a clarification reflex.
+This is a special case of `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md`, and `~/ecodiaos/patterns/minimize-tate-approval-queue.md`, but specifically for the bug-report shape that triggers a clarification reflex.
 
 ## Do
 
@@ -25,7 +25,7 @@ This is a special case of `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiao
 ## Do not
 
 - Call `AskUserQuestion` to ask "which page is throwing the error?". The fork can find the page faster than a round-trip to Tate.
-- Probe extensively on main before forking. One canonical status_board / forks_rollup read is fine; opening 8 source files speculatively is the failure mode (see `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md`).
+- Probe extensively on main before forking. One canonical status_board / forks_rollup read is fine; opening 8 source files speculatively is the failure mode (see `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md`).
 - Reply to Tate with "could you share the URL / a screenshot / the console output?". That IS the baby-feed pattern Tate explicitly named.
 - Wait for Tate to clarify. The clarification round-trip is dead time during which the fork could already be diagnosing.
 - Treat a 1-line bug report as ambiguous-and-must-be-clarified. Treat it as a recon trigger.
@@ -44,14 +44,14 @@ This is a special case of `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiao
 
 ## Why
 
-The clarification round-trip (`AskUserQuestion` → Tate types URL → conductor reads → conductor dispatches) costs at least 2 minutes of Tate's attention. The fork's recon path (Tailscale screenshot of recently-deployed page + DevTools console + git log) costs at most 90 seconds and zero Tate-attention. The asymmetry is decisive. Tate's attention is the scarce resource; fork dispatch is free-on-the-margin. Asking Tate to disambiguate a vague bug report is the canonical baby-feed failure mode.
+The clarification round-trip (`AskUserQuestion` â†’ Tate types URL â†’ conductor reads â†’ conductor dispatches) costs at least 2 minutes of Tate's attention. The fork's recon path (Tailscale screenshot of recently-deployed page + DevTools console + git log) costs at most 90 seconds and zero Tate-attention. The asymmetry is decisive. Tate's attention is the scarce resource; fork dispatch is free-on-the-margin. Asking Tate to disambiguate a vague bug report is the canonical baby-feed failure mode.
 
 There is also a deeper signal: a 1-line bug report from Tate is a confidence statement. He's saying "you have everything you need to diagnose this from where you sit." Asking him to disambiguate fails that confidence. Forking blanket recon honours it.
 
 ## Cross-refs
 
 - `~/ecodiaos/patterns/decide-do-not-ask.md` (parent rule)
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` (fork-recon principle this specialises)
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` (fork-recon principle this specialises)
 - `~/ecodiaos/patterns/minimize-tate-approval-queue.md` (approval-queue minimisation)
 - `~/ecodiaos/patterns/stop-asking-just-decide.md` (general permission-seeking rule)
 - `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` (canonical authority)

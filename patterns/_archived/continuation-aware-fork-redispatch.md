@@ -1,5 +1,8 @@
 ---
 triggers: continuation-check, redispatch, fork-resume, fork-orphan, in-memory-state-loss, api-crash, partial-deliverables, work-resume, fork-lost, sibling-fork-recovery, redispatch-no-duplicate, check-existing-deliverables, file-mtime-check, kv_store-deliverable-check, status_board-deliverable-check, neo4j-deliverable-check, git-commit-deliverable-check, post-crash-redispatch, conductor-redispatch
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Continuation-aware fork redispatch - check existing deliverables before duplicating

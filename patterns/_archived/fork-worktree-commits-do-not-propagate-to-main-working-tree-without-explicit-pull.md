@@ -1,5 +1,8 @@
 ---
 triggers: working-tree-drift, fork-worktree, fork-worktree-isolation, post-fork-pull, narrate-vs-disk-fork-commits, scripts-hooks-missing-on-disk, phase-d-hooks-restoration-drift, classifier-disk-verify-fail, ref-vs-tree-divergence, git-pull-after-merge, working-tree-stale-head, branch-ref-moved-but-tree-did-not
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork-worktree commits do not propagate to the main working tree without an explicit pull

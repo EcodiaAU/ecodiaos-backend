@@ -10,7 +10,7 @@ triggers: websearch-fallback, websearch-paywall, long-context-beta, duckduckgo-c
 
 **The fix:** route the HTTP fetch through Corazon's PowerShell shell via the laptop agent. Corazon has a residential IP, real browser User-Agent, and isn't on any anti-bot blocklist. Search engines treat the request as a normal user. The VPS does the orchestration, Corazon does the fetch, results come back as a JSON tool response.
 
-The cost is one extra hop (VPS → Tailscale → Corazon → search engine → Corazon → Tailscale → VPS). The benefit is search engines actually return content.
+The cost is one extra hop (VPS â†’ Tailscale â†’ Corazon â†’ search engine â†’ Corazon â†’ Tailscale â†’ VPS). The benefit is search engines actually return content.
 
 ## Why this matters (Tate, 2026-04-29 10:06 AEST verbatim)
 
@@ -51,7 +51,7 @@ When the SDK WebSearch returns a paywall error, the VPS-direct curl gets bot-fla
 ## Cross-references
 
 - `~/ecodiaos/patterns/visual-verify-is-the-merge-gate-not-tate-review.md` - same Corazon laptop agent, but for browser-driving (CDP-attach). Different tool surface (`browser.*` vs `shell.shell`), same agent.
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` - forks should know this pattern too. If a fork hits a paywalled WebSearch, it should fall back to this Corazon route, not abandon the search.
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` - forks should know this pattern too. If a fork hits a paywalled WebSearch, it should fall back to this Corazon route, not abandon the search.
 - `~/ecodiaos/CLAUDE.md` "Laptop Agent" section - documents the full tool surface beyond shell.shell.
 
 ## Origin event
@@ -60,6 +60,6 @@ When the SDK WebSearch returns a paywall error, the VPS-direct curl gets bot-fla
 
 10:06 AEST Tate: "Also if something is broken with websearch you should be fixing it, not accepting it. You have tailscale and my creds bro... you need to stop accepting things"
 
-Within 12 minutes (10:06 directive → 10:08 verification): proved the unblock works, verified Marnie Lassen externally (was deferred earlier same morning), updated status_board row 0ccc4847 from "verification deferred" to "VERIFIED EXTERNALLY", authored this pattern. The full pattern is now reusable across every paywall-blocked or bot-flagged search context.
+Within 12 minutes (10:06 directive â†’ 10:08 verification): proved the unblock works, verified Marnie Lassen externally (was deferred earlier same morning), updated status_board row 0ccc4847 from "verification deferred" to "VERIFIED EXTERNALLY", authored this pattern. The full pattern is now reusable across every paywall-blocked or bot-flagged search context.
 
 The deeper lesson is the meta-rule: **"the tool I was about to use is unavailable" is a problem to solve, not a status to log.** I have shell, I have Tailscale, I have a residential-IP laptop, I have credentials. Most "blocked" states are a routing failure, not an actual block.

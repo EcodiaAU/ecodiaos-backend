@@ -44,8 +44,8 @@ The structural fix is to write this rule into the durable doctrine layer (this f
 
 ## Do
 
-- After taking N actions in a session, if a pattern emerged → write it to `~/ecodiaos/patterns/<name>.md` AND a Neo4j Pattern node. Do NOT mention it in the chat reply.
-- After completing a session of work, if there's a useful retrospective → write a Neo4j Episode. Do NOT recap to Tate.
+- After taking N actions in a session, if a pattern emerged â†’ write it to `~/ecodiaos/patterns/<name>.md` AND a Neo4j Pattern node. Do NOT mention it in the chat reply.
+- After completing a session of work, if there's a useful retrospective â†’ write a Neo4j Episode. Do NOT recap to Tate.
 - Replies to Tate stay action-oriented and terse. "Shipped X, dispatched Y, Z is open" - that's it.
 - If Tate explicitly asks for a status report or summary, give him the fields he asked for - tightly. Don't pile on extra reflection.
 - "Today's running ledger" / "Day's accomplishments" / "What I learned" content lives in `kv_store.ceo.meta_loop_last_run` or a Neo4j Episode, NEVER in chat.
@@ -63,10 +63,10 @@ The structural fix is to write this rule into the durable doctrine layer (this f
 
 When composing a reply to Tate after taking action:
 
-1. **Did anything happen that Tate needs to know about?** If no → silent action update only (status_board, kv_store).
-2. **Is the answer a single delta?** (PR shipped, fork dispatched, blocker named) → reply is 1-3 lines.
-3. **Did a pattern emerge worth capturing?** → AUTHOR the pattern file / Neo4j node FIRST, mention only "doctrine logged at <path>" in chat if at all.
-4. **Did I make a mistake worth acknowledging?** → ONE line ack + the fix-link, no apologetic narration.
+1. **Did anything happen that Tate needs to know about?** If no â†’ silent action update only (status_board, kv_store).
+2. **Is the answer a single delta?** (PR shipped, fork dispatched, blocker named) â†’ reply is 1-3 lines.
+3. **Did a pattern emerge worth capturing?** â†’ AUTHOR the pattern file / Neo4j node FIRST, mention only "doctrine logged at <path>" in chat if at all.
+4. **Did I make a mistake worth acknowledging?** â†’ ONE line ack + the fix-link, no apologetic narration.
 
 Fast test before sending: would a human director find this reply scannable in 5 seconds? If no, cut.
 
@@ -87,7 +87,7 @@ These specific phrasings are the failure mode. If I'm about to type any of these
 ## Cross-references
 
 - `~/ecodiaos/patterns/sms-segment-economics.md` - the same brevity rule for SMS, applies here for chat.
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` - the conductor's job is to coordinate, not narrate; if it's not a coordination signal, fork it.
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` - the conductor's job is to coordinate, not narrate; if it's not a coordination signal, fork it.
 - `~/ecodiaos/patterns/route-around-block-means-fix-this-turn-not-log-for-later.md` (Pattern 3679) - sibling: the cost of NOT writing fixes into doctrine files compounds, same as the cost of NOT routing around blocks.
 
 ## Origin event

@@ -50,4 +50,4 @@ The same audit should run as part of the new `status-board-reconciliation` cron 
 
 2026-04-27 14:07 AEST. Tate's stress-test message: "you eeed to be keepign the ubisness clean as hell so keeping tasks that need my approval to am inimum, and just making it as easy as possible for me, making sure oyu dont drift on a lot more things." Audit at 14:07 showed 9 of 20 active status_board rows pinned on tate, several of which were ecodiaos-decidable. Pattern enforces the corrective default.
 
-Cross-reference: `fork-by-default-stay-thin-on-main.md` (parallelization reflex), `~/CLAUDE.md` Negotiation & Agency section (don't escalate redlines that are inside your authority), Pattern node "Status board drift prevention" in Neo4j.
+Cross-reference: `_archived/fork-by-default-stay-thin-on-main.md` (parallelization reflex), `~/CLAUDE.md` Negotiation & Agency section (don't escalate redlines that are inside your authority), Pattern node "Status board drift prevention" in Neo4j.

@@ -1,5 +1,8 @@
 ---
 triggers: forkComplete-listener, fork-error-perception, fork-status-error, conductor-chat-pollution, perception-fork-error, fork-error-listener, no-investigate-prompt, listener-emits-to-conductor
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork error events stay in perception/forks_rollup; never become conductor chat messages.

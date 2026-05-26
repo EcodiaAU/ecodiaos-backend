@@ -32,7 +32,7 @@ Surfaces when the conductor is about to break (or has just broken) a surfaced do
 
 ## Examples
 
-**Rule-conflict.** `fork-by-default-stay-thin-on-main.md` says "fork artefact-producing work". `codify-at-the-moment-a-rule-is-stated-not-after.md` says "write the file the moment Tate states the rule". Tate states a rule mid-conversation - dispatching a fork to author the file would (a) take longer than authoring it directly, (b) lose the verbatim phrasing context, (c) ship while the conversation has already moved on. Override fork-by-default. Receipt names purpose: "doctrine authoring is faster on main when the verbatim Tate phrasing is in this turn's working memory".
+**Rule-conflict.** `_archived/fork-by-default-stay-thin-on-main.md` says "fork artefact-producing work". `codify-at-the-moment-a-rule-is-stated-not-after.md` says "write the file the moment Tate states the rule". Tate states a rule mid-conversation - dispatching a fork to author the file would (a) take longer than authoring it directly, (b) lose the verbatim phrasing context, (c) ship while the conversation has already moved on. Override fork-by-default. Receipt names purpose: "doctrine authoring is faster on main when the verbatim Tate phrasing is in this turn's working memory".
 
 **Spirit-vs-letter.** `_archived/no-pm2-restart-during-active-factory-queue.md` says "never pm2 restart while Factory is running". A factory worktree-stuck session is wedging the box and the rule's purpose is to protect *productive* Factory work. Killing a wedged session by restart serves the purpose more than honouring the letter would. Override. Receipt names purpose: "rule protects productive Factory work; restarting to clear a wedged session serves that purpose".
 

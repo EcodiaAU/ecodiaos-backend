@@ -4,7 +4,7 @@ priority: critical
 canonical: true
 ---
 
-> **DEPRECATED — 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The "duo" framing (conductor + Cowork as complementary agents) is no longer operative. The conductor is single-agent with Tailscale laptop-agent as its physical hands. The MCP V2 REST endpoints at `/api/mcp/cowork/*` remain useful as headless tools (see Section 5 of `tailscale-macro-replaces-cowork.md`). The role-split table's conceptual framing (headless-API vs GUI) remains useful — just the "who" column changes from Cowork to direct laptop-agent. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+> **DEPRECATED â€” 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The "duo" framing (conductor + Cowork as complementary agents) is no longer operative. The conductor is single-agent with Tailscale laptop-agent as its physical hands. The MCP V2 REST endpoints at `/api/mcp/cowork/*` remain useful as headless tools (see Section 5 of `tailscale-macro-replaces-cowork.md`). The role-split table's conceptual framing (headless-API vs GUI) remains useful â€” just the "who" column changes from Cowork to direct laptop-agent. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 
 # [DEPRECATED] Conductor + Cowork duo - peer-paradigm conductor + UI-driving Cowork over MCP V2 substrate
 
@@ -17,7 +17,7 @@ The conductor (EcodiaOS, on Anthropic Claude Max with full MCP tool surface) and
 - 24/7 always-on VPS-resident
 - Full MCP tool surface (8 servers, ~150 tools)
 - Direct DB access (Postgres, Neo4j, kv_store, status_board)
-- Fork dispatch (5 concurrent slots, demand-driven per `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`)
+- Fork dispatch (5 concurrent slots, demand-driven per `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`)
 - Factory CLI (separate Claude Max account, gated by credits)
 - Bash/PowerShell over Tailscale to Corazon (`input.*` + `screenshot.*` + `shell.*` + `filesystem.*` + `process.*` primitives per `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`)
 - Anthropic safety: writes credentials to logged-in fields via `input.type` from `kv_store` ONLY when authorized; cannot bypass sensitive-action gates that need Tate identity

@@ -1,5 +1,8 @@
 ---
 triggers: fork-recovery, recoverStaleForks, recover-stale-forks, fork-status-classifier, api_memory_restart-recovery, pm2-restart-fork-recovery, fork-crashed-but-shipped, phantom-shipped-fork, fork-detection-bug, crashed-vs-done, fork-result-null, fork-deliverable-probe, recovery-not-narration, status-reflects-process-not-deliverable, [SYSTEM:fork_crashed], fork-recovery-symbolic, recovery-must-probe, fork-rollup-misleading, fork-status-vs-disk
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork recovery must probe deliverables, not just flip status

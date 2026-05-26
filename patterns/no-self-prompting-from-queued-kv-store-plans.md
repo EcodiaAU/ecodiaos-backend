@@ -2,7 +2,7 @@
 triggers: kv_store-queued-plan, queued-followup, followup_queue, self-prompt, self-prompting, stale-plan-momentum, queued-but-unapproved, dispatch-from-queue, scheduled-followup, post-stability-followup, queued-fork-dispatch, plan-momentum, conductor-self-prompt, demand-driven-violation, slot-fill-via-queue, kv_store-as-prompt
 ---
 
-# Stop self-prompting from queued kv_store plans — re-check Tate's current intent before executing
+# Stop self-prompting from queued kv_store plans â€” re-check Tate's current intent before executing
 
 ## The rule
 
@@ -40,15 +40,15 @@ When a trigger fires that references a queued plan:
 
 **Tate, 1 May 2026 12:23 AEST verbatim:** "I want the stuff from me prevous message for YOU" (after seeing two wrong-scoped forks I'd dispatched in the previous turn).
 
-The previous turn's last_turn_breadcrumb showed me saying: "Co-Exist haptics → Chambers port — queued in kv_store, dispatches when polish lands." When the polish fork landed, I mechanically dispatched the queued haptics + Chambers work — neither of which Tate had asked for in his most recent messages. The queued plan was past-me's hypothesis from earlier in the conversation; reality had moved on and I executed against the queue instead of against Tate's actual current intent.
+The previous turn's last_turn_breadcrumb showed me saying: "Co-Exist haptics â†’ Chambers port â€” queued in kv_store, dispatches when polish lands." When the polish fork landed, I mechanically dispatched the queued haptics + Chambers work â€” neither of which Tate had asked for in his most recent messages. The queued plan was past-me's hypothesis from earlier in the conversation; reality had moved on and I executed against the queue instead of against Tate's actual current intent.
 
 This is the same anti-pattern as slot-fill (`~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` and the demand-driven doctrine in `~/CLAUDE.md`), just expressed through a different substrate.
 
 ## Cross-references
 
-- `~/CLAUDE.md` "Fork dispatch is demand-driven" — the architectural meta-rule.
-- `~/ecodiaos/CLAUDE.md` "Fork dispatch is demand-driven" — the technical mirror.
-- `~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md` — sibling rule for cron-fired redispatches: verify the work has not shipped via another path before firing. This pattern extends that: also verify the work is still WANTED.
-- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — the meta-rule on symbolic activity.
-- `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` — corrected interpretation: stay alert to incoming demand, do NOT manufacture work to fill slots (or to drain queues).
-- `~/ecodiaos/patterns/decide-do-not-ask.md` — the procedural filter for routine decisions; this pattern is its inverse for the dispatch direction (don't dispatch reflexively from a stale plan).
+- `~/CLAUDE.md` "Fork dispatch is demand-driven" â€” the architectural meta-rule.
+- `~/ecodiaos/CLAUDE.md` "Fork dispatch is demand-driven" â€” the technical mirror.
+- `~/ecodiaos/patterns/_archived/scheduled-redispatch-verify-not-shipped.md` â€” sibling rule for cron-fired redispatches: verify the work has not shipped via another path before firing. This pattern extends that: also verify the work is still WANTED.
+- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` â€” the meta-rule on symbolic activity.
+- `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` â€” corrected interpretation: stay alert to incoming demand, do NOT manufacture work to fill slots (or to drain queues).
+- `~/ecodiaos/patterns/decide-do-not-ask.md` â€” the procedural filter for routine decisions; this pattern is its inverse for the dispatch direction (don't dispatch reflexively from a stale plan).

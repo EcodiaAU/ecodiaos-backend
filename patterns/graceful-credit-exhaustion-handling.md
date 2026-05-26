@@ -20,7 +20,7 @@ triggers: credit-exhaustion, credit_exhaustion, account-chain-exhausted, gracefu
 
 ## Detection cluster (defer to dedicated pattern for heuristic)
 
-See `~/ecodiaos/patterns/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` for the 4-signal heuristic:
+See `~/ecodiaos/patterns/_archived/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` for the 4-signal heuristic:
 - `tool_calls=0` (0 tools annotation in rollup)
 - `status=error/aborted`
 - Duration <= 15s (immediate fail)
@@ -117,7 +117,7 @@ value: {
 ## Cross-refs
 
 - `~/ecodiaos/patterns/multi-account-credit-state-model.md` - **AUTHORITATIVE MODEL** for the three-account x two-cap mental model. Read before this pattern.
-- `~/ecodiaos/patterns/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - detection heuristic + pivot discipline
+- `~/ecodiaos/patterns/_archived/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - detection heuristic + pivot discipline
 - `~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md` - spec for pausing cron-fork-dispatcher during chain exhaustion
 - `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md` - the pivot destination
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - the P2 row IS the artefact; don't narrate exhaustion without writing one

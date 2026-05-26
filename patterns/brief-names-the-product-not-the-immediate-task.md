@@ -98,7 +98,7 @@ The remediation in same turn: send_message correction to the running fork explic
 
 ## Cross-references
 
-- `fork-by-default-stay-thin-on-main.md` - context_mode discipline
+- `_archived/fork-by-default-stay-thin-on-main.md` - context_mode discipline
 - `Logged-but-not-reflexive doctrine is functionally unlogged - second-strike formatting protocol` (Neo4j Pattern) - the per-instance version of the same root failure
 - `coexist-vs-platform-ip-separation.md` - similar slippage between client work and platform work
 - `platform-must-be-substantively-applicable.md` - similar concern about platform pitches collapsing to single-instance framing

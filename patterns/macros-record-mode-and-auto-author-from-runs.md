@@ -105,7 +105,7 @@ Origin: Tate verbatim 6 May 2026 15:32 AEST "this is an insanely important capab
 - `corazon-is-a-peer-not-a-browser-via-http.md` - the peer paradigm. Macros are the natural compression of peer-paradigm flows.
 - `drive-chrome-via-input-tools-not-browser-tools.md` - Chrome flows are the highest-yield macro target. `input.shortcut [ctrl, l]` plus `input.type` plus `input.key enter` is the universal go-to-URL macro.
 - `exhaust-laptop-route-before-declaring-tate-blocked.md` - the 5-point check's step 2 ("is the credential in Tate's Chrome Default profile") is exactly the kind of probe that becomes a one-call macro after the first run.
-- `fork-by-default-stay-thin-on-main.md` - macro authoring (Phase 1 hand-coded, Phase 2 promotion review) is fork work, not main work.
+- `_archived/fork-by-default-stay-thin-on-main.md` - macro authoring (Phase 1 hand-coded, Phase 2 promotion review) is fork work, not main work.
 - `continuous-work-conductor-never-idle.md` - Phase 3 cron is one of the highest-leverage idle-time tasks: every accepted auto-draft permanently reduces the cost of every future session.
 
 ## Origin

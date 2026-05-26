@@ -40,5 +40,5 @@ The first fork's wrong conclusion cost ~45 minutes of recon work + an incorrect 
 
 ## Related
 
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` - the principle is correct (forks own their recon), the failure mode here is shallow probing.
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` - the principle is correct (forks own their recon), the failure mode here is shallow probing.
 - `~/ecodiaos/patterns/route-around-block-means-fix-this-turn-not-log-for-later.md` - a "blocked" conclusion needs to be load-bearing. If it's based on a single-filename probe, it isn't.

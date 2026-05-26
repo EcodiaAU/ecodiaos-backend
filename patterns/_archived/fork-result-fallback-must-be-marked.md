@@ -1,5 +1,8 @@
 ---
 triggers: phantom-shipping, phantom-bail, fork-truncated, fork-result-600, fork-report-missing, slice-600, forkService-result, fork-result-fallback, transcript-tail, fork-result-truncation, fork-no-report, fork_report-tag, fork-orientation-bail, fork-result-classification, phantom-bail-rollup-flag, always-enqueue-fork-report, fork-rollup-observability, fallback-marker-prefix, _isPhantomBail, _buildForkReportBody
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork-result fallback must be marked, not silently slice the transcript tail

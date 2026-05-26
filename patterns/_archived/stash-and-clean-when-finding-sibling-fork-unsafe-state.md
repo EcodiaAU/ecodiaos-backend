@@ -1,5 +1,8 @@
 ---
 triggers: stash-and-clean, unsafe-branch-state, sibling-fork-collision, defensive-git, parallel-fork-recovery, working-tree-clean, uncommitted-sibling-work, git-stash-attribution, parallel-fork-shared-branch, fork-collision-recovery, working-tree-dirty, mid-edit-crash, recoverable-stash, stash-with-attribution, fork-id-stash, sibling-fork-stash, never-discard-uncommitted-work, branch-already-modified, foreign-changes-on-branch
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Stash-and-clean when a fork finds a sibling-fork's branch in unsafe state

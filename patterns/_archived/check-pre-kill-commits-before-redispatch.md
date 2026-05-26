@@ -1,5 +1,8 @@
 ---
 triggers: pm2_restart, factory-redispatch, killed-session, cleanup-on-shutdown, cc_cli_session_id, pre-kill-commit, phantom-redispatch, no-changes, empty-diff, factory-no-op, redispatch, branch-already-shipped, force-approve, factory-metadata-trust-filesystem
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Check pre-kill commits before re-dispatching any pm2_restart-killed Factory session

@@ -62,4 +62,4 @@ Tate verbatim 16:21 AEST 11 May 2026: "Wtf are you on about coexist is a differe
 - `~/ecodiaos/patterns/when-a-tool-is-unavailable-solve-the-routing-problem-do-not-accept-the-block.md` (every block is a routing problem)
 - `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` (same shape, different substrate)
 - `~/ecodiaos/patterns/probe-all-env-files-not-just-dotenv.md` (probe before saying "no creds")
-- `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (single REST query is the thin-on-main exception)
+- `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md` (single REST query is the thin-on-main exception)

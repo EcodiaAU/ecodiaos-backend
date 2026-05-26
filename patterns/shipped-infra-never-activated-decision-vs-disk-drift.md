@@ -22,7 +22,7 @@ This rule specialises `~/ecodiaos/patterns/verify-deployed-state-against-narrate
 - Cite disk-probe evidence in the Decision body itself: commit SHA, branch (main vs feature branch), file paths grep-confirmed, guard variable counts, live process state (PM2 `online`, `dormant`, `not present`).
 - Make the Decision title carry the phase boundary: `"Phase 1 of 3 shipped - cross-process bridge + activation deferred"`, not `"Conductor sibling shipped"`.
 - When in doubt about whether the migration is one phase or many, default to many. Re-bundling a multi-phase ship into "shipped" is the failure mode this rule prevents.
-- Before any "build on top of this" action that depends on a previously-claimed-shipped infra, run the verification protocol in §4 EVEN IF you authored the original Decision yourself - Decision-vs-disk drift is a 9-day failure horizon, well within session-amnesia distance.
+- Before any "build on top of this" action that depends on a previously-claimed-shipped infra, run the verification protocol in Â§4 EVEN IF you authored the original Decision yourself - Decision-vs-disk drift is a 9-day failure horizon, well within session-amnesia distance.
 - When you discover a partial-merge Decision claiming "shipped" without phase boundary, append a `phase_boundary_correction` property with the actual phase that landed and a reference to the disk-probe fork that found the gap. Do NOT delete the original Decision (audit trail).
 - For Phase 1 ships that are deliberately deferred-activation (CONDUCTOR_DETACHED-style env-flag-default-off pattern), explicitly state `default_active: false` and `activation_phase: <N>` on the Decision so future readers see "code on disk, NOT live behaviour."
 
@@ -32,7 +32,7 @@ This rule specialises `~/ecodiaos/patterns/verify-deployed-state-against-narrate
 - Do NOT close out a kv_store handoff key, status_board row, or Episode with "done" when only Phase 1 of M shipped - re-state as "Phase 1 of M shipped, phases 2..M open".
 - Do NOT cite `git ls-remote` push verification as evidence the migration is complete - push proves the commit reached origin, NOT that all phases of the migration shipped.
 - Do NOT trust your own prior-session Decision wording when the action depends on the infra it describes - re-probe disk first.
-- Do NOT activate (flip an env flag from default-off to default-on, set `CONDUCTOR_DETACHED=1`, register a hook in settings.json, set a feature flag true) any infra claimed shipped without first running the verification protocol in §4.
+- Do NOT activate (flip an env flag from default-off to default-on, set `CONDUCTOR_DETACHED=1`, register a hook in settings.json, set a feature flag true) any infra claimed shipped without first running the verification protocol in Â§4.
 - Do NOT bundle disk-truth probe results into a single "verified" line in the Decision - itemise per phase and per surface so the next reader can see WHICH phase is on disk and which is not.
 
 ## 4. Verification protocol - "is this 'shipped per Decision' actually fully shipped?"
@@ -53,7 +53,7 @@ The protocol cost is 30-90 seconds. The cost of skipping it is split-brain on a 
 ## 5. Cross-references
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the parent meta-rule (narration unreliable, six-substrate probe). This file specialises that rule for multi-phase migrations.
-- `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` - the related git-ref-vs-working-tree drift instance (commit SHA exists on origin, working-tree on VPS does not have it).
+- `~/ecodiaos/patterns/_archived/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md` - the related git-ref-vs-working-tree drift instance (commit SHA exists on origin, working-tree on VPS does not have it).
 - `~/ecodiaos/patterns/_archived/factory-approve-no-push-no-commit-sha.md` - sibling at the Factory layer (approve without commit SHA = phantom approval).
 - `~/ecodiaos/patterns/verify-empirically-not-by-log-tail.md` - the listener/process variant (process running per logs, listener silently not loaded).
 - `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - the 5-layer end-to-end verification for listener subsystems; same shape rule applied to a different surface.

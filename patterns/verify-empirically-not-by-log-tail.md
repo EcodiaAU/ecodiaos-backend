@@ -60,7 +60,7 @@ status_board row 8c880f48 framed `claudeTokenRefreshService` as broken because "
 
 ## Cross-references
 
-- Pattern: `pre-stage-fork-briefs-before-session-killing-ops.md` (sibling pattern for handling restart-resilience).
+- Pattern: `_archived/pre-stage-fork-briefs-before-session-killing-ops.md` (sibling pattern for handling restart-resilience).
 - Pattern: `re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` (reading kv_store rows without checking `updated_at` leaks yesterday's state).
 - Pattern: `pm2-restart-count-is-lifetime-not-rate.md` (similar shape: lifetime accumulator misread as rate).
 - Neo4j Pattern: "Telemetry pipeline silence is sometimes no-input-volume not shipped-but-dark" (1 May 2026, _id 4107) - the upstream-trigger-conditional cousin of this rule.

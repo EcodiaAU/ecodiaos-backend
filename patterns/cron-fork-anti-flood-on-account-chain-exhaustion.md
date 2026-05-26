@@ -70,7 +70,7 @@ On dispatcher startup, read this key. If set and in the future, enter paused sta
 
 - `~/ecodiaos/patterns/multi-account-credit-state-model.md` - the authoritative mental model for account-chain exhaustion
 - `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - operational response (status_board row, kv_store, drift audit pivot)
-- `~/ecodiaos/patterns/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - the cluster detection heuristic this builds on
+- `~/ecodiaos/patterns/_archived/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - the cluster detection heuristic this builds on
 - `~/ecodiaos/patterns/crons-route-to-forks-by-default.md` - the dispatcher architecture this spec extends
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - the kv_store write + status_board update IS the artefact; don't narrate the pause without writing both
 

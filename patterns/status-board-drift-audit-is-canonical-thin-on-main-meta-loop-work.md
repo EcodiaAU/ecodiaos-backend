@@ -13,14 +13,14 @@ The canonical thin-on-main work for that fire is the **PHASE 2 status_board drif
 1. Run a slice-query first (see sibling pattern `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md`) to surface red-flag counts: stale-7d, p1p2-stale-14d, monitor-rows, tate-blocked-high-priority, priority distribution.
 2. Drill down on each red-flag category with `LIMIT 30` per category.
 3. Classify each red-flagged row into the four buckets: **still-accurate**, **status-changed**, **completed**, **duplicate**.
-4. UPDATE / archive / dedup atomically per row (one statement per row, never CASE-WHEN — see `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md`).
+4. UPDATE / archive / dedup atomically per row (one statement per row, never CASE-WHEN â€” see `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md`).
 5. Write the audit numbers (rows touched, archived, demoted, escalated) to `kv_store.ceo.meta_loop_last_run.accomplishments`.
 
 This satisfies the operating doctrine simultaneously:
 
 - **Demand-driven, not slot-fill** (`~/CLAUDE.md` Fork dispatch is demand-driven). The demand IS the meta-loop's PHASE 2 instruction, externally driven by the cron fire. Audit work is not manufactured to fill an empty slot.
-- **Fork by default, stay thin on main** (`~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`). status_board UPDATEs are exception (a): single targeted writes that ARE the deliverable, not orchestrated work that should fan out.
-- **Act, don't symbolically log** (`~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`). UPDATE rows directly — do not narrate "audit run" without artefacts.
+- **Fork by default, stay thin on main** (`~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`). status_board UPDATEs are exception (a): single targeted writes that ARE the deliverable, not orchestrated work that should fan out.
+- **Act, don't symbolically log** (`~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`). UPDATE rows directly â€” do not narrate "audit run" without artefacts.
 - **Decide, do not ask** (`~/ecodiaos/patterns/decide-do-not-ask.md`). Routine archive/refresh requires no permission.
 
 ## Do
@@ -38,7 +38,7 @@ This satisfies the operating doctrine simultaneously:
 - Manufacture forks to fill empty slots when the meta-loop's own PHASE 2 work is the appropriate response. Slot-fill spawns are symbolic activity in a parallel-process costume.
 - Treat "monitor X" rows as automatically archive-eligible. Some are legitimate trigger-watchers (e.g. external-blocker waiting for Tate's call). Read `next_action_due` / context before archiving. Mode-2 in `status-board-drift-prevention.md` covers the genuine cases.
 - Skip the audit because "everything looks fine" without slice-query evidence. The slice-query IS the evidence; the eyeball is not.
-- SMS Tate from a meta-loop fire — autonomous-pilot rule (`~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md`, `~/ecodiaos/patterns/cron-prompts-must-respect-autonomous-pilot-sms-gate.md`). The audit produces durable artefacts; Tate reviews on his next session-open.
+- SMS Tate from a meta-loop fire â€” autonomous-pilot rule (`~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md`, `~/ecodiaos/patterns/cron-prompts-must-respect-autonomous-pilot-sms-gate.md`). The audit produces durable artefacts; Tate reviews on his next session-open.
 - Treat fork-cap saturation as a pass. The fact that no fork can be spawned does NOT relieve the conductor of the meta-loop's deliverable; it specialises which substrate carries the work (main, with single-row writes).
 
 ## Verification protocol
@@ -51,16 +51,16 @@ After running the audit, confirm artefacts:
 
 ## Origin
 
-- 8 May 2026 15:53 AEST — meta-loop fire on a board with fork-cap saturated. Conductor correctly recognised that status_board drift audit was the canonical thin-on-main fallback, ran the audit, archived/updated rows. Same fire produced a Neo4j Pattern node observation but no .md file (deferred by edit-cycle constraint of fork_mowr2gn8_5d68bb, whose brief forbade touching `~/ecodiaos/patterns/*.md`).
-- 8 May 2026 23:03 AEST — meta-loop fire on a 103-row board produced sibling Pattern 1398 ("Drift-audit slice-queries beat row-dump queries at scale") in same arc.
-- Tonight — fork_mowxtqm8_66ef91 closes the gap: both patterns land on disk + Neo4j updated + cross-refs wired.
+- 8 May 2026 15:53 AEST â€” meta-loop fire on a board with fork-cap saturated. Conductor correctly recognised that status_board drift audit was the canonical thin-on-main fallback, ran the audit, archived/updated rows. Same fire produced a Neo4j Pattern node observation but no .md file (deferred by edit-cycle constraint of fork_mowr2gn8_5d68bb, whose brief forbade touching `~/ecodiaos/patterns/*.md`).
+- 8 May 2026 23:03 AEST â€” meta-loop fire on a 103-row board produced sibling Pattern 1398 ("Drift-audit slice-queries beat row-dump queries at scale") in same arc.
+- Tonight â€” fork_mowxtqm8_66ef91 closes the gap: both patterns land on disk + Neo4j updated + cross-refs wired.
 
 ## Cross-references
 
-- Parent: `~/ecodiaos/patterns/status-board-drift-prevention.md` — the original drift-prevention doctrine; this file specialises *when* (meta-loop fork-cap-full / mcp-forks-disconnected) and *who* (conductor on main, not a fork).
-- Sibling technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` — the slice-query template this pattern mandates for >50-row boards.
-- Slot-fill prohibition: `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`, `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md`, `~/CLAUDE.md` "Fork dispatch is demand-driven" section.
-- Decision authority: `~/ecodiaos/patterns/decide-do-not-ask.md` — no permission needed for routine archive.
-- Update mechanic: `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md` — one statement per row.
+- Parent: `~/ecodiaos/patterns/status-board-drift-prevention.md` â€” the original drift-prevention doctrine; this file specialises *when* (meta-loop fork-cap-full / mcp-forks-disconnected) and *who* (conductor on main, not a fork).
+- Sibling technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` â€” the slice-query template this pattern mandates for >50-row boards.
+- Slot-fill prohibition: `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`, `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`, `~/CLAUDE.md` "Fork dispatch is demand-driven" section.
+- Decision authority: `~/ecodiaos/patterns/decide-do-not-ask.md` â€” no permission needed for routine archive.
+- Update mechanic: `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md` â€” one statement per row.
 - Cron fire discipline: `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md`, `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md`, `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md`.
-- External-blocker probe: `~/ecodiaos/patterns/external-blocker-freshness-probe.md` — the Tate-blocked-high-pri slice bucket invokes this when stalls exceed the freshness window.
+- External-blocker probe: `~/ecodiaos/patterns/external-blocker-freshness-probe.md` â€” the Tate-blocked-high-pri slice bucket invokes this when stalls exceed the freshness window.

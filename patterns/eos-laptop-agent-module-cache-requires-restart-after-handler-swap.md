@@ -17,7 +17,7 @@ A `filesystem.writeFile` to `D:\.code\eos-laptop-agent\tools\github-login.js` up
 If you swap a handler and dispatch immediately:
 - The agent's response will be the OLD behaviour (old coordinates, old throw message, old return shape).
 - `macroSuite.list` may show the OLD `description` even after the file's `description` changed.
-- A handler swapped from real-implementation → stub will continue to attempt the real action and may click wrong pixels.
+- A handler swapped from real-implementation â†’ stub will continue to attempt the real action and may click wrong pixels.
 
 ## Required pattern
 
@@ -76,7 +76,7 @@ If the brief omits this, the conductor's review pass should catch the gap and se
 - `~/ecodiaos/patterns/macros-record-mode-and-auto-author-from-runs.md` - Phase 1 observation rule. Stub-replacement work is a frequent trigger for this restart issue because the swap is the ENTIRE point and silent-no-op is the worst case.
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - the broader Corazon doctrine. The agent is a peer; treating it as a peer means understanding its process lifecycle.
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - "I wrote the file, the swap is shipped" without verification is symbolic. The restart + dispatch verify IS the proof.
-- `~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md` - same family: never assume your write took effect, verify behaviour.
+- `~/ecodiaos/patterns/_archived/scheduled-redispatch-verify-not-shipped.md` - same family: never assume your write took effect, verify behaviour.
 - `~/ecodiaos/docs/secrets/laptop-agent.md` - Corazon agent token + PM2 process metadata.
 
 ## Origin

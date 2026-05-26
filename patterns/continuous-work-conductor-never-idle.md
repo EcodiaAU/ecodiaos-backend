@@ -73,7 +73,7 @@ If a window passes with none of these, that is a failed window. Log the failure 
 ## Cross-references
 
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - "I'll come back to this later" without a scheduled task is not a log. The same principle applied to action: announcing intent is not advancing.
-- `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` - the structural counterpart. Fork-by-default makes continuous-work cheap because the conductor stays thin.
+- `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md` - the structural counterpart. Fork-by-default makes continuous-work cheap because the conductor stays thin.
 - `~/ecodiaos/patterns/ocd-ambition-refuse-mediocrity.md` - the quality bar. Continuous work that ships generic output is not better than no work.
 
 ## Origin

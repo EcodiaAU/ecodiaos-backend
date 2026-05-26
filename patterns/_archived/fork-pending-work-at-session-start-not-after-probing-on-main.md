@@ -1,5 +1,8 @@
 ---
 triggers: session-start, cold-start, restart-recovery, perception-summary, pending-work, forks-rollup, last-turn-breadcrumb, orient-then-fork, diagnostic-probe-on-main, five-minute-probe, hook-after-the-fact, fork-pending-work-at-session-start, session-orient-fork-first, probe-is-the-forks-job, pending-work-at-wake, cold-wake-fork-first, restart-fork-pending, conductor-orientation-fork
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork pending work at session start, do not probe on main first

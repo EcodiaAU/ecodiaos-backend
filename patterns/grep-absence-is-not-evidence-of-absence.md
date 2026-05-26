@@ -2,7 +2,7 @@
 triggers: grep-absence, evidence-of-absence, single-keyword-grep, zero-matches-trap, naming-convention-miss, hook-not-found, file-not-found-via-grep, regex-narrow-too-narrow, missing-feature-claim, code-not-present-claim, grep-proved-nothing, codebase-recon-on-main, on-main-recon-bias, false-negative-recon, diagnostic-overreach, regex-vs-read, hyphen-case-vs-camel-case, naming-variant-miss, register-vs-registration, push-notifications-recon, capacitor-plugin-recon
 ---
 
-# A zero-match grep is NOT evidence of absence — it's evidence that THAT regex didn't match. Different naming variant, different file, different branch, sibling worktree state all defeat the grep.
+# A zero-match grep is NOT evidence of absence â€” it's evidence that THAT regex didn't match. Different naming variant, different file, different branch, sibling worktree state all defeat the grep.
 
 ## The rule
 
@@ -18,16 +18,16 @@ If any one of 1-5 is skipped, the recon is INSUFFICIENT to assert absence. The r
 
 ## Do
 
-- State the exact regex + path + branch state used: `grep -rE 'PushNotifications.register|usePush[A-Z][a-z]+' --include='*.{ts,tsx,js,jsx}' src/ app/ lib/ hooks/ services/ — branch=<X>, HEAD=<sha>, dirty=<bool>`.
+- State the exact regex + path + branch state used: `grep -rE 'PushNotifications.register|usePush[A-Z][a-z]+' --include='*.{ts,tsx,js,jsx}' src/ app/ lib/ hooks/ services/ â€” branch=<X>, HEAD=<sha>, dirty=<bool>`.
 - Vary by 2+ naming axes: API-literal vs wrapper-name, hyphen-case file vs camelCase symbol, suffix variants.
 - `ls src/hooks/ src/lib/ src/services/ 2>/dev/null` as a sanity-check probe BEFORE asserting "no hook exists".
 - When dispatching a fork to "fix" a supposed missing piece, brief the fork to **FIRST verify the piece is actually missing** via Read on plausible filenames + a broader grep. If found, narrow scope and report.
-- In status_board context fields, frame as "not found via probe X" rather than "absent" — keeps drift-audit honest.
+- In status_board context fields, frame as "not found via probe X" rather than "absent" â€” keeps drift-audit honest.
 
 ## Do not
 
 - Run ONE grep with ONE regex variant on ONE path filter and treat zero matches as ground truth.
-- Restrict `--include` filter on first probe — narrows too aggressively, hides files in adjacent extensions.
+- Restrict `--include` filter on first probe â€” narrows too aggressively, hides files in adjacent extensions.
 - Declare "this feature does not exist" / "the hook is missing" / "no call site found" without the 5-point check above.
 - Brief a fork to "add the missing X" without the brief instructing the fork to verify X is actually missing first. Forks reading the brief context trustingly will waste time + may add a parallel duplicate of an existing implementation under a different name.
 - Skip the `ls` / `Read` sanity probe when the regex returned zero matches but the project clearly should have the feature (e.g. native push notification plugin installed + Firebase wired = some register-call MUST exist somewhere; missing means YOUR probe missed it, not "the code is missing").
@@ -60,15 +60,15 @@ grep -rE "PushNotifications.register|registerForRemoteNotifications|usePushNotif
 
 Three failure modes stacked:
 1. Regex only tried `usePushNotifications` (camelCase, "Notifications" suffix), missed `usePushRegistration` (different suffix word).
-2. Regex only tried `PushNotifications.register` (the literal API call), but the hook file uses something like `await PushNotifications.register()` inside `useEffect` — the grep SHOULD have matched, suggesting the worktree the grep ran on was on a sibling branch where the file wasn't yet present, OR the grep had a subtle path-issue (sibling fork branches: branch was `1.8.5-excel-sync-impact-gate` per `git status -sb`, not main; the use-push.ts hook may live on main but not be in the sibling-branch's checked-out tree).
-3. `ls src/hooks/` was never run — a 1-second probe that would have shown `use-push.ts` immediately.
+2. Regex only tried `PushNotifications.register` (the literal API call), but the hook file uses something like `await PushNotifications.register()` inside `useEffect` â€” the grep SHOULD have matched, suggesting the worktree the grep ran on was on a sibling branch where the file wasn't yet present, OR the grep had a subtle path-issue (sibling fork branches: branch was `1.8.5-excel-sync-impact-gate` per `git status -sb`, not main; the use-push.ts hook may live on main but not be in the sibling-branch's checked-out tree).
+3. `ls src/hooks/` was never run â€” a 1-second probe that would have shown `use-push.ts` immediately.
 
-Doctrine deferred to a fork that itself caught the false-negative on disk and shipped narrower scope (entitlement flip + google-services.json placement + cap sync). No real damage — fork did the right thing — but the conductor's diagnostic chat-output to Tate misled him about the gap size for ~10 minutes and risked a duplicate hook being authored.
+Doctrine deferred to a fork that itself caught the false-negative on disk and shipped narrower scope (entitlement flip + google-services.json placement + cap sync). No real damage â€” fork did the right thing â€” but the conductor's diagnostic chat-output to Tate misled him about the gap size for ~10 minutes and risked a duplicate hook being authored.
 
 ## Cross-refs
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` (the meta-rule this is a specialisation of)
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` (the conductor's on-main probe is the trap; a fork's recon would have caught the actual file)
-- `~/ecodiaos/patterns/_archived/factory-codebase-staleness-check-before-dispatch.md` (`git pull` + branch verification BEFORE recon — sibling-branch state was a contributing factor)
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` (the conductor's on-main probe is the trap; a fork's recon would have caught the actual file)
+- `~/ecodiaos/patterns/_archived/factory-codebase-staleness-check-before-dispatch.md` (`git pull` + branch verification BEFORE recon â€” sibling-branch state was a contributing factor)
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` (broader narration-vs-truth doctrine)
 - `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` (when multiple absence-claims surface from one recon, the shared upstream cause is "recon was too narrow", not "all those features are absent")

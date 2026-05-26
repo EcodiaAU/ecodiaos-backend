@@ -1,5 +1,8 @@
 ---
 triggers: orphaned-fork, no-fork-report, no_report_emitted, fork-bailed, fork-closed-no-report, fork-recovery-checklist, transcript-tail, sdk-fork-orphan, partial-fork-deliverables, fork-uncommitted-work, recover-on-main, fork-disk-state, fork-substrate-probe
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Orphaned-fork recovery checklist - probe substrates before assuming bailed

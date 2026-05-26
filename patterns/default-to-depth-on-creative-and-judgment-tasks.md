@@ -78,7 +78,7 @@ Preceded by two shallow bio drafts at 09:22 and 09:23 AEST. Codified same turn p
 ## Cross-refs
 
 - `~/ecodiaos/patterns/ocd-ambition-refuse-mediocrity.md` - the piercing-uniquity bar; could-any-LLM-write-this test; five-second gate before any ship
-- `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` - sister pattern at the dispatch layer (different decision axis: fork-vs-main vs shallow-vs-deep)
+- `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md` - sister pattern at the dispatch layer (different decision axis: fork-vs-main vs shallow-vs-deep)
 - `~/ecodiaos/patterns/action-over-plans-honesty-redeems-mistakes.md` - the bar is INSANE, not good
 - `~/ecodiaos/patterns/stop-asking-just-decide.md` - 100% autonomy means the conductor has the authority to spend time mining without asking permission to do so
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` - this file exists because of that rule

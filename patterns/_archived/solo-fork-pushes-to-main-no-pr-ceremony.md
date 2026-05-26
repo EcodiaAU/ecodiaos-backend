@@ -1,5 +1,8 @@
 ---
 triggers: pr-ceremony, branch-and-pr, feature-branch, solo-fork-workflow, push-to-main, no-pr, direct-push, workflow-overkill, github-pr-flow, pr-overhead, fork-deploy-workflow, branch-pr-merge-pull-restart, simple-deploy, push-pull-restart, single-author-workflow, fork-output-pipeline, ship-direct-to-main
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Solo forks push directly to main - no PR ceremony

@@ -1,5 +1,8 @@
 ---
 triggers: spawn_fork, fork-recon, pre-dispatch-probe, brief-padding, codebase-probe-on-main, schema-probe-on-main, pre-fork-investigation, fork-vs-main, exhaustive-brief, brief-bloat, dont-probe-on-main, let-the-clone-do-it, fork-misuse, conductor-doing-doer-work, recon-on-main
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Forks do their own recon. Do not probe on main before dispatching.

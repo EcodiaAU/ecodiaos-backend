@@ -1,6 +1,9 @@
 ---
 triggers: cron fork spawn, hook coverage, surfacing substrate, dispatch telemetry, cron dispatcher, hook blind spot, phase d coverage, cron telemetry
 status: active
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+superseded_by: hook-matchers-must-follow-live-dispatch-primitive-not-dead-substrate-2026-05-26.md
 ---
 
 # Surfacing hooks must cover every fork-spawn substrate, not just the MCP tool-call path

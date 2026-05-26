@@ -1,5 +1,8 @@
 ---
 triggers: sdk-forks-must-commit, fork-deliverables-uncommitted, untracked-in-git, working-tree-only, fork-no-commit, mcp-forks-spawn-fork, sdk-fork-discipline, fork-ship-but-uncommitted, on-disk-untracked, narrated-shipped-uncommitted, branch-switch-loses-untracked, clean-checkout-loss, deliverable-vulnerable, fork-bookkeeping, fork-completion-checklist, git-status-untracked, post-fork-commit-pass, file-mtime-newer-than-head, verify-deployed-state-distinguish-missing-vs-untracked, glob-pattern-ls-failure, explicit-path-verify, sibling-fork-git-clean, working-tree-wipe, untracked-destruction-event
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # SDK forks must commit deliverables, not leave them untracked

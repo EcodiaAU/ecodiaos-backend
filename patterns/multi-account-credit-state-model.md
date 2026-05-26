@@ -65,7 +65,7 @@ The 12h "wave" framing from prior triage was wrong because it treated a coincide
 - Accounts scoring <= 0 are excluded from the candidate list
 - If all score <= 0: DeepSeek fallback (if `DEEPSEEK_FALLBACK_ENABLED=true`) OR best-effort with highest negative scorer
 
-This is **score-based selection**, not fixed sequential priority. A lightly-used `claude_max_2` will win over a heavily-loaded `claude_max` even though `claude_max` is nominally "first". The ordering `claude_max → claude_max_2 → claude_max_3 → deepseek` describes the fallback of last resort, not the normal selection order.
+This is **score-based selection**, not fixed sequential priority. A lightly-used `claude_max_2` will win over a heavily-loaded `claude_max` even though `claude_max` is nominally "first". The ordering `claude_max â†’ claude_max_2 â†’ claude_max_3 â†’ deepseek` describes the fallback of last resort, not the normal selection order.
 
 ## Detection and response protocol
 
@@ -109,7 +109,7 @@ Verified in `forkService.js` `_resolveProviderForFork()` and `usageEnergyService
 ## Cross-refs
 
 - `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - operational handling (single-fork triage, status_board row, auto-resume scheduling)
-- `~/ecodiaos/patterns/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - detection heuristic (2+ errors, 0 tools, < 15s duration = cluster signal)
+- `~/ecodiaos/patterns/_archived/fork-error-cluster-at-zero-tools-treat-as-credit-exhausted.md` - detection heuristic (2+ errors, 0 tools, < 15s duration = cluster signal)
 - `~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md` - anti-flood spec: pause cron-fork-dispatcher after N consecutive chain-exhausted errors
 - `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md` - the pivot destination when chain is exhausted
 - `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` - Bedrock is forbidden; DeepSeek is the only non-Claude fallback

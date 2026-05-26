@@ -1,5 +1,8 @@
 ---
 triggers: scheduled-task, redispatch, factory-redispatch, queued-retry, schedule_delayed, stale-doctrine, parallel-path, ccbe84bd, scheduler-trio, kv_store-prompt, ground-truth-check, factory-no-op-prevention
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Scheduled redispatch tasks must verify the work has not shipped via another path before firing

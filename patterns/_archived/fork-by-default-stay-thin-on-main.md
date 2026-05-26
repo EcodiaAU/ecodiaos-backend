@@ -1,5 +1,8 @@
 ---
 triggers: spawn_fork, fork-by-default, fork-decompose, multi-stream-fork, conductor-routing, mid-task-input, fork-vs-main, conductor-thin, fork-work-doer, list_forks, abort_fork, mcp__forks, fork-mode, fork-sub-session, parallel-fork-work, route-vs-execute, artefact-test, deliverable-test, per-arc-vs-per-step, NOT-APPLIED-chain, fork-by-default-exemption, doctrine-correction-6-may-2026, context_mode-recent, manager-fork, sub-fork, parent_fork_id, fork-hierarchy, MANAGER-true
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork by default, stay thin on main

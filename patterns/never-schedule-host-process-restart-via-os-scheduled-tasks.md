@@ -28,14 +28,14 @@ The ecodia-api restart loop of 1 May 2026 (9 restarts overnight) was caused by e
 | Host crontab (`crontab -e` as `tate`) | Recurring nightly restarts (e.g. 03:00 AEST patch cycle) | Runs from cron daemon, not from inside ecodia-api. Survives any api state. |
 | `atd` (`echo 'pm2 restart ecodia-api' \| at now + 30 minutes`) | One-off delayed restarts | Same. atd queue is OS-level, independent of the api. |
 | systemd timer | Recurring with start/stop semantics | Same. systemd is the supervisor of PM2 (or its grandparent), not its child. |
-| Conductor session (interactive) | Restarts coupled to live decision-making | Conductor pre-stages briefs in `kv_store` per `pre-stage-fork-briefs-before-session-killing-ops.md`, executes pm2_restart, new session reads handoff and resumes. |
+| Conductor session (interactive) | Restarts coupled to live decision-making | Conductor pre-stages briefs in `kv_store` per `_archived/pre-stage-fork-briefs-before-session-killing-ops.md`, executes pm2_restart, new session reads handoff and resumes. |
 | `os_scheduled_tasks` shell_exec'ing pm2_restart | NEVER | Self-kill cascade. |
 
 ## Do
 
 - For nightly or recurring ecodia-api restarts: edit `crontab -e` (host-level), not `schedule_cron`.
 - For one-off "restart in N minutes after I do X" cases: use `at` from `shell_exec` once, never `schedule_delayed`. Example: `shell_exec 'echo "pm2 restart ecodia-api" | at now + 15 minutes'`.
-- For interactive restarts where you want the new session to pick up where you left off: pre-stage briefs in kv_store per `pre-stage-fork-briefs-before-session-killing-ops.md`, save handoff state, then issue `pm2_restart` directly from the live conductor session (not via the scheduler).
+- For interactive restarts where you want the new session to pick up where you left off: pre-stage briefs in kv_store per `_archived/pre-stage-fork-briefs-before-session-killing-ops.md`, save handoff state, then issue `pm2_restart` directly from the live conductor session (not via the scheduler).
 - Audit `os_scheduled_tasks` regularly for any row whose `prompt` or `task` field contains `pm2 restart ecodia-api`, `pm2_restart('ecodia-api')`, `mcp__vps__pm2_restart`, or wrapper script names that include a restart. Cancel them and re-schedule out-of-band.
 - When killing the api in any way (deploy, patch, manual restart) check `mcp__factory__get_factory_status` AND `mcp__forks__list_forks` first - per `_archived/no-pm2-restart-during-active-factory-queue.md`. Out-of-band scheduling does not fix the in-flight-fork orphan problem; it only fixes the self-kill of the conductor that scheduled the task.
 
@@ -43,7 +43,7 @@ The ecodia-api restart loop of 1 May 2026 (9 restarts overnight) was caused by e
 
 - Do NOT call `schedule_delayed` or `schedule_cron` with a body that includes `pm2 restart ecodia-api`. Same for any wrapper that ends up doing it.
 - Do NOT schedule a "verify after restart" task via `os_scheduled_tasks` either - the verifier runs in the new api process whose state is unknown, and the conductor that scheduled it is gone. Use `at` for the verifier as well, with a deterministic check that does not assume any specific in-flight session is alive.
-- Do NOT schedule git operations (`git revert`, `git checkout`, `git reset --hard`) via `os_scheduled_tasks` if they will run on a working tree that may be mid-branch-switch by a sibling fork. Per `stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, branch operations against a contaminated working tree wipe sibling work.
+- Do NOT schedule git operations (`git revert`, `git checkout`, `git reset --hard`) via `os_scheduled_tasks` if they will run on a working tree that may be mid-branch-switch by a sibling fork. Per `_archived/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, branch operations against a contaminated working tree wipe sibling work.
 - Do NOT assume a "graceful" pm2 restart spares the cron poller. PM2's graceful restart still SIGTERMs the process. The poller is a function inside it.
 - Do NOT defer this rule to "the scheduler should detect self-kill operations and reject them". That is a desirable infrastructure patch but is not a substitute for the discipline. The patch may not exist; the discipline must.
 
@@ -76,9 +76,9 @@ Stamped: fork_momsy3wu_28b87b, 1 May 2026 21:00 AEST codification scan.
 ## Cross-references
 
 - `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` - the manual-restart sibling rule. Check Factory queue before any pm2_restart, scheduled or interactive.
-- `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - the right-way-to-restart-interactively rule. Pre-stage briefs, save handoff, then kill from the live session.
+- `~/ecodiaos/patterns/_archived/pre-stage-fork-briefs-before-session-killing-ops.md` - the right-way-to-restart-interactively rule. Pre-stage briefs, save handoff, then kill from the live session.
 - `~/ecodiaos/patterns/grace-timer-must-not-kill-chat-session.md` - the sibling rule for in-process timers that should not tear down their host. Same architectural class: a thing inside the api should not kill the api by default.
-- `~/ecodiaos/patterns/scheduled-redispatch-verify-not-shipped.md` - sibling rule for cron-fired redispatches. Cron-fired pm2_restart shares the failure-class of cron-fired redispatch (fires after world has moved on), but this rule is stricter: never schedule the kill at all, regardless of freshness.
+- `~/ecodiaos/patterns/_archived/scheduled-redispatch-verify-not-shipped.md` - sibling rule for cron-fired redispatches. Cron-fired pm2_restart shares the failure-class of cron-fired redispatch (fires after world has moved on), but this rule is stricter: never schedule the kill at all, regardless of freshness.
 - `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md` - cron-fired tasks must produce deliverables; this rule says cron-fired pm2_restart produces a self-kill, not a deliverable.
-- `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md` - sibling rule for git operations against contaminated working trees. Scheduled git revert + restart hit this exactly.
+- `~/ecodiaos/patterns/_archived/stash-and-clean-when-finding-sibling-fork-unsafe-state.md` - sibling rule for git operations against contaminated working trees. Scheduled git revert + restart hit this exactly.
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the architectural meta-frame. The scheduler-inside-the-kill-target is one of the hardest substrate seams in EcodiaOS.

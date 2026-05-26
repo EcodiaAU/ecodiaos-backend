@@ -1,5 +1,8 @@
 ---
 triggers: pm2-restart, pm2_restart, ecodia-api restart, session-restart, restart-needed, kill-session, infra-fix, fork-orphan, orphaned-fork, kv_store handoff, post-deploy fork dispatch, sequenced fork, follow-up fork, ship-then-restart, restart-kills-session, compaction-fix, sdk-bump, osSessionService restart, parent-child fork, child-process-orphan
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Pre-stage fork briefs in kv_store before any session-killing operation

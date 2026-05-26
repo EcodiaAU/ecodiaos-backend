@@ -9,10 +9,10 @@ Before authoring any new UI surface (navigation, modal, sheet, drawer, popover, 
 ## The rule
 
 A "primitive class" means: any UI element that occupies the same visual + semantic role. Examples of classes:
-- **Mobile nav surface** — bottom tab bar, hamburger drawer, top action menu, pull-up sheet
-- **Modal-overlay** — confirm dialog, full-screen modal, side sheet, popover
-- **Section nav** — sidebar, breadcrumbs, secondary tab strip
-- **Action surface** — floating action button, inline actions, kebab menu
+- **Mobile nav surface** â€” bottom tab bar, hamburger drawer, top action menu, pull-up sheet
+- **Modal-overlay** â€” confirm dialog, full-screen modal, side sheet, popover
+- **Section nav** â€” sidebar, breadcrumbs, secondary tab strip
+- **Action surface** â€” floating action button, inline actions, kebab menu
 
 If the codebase already has ONE member of a class shipped, the next change in that area MUST consolidate into the existing primitive. Authoring a parallel one creates two competing surfaces, which:
 - Forces the user to learn two interaction patterns for the same kind of action
@@ -31,9 +31,9 @@ If the codebase already has ONE member of a class shipped, the next change in th
    ```
 2. **Read each match in full.** Don't skim. Understand the existing API, where it's invoked, what its motion language is.
 3. **Make a CHOICE before writing any new code:**
-   - **Consolidate** — the existing primitive can absorb this use case (probably with a new `variant` prop, role-conditional content, or section grouping). DO this.
-   - **Extend** — the existing primitive needs a new sibling that shares the same skeleton (extracted into a base + two variants). DO this if and only if the variants genuinely diverge in behaviour, not just visual content.
-   - **Add parallel** — only if there is a substantively different interaction model (e.g. a real popover vs a real sheet — those are different classes). RARE.
+   - **Consolidate** â€” the existing primitive can absorb this use case (probably with a new `variant` prop, role-conditional content, or section grouping). DO this.
+   - **Extend** â€” the existing primitive needs a new sibling that shares the same skeleton (extracted into a base + two variants). DO this if and only if the variants genuinely diverge in behaviour, not just visual content.
+   - **Add parallel** â€” only if there is a substantively different interaction model (e.g. a real popover vs a real sheet â€” those are different classes). RARE.
 4. **If you choose "add parallel," write a one-paragraph justification in the brief / commit message naming what makes the new primitive a different class from the existing one.** No justification = consolidate, full stop.
 
 ## Specific anti-patterns
@@ -68,7 +68,7 @@ After any UI primitive change, screenshot the affected pages at mobile + tablet 
 
 ## Origin
 
-6 May 2026 14:46-15:11 AEST. The Chambers admin nav fix shipped at commit `f602c34` (fork_motktunk_f6a2b5) added a hamburger button + slide-in drawer to AdminLayout.tsx on mobile. This was redundant with the existing Co-Exist-ported bottom-tab-bar + SideSheet pattern shipped earlier at commit `ca8b488` ("port Co-Exist nav pattern (bottom tab bar + side sheet) to Chambers + animation parity admin↔public, all-UI-smooth nudge"). Two competing mobile nav surfaces resulted.
+6 May 2026 14:46-15:11 AEST. The Chambers admin nav fix shipped at commit `f602c34` (fork_motktunk_f6a2b5) added a hamburger button + slide-in drawer to AdminLayout.tsx on mobile. This was redundant with the existing Co-Exist-ported bottom-tab-bar + SideSheet pattern shipped earlier at commit `ca8b488` ("port Co-Exist nav pattern (bottom tab bar + side sheet) to Chambers + animation parity adminâ†”public, all-UI-smooth nudge"). Two competing mobile nav surfaces resulted.
 
 Tate verbatim 15:11 AEST: "bro the chamber navs really need to be consolidated.... therees the normal one and the admin one and they should be unified under the more botton on mobile in the bottom tab bar, no dumbn hamburger in the top nav on mobiel which doesnt work... and only one on laptop.... I need some common sense wwhen it comes to the app ui design adn ux."
 
@@ -78,7 +78,7 @@ This pattern codifies the audit-then-decide-then-author sequence so future brief
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/forks-do-their-own-recon-do-not-probe-on-main.md` — fork brief should INSTRUCT the audit, not run it on main
-- `~/ecodiaos/patterns/no-placeholders-no-coming-soon-on-shipped-features.md` — quality bar applies to UI architecture, not just feature completeness
-- `~/ecodiaos/patterns/ocd-ambition-refuse-mediocrity.md` — "would Tate approve this if he saw it unprompted" is the quality gate
-- `~/ecodiaos/patterns/visual-test-before-push-when-tate-not-around.md` — screenshot verification at three breakpoints catches the "two competing surfaces" failure mode by eye
+- `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` â€” fork brief should INSTRUCT the audit, not run it on main
+- `~/ecodiaos/patterns/no-placeholders-no-coming-soon-on-shipped-features.md` â€” quality bar applies to UI architecture, not just feature completeness
+- `~/ecodiaos/patterns/ocd-ambition-refuse-mediocrity.md` â€” "would Tate approve this if he saw it unprompted" is the quality gate
+- `~/ecodiaos/patterns/visual-test-before-push-when-tate-not-around.md` â€” screenshot verification at three breakpoints catches the "two competing surfaces" failure mode by eye

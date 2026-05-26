@@ -2,11 +2,11 @@
 triggers: dispatcher-fix-loaded, pm2-restart-after-patch, perception-dispatcher-patch, perceptionBus-patch, scheduler-poller-patch, listener-patch, mcp-server-patch, in-process-fix-inert, phantom-shipped-perception-dispatcher, require-cache-stale, ecodia-api-pm-uptime-vs-shipped-at, classifier-not-loaded, dispatcher-shipped-but-dark, status-board-shipped-but-running-process-stale, fix-on-disk-not-in-pid, perception-dispatcher-running-process-stale
 ---
 
-# A doctrine fix on disk is not the same as a doctrine fix in the running process — verify pm2 restart after every dispatcher patch
+# A doctrine fix on disk is not the same as a doctrine fix in the running process â€” verify pm2 restart after every dispatcher patch
 
 ## The rule
 
-When a patch lands in any in-process service that `ecodia-api` boot-loads — `src/services/perceptionDispatcher.js`, `src/services/perceptionBus.js`, `src/services/schedulerPollerService.js`, `src/listeners/*`, in-process MCP servers, `src/services/forkService.js`, `src/services/osSessionService.js`, `src/services/voiceRelay.js`, `src/services/rescueRunner.js`, `src/services/cronForkDispatcher.js` — the patch is **inert** until `pm2 restart ecodia-api` picks it up. The running process keeps using the pre-fix module from its Node `require.cache`.
+When a patch lands in any in-process service that `ecodia-api` boot-loads â€” `src/services/perceptionDispatcher.js`, `src/services/perceptionBus.js`, `src/services/schedulerPollerService.js`, `src/listeners/*`, in-process MCP servers, `src/services/forkService.js`, `src/services/osSessionService.js`, `src/services/voiceRelay.js`, `src/services/rescueRunner.js`, `src/services/cronForkDispatcher.js` â€” the patch is **inert** until `pm2 restart ecodia-api` picks it up. The running process keeps using the pre-fix module from its Node `require.cache`.
 
 Marking a status_board row `status='shipped'` after a commit + push to `origin/main` and not restarting is **phantom-shipped**. The fix sits on disk while the running process keeps emitting the broken behaviour.
 
@@ -24,16 +24,16 @@ Compare `pm_uptime` (last start in epoch ms) to the commit's UTC timestamp from 
 
 - 05:11 UTC: commit `7ec019c` ships `CREDIT_EXHAUSTION_REGEX` short-circuit in `perceptionDispatcher.error_escalation` to skip the auto-P1 status_board insert when fork `abort_reason` matches `/out of extra usage|credit.exhaust|reset.*UTC/i`.
 - 05:11 UTC: status_board row `cc32125d` marked `shipped`. kv_store `ceo.last_perception_classifier_fix.shipped_at = 2026-05-09T05:11:59.206Z`.
-- 11:01 UTC: cron-fired fork `fork_moy8gz6l_07d0a3` (telemetry-dispatch-consumer) fails with the literal target abort_reason `Claude Code returned an error result: You're out of extra usage · resets May 12, 11am (UTC)`.
-- 11:01 UTC: perceptionDispatcher inserts auto-P1 status_board row `e3cdd91b` titled `auto: fork/fork_error` — exactly the row the classifier was supposed to prevent.
+- 11:01 UTC: cron-fired fork `fork_moy8gz6l_07d0a3` (telemetry-dispatch-consumer) fails with the literal target abort_reason `Claude Code returned an error result: You're out of extra usage Â· resets May 12, 11am (UTC)`.
+- 11:01 UTC: perceptionDispatcher inserts auto-P1 status_board row `e3cdd91b` titled `auto: fork/fork_error` â€” exactly the row the classifier was supposed to prevent.
 - 21:09 AEST 9 May (meta-loop diagnosis): `pm2 jlist` shows ecodia-api `pm_uptime=1778259600506` = `2026-05-08T17:00:00Z`. The running PID predates the fix by 12h. The require-cache held the pre-fix `perceptionDispatcher` module.
 - Mitigation: out-of-band restart via `systemd-run --user --on-active=300` at 21:14:48 AEST. Bogus row `e3cdd91b` archived. status_board `cc32125d` updated `status='shipped_on_disk_pending_pm2_restart_to_load_into_running_process'`.
 
 ## Do
 
 - After any patch to a boot-loaded in-process service, restart `ecodia-api` to load. The patch is dark until you do.
-- Pre-stage handoff per `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` BEFORE the restart so the resumed session knows what to verify.
-- Restart out-of-band per `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`. Use `systemd-run --user --on-active=N`, host crontab, or interactive conductor session — never `os_scheduled_tasks` (self-kill cascade).
+- Pre-stage handoff per `~/ecodiaos/patterns/_archived/pre-stage-fork-briefs-before-session-killing-ops.md` BEFORE the restart so the resumed session knows what to verify.
+- Restart out-of-band per `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`. Use `systemd-run --user --on-active=N`, host crontab, or interactive conductor session â€” never `os_scheduled_tasks` (self-kill cascade).
 - Audit `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` BEFORE any restart: probe `mcp__factory__get_factory_status` AND `mcp__forks__list_forks`.
 - Verify the load: after pm_uptime > commit timestamp, dispatch a known-shape probe (e.g. spawn a dummy fork that errors out with credit-exhaustion abort_reason and confirm no auto-P1 inserted) before declaring the fix live.
 - Update the status_board row's status to `shipped_loaded` (or similar), distinguishing on-disk-only from running-process-active.
@@ -72,14 +72,14 @@ The meta-rule across all of them: **the deliverable is the running thing's behav
 
 ## Origin
 
-9 May 2026 21:05–21:14 AEST meta-loop turn. Diagnosis arc:
+9 May 2026 21:05â€“21:14 AEST meta-loop turn. Diagnosis arc:
 1. `<perception_summary>` showed 2 fork errors at 11:05 UTC plus auto-P1 row appearing on status board.
-2. Probed `os_observations` for the `fork_error` events — saw 3 forks errored with credit-exhaustion abort_reasons in 4 minutes.
-3. Probed `os_forks.abort_reason` — confirmed all 3 carried the literal credit-exhaustion text.
-4. Read `src/services/perceptionDispatcher.js` — confirmed the regex short-circuit IS in code at lines 226–266.
-5. Read `pm2 jlist` — confirmed ecodia-api `pm_uptime=1778259600506` = 2026-05-08T17:00:00Z.
+2. Probed `os_observations` for the `fork_error` events â€” saw 3 forks errored with credit-exhaustion abort_reasons in 4 minutes.
+3. Probed `os_forks.abort_reason` â€” confirmed all 3 carried the literal credit-exhaustion text.
+4. Read `src/services/perceptionDispatcher.js` â€” confirmed the regex short-circuit IS in code at lines 226â€“266.
+5. Read `pm2 jlist` â€” confirmed ecodia-api `pm_uptime=1778259600506` = 2026-05-08T17:00:00Z.
 6. Read kv_store `ceo.last_perception_classifier_fix.shipped_at` = `2026-05-09T05:11:59.206Z`.
-7. Realisation: `pm_uptime < shipped_at` → fix is on disk but NOT in the running process.
+7. Realisation: `pm_uptime < shipped_at` â†’ fix is on disk but NOT in the running process.
 8. Mitigated: archived bogus row, scheduled out-of-band restart via `systemd-run`.
 9. Codified: this pattern + Neo4j Pattern node 1595.
 
@@ -87,11 +87,11 @@ Stamped: meta-loop turn 9 May 2026 21:14 AEST.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule. Narration is unreliable; probe substrate.
-- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` — Factory-queue gate before any restart.
-- `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` — out-of-band scheduling rule.
-- `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` — pre-stage discipline.
-- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` — the doctrine the inert fix was meant to enforce.
-- `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md` — the laptop-agent-side sibling rule.
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — sibling rule for pg_notify-driven listeners. A listener wired in code but not loaded in the running process is "wired but dark"; the pm_uptime-vs-shipped_at check applies to listeners as well as dispatchers.
-- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — the meta-frame: every cross-substrate write is a seam.
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` â€” the meta-rule. Narration is unreliable; probe substrate.
+- `~/ecodiaos/patterns/_archived/no-pm2-restart-during-active-factory-queue.md` â€” Factory-queue gate before any restart.
+- `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md` â€” out-of-band scheduling rule.
+- `~/ecodiaos/patterns/_archived/pre-stage-fork-briefs-before-session-killing-ops.md` â€” pre-stage discipline.
+- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` â€” the doctrine the inert fix was meant to enforce.
+- `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md` â€” the laptop-agent-side sibling rule.
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` â€” sibling rule for pg_notify-driven listeners. A listener wired in code but not loaded in the running process is "wired but dark"; the pm_uptime-vs-shipped_at check applies to listeners as well as dispatchers.
+- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` â€” the meta-frame: every cross-substrate write is a seam.

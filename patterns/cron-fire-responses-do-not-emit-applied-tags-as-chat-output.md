@@ -12,13 +12,13 @@ triggers: cron-fire, applied-tag, chat-pollution, director-chat-noise, telemetry
 - in the **immediate tool result text** scanned by `post-action-applied-tag-check.sh` at PostToolUse time
 - as a **structured comment inline with the action** (SQL `-- [APPLIED] ...`, kv_store row note field, commit message footer)
 
-They do NOT belong as a leading or trailing line of the assistant's natural-language chat reply that streams via `text_delta` events to the FE chat view. The frontend renders the assistant's text verbatim through `FinalisedMarkdown` in `CCStream.tsx` — every tag line emitted in chat reply text is pollution Tate has to scroll past.
+They do NOT belong as a leading or trailing line of the assistant's natural-language chat reply that streams via `text_delta` events to the FE chat view. The frontend renders the assistant's text verbatim through `FinalisedMarkdown` in `CCStream.tsx` â€” every tag line emitted in chat reply text is pollution Tate has to scroll past.
 
 ## The rule
 
 When a `[FORK-NUDGE]` / `[CONTEXT-SURFACE WARN]` / `[CRED-SURFACE WARN]` / `[BRIEF-CHECK WARN]` / equivalent fires during cron-fire response work or any tool-call sequence the conductor is doing on its own behalf (not via fork dispatch):
 
-1. **The acknowledgement IS still required** — Phase C telemetry rolls untagged surfaces into `tagged_silent=true` and surfaces them as drift signals.
+1. **The acknowledgement IS still required** â€” Phase C telemetry rolls untagged surfaces into `tagged_silent=true` and surfaces them as drift signals.
 2. **But the acknowledgement does NOT go in the chat reply.** It goes inline with the action:
    - `mcp__supabase__db_execute` SQL: prepend `-- [APPLIED] <pattern> because <reason>` as a SQL comment line
    - `mcp__supabase__storage_upload` / `storage_delete`: include a note in the row's `meta` field if applicable, or a `kv_store.applied_tag.<fork_id>.<ts>` write if the storage call has no metadata field
@@ -38,7 +38,7 @@ For **fork-spawn dispatches** (`mcp__forks__spawn_fork`) and **factory-session d
 
 ## Do NOT
 
-- Do NOT emit `[APPLIED] <pattern> because <reason>` as a leading line of the assistant's chat reply. The FE has no filter (verified `CCStream.tsx:443` — `displayText` flows straight to `FinalisedMarkdown` with no tag-line filter).
+- Do NOT emit `[APPLIED] <pattern> because <reason>` as a leading line of the assistant's chat reply. The FE has no filter (verified `CCStream.tsx:443` â€” `displayText` flows straight to `FinalisedMarkdown` with no tag-line filter).
 - Do NOT emit a `[APPLIED]` line at the end of a chat reply as "tagging for telemetry". The Phase C ingestion picks up tags from tool-call payloads (briefs, SQL, results), not from `os-session:output` text deltas.
 - Do NOT chain multiple `[APPLIED]` lines in chat reply text (Tate has been reading 4-6 such lines per cron fire). One per dispatch was the intent of Phase C; chaining them in chat is the failure mode this rule exists to stop.
 - Do NOT confuse "the warn fired" with "I owe Tate an explanation in chat". The warn is a private nudge from the hook surface to the conductor. Acknowledgement goes back to the hook surface (via tool-call payload), not via chat output.
@@ -63,17 +63,17 @@ The fix is two-layered:
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3 — the Phase C tag protocol the conductor was over-applying. The protocol is correct; the application surface (chat reply text) is the failure mode.
-- `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` — `[FORK-NUDGE]` is the most-frequent surfacing hook. The on-main exception clauses (a/b/c) describe when an on-main action is acceptable; emitting a chat-line `[APPLIED]` in addition to acting on the exception is decoration, not protocol.
-- `~/ecodiaos/patterns/no-retrospective-dumps-in-director-chat.md` — the parent doctrine this rule is a special case of. Director chat is for actions and decisions; doctrine tagging goes to telemetry, not chat.
-- `~/ecodiaos/patterns/system-injection-blocks-must-not-render-in-director-chat.md` — the sibling rule covering `<doctrine_surface>`, `<recent_doctrine>`, `<relevant_memory>`, etc. injection blocks. Same architectural invariant: scaffolding for the conductor, never rendered to the human.
-- `~/ecodiaos/patterns/decide-do-not-ask.md` — the decision-quality / output-discipline parent.
-- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — the meta-rule. Tagging in chat is symbolic; tagging in payload is real. If the only place the tag exists is the chat reply, the protocol failed.
+- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3 â€” the Phase C tag protocol the conductor was over-applying. The protocol is correct; the application surface (chat reply text) is the failure mode.
+- `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md` â€” `[FORK-NUDGE]` is the most-frequent surfacing hook. The on-main exception clauses (a/b/c) describe when an on-main action is acceptable; emitting a chat-line `[APPLIED]` in addition to acting on the exception is decoration, not protocol.
+- `~/ecodiaos/patterns/no-retrospective-dumps-in-director-chat.md` â€” the parent doctrine this rule is a special case of. Director chat is for actions and decisions; doctrine tagging goes to telemetry, not chat.
+- `~/ecodiaos/patterns/system-injection-blocks-must-not-render-in-director-chat.md` â€” the sibling rule covering `<doctrine_surface>`, `<recent_doctrine>`, `<relevant_memory>`, etc. injection blocks. Same architectural invariant: scaffolding for the conductor, never rendered to the human.
+- `~/ecodiaos/patterns/decide-do-not-ask.md` â€” the decision-quality / output-discipline parent.
+- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` â€” the meta-rule. Tagging in chat is symbolic; tagging in payload is real. If the only place the tag exists is the chat reply, the protocol failed.
 
 ## Origin
 
 **30 Apr 2026 09:25 AEST.** Tate flagged: "polution in our chat stream about appleid and not applied patterns". This had been building over multiple days as the Phase C tag protocol shipped (29 Apr 2026) and the conductor over-applied it: every cron fire, every warned tool call, every read-only `[FORK-NUDGE]`-triggered Bash call ended up with one or more `[APPLIED]` lines in the assistant's chat-streamed text. By 30 Apr the noise rate exceeded signal in director chat for some hours of the day.
 
-Three-strike pattern context: the on-main idle-state operating discipline ("5 forks always", "continuous work conductor never idle", "fork-by-default") all depend on the chat reply staying tight and signal-rich. Tag-pollution is the same failure-mode-class as retrospective dumps and self-flagellation paragraphs — content that is correct as internal artefact but wrong as human-rendered output.
+Three-strike pattern context: the on-main idle-state operating discipline ("5 forks always", "continuous work conductor never idle", "fork-by-default") all depend on the chat reply staying tight and signal-rich. Tag-pollution is the same failure-mode-class as retrospective dumps and self-flagellation paragraphs â€” content that is correct as internal artefact but wrong as human-rendered output.
 
 This pattern file was authored by fork_mokoql7k_e365e9, dispatched as a context-isolated fork to write the doctrine + audit without polluting the conductor's main turn with the codification work.

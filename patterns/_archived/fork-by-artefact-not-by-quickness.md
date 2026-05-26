@@ -1,5 +1,8 @@
 ---
 triggers: fork-decision, fork-by-artefact, artefact-test, deliverable-test, per-arc-vs-per-step, NOT-APPLIED-chain, fork-by-default-exemption, doctrine-correction-6-may-2026, quick-vs-artefact, fork-scale-test, conductor-stays-thin, fork-by-default, spawn_fork, context_mode-recent, ensure-deps-fix-arc, per-step-quickness-fallacy, artefact-vs-no-artefact
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # The fork-vs-stay-on-main test is "does this produce an artefact", not "is this step quick"

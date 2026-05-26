@@ -1,5 +1,8 @@
 ---
 triggers: manager-fork, MANAGER-true, sub-fork, parent_fork_id, fork-decomposition, fork-hierarchy, multi-worker-task, parallel-pipeline, build-test-deploy-verify, 30-parallel-streams, fork-tree, fork-tree-cap, sub-fork-routing, manager-summary, conductor-inbox-clean, decompose-and-spawn, fork-aggregation, manager-vs-worker, sub-fork-cap, wait_for_sub_forks, mcp__forks__wait_for_sub_forks, manager-blocking-wait, manager-poll-loop, manager-phantom-bail
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Use manager forks for any task decomposing into 2+ independent workers

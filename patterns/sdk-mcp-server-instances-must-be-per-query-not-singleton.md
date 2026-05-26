@@ -7,7 +7,7 @@ triggers: createSdkMcpServer, in-process-mcp, sdkMcpServerInstances, forkConduct
 The MCP SDK's `Server.connect()` throws `Already connected to a transport`
 if the same Server instance is connected to a second transport. The Claude
 Agent SDK silently catches this in `connectSdkMcpServer()` and removes the
-server from `sdkMcpServerInstances` — so the second SDK query loses the
+server from `sdkMcpServerInstances` â€” so the second SDK query loses the
 in-process tool surface even though `--allowedTools` still lists the
 `mcp__<name>__*` patterns.
 
@@ -26,12 +26,12 @@ async function getServer() {
 
 What happens at runtime:
 
-1. Conductor calls `getServer()` → builds new server, caches it. SDK init
+1. Conductor calls `getServer()` â†’ builds new server, caches it. SDK init
    adds it to `sdkMcpServerInstances`. SDK calls `instance.connect(transport_main)`
-   → succeeds. Conductor has the tools.
-2. Fork spawns. Calls `getServer()` → returns the SAME cached instance. SDK
+   â†’ succeeds. Conductor has the tools.
+2. Fork spawns. Calls `getServer()` â†’ returns the SAME cached instance. SDK
    init re-adds it to `sdkMcpServerInstances`. SDK calls
-   `instance.connect(transport_fork)` → THROWS `Already connected to a
+   `instance.connect(transport_fork)` â†’ THROWS `Already connected to a
    transport` (protocol.js:215-218 of `@modelcontextprotocol/sdk`).
 3. Claude Agent SDK's `connectSdkMcpServer()` swallows the error in a
    `.catch()`, removes the server from `sdkMcpServerInstances`, logs
@@ -112,11 +112,11 @@ failed silently. Fix shipped commit `1c7ea11` on `forkConductorTool.js`.
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/manager-forks-for-multi-worker-decomposition.md` — the
+- `~/ecodiaos/patterns/_archived/manager-forks-for-multi-worker-decomposition.md` â€” the
   primitive that depends on this rule.
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` —
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` â€”
   same shape: wired but dark surface, fails silently because no layer checks
   end-to-end.
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` —
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` â€”
   manager forks emitting `[FORK_REPORT]` with sub-fork claims while no children
   appear is the canonical narration-vs-disk drift.

@@ -69,7 +69,7 @@ The filesystem-trust generalisation from `_archived/factory-metadata-trust-files
 
 - [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]] - the primary substrate this rule applies to.
 - [[verify-deployed-state-against-narrated-state]] - filesystem-trust meta-rule (parent of the Factory metadata-trust insight).
-- [[forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates]] - sibling discipline for worker -> shared-infrastructure coordination.
+- [[_archived/forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates]] - sibling discipline for worker -> shared-infrastructure coordination.
 - [[stage-and-clean-when-finding-sibling-fork-unsafe-state]] - the kill-and-stash sibling.
 
 ## 6. Origin

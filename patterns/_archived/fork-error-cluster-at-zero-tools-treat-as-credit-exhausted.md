@@ -1,5 +1,8 @@
 ---
 triggers: fork-error-cluster, fork-error-zero-tools, perception-fork-errors, credit-exhausted-cluster, do-not-spawn-on-credit-exhaust, meta-loop-fork-rollup-errors, fork-rollup-cluster-error, multiple-fork-error-recent, classify-as-credit-exhaustion-default, route-to-drift-audit-instead, conductor-saves-slots-when-exhausted
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork-error cluster at zero tools = credit-exhausted; do not spawn another, pivot to drift audit on main

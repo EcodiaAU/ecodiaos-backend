@@ -2,6 +2,9 @@
 triggers: fork-sigterm,fork-crashed-recovery,phantom-crash-real-deliverable,probe-origin-main-before-redispatch,fork-recovery-must-probe-deliverables,sigterm-vs-commit-timing
 status: active
 authored: 2026-05-12
+archived_at: 2026-05-26
+archived_reason: sdk-fork-substrate-deprecated-2026-05-17
+nuance_transferred_to: dispatch-worker-runtime-semantics-2026-05-26.md
 ---
 
 # Fork SIGTERMs do not retroactively un-commit — probe origin/main before declaring crashed fork's work lost
