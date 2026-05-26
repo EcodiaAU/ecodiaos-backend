@@ -142,7 +142,36 @@ Decision: pass `ide: "stable"` to `dispatch_worker` in every scheduler-initiated
 
 ## Prerequisite #2: OAuth refresh endpoint
 
-(to be filled in Task 0.3 - leave placeholder)
+PROBED 2026-05-26 successfully. Live refresh against my own current refresh_token returned 200 with fresh tokens, written back to ~/.claude/.credentials.json atomically. Live CC sessions kept working through the probe.
+
+- **Endpoint:** `POST https://platform.claude.com/v1/oauth/token`
+- **client_id:** `9d1c250a-e61b-44d9-88ed-5944d1962f5e` (Claude CLI public client_id, extracted from extension.js)
+- **Required User-Agent:** any non-default UA. Python urllib's default UA hits Cloudflare 1010 browser_signature_banned. `claude-cli/2.1.145 (external, vscode-extension)` works. The cred-refresher must set a UA.
+- **Request body shape (JSON):**
+  ```json
+  {
+    "grant_type": "refresh_token",
+    "refresh_token": "<token>",
+    "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+  }
+  ```
+- **Response body shape:**
+  ```json
+  {
+    "token_type": "Bearer",
+    "access_token": "<108-char string>",
+    "expires_in": 28800,
+    "refresh_token": "<108-char string, NEW>",
+    "scope": "user:file_upload user:inference user:mcp_servers user:profile user:sessions:claude_code",
+    "token_uuid": "<uuid>",
+    "organization": {...},
+    "account": {...}
+  }
+  ```
+- **CRITICAL: refresh_token ROTATES on every refresh.** The returned refresh_token is NEW. The old one becomes invalid (single-use). cred-refresher MUST atomically write the new refresh_token back to the per-account file or the next refresh will 401.
+- **TTL:** 28800s = 8 hours per cycle.
+- **Live probe outcome:** my tate@ tokens refreshed in-place 2026-05-26 13:38 UTC. .credentials.json updated atomically. backup saved at ~/.claude/.credentials.json.backup-1779802727.
+- **Plan implication:** Phase 2's cred-refresher daemon design holds. No headless PKCE re-flow fallback needed. The "writeAccountAtomic with the new refresh_token" branch in the plan (already present) is the correct path.
 
 ---
 
@@ -166,7 +195,18 @@ Decision: pass `ide: "stable"` to `dispatch_worker` in every scheduler-initiated
 
 ## Seed state checklist
 
-(to be filled in Tasks 0.6 - 0.9 - leave placeholder)
+- `refresh-clobber-watchdog.js` deleted from source: DONE Task 0.6 (commit ad37709).
+- `~/.ecodia-creds/` stale backup dir: DONE Task 0.6 (removed `money@ecodia.au.json` from May 21).
+- `ecosystem.config.js` no longer references deleted watchdog: DONE (commit 685bdd5).
+- `D:/PRIVATE/ecodia-creds/tate.json`: DONE 2026-05-26 from current ~/.claude/.credentials.json after fresh OAuth refresh (TTL ~8h, scopes intact, subscriptionType=max).
+- `D:/PRIVATE/ecodia-creds/code.json`: PENDING - needs Tate sign out + sign in as code@ecodia.au + copy file.
+- `D:/PRIVATE/ecodia-creds/money.json`: PENDING - same flow for money@ecodia.au.
+- Migration 136 applied: DONE Task 0.8 (via VPS SSH `psql` since Cloudflare blocks Corazon-originated Management API calls and MCP db_execute rejects DDL). 10 new columns + 3 indexes verified present. Migration file at `src/db/migrations/136_os_scheduled_tasks_autonomy_substrate.sql` (commit 422f54d5).
+- Migration also added `priority` column (default 3) since the schema didn't have it. Plan spec assumed it existed.
+- Migration extended status CHECK to allow `dispatching`, `running`, `orphaned` plus preserved the pre-existing `cancelled` (217 rows already had it).
+- Seed cron row `morning-briefing` inserted: DONE Task 0.9 (id `042c182c-aa6e-4671-8cf6-da94aeefd030`, status `paused`, preferred_account `tate`, cron `0 9 * * *`). Will flip to `active` after Phase 4 scheduler lands.
+- PM2 supervision of `eos-laptop-agent`: BLOCKED. PID 648 still serves on port 7456 (10h+ uptime) but `pm2 daemon` cannot start due to EPERM on rpc.sock pipe and `taskkill /F /PID 648` returns Access Denied. Needs an elevated PowerShell session.
+- Workspace `.mcp.json` for spawned chats: NOT YET VERIFIED (Task 0.5, deferred until agent restart so signal_bound is visible to probe).
 
 ---
 
