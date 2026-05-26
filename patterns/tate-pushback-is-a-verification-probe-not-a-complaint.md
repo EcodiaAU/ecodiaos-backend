@@ -4,7 +4,7 @@ triggers: tate-pushback, wdym, why-is-this, how-is-this, framing-question, re-pr
 
 # Tate-pushback on framing is a verification probe, not a complaint to deflect
 
-When Tate pushes back on a status_board row's framing, a fork's classification, or any prior conductor-narrated root cause with a short question — "wdym X", "why is this Tate-blocked", "how is this still Y", "you sure about that", "what does X mean" — he is NOT registering a complaint that needs reassurance. He is probing whether the prior framing was actually verified or just parroted from prior narration.
+When Tate pushes back on a status_board row's framing, a fork's classification, or any prior conductor-narrated root cause with a short question â€” "wdym X", "why is this Tate-blocked", "how is this still Y", "you sure about that", "what does X mean" â€” he is NOT registering a complaint that needs reassurance. He is probing whether the prior framing was actually verified or just parroted from prior narration.
 
 ## The rule
 
@@ -16,7 +16,7 @@ When Tate questions a framing, the correct first action is to **re-probe the gro
 
 ## Why this matters
 
-The framing in any status_board row / kv_store note / fork report is conductor narration. Narration drifts from substrate. Tate has substrate-level signal I don't (he sees Vercel notification emails, he knows what he actually did vs didn't do, he remembers which credential context exists where). His "wdym" / "why is X" question is the cheapest possible probe for narration-vs-substrate drift — single line of input, zero tokens of explanation, maximally information-dense.
+The framing in any status_board row / kv_store note / fork report is conductor narration. Narration drifts from substrate. Tate has substrate-level signal I don't (he sees Vercel notification emails, he knows what he actually did vs didn't do, he remembers which credential context exists where). His "wdym" / "why is X" question is the cheapest possible probe for narration-vs-substrate drift â€” single line of input, zero tokens of explanation, maximally information-dense.
 
 When I deflect ("I think the prior fork meant X..."), I waste the probe AND propagate the drift.
 
@@ -58,13 +58,13 @@ One Tate question. Five concrete deliverables. Zero tokens of conductor reassura
 
 ## Anti-pattern
 
-Tate types "wdym X". Conductor replies with multi-paragraph explanation of what the prior fork found and why the framing made sense. No tool calls between Tate's message and the reply. This is the failure mode the pattern exists to prevent — it propagates drift AND wastes Tate's high-signal probe.
+Tate types "wdym X". Conductor replies with multi-paragraph explanation of what the prior fork found and why the framing made sense. No tool calls between Tate's message and the reply. This is the failure mode the pattern exists to prevent â€” it propagates drift AND wastes Tate's high-signal probe.
 
 ## Cross-references
 
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the meta-rule (narration is unreliable evidence)
 - `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md` - the practical checklist
-- `~/ecodiaos/patterns/decide-do-not-ask.md` - companion rule (act, don't ask), this pattern is the inverse case (verify, don't defend)
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - companion rule (act, don't ask), this pattern is the inverse case (verify, don't defend)
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - the chat reply alone is symbolic; the substrate probe is the artefact
 - `~/ecodiaos/patterns/minimize-tate-approval-queue.md` - related: minimise Tate-blocked rows; mis-framing as Tate-blocked when it's actually conductor-fixable (the wildmountains Case A here) is one of the failure modes that bloats the approval queue
 

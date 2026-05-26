@@ -52,7 +52,7 @@ The Phase C tag-distribution telemetry already counts `[APPLIED]` vs `[NOT-APPLI
 
 - `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3 (the tag protocol this extends)
 - `~/ecodiaos/patterns/pattern-lifecycle-active-narrowed-archived.md` (pattern lifecycle - what to do when override rate is high)
-- `~/ecodiaos/patterns/decide-do-not-ask.md` (override is a decision, not a request for permission)
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` (override is a decision, not a request for permission)
 - `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` (the autonomy that licenses overrides)
 - `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (the receipt is the artefact - "I overrode because of judgement" without a one-line reason is symbolic)
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` (sibling: same urgency principle)

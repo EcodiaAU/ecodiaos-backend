@@ -112,7 +112,7 @@ The `index.sqlite` schema records `summary_model` and `summary_cost_cents` per f
 
 - `~/ecodiaos/backend/patterns/context-surfacing-must-be-reliable-and-selective.md` - the meta-pattern this implements at the codebase-as-doctrine layer. Each indexed file is a "fact" surfaced via grep + index instead of a "fact" surfaced via filesystem traversal.
 - `~/ecodiaos/backend/patterns/neo4j-first-context-discipline.md` - the durable-truth side of context discipline. SQLite index is to filesystem grep what Neo4j is to kv_store: the queryable, auditable, schemaful layer.
-- `~/ecodiaos/backend/patterns/decide-do-not-ask.md` - the decision to ship Scheduled Task instead of pm2 or `/loop` was made without prompting Tate, per this rule.
+- `~/ecodiaos/backend/patterns/_archived/decide-do-not-ask.md` - the decision to ship Scheduled Task instead of pm2 or `/loop` was made without prompting Tate, per this rule.
 - `~/ecodiaos/backend/patterns/em-dashes-banned-character-level-no-exceptions.md` - this file was authored em-dash-free; the indexer summary prompt explicitly bans em-dashes in Haiku output.
 - Phase 2 dossier: `C:/Users/tjdTa/.claude/projects/d---code/migration-lanes/phase2/01-codebase-awareness.md` - the brief that scoped this work.
 - The skill: `C:/Users/tjdTa/.claude/skills/codebase-orient/SKILL.md` - what fires `/codebase-orient`.

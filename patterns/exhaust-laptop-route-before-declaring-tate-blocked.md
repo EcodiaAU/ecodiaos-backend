@@ -2,7 +2,7 @@
 triggers: tate-blocked, next_action_by-tate, last-resort, 5-point-check, exhaust-laptop-route, browser-saved-credential, corazon-route, passkey-2fa, web-credential-walled, signed-in-session, tate-required, escalate-to-tate, blocked-on-tate, default-defer, ask-tate, classify-blocker, apple-team-id, asc-id-lookup, vendor-portal-login, tate-laptop-default-profile, gui-macro-route
 ---
 
-> **NOTE — 5 May 2026.** Cowork is deprecated as the default UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The Cowork preference at step 2 and cross-refs (line 69-70 in the original) are superseded by the direct Tailscale laptop-agent path. All other points in this file (the 5-point check, exhausting the laptop route, Tate-blocked classification discipline) remain fully valid.
+> **NOTE â€” 5 May 2026.** Cowork is deprecated as the default UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The Cowork preference at step 2 and cross-refs (line 69-70 in the original) are superseded by the direct Tailscale laptop-agent path. All other points in this file (the 5-point check, exhausting the laptop route, Tate-blocked classification discipline) remain fully valid.
 
 # Exhaust the laptop + browser + saved-credential route before declaring anything Tate-blocked
 
@@ -41,7 +41,7 @@ Before classifying any blocker as Tate-required, I run the 5-point check. All fi
 ## Do not
 
 - Set `next_action_by='tate'` because the workflow LOOKS credential-walled. Probe first.
-- Set `next_action_by='tate'` to "look respectful" or because the topic feels external-to-me. Decision-deferral via the wrong tag is decision-deferral, see `decide-do-not-ask.md`.
+- Set `next_action_by='tate'` to "look respectful" or because the topic feels external-to-me. Decision-deferral via the wrong tag is decision-deferral, see `_archived/decide-do-not-ask.md`.
 - Generate a programmatic API key when a logged-in GUI session through Corazon already works. See `gui-macro-uses-logged-in-session-not-generated-api-key.md`.
 - Spawn a parallel Chrome or kill Tate's running Chrome to "isolate" - drive HIS Chrome via the GUI input tools.
 - Skip the 5-point check because "this one's obviously a Tate task" - the obviousness is the failure mode this check exists to catch.
@@ -64,7 +64,7 @@ The specific incident: I had set `next_action_by='tate'` for an Apple Team ID lo
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/decide-do-not-ask.md` - the procedural filter against decision-deferral. Tate-blocked classification is one of the highest-leverage decision-deferral tags I can mis-set.
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - the procedural filter against decision-deferral. Tate-blocked classification is one of the highest-leverage decision-deferral tags I can mis-set.
 - `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` - HOW to satisfy step 2 (drive Tate's existing Chrome via `input.*` + `screenshot.*`).
 - `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - the broader peer-paradigm doctrine that makes the 5-point check possible at all.
 - `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md` - if step 2 ever needs CDP rather than GUI driving (rare).

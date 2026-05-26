@@ -7,7 +7,7 @@ priority: critical
 
 ## The rule
 
-When dismantling load-bearing infrastructure across multiple sequential destructive operations (`pm2 stop`, `pm2 delete`, `git rm`, `DROP TABLE`, `aws s3 rb --force`, anything that erases or makes-irreversible state shared across substrates), `[[decide-do-not-ask]]` is OVERRIDDEN. Each destructive substep gets its own status_board row addressed to `next_action_by=tate` BEFORE the substep runs, and the executor waits for Tate's explicit `proceed` reply (or his manual flip of the row's status) before acting.
+When dismantling load-bearing infrastructure across multiple sequential destructive operations (`pm2 stop`, `pm2 delete`, `git rm`, `DROP TABLE`, `aws s3 rb --force`, anything that erases or makes-irreversible state shared across substrates), `[[_archived/decide-do-not-ask]]` is OVERRIDDEN. Each destructive substep gets its own status_board row addressed to `next_action_by=tate` BEFORE the substep runs, and the executor waits for Tate's explicit `proceed` reply (or his manual flip of the row's status) before acting.
 
 This is the ONLY class of work where decide-do-not-ask yields. The override is not because Tate's judgment is better than mine on the substep itself; it is because:
 
@@ -58,7 +58,7 @@ The pattern is general beyond that one lane. Any future migration / decommission
 ## Cross-references
 
 - `~/CLAUDE.md` Decision Authority section - this rule operates as an upgrade of the "Brief Tate first" tier when the substep is destructive.
-- `backend/patterns/decide-do-not-ask.md` - the rule this overrides for the destructive-tear-down case.
+- `backend/patterns/_archived/decide-do-not-ask.md` - the rule this overrides for the destructive-tear-down case.
 - `backend/patterns/verify-deployed-state-against-narrated-state.md` - why narration of "step N succeeded" is not enough; the verify probe is mandatory.
 - `backend/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - the 5-point check stays applicable for the WAIT phase between gate and proceed.
 - `backend/docs/VPS_TEAR_DOWN_SEQUENCE_2026-05-15.md` - the canonical worked example of this rule.

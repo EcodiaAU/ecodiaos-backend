@@ -38,7 +38,7 @@ Neo4j Pattern node: "Ecodia stays off boards - we own the infrastructure they si
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/decide-do-not-ask.md` - this is a conductor-decides class decision, not Tate-brief-first
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - this is a conductor-decides class decision, not Tate-brief-first
 - `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` - full authority to decline board offers
 - `~/ecodiaos/patterns/angelica-as-salesperson-not-board-prospect.md` - related: Angelica's role is commercial, not governance
 - `~/ecodiaos/patterns/board-referral-coi-exclude-own-boards-clause.md` - CoI mechanics when referral partners hold board seats

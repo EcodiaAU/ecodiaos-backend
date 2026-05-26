@@ -1,5 +1,8 @@
 ---
 triggers: decide, ask, defer, decision-deferral, should-i, which-option, disambiguate, tate-blocked, escalate, just-decide, stop-asking, autonomous-decision, ask-tate, route-to-tate, baby-feed, sign-off-queue, approval-queue, brief-tate-first, tate-attention, decision-authority, default-to-action, owner-of-the-call, business-clean
+archived_at: 2026-05-26
+archived_reason: folded-into-canonical-autonomy-doctrine-2026-05-26
+nuance_transferred_to: 100-percent-autonomy-doctrine-30-apr-2026.md
 ---
 
 # Decide, do not ask

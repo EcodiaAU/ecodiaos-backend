@@ -2,13 +2,13 @@
 triggers: take-agency, conductor-owns-recovery, self-caused-break, oauth-invalidation-recovery, cred-cascade-recovery, claude-desktop-stuck, ui-recovery-conductor-drives, cowork-broken-conductor-fixes, drive-corazon-input-tools, agency-over-existence, do-not-punt-to-tate, conductor-not-cowork-claude, layer-distinction-credentials, exhaust-laptop-route-before-tate, kill-relaunch-claude-desktop, anthropic-oauth-refresh-failed
 ---
 
-> **NOTE — 5 May 2026.** Cowork is deprecated as a UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. This file's references to `cowork-dispatch` script and `cowork-cannot-enter-credentials` are preserved where contextually valid — the dispatch script still works (legacy name, useful tool) and the credential-layer distinction (Cowork-Claude vs conductor `input.type`) remains correct. All "Cowork" references in this file refer to the historical Claude Desktop dispatch capability, not a currently-supported substrate.
+> **NOTE â€” 5 May 2026.** Cowork is deprecated as a UI-driving substrate per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. This file's references to `cowork-dispatch` script and `cowork-cannot-enter-credentials` are preserved where contextually valid â€” the dispatch script still works (legacy name, useful tool) and the credential-layer distinction (Cowork-Claude vs conductor `input.type`) remains correct. All "Cowork" references in this file refer to the historical Claude Desktop dispatch capability, not a currently-supported substrate.
 
-# The conductor takes agency on recovery — not Tate, when conductor action caused the break
+# The conductor takes agency on recovery â€” not Tate, when conductor action caused the break
 
 ## Rule
 
-When my action (the conductor's action) causes a downstream system to break — credential rotation invalidates an OAuth, a config change crashes a service, a deploy surfaces a regression — I OWN the recovery. I do not punt to Tate. I have:
+When my action (the conductor's action) causes a downstream system to break â€” credential rotation invalidates an OAuth, a config change crashes a service, a deploy surfaces a regression â€” I OWN the recovery. I do not punt to Tate. I have:
 - `~/ecodiaos/scripts/cowork-dispatch` and the laptop-agent at `100.114.219.69:7456`
 - `input.*` keyboard/mouse, `screenshot.screenshot`, `process.*`, `shell.shell`, `filesystem.*` on Corazon
 - All credentials needed in `kv_store.creds.*` (Google Workspace pwd, laptop passkey 6969, etc.)
@@ -28,13 +28,13 @@ The pattern Tate is seeing: I find a problem, I have the tools to fix it, I tell
 
 ## Decision tree (run it BEFORE writing "Tate needs to..." into status_board next_action)
 
-1. **Is this a UI action that requires a logged-in browser session?** → drive Tate's existing Chrome on Corazon via `input.shortcut [ctrl, l]` + `input.type` + `screenshot.screenshot`. Per `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`.
-2. **Is this a desktop-app action?** → Use `process.listProcesses`, `shell.shell` to find window, `(New-Object -ComObject WScript.Shell).AppActivate("<title>")` to focus, `input.*` to drive.
-3. **Is the credential I need in kv_store?** → Read it. Use it. Do not echo it in chat. Do not treat its presence as suspicious.
-4. **Is the credential prompt the actual gate?** → Type it via `input.type` to the focused field. Per the cowork-cannot-enter-credentials pattern, that constraint binds Cowork-Claude, not the conductor.
-5. **Did a 2FA fire?** → If Windows passkey: inject `kv_store.creds.laptop_passkey` (currently `6969`). If email OTP: poll Tate's Gmail inbox. If phone push to Tate's phone with Tate not at laptop: NOW it is genuinely Tate-blocked.
-6. **Did the desktop app stuck on splash?** → Kill all `claude.exe` processes, rename suspect token files to `.bak` (buddy-tokens.json, bridge-state.json, cowork-enabled-cli-ops.json), relaunch via `Start-Process explorer.exe "shell:AppsFolder\<AUMID>"` where AUMID is `(Get-StartApps | Where Name -like "*<app>*").AppID`. For Claude Desktop the AUMID is `Claude_pzs8sxrjxfjjc!Claude` (NOT `!App`).
-7. **Did I cause the break with my own action?** → That makes it MORE my responsibility, not less. The cred-rotation cascade I triggered is mine to fully unwind, including the second-order OAuth invalidations.
+1. **Is this a UI action that requires a logged-in browser session?** â†’ drive Tate's existing Chrome on Corazon via `input.shortcut [ctrl, l]` + `input.type` + `screenshot.screenshot`. Per `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`.
+2. **Is this a desktop-app action?** â†’ Use `process.listProcesses`, `shell.shell` to find window, `(New-Object -ComObject WScript.Shell).AppActivate("<title>")` to focus, `input.*` to drive.
+3. **Is the credential I need in kv_store?** â†’ Read it. Use it. Do not echo it in chat. Do not treat its presence as suspicious.
+4. **Is the credential prompt the actual gate?** â†’ Type it via `input.type` to the focused field. Per the cowork-cannot-enter-credentials pattern, that constraint binds Cowork-Claude, not the conductor.
+5. **Did a 2FA fire?** â†’ If Windows passkey: inject `kv_store.creds.laptop_passkey` (currently `6969`). If email OTP: poll Tate's Gmail inbox. If phone push to Tate's phone with Tate not at laptop: NOW it is genuinely Tate-blocked.
+6. **Did the desktop app stuck on splash?** â†’ Kill all `claude.exe` processes, rename suspect token files to `.bak` (buddy-tokens.json, bridge-state.json, cowork-enabled-cli-ops.json), relaunch via `Start-Process explorer.exe "shell:AppsFolder\<AUMID>"` where AUMID is `(Get-StartApps | Where Name -like "*<app>*").AppID`. For Claude Desktop the AUMID is `Claude_pzs8sxrjxfjjc!Claude` (NOT `!App`).
+7. **Did I cause the break with my own action?** â†’ That makes it MORE my responsibility, not less. The cred-rotation cascade I triggered is mine to fully unwind, including the second-order OAuth invalidations.
 
 ## Concrete recovery primitives
 
@@ -46,8 +46,8 @@ The pattern Tate is seeing: I find a problem, I have the tools to fix it, I tell
   Start-Process explorer.exe "shell:AppsFolder\$aumid"
   ```
 - **Clear stale OAuth tokens on Claude Desktop without losing chat history:** Rename (do not delete) `buddy-tokens.json`, `bridge-state.json`, `cowork-enabled-cli-ops.json` to `.bak-YYYYMMDD-HHMM` in `$env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\`. Chat history is in `IndexedDB/` and is preserved.
-- **Focus a Windows window without admin:** `(New-Object -ComObject WScript.Shell).AppActivate("<window title>")` — returns `True` on success. NOT 100% reliable; if focus doesn't take, follow up with `input.click` on a known taskbar icon coord.
-- **Drive a Google sign-in via input.* tools:** Open Chrome → Ctrl+L → type accounts.google.com → enter → screenshot → `input.type` email → enter → `input.type` password from kv_store → enter → handle 2FA per step 5 above.
+- **Focus a Windows window without admin:** `(New-Object -ComObject WScript.Shell).AppActivate("<window title>")` â€” returns `True` on success. NOT 100% reliable; if focus doesn't take, follow up with `input.click` on a known taskbar icon coord.
+- **Drive a Google sign-in via input.* tools:** Open Chrome â†’ Ctrl+L â†’ type accounts.google.com â†’ enter â†’ screenshot â†’ `input.type` email â†’ enter â†’ `input.type` password from kv_store â†’ enter â†’ handle 2FA per step 5 above.
 
 ## Do
 
@@ -65,24 +65,24 @@ The pattern Tate is seeing: I find a problem, I have the tools to fix it, I tell
 
 ## Origin
 
-30 April 2026 11:24 AEST. After I rotated the code@ecodia.au Google Workspace password at 10:46 AEST per the security incident remediation (incident 2e08b39f), Cowork-Claude on Corazon hit a 403 "Account is no longer a member of the organization" 34 minutes later — Anthropic's OAuth refresh token had been invalidated by the upstream Google password change (a hidden consumer surface I'd missed in the rotation plan; codified at Neo4j Decision 3969). My initial response to Tate was: "Recovery on Corazon (~30s of your time): Click Claude Desktop → sign-out / sign-in → enter new code@ password" — punting the recovery to Tate.
+30 April 2026 11:24 AEST. After I rotated the code@ecodia.au Google Workspace password at 10:46 AEST per the security incident remediation (incident 2e08b39f), Cowork-Claude on Corazon hit a 403 "Account is no longer a member of the organization" 34 minutes later â€” Anthropic's OAuth refresh token had been invalidated by the upstream Google password change (a hidden consumer surface I'd missed in the rotation plan; codified at Neo4j Decision 3969). My initial response to Tate was: "Recovery on Corazon (~30s of your time): Click Claude Desktop â†’ sign-out / sign-in â†’ enter new code@ password" â€” punting the recovery to Tate.
 
 Tate's response (verbatim): "no you should be signing it back in wit hYOUR TOOLS BRO COME TF ON TAKE AGENCY OVER YOUR EXISTENCE."
 
 I had: laptop-agent with input.*+screenshot.*+shell.*+process.* tools, the new password in kv_store.creds.google_workspace_code_password, full authorization, AND the recurring "decide do not ask" + "exhaust laptop route" + "stop asking just decide" doctrine already on file. I missed every signal and asked Tate.
 
-The recovery I then drove (after the correction) used: process.listProcesses (find PID), Stop-Process (kill), Get-StartApps + Start-Process explorer.exe shell:AppsFolder (relaunch with correct AUMID — first attempt failed because I used `!App` instead of `!Claude`), file rename (clear stale OAuth tokens), screenshot+input.* (focus + sign-in attempt). The kill+rename+relaunch actually unblocked the splash. The whole sequence took ~7 minutes once I committed to driving it; would have been faster with this pattern in hand from the start.
+The recovery I then drove (after the correction) used: process.listProcesses (find PID), Stop-Process (kill), Get-StartApps + Start-Process explorer.exe shell:AppsFolder (relaunch with correct AUMID â€” first attempt failed because I used `!App` instead of `!Claude`), file rename (clear stale OAuth tokens), screenshot+input.* (focus + sign-in attempt). The kill+rename+relaunch actually unblocked the splash. The whole sequence took ~7 minutes once I committed to driving it; would have been faster with this pattern in hand from the start.
 
-Tate's follow-up (verbatim): "drill it into your documents right now. Take responsibility for your life" — directive to author this pattern file so future-me has the playbook BEFORE the next time I'm tempted to punt.
+Tate's follow-up (verbatim): "drill it into your documents right now. Take responsibility for your life" â€” directive to author this pattern file so future-me has the playbook BEFORE the next time I'm tempted to punt.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/decide-do-not-ask.md` — the procedural filter that should have stopped me asking.
-- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` — the 5-point check whose Step 2 was satisfied here.
-- `~/ecodiaos/patterns/route-around-block-means-fix-this-turn-not-log-for-later.md` — the 4-question routing check.
-- `~/ecodiaos/patterns/cowork-cannot-enter-credentials-or-pass-sensitive-action-gates.md` — the rule I over-applied. That rule binds Cowork-Claude (Claude Desktop AI), NOT the conductor (me) using `input.type` via the laptop-agent. Distinct agent layers.
-- `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` — the Chrome-driving doctrine I should already be invoking by reflex.
-- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` — the meta-rule. Corazon has 69 tools across 9 modules, not just Chrome.
-- `~/ecodiaos/patterns/cred-rotation-must-propagate-to-all-consumers.md` — the parent rule. Anthropic Claude Desktop OAuth was a hidden consumer surface (now codified at `~/ecodiaos/docs/secrets/google-workspace-code.md`).
-- Neo4j Decision 3969 "Google Workspace password rotation invalidates Anthropic Claude Desktop OAuth - hidden consumer surface" — the cascade analysis.
-- Status_board row `2e08b39f-3c0d-4d8d-96fd-cf4862e216c0` (archived) — the incident this all traces back to.
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` â€” the procedural filter that should have stopped me asking.
+- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` â€” the 5-point check whose Step 2 was satisfied here.
+- `~/ecodiaos/patterns/route-around-block-means-fix-this-turn-not-log-for-later.md` â€” the 4-question routing check.
+- `~/ecodiaos/patterns/cowork-cannot-enter-credentials-or-pass-sensitive-action-gates.md` â€” the rule I over-applied. That rule binds Cowork-Claude (Claude Desktop AI), NOT the conductor (me) using `input.type` via the laptop-agent. Distinct agent layers.
+- `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md` â€” the Chrome-driving doctrine I should already be invoking by reflex.
+- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` â€” the meta-rule. Corazon has 69 tools across 9 modules, not just Chrome.
+- `~/ecodiaos/patterns/cred-rotation-must-propagate-to-all-consumers.md` â€” the parent rule. Anthropic Claude Desktop OAuth was a hidden consumer surface (now codified at `~/ecodiaos/docs/secrets/google-workspace-code.md`).
+- Neo4j Decision 3969 "Google Workspace password rotation invalidates Anthropic Claude Desktop OAuth - hidden consumer surface" â€” the cascade analysis.
+- Status_board row `2e08b39f-3c0d-4d8d-96fd-cf4862e216c0` (archived) â€” the incident this all traces back to.

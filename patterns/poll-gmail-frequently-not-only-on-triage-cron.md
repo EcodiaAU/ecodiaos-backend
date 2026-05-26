@@ -43,7 +43,7 @@ on session start, add one.
 
 ## Cross-References
 
-- `~/ecodiaos/patterns/decide-do-not-ask.md`
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md`
 - `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md`
 - email-triage cron in `~/ecodiaos/CLAUDE.md` Scheduling section (the floor this pattern extends)
 - `~/ecodiaos/patterns/angelica-resonaverde-standing-arrangement.md` (origin context)

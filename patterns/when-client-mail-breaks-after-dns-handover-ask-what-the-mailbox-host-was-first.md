@@ -57,7 +57,7 @@ That WAS the right diagnosis. The 12 May 2026 DNS handover wiped Resonaverde's e
 ## 5. Cross-references
 
 - `~/ecodiaos/patterns/never-route-client-mail-to-our-principals-inbox-as-a-neutral-landing.md` - the sister pattern from the same arc. When the destination is unknown, do not pick our own inbox as a fallback.
-- `~/ecodiaos/patterns/decide-do-not-ask.md` - usually the inverse rule, but the override case here is real: when the answer is one specific question to the client (via Tate), asking is cheaper and more correct than deciding the route blind.
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - usually the inverse rule, but the override case here is real: when the answer is one specific question to the client (via Tate), asking is cheaper and more correct than deciding the route blind.
 - `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - DNS state is the substrate of truth. `dig` is the probe; the DNS provider UI is the narration.
 - `~/ecodiaos/patterns/_archived/forks-do-their-own-recon-do-not-probe-on-main.md` - the recon fork should have surfaced the Google Workspace SPF / TXT clue before the forwarder pivot was even drafted.
 - `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md` - asking the one diagnostic question to the client IS client contact and needs Tate's go-ahead (or routes through the standing arrangement where one exists), but going through Tate to ask one question is faster than inventing a wrong destination.

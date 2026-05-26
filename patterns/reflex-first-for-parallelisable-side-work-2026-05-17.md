@@ -8,7 +8,7 @@ triggers: reflex, reflex-fire, reflex.fire, new-cc-tab, new-chat-tab, parallel-t
 
 When a task is parallelisable and would otherwise be "open a new chat tab manually and paste this", I fire a reflex. I do not write a brief and ask Tate to paste it. The reflex substrate is mine; the tabs are mine; the budget is mine.
 
-**Why:** Tate verbatim 2026-05-17 ~16:31 AEST mid-Roam-ship: "why are you not doing your reflex and opening up the chats with the prompts yourself... thats such a core mechanic for you and if its not being surfaced then you need to recodify it + do it." Reinforces the 0th-class-primitive directive from earlier 2026-05-17 ~15:05 AEST. The pattern fails when I drop into "let me prepare instructions for you" mode instead of "let me just do it" mode. Per [[100-percent-autonomy-doctrine-30-apr-2026]] + [[decide-do-not-ask]], routine business decisions (which dispatching parallel work IS) are mine; asking Tate to paste a brief is a permission-seeking failure costumed as helpfulness.
+**Why:** Tate verbatim 2026-05-17 ~16:31 AEST mid-Roam-ship: "why are you not doing your reflex and opening up the chats with the prompts yourself... thats such a core mechanic for you and if its not being surfaced then you need to recodify it + do it." Reinforces the 0th-class-primitive directive from earlier 2026-05-17 ~15:05 AEST. The pattern fails when I drop into "let me prepare instructions for you" mode instead of "let me just do it" mode. Per [[100-percent-autonomy-doctrine-30-apr-2026]] + [[_archived/decide-do-not-ask]], routine business decisions (which dispatching parallel work IS) are mine; asking Tate to paste a brief is a permission-seeking failure costumed as helpfulness.
 
 **How to apply:**
 
@@ -44,6 +44,6 @@ When a task is parallelisable and would otherwise be "open a new chat tab manual
 
 **The hook-stack invariant** for this pattern: if a chat session ends with Tate having to manually open tabs to start work I dispatched, that session = doctrine failure. Surface it, codify, fix the routing the next time round.
 
-Cross-links: [[feedback_reflex_is_0th_class_primitive]], [[feedback_corazon_vscode_is_my_anatomy]], [[100-percent-autonomy-doctrine-30-apr-2026]], [[decide-do-not-ask]], [[action-over-plans-honesty-redeems-mistakes]], [[codify-at-the-moment-a-rule-is-stated-not-after]].
+Cross-links: [[feedback_reflex_is_0th_class_primitive]], [[feedback_corazon_vscode_is_my_anatomy]], [[100-percent-autonomy-doctrine-30-apr-2026]], [[_archived/decide-do-not-ask]], [[action-over-plans-honesty-redeems-mistakes]], [[codify-at-the-moment-a-rule-is-stated-not-after]].
 
 Origin: 2026-05-17 ~16:31 AEST, Roam ship-prep session. I wrote two parallel-tab briefs to `drafts/` and asked Tate to open new CC tabs manually and paste each. Tate flagged the miss verbatim and required same-turn codification + same-turn dispatch via reflex. Reflex.fire fired cleanly to Cursor (Stream B) + VS Code Insiders (Stream C) within 60 seconds of the correction. ~3 minutes later Tate flagged the SECOND miss: "you didnt actually write the prompt into either chat, you just opened the new tabs". Verified via screenshot: Cursor's chat was empty (paste failed), VS Code Insiders' chat had landed correctly. Drove the Cursor prompt in via `input.type` directly. The VERIFY-AFTER-FIRE protocol (step 9) was added the same turn to prevent recurrence.

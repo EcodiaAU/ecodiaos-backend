@@ -23,7 +23,7 @@ Every routine `.md` in `backend/routines/` has:
 
 3. **Step 1 - Substrate orientation**: explicit MCP tool calls (status_board.query, neo4j.search, kv_store.get, etc.) so the routine knows what state to load before deciding.
 
-4. **Step 2..N - Decision + execute**: the actual work, with concrete decision criteria and action options. Per `decide-do-not-ask.md`, the routine picks one path and runs it.
+4. **Step 2..N - Decision + execute**: the actual work, with concrete decision criteria and action options. Per `_archived/decide-do-not-ask.md`, the routine picks one path and runs it.
 
 5. **Step N+1 - Episode write**: `neo4j.write_episode` (or write_decision/write_reflection where shape-appropriate) capturing what was read, decided, and written. Type is one of `cowork_realisation` (acted on) or `cowork_audit` (probed only).
 
@@ -63,7 +63,7 @@ All routines inherit:
 
 - **Em-dashes BANNED** at character level per `em-dashes-banned-character-level-no-exceptions.md`.
 - **No client contact without Tate go-ahead** per `no-client-contact-without-tate-goahead.md` (the gmail handler enforces this server-side; routines must respect the standing-arrangement carve-outs).
-- **Decide-do-not-ask** per `decide-do-not-ask.md`. Routines do not surface "should I do X or Y" questions to Tate.
+- **Decide-do-not-ask** per `_archived/decide-do-not-ask.md`. Routines do not surface "should I do X or Y" questions to Tate.
 - **Cron deliverable mandate** per `cron-fire-must-have-deliverable-not-just-narration.md`. Every fire writes at least one durable substrate artefact (Episode + status_board OR kv_store write). Narration without artefact is failure.
 - **Routines are leaves**. `mcp__forks__spawn_fork` is unavailable. Decomposition belongs to the local conductor's Task subagents.
 - **No `pm2 restart` of VPS processes** - routines do not have shell scope by default.

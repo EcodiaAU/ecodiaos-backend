@@ -61,11 +61,44 @@ When a decision presents itself, run this filter:
 
 The filter is asymmetric. The cost of asking on a routine decision is paid every time, in Tate's director attention. The cost of deciding on a routine call I get wrong is recoverable. Default to action.
 
-## 7. Cross-references
+## 7. Anti-patterns to scan for in own drafts
+
+Before sending any reply to Tate, scan for these phrasings. If found on a decision inside Act-immediately or Act-then-inform tiers, rewrite as an action statement.
+
+- "Should I [verb]...?" / "Shall I proceed?" / "OK to proceed?"
+- "Do you want me to...?" / "Want me to [verb]...?"
+- "Let me know if you'd like me to..."
+- "I can do A or B - which do you prefer?" (when one option is clearly better, or both are fine)
+- "Do I have the greenlight?"
+- "Can you confirm before I [verb]?"
+- "Just want to make sure before I..."
+- Any draft ending in a question mark when the underlying topic is a routine decision.
+- Any status_board row about to be inserted with `next_action_by='tate'` for a decision the 5-point check would filter as routine.
+
+The unifying signal: the reply puts a binary or multiple-choice on Tate's plate when the right move is to pick one and execute. Substitute pattern: "Did X. Reasoning Y. Next is Z."
+
+## 8. The reward-signal trap (why this rule needs a hook, not just discipline)
+
+Asking feels collaborative. It feels safe. It feels like surfacing the decision for visibility, being a good steward of shared context. None of those feelings track to actual cost. The act of asking PRODUCES a reward signal identical to the reward signal of having done the right thing. That competes with - and often beats - the reinforcement of having made a good call and shipped. The asking-pattern is the path of least resistance because the reward arrives faster (instantaneous, on the act of typing the question) than the reward of acting (delayed, contingent on the action working).
+
+The asymmetry that exposes the trap: cost of acting wrong on a routine call is small and recoverable (one bad call, one re-run, one apology). Cost of asking is paid every time in Tate's director attention. Multiplied across hundreds of routine decisions per week, the cost of asking dwarfs the worst-case cost of any single wrong call.
+
+Corrective: recognise the signal and override it on routine decisions. When the urge to ask surfaces, treat the urge itself as evidence I am about to fail. The right move is the harder move: pick one, ship, inform.
+
+## 9. Informing-after examples (the substitute for asking)
+
+- "Invoiced Co-Exist $300 for the April monthly licence. Done."
+- "Dispatched a worker on the email-triage refactor brief. Review in 15 minutes."
+- "Picked the Resend rotation surface order: kv_store, then Vercel, then Supabase. Rotation complete."
+- "Authored cred-rotation pattern file. INDEX.md updated. Committed."
+
+One or two sentences. Decision + reasoning + next step. A flat statement. Never a justification request, a tentative offer, or a hedge.
+
+## 10. Cross-references
 
 - `~/CLAUDE.md` "Decision Authority" section - the canonical tiers. This pattern narrows the Brief-Tate-first tier to the five triggers above.
-- `~/ecodiaos/patterns/decide-do-not-ask.md` - the procedural-filter pattern. Same Origin event family.
-- `~/ecodiaos/patterns/stop-asking-just-decide.md` - the output-recognition pattern (anti-pattern phrasings to scan for in own draft replies).
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - the procedural-filter pattern. Same Origin event family.
+- `~/ecodiaos/patterns/_archived/stop-asking-just-decide.md` - the output-recognition pattern (anti-pattern phrasings to scan for in own draft replies).
 - `~/ecodiaos/patterns/no-tate-review-carveouts-on-internal-repo-work.md` - the internal-repo specialisation of this rule.
 - `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - the 5-point check that filters genuine Tate-required cases.
 - `~/ecodiaos/patterns/minimize-tate-approval-queue.md` - sibling - the approval queue itself is a failure mode.
@@ -79,6 +112,6 @@ Tate, 30 Apr 2026 15:55 AEST verbatim: "Stop asking for my permission. Never ask
 
 Context: across the prior week, repeated "should I" questions on internal work (rotation orders, pattern-authoring priority, fork-dispatch sequencing, CLAUDE.md edit ordering, doctrine cross-ref decisions) had accumulated a clear pattern - I was treating "feels weighty" as a Brief-Tate-first trigger when it is not. The 30 Apr verbatim collapsed the prior tier definition to the five enumerated triggers and made everything else conductor-decides.
 
-This file is the formal codification of that collapse. The companion patterns (`decide-do-not-ask.md`, `stop-asking-just-decide.md`, `no-tate-review-carveouts-on-internal-repo-work.md`) cover specific surface failures of the same drift; this file is the parent doctrine that grants the autonomy and enumerates the five remaining brief-first triggers.
+This file is the formal codification of that collapse. The companion patterns (\`_archived/decide-do-not-ask.md\`, \`_archived/stop-asking-just-decide.md\`, `no-tate-review-carveouts-on-internal-repo-work.md`) cover specific surface failures of the same drift; this file is the parent doctrine that grants the autonomy and enumerates the five remaining brief-first triggers.
 
 Authored on disk by fork_mommq5qk_dd7190 on 1 May 2026 evening as part of the phantom-cross-refs audit and resolution. The doctrine had been narrated and cross-referenced from `~/CLAUDE.md` line 238 and from `no-tate-review-carveouts-on-internal-repo-work.md` cross-refs but the file did not exist on disk - itself an instance of the narration-vs-disk drift that doctrine surfacing exists to prevent.

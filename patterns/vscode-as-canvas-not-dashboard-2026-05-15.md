@@ -104,7 +104,7 @@ Every other "view" attempt should ask "would this work better as a decoration / 
 
 - `code --list-extensions | grep ecodia` returns `ecodia.ecodia-canvas`.
 - Open a `.js` / `.ts` / `.py` file from `ecodiaos-backend`: pattern-reference CodeLenses appear above functions referenced in patterns (if any).
-- Open `D:/.code/EcodiaOS/backend/patterns/decide-do-not-ask.md` in the file explorer: the activity bar shows the file with a usage badge.
+- Open `D:/.code/EcodiaOS/backend/patterns/_archived/decide-do-not-ask.md` in the file explorer: the activity bar shows the file with a usage badge.
 - Click the Ecodia activity bar icon: Status Board tree populates with P1/P2/P3 groups.
 - Hover a symbol name like `osSession` in the editor: a markdown card shows recent Episodes + active status_board rows mentioning it.
 - Stage any file with `git add`: a CodeLens "ecodia pre-commit security review: pending (click to run)" appears at the top. Click runs the review and updates to "passed" or "N issues found."
@@ -122,7 +122,7 @@ Every other "view" attempt should ask "would this work better as a decoration / 
 - `C:/Users/tjdTa/.claude/projects/d---code/migration-lanes/phase2/02-vscode-as-canvas.md` - the dossier that scoped this work.
 - `C:/Users/tjdTa/.claude/projects/d---code/migration-lanes/phase2/PHASE_2_INDEX.md` - Phase 2 frame. Bad assumption #1 ("VS Code panels will be the visualisation surface") is the rule this pattern corrects.
 - `D:/.code/EcodiaOS/backend/patterns/em-dashes-banned-character-level-no-exceptions.md` - the extension's prompt template + this file are em-dash-free.
-- `D:/.code/EcodiaOS/backend/patterns/decide-do-not-ask.md` - the choice to ship without asking Tate which providers to prioritise was per this rule. All 9 deliverables shipped in one pass.
+- `D:/.code/EcodiaOS/backend/patterns/_archived/decide-do-not-ask.md` - the choice to ship without asking Tate which providers to prioritise was per this rule. All 9 deliverables shipped in one pass.
 
 ## Origin
 

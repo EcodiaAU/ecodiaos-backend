@@ -131,17 +131,17 @@ Trade-off receipts:
 
 ## Cross-references
 
-- `D:/.code/EcodiaOS/backend/docs/MIGRATION_FULL_ARCHITECTURE_2026-05-15.md` §7 - the architectural slot this fills.
+- `D:/.code/EcodiaOS/backend/docs/MIGRATION_FULL_ARCHITECTURE_2026-05-15.md` Â§7 - the architectural slot this fills.
 - `~/.claude/hooks/observer_signal.py` - the hook implementation.
 - `~/.claude/commands/observer-signals.md` - the consumer slash command.
 - `D:/.code/EcodiaOS/backend/routines/README.md` - the cross-Routine contract spec.
 - `~/ecodiaos/src/services/observerSignalsService.js` - the legacy VPS implementation (Phase 0-3 still live).
 - `~/ecodiaos/src/services/observers/_observerBase.js` - legacy Haiku observer producers (slated for Phase 4 deletion once Corazon hook proves over a week).
 - `D:/.code/EcodiaOS/backend/patterns/prefer-hooks-over-written-discipline.md` - meta-pattern this implements (mechanical enforcement over written reminder).
-- `D:/.code/EcodiaOS/backend/patterns/decide-do-not-ask.md` - applied to the rule-threshold tuning (10 calls / 50 chars / 2h are MY calls).
+- `D:/.code/EcodiaOS/backend/patterns/_archived/decide-do-not-ask.md` - applied to the rule-threshold tuning (10 calls / 50 chars / 2h are MY calls).
 
 ## Origin
 
-Lane C of the 2026-05-15 VPS-to-local migration. The Corazon chat's `MIGRATION_FULL_ARCHITECTURE_2026-05-15.md` §7 named the replacement shape ("PostToolUse hook + sidebar surface"); Lane C closed it as: PostToolUse hook + 3-rule set + 3-surface kv_store schema + slash command consumer + Routine universal contract.
+Lane C of the 2026-05-15 VPS-to-local migration. The Corazon chat's `MIGRATION_FULL_ARCHITECTURE_2026-05-15.md` Â§7 named the replacement shape ("PostToolUse hook + sidebar surface"); Lane C closed it as: PostToolUse hook + 3-rule set + 3-surface kv_store schema + slash command consumer + Routine universal contract.
 
 Deferred: the VS Code sidebar panel (Phase 2). Tracked as status_board P3 row "observer_signals sidebar panel".

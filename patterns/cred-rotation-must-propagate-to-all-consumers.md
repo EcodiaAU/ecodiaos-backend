@@ -74,7 +74,7 @@ Single missing surface = silent half-rotation = production breakage when the old
 
 ## Origin
 
-Tate flagged the cross-system propagation discipline 29 Apr 2026 19:42 AEST during the broader "Stop fucking asking me, and just make good decisions" exchange that produced `decide-do-not-ask.md`. The specific concern was Resend SMTP: rotating the kv_store entry without auditing Supabase Auth SMTP, Vercel env vars, and downstream consumers leaves stale credentials live in the surfaces I forgot.
+Tate flagged the cross-system propagation discipline 29 Apr 2026 19:42 AEST during the broader "Stop fucking asking me, and just make good decisions" exchange that produced `_archived/decide-do-not-ask.md`. The specific concern was Resend SMTP: rotating the kv_store entry without auditing Supabase Auth SMTP, Vercel env vars, and downstream consumers leaves stale credentials live in the surfaces I forgot.
 
 This pattern formalises the consumer-surface checklist and forces the rotation to be a multi-step audited process rather than a single kv_store update. The doc-file-per-credential layer (`~/ecodiaos/docs/secrets/`) is the contract that records which surfaces a given credential touches.
 

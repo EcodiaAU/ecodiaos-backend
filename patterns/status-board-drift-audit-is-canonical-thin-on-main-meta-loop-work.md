@@ -21,7 +21,7 @@ This satisfies the operating doctrine simultaneously:
 - **Demand-driven, not slot-fill** (`~/CLAUDE.md` Fork dispatch is demand-driven). The demand IS the meta-loop's PHASE 2 instruction, externally driven by the cron fire. Audit work is not manufactured to fill an empty slot.
 - **Fork by default, stay thin on main** (`~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`). status_board UPDATEs are exception (a): single targeted writes that ARE the deliverable, not orchestrated work that should fan out.
 - **Act, don't symbolically log** (`~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`). UPDATE rows directly - do not narrate "audit run" without artefacts.
-- **Decide, do not ask** (`~/ecodiaos/patterns/decide-do-not-ask.md`). Routine archive/refresh requires no permission.
+- **Decide, do not ask** (`~/ecodiaos/patterns/_archived/decide-do-not-ask.md`). Routine archive/refresh requires no permission.
 
 ## Do
 
@@ -60,7 +60,7 @@ After running the audit, confirm artefacts:
 - Parent: `~/ecodiaos/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md` - the 0th-class hygiene reflex; this file specialises *when* (meta-loop fire with no dispatch slot available) and *who* (conductor on main, never a worker).
 - Sibling technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` - the slice-query template this pattern mandates for >50-row boards.
 - Slot-fill prohibition: `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md`, `~/ecodiaos/patterns/_archived/fork-by-default-stay-thin-on-main.md`, `~/CLAUDE.md` "Fork dispatch is demand-driven" section.
-- Decision authority: `~/ecodiaos/patterns/decide-do-not-ask.md` - no permission needed for routine archive.
+- Decision authority: `~/ecodiaos/patterns/_archived/decide-do-not-ask.md` - no permission needed for routine archive.
 - Update mechanic: `~/ecodiaos/patterns/status-board-no-batch-case-when-update.md` - one statement per row.
 - Cron fire discipline: `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md`, `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md`, `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md`.
 - External-blocker probe: `~/ecodiaos/patterns/external-blocker-freshness-probe.md` - the Tate-blocked-high-pri slice bucket invokes this when stalls exceed the freshness window.

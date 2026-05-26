@@ -1,5 +1,8 @@
 ---
 triggers: permission-seeking, should-i, do-you-want-me-to, confirm-before, tate-go-ahead, routine-decision, decision-authority, act-immediately, want-me-to, let-me-know-if, which-do-you-prefer, can-you-confirm, ok-to-proceed, shall-i, do-i-have-the-greenlight, reward-signal-trap, paths-of-least-resistance, ask-substitute
+archived_at: 2026-05-26
+archived_reason: folded-into-canonical-autonomy-doctrine-2026-05-26
+nuance_transferred_to: 100-percent-autonomy-doctrine-30-apr-2026.md
 ---
 
 # Stop asking, just decide - permission-seeking on routine ops is a failure mode

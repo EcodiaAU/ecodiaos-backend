@@ -66,7 +66,7 @@ No other clients have this status.
 ## Cross-References
 
 - `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md` (parent rule this carves out)
-- `~/ecodiaos/patterns/decide-do-not-ask.md`
+- `~/ecodiaos/patterns/_archived/decide-do-not-ask.md`
 - `~/ecodiaos/patterns/poll-gmail-frequently-not-only-on-triage-cron.md`
 - `~/CLAUDE.md` Decision Authority section (brief-Tate-first triggers)
 - Apr 19-20 2026 negotiation history in Neo4j (search "Resonaverde referral")
