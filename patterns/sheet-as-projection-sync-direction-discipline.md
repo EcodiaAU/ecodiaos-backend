@@ -141,7 +141,7 @@ Apply when authoring or reviewing any DB <-> external-sheet sync:
 - `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md` (closely related - same shape: filter the candidate set to match the source's actual scope)
 - `~/ecodiaos/patterns/excel-sync-collectives-migration.md` (architecture invariant for Co-Exist: forms_migrated_at gate, pg_cron jobids 9+10)
 - `~/ecodiaos/patterns/enumerate-all-trigger-paths-when-fixing-data-flow-bugs.md` (enumerate ALL paths that run reconciliation)
-- `~/ecodiaos/patterns/supabase-pat-reaches-every-owned-project-from-main.md` (how to probe the fix directly from main)
+- `~/ecodiaos/patterns/_archived/supabase-pat-reaches-every-owned-project-from-main.md` (how to probe the fix directly from main)
 
 ## Origin
 

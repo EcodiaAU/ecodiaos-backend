@@ -141,7 +141,7 @@ verification ran, doctrine codified.
 
 - [[corazon-is-a-peer-not-a-browser-via-http]] - Corazon-as-peer
   primitive needs `creds.laptop_agent` and `creds.laptop_passkey`
-- [[supabase-pat-reaches-every-owned-project-from-main]] - cross-project
+- [[_archived/supabase-pat-reaches-every-owned-project-from-main]] - cross-project
   Supabase via `creds.supabase_access_token`
 - [[macincloud-substrate-selection-ssh-vs-rdp]] - headless iOS builds need
   `creds.macincloud`

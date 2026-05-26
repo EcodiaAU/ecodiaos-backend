@@ -1,6 +1,12 @@
 ---
 triggers: supabase-pat, supabase-org-access, cross-project-query, different-db, can-not-reach, separate-project, coexist-db-from-main, chambers-db-from-main, project-ref-lookup, service-role-key, rest-api-direct, kv-store-creds-supabase, punt-to-fork-trap
+superseded_by: supabase-access-via-org-pat-local-store-2026-05-20
+superseded_reason: "PAT is now in a local Corazon store (D:/PRIVATE/ecodia-creds/supabase.env) with the Management-API recipe; the old guidance pointed at kv_store.creds.* which is MCP read-denied. See the 2026-05-20 pattern."
+archived_at: 2026-05-26
+archived_reason: superseded-2026-05-20-by-org-pat-local-store
 ---
+
+> SUPERSEDED 2026-05-20 by [[supabase-access-via-org-pat-local-store-2026-05-20]]. The rule (PAT reaches every project, never punt to a fork) still holds, but the PAT is now read from the local file, NOT kv_store via MCP (which denies creds.*). Follow the newer pattern's recipe.
 
 # Supabase PAT gives REST access to every owned project from main - never punt cross-project DB probes to forks
 
