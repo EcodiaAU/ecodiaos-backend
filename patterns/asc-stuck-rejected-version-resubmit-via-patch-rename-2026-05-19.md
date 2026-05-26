@@ -1,7 +1,7 @@
 ---
 name: asc-stuck-rejected-version-resubmit-via-patch-rename
 description: When an ASC appStoreVersion is in DEVELOPER_REJECTED state it occupies the slot for that platform. Apple refuses to delete subsequent versions ("only the first version of any platform can be deleted") AND refuses to create a new version "in the current state". The fix is to PATCH the stuck ASV in place, swapping versionString and the build relationship, which flips state back to PREPARE_FOR_SUBMISSION and reuses the same ASV id for the new release.
-triggers: asc, app-store-connect, appstoreversion, asv-stuck, developer-rejected, only-first-version-can-be-deleted, you-cannot-create-a-new-version, entity-state-invalid, asc-cancel-submission, ios-resubmit, ios-replace-rejected-version, withdraw-from-review, patch-asv-versionstring, asc-version-rename, asc-build-swap
+triggers: app-store-connect, appstoreversion, asv-stuck, developer-rejected, only-first-version-can-be-deleted, you-cannot-create-a-new-version, entity-state-invalid, asc-cancel-submission, ios-resubmit, ios-replace-rejected-version, withdraw-from-review, patch-asv-versionstring, asc-version-rename, asc-build-swap, asc-stuck-rejected
 metadata:
   type: pattern
 ---

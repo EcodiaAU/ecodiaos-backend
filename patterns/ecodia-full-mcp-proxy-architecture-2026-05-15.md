@@ -1,16 +1,6 @@
 ---
 name: ecodia-full-mcp-proxy-architecture-2026-05-15
-triggers:
-  - ecodia-full
-  - /api/mcp/ecodia-full
-  - ecodia_full_mcp_bearer
-  - wider-bearer
-  - shell_exec-gate
-  - mcp-proxy
-  - stdio-proxy
-  - tool-surface-registry
-  - mcp-oauth-wrapper
-  - bearer-rotation-additive
+triggers: ecodia-full, /api/mcp/ecodia-full, ecodia_full_mcp_bearer, wider-bearer, shell_exec-gate, mcp-proxy, stdio-proxy, tool-surface-registry, mcp-oauth-wrapper, bearer-rotation-additive
 authored: 2026-05-15
 status: live
 authors: Corazon Claude Code (Lane E of VPS-to-local migration)

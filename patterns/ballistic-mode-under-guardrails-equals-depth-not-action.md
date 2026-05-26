@@ -1,4 +1,4 @@
-triggers: ballistic mode, standing directive, passive, all night, parallel work, depth vs action, gated workstream, kilimanjaro, tate-away
+triggers: ballistic-mode, ballistic-mode-standing-directive, be-ballistic, depth-vs-action, depth-when-guarded, gated-workstream, hard-guardrails-on, tate-away-ballistic, unbounded-thinking-bounded-action, kilimanjaro-standing-directive
 
 # Ballistic-mode under hard guardrails resolves to depth not action
 
