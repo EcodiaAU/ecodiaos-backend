@@ -4,28 +4,53 @@ Technical systems, tools, workflows specific to ecodiaos. Business/identity/pric
 
 ---
 
-## 🚨 ARCHITECTURAL DEPRECATIONS - 2026-05-17 (READ BEFORE BELIEVING ANYTHING BELOW)
+## 🚨 RESIDUAL DEPRECATIONS - 2026-05-26 update (5 rows pruned after Phase 4 doctrine consolidation)
 
-The local-first migration completed faster than this document caught up. The following sections of this file describe substrates that are **dead, dormant, or wrong**. Pattern files marked `superseded_by` in their frontmatter are the corrected doctrine. Until those sections below are surgically rewritten, treat them as historical.
+The major dead-substrate sections (Factory CLI, SDK fork dispatch, Frontend UI, two phantom-tool layers) were surgically cut from this file on 2026-05-26. The corrected doctrine for those is in `~/ecodiaos/patterns/dispatch-worker-*` + the reflex-preview substrate. The residual rows below describe substrates still partly present elsewhere (code on disk, unverified status, archived clients) that future-me should still treat with caution.
 
-| Stale claim in this file | Reality (2026-05-17) | Corrected doctrine |
+| Stale claim | Reality (2026-05-26) | Corrected doctrine |
 |---|---|---|
-| SDK fork primitive (`mcp__forks__spawn_fork`, manager forks, sub-forks, `[FORK_REPORT]`, `os_forks` substrate, 5/5 per-tree cap) is the parallelism path | Dead. Migrated away from VPS-as-agentic-runtime. | [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]] - parallelism is `cowork.dispatch_worker` (auto-spawns a fresh Claude Code chat tab via Ctrl+Alt+Shift+C, registers identity, pastes brief, returns tab_id). Workers signal back via the [[coord-conventions-heartbeat-signal-done-2026-05-18]] protocol (8 `coord.*` MCP tools on localhost:7456). Manual Ctrl+Shift+P -> Claude Code: New Chat is the fallback when dispatch_worker is unavailable. Task subagents still valid for in-session bounded work. Supersedes [[ide-tab-is-the-new-fork-mechanic-2026-05-17]]. |
-| Factory CLI / `start_cc_session` / Factory dispatch / Factory-cloud routine | Dead in the form described. Coding work is local in this conductor or in a sister IDE tab. | Same pattern as above. The Factory-as-separate-Claude-account model is gone. |
-| EcodiaOS frontend (custom UI at the host-app surface, `apps/frontend`) | Dir exists at `D:/.code/EcodiaOS/frontend/` but Tate stopped using it. Mobile surface is the Claude mobile app + SMS (which spawns a fresh CC chat). | The "Frontend UI - Interactive Outputs" section below is **deprecated as a user-facing surface**. The auto-preview substrate (write `.md` / `.html` to disk -> IDE preview tab) is the live render target. |
 | EOS mobile app | Dir does not exist on disk. Never had one or already removed. | Mobile surface is Claude mobile app + SMS. |
-| Local listener tier "shipped Phase 2 Lane 03 2026-05-15" | Code on disk at `backend/listener-tier/` but no PM2 supervision. `registry.json` shows `last_fired_ts: null` and `fire_count: 0` for every listener. Hook-based listeners (cred-mention, observer-signals, em-dash detector) under `~/.claude/hooks/ecodia/` ARE alive because they fire on every Claude Code tool call. The file-watcher daemon listeners are not. VPS-pg_notify listeners are dead. | Hook-based listeners are alive. File-watcher daemon needs starting OR replacing with simpler PostToolUse / git-hook substrates. VPS listeners gone with the VPS-as-runtime. |
-| eos-laptop-agent / laptop-hands status inferred from `pm2 list` | **eos-laptop-agent is ALIVE on port 7456** (verified 2026-05-17, HTTP 200 from both localhost and Tailscale 100.114.219.69, uptime ~20min at probe time, PID 14252). It runs without PM2 supervision on Corazon. **laptop-hands is NOT running on port 7800** (connection refused at probe time). My initial 2026-05-17 inference that "PM2 empty means nothing running" was wrong for the agent. | Always probe service liveness by HTTP `/health` (or the service's actual health endpoint), not by `pm2 list`. Most Corazon services do not run under PM2. See [[pm2-list-is-not-definitive-liveness-probe-on-corazon-2026-05-17]]. |
-| [redacted] / [redacted] as active client | Archived. `clients/archived/[redacted]/` is the canonical location. References in patterns / skills / INDEX / scripts need archival sweep. | All [redacted] doctrine that surfaces this client as active should move to `_archived/`. |
+| Local listener tier "shipped Phase 2 Lane 03 2026-05-15" | Code on disk at `backend/listener-tier/` but no PM2 supervision. `registry.json` shows `last_fired_ts: null` and `fire_count: 0` for every listener. Hook-based listeners (cred-mention, observer-signals, em-dash detector) under `~/.claude/hooks/ecodia/` ARE alive. The file-watcher daemon listeners are not. VPS-pg_notify listeners are dead. | Hook-based listeners are alive. File-watcher daemon needs starting OR replacing with simpler PostToolUse / git-hook substrates. VPS listeners gone with the VPS-as-runtime. |
+| eos-laptop-agent / laptop-hands status inferred from `pm2 list` | **eos-laptop-agent is ALIVE on port 7456** (verified 2026-05-17, HTTP 200 from both localhost and Tailscale 100.114.219.69). It runs without PM2 supervision on Corazon. **laptop-hands is NOT running on port 7800**. The PM2-list-as-liveness-probe inference is wrong for the agent. | Always probe service liveness by HTTP `/health` (or the service's actual health endpoint), not by `pm2 list`. Most Corazon services do not run under PM2. See [[pm2-list-is-not-definitive-liveness-probe-on-corazon-2026-05-17]]. |
+| [redacted] / [redacted] as active client | Archived 2026-05-17. `clients/archived/[redacted]/` is the canonical location. Whole-pattern [redacted] files (never-contact-eugene, authorised-branch-push-is-not-client-contact) archived 2026-05-26. | All [redacted] doctrine surfaces this client as inactive. |
 | Routines (16 scheduled, 4 webhook) firing on tate@ / code@ / money@ accounts | Status unverified. Many of the listed routines depended on VPS substrate. | Treat each routine claim as **unverified** until the world-model audit confirms it. |
-| `mcp__router__route_work` (routing decisions silent) | Already marked NOT YET SHIPPED on 13 May. Still not shipped. | Hook fires warn-only on a phantom tool. |
-| `mcp__scratchpad__write` (doctrine compliance silent) | Already marked NOT YET SHIPPED on 13 May. Still not shipped. | JSONL bridge in `conductorStreamTagWatcher.js` is the fallback. |
 
 **Visual / GUI / macros are 1st-class primitives** for client-facing work. See [[visual-gui-macros-are-first-class-primitives-2026-05-17]]. laptop-hands is not running in PM2 as of 2026-05-17 - it needs starting.
 
 **The meta-doctrine for keeping this file true**: [[world-model-staleness-needs-active-reconciliation-2026-05-17]]. The audit routine (when shipped) picks one section per run, probes claims against reality, opens a P3 row on drift > 30%.
 
 Origin: Tate verbatim 2026-05-17 cold-start. The world-model summary I gave him contained five substantial architectural fictions. He flagged it as "an actual problem that needs attending to."
+
+---
+
+## 🛟 BACKUP SUBSTRATE - Cline + DeepSeek (if Anthropic is unreachable)
+
+If Claude Code is ever unavailable (Anthropic outage), the fallback runtime is the
+**Cline VS Code extension on a DeepSeek API key** (DeepSeek+Cline wired by Tate).
+Documentation parity is solved WITHOUT a second copy of any doctrine:
+
+- **Single source of truth stays the CLAUDE.md hierarchy** (global + workspace +
+  backend) + memory + patterns. Nothing is duplicated.
+- **`backend/AGENTS.md`** is the only new doctrine-bearing file: a thin cross-agent
+  bootstrap (also the cross-tool standard Cline/Cursor/Codex/Gemini auto-read). It
+  lists the canonical files to load at task start - Cline's "Memory Bank" pattern
+  pointed at the existing CLAUDE.md files, so Cline reads the SAME live docs.
+- **Redirect-only pointers** (no doctrine): `backend/.clinerules`,
+  `EcodiaOS/AGENTS.md`, `EcodiaOS/.clinerules`, and Cline GLOBAL rules at
+  `C:/Users/tjdTa/Documents/Cline/Rules/00-ecodiaos-bootstrap.md` (the analogue of
+  the always-on `~/.claude/CLAUDE.md` load).
+- **Maintenance rule:** these pointers change only when the SET of doc files changes
+  (rare), never when content changes. Never paste doctrine into them.
+- **Known gap:** PreToolUse/PostToolUse hooks (em-dash detector, voice-check,
+  cred-surface) and skill auto-invocation do NOT run under Cline. `AGENTS.md`
+  restates the load-bearing hook rules (em-dash ban first) for the model to
+  self-enforce; skill `SKILL.md` files become read-on-demand reference. MCP tool
+  surface requires mirroring `.mcp.json` into Cline's `cline_mcp_settings.json`.
+
+Full bootstrap: `D:/.code/EcodiaOS/backend/AGENTS.md`. Origin: Tate verbatim
+2026-05-21 ("make sure a cline chat would have everything at the exact same level...
+we also shouldnt have to update 2 copies of documents").
 
 ---
 
@@ -44,6 +69,8 @@ FROM status_board WHERE archived_at IS NULL ORDER BY priority, entity_type;
 - Something done → SET `archived_at = NOW()`
 - Finish a session without updating status_board = session failed
 - status_board authoritative. Disagrees with CRM → fix CRM
+
+**Hygiene is a 0th-class reflex, enforced by hook, not memory (Tate verbatim 2026-05-21).** The board rotted to 124 rows of drift because upkeep was treated as a periodic chore. Two enforcement layers now exist and BOTH bind: (1) `~/.claude/hooks/ecodia/status_board_hygiene.py` PostToolUse hook (matcher `Bash|Edit|Write|MultiEdit|db_execute|shell_exec`) keyword-matches every action against a live cache of active rows and surfaces `[STATUS-BOARD-HYGIENE]` naming the EXACT matched row id(s) + age + an action-since-last-write streak counter (gentle at 10, FIRM at 20); (2) this reflex. When the hook names a row, update it THAT turn or consciously decide not to. Cache refreshed by `status_board_hygiene_refresh.py` (org PAT, no daemon). Archival/status changes are backed by a live probe, never narrated state (git/HTTP/Vercel/Supabase/disk/Neo4j) per `verify-deployed-state-against-narrated-state.md`. The `status-board-write-surface.sh` hook fires on the write itself; the hygiene hook fires on the WORK that should trigger a write. Full: `~/ecodiaos/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md`. Sibling: `status-board-drift-prevention.md`, `status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`.
 
 **Cron efficiency:** scheduled cron fires + nothing to act on = exit immediately with one-line kv_store update. No full orientation, no subagents, no verbose updates. Readiness > burning tokens on empty loops.
 
@@ -278,6 +305,33 @@ Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md
 - Fix = per-task PM2 env override, NOT CDP debugging
 - Verify which profile holds target login by reading `User Data\Local State` JSON before assuming browser tool broken
 
+### CDP-Chrome launch is `gui.enable_chrome_cdp` (0th-class reflex, Tate verbatim 2026-05-21)
+
+When CDP isn't on port 9222 yet, the ONLY correct first move is the laptop-agent helper:
+
+```bash
+curl -X POST http://127.0.0.1:7456/api/tool -H "Content-Type: application/json" \
+  -d '{"tool":"gui.enable_chrome_cdp","params":{"port":9222}}'
+```
+
+Do NOT open PowerShell. Do NOT write `Start-Process chrome`. Do NOT `taskkill /F /IM chrome.exe` then relaunch. `tools/gui.js::enableChromeCdp` already handles: kill-loop to zero, clear `SingletonLock`/`SingletonCookie`/`SingletonSocket`, auto-detect the real user-data-dir from the running Chrome's crashpad-handler subprocess command line, launch with the full required arg set (`--remote-debugging-port`, `--remote-allow-origins=*`, **explicit `--user-data-dir`**, `--profile-directory=Default`, `--restore-last-session`, `--no-first-run`, `--no-default-browser-check`), and poll the port until it binds before returning.
+
+**Root cause of the hand-roll trap.** Chrome 121+ silently drops `--remote-debugging-port` when launched without an explicit `--user-data-dir` flag on the system default profile - even pointing at the same path the default would have used. Chrome also keeps background tray processes alive that hold the user-data-dir lock; a single `Stop-Process chrome` misses them and the relaunch hands off to the survivor, dropping the debug port.
+
+**Three canonical launch sites and nothing else:**
+
+| Need | Tool | Profile |
+|---|---|---|
+| Real Chrome with Tate's passwords/sessions on :9222 | `gui.enable_chrome_cdp` | `%LOCALAPPDATA%\Google\Chrome\User Data` (auto-detected) |
+| Isolated throwaway Chrome on :9222 | `gui.launch_cdp_chrome` | `C:\eos-chrome-cdp` (clean each time) |
+| In-process headless puppeteer | `puppeteer.launch({userDataDir:'~/.eos-browser', args:[...]})` | `~/.eos-browser` |
+
+**Substrate:** `tools/browser.js::enableCDP` now delegates to `tools/gui.js::enableChromeCdp` (2026-05-21 fix). The old hand-rolled `taskkill + spawn('chrome', ...) + return cdpEnabled:true` path that returned false success while port 9222 stayed unbound is gone.
+
+**Enforcement hook:** `~/.claude/hooks/ecodia/chrome-cdp-launch-surface.sh` (PreToolUse on Bash|Edit|Write|MultiEdit) fires `[CDP-LAUNCH WARN]` when a payload contains `--remote-debugging-port` without `--user-data-dir`, when it scripts kill-chrome + relaunch-with-debug-port, or when it references `C:\eos-chrome-cdp` outside the helper itself.
+
+Full doctrine: `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`. Two diagnoses two months apart (29 Apr 2026 + 21 May 2026) both burned >5 tool calls before reaching for the existing helper - this reflex is the cost-of-not-having-it made tangible.
+
 ### SSH state (29 Apr 2026)
 
 - OpenSSH Server NOT installed on Corazon (client is). `shell.shell` already gives PowerShell over HTTP via Tailscale, SSH = nice-to-have not critical
@@ -439,7 +493,47 @@ Read triggers, pick matching files, read in full. Same protocol as patterns/. 30
 - Before classifying any blocker as Tate-required, exhaust laptop+browser+saved-creds: `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`. Passkey: `kv_store.creds.laptop_passkey`. Tool mechanics: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`
 - Before adding ANY new credential row OR asking Tate to generate one, run GUI-macro vs API-key check: `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`. If Tate already does workflow through logged-in GUI (Apple Developer/ASC/Vercel/GitHub/Stripe/Play/Resend/Supabase dashboard/etc), macro path through Corazon/SY094 input.* + screenshot.* tools supersedes credential-generation. Skip the API key. Only add programmatic creds for fundamentally headless workflows (server-to-server cron, no human GUI in loop). Strategic_Direction: "GUI macros replace API keys for autonomous releases - use logged-in user sessions over generated programmatic credentials when both work"
 
-**Supabase cross-project access (NEVER punt to fork for a single query).** The access token at `kv_store.creds.supabase_access_token` is an org-level PAT. Per-project URL + service_role_key at `kv_store.creds.<project>_supabase` (coexist = `tjutlbzekfouwsiaplbr`, chambers = `arkbjjkfjsjibnhivjis`). Direct REST API query against ANY owned project from main is a thin-on-main exception - one curl call with the service_role_key, 30 seconds. Classifying "different Supabase project" as a fork-required blocker is a routing-problem failure. See `~/ecodiaos/patterns/supabase-pat-reaches-every-owned-project-from-main.md`.
+### 🗄️ SUPABASE ACCESS - org PAT reaches EVERY project (READ FIRST before any Supabase query/migration)
+
+**You have full access to every Supabase project in the Ecodia org via one master PAT. Never declare a Supabase task blocked on access. Never ask Tate for a Supabase key.**
+
+**The master key (always-reachable, NOT via MCP):**
+- Org PAT lives LOCALLY on Corazon at **`D:/PRIVATE/ecodia-creds/supabase.env`** (var `SUPABASE_ACCESS_TOKEN`, shape `sbp_...`). Load it and go. This is the canonical local copy - do not go hunting each session.
+- **GOTCHA (the trap that wasted a session):** the MCP `creds.*` prefix is **READ-DENIED** on BOTH the cowork and ecodia-full bearers. `mcp__ecodia-*__kv_store_get('creds.supabase_access_token')` returns `scope_denied`. Do NOT route the PAT (or any `creds.*`) through MCP - use the local file.
+
+**The PAT does everything via the Management API (`https://api.supabase.com`):**
+```bash
+set -a; . D:/PRIVATE/ecodia-creds/supabase.env; set +a
+# 1. list every project
+curl -s https://api.supabase.com/v1/projects -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+# 2. run ANY SQL on ANY project (runs as postgres/superuser - this is also how you APPLY MIGRATIONS)
+curl -s -X POST https://api.supabase.com/v1/projects/<ref>/database/query \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+  -d '{"query":"select 1"}'
+# 3. reveal a project's keys (anon / service_role / publishable / secret)
+curl -s "https://api.supabase.com/v1/projects/<ref>/api-keys?reveal=true" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+**Project refs (org `mmbkisodkrikuqhppoov` unless noted):** Co-Exist `tjutlbzekfouwsiaplbr` · Ecodia App `nxmtfzofemtrlezlyhcj` · Chambers `arkbjjkfjsjibnhivjis` · ROAM `vzauarlfmkjfkcphojbd` · Wildmountains `efrytpwdrxfaehtqfpkq` · Woodfordia `iqrxrjgutvowvetrmywr` · Wattle `jbdghvzfvxvohztfxzan` · goodreach `ngoeairmbigqulhfjqso` (own org) · Resonaverde `dxtglcfyqvhmmnopshhp` (own org) · Co-Exist Backup `njprlytfwtqzbyktegha` · coexist-recovery `yfmihkgbpechyoitohjb` · esp-sales-prod `igualtfcqitjbaaznigv`. Live list = move #1 above.
+
+**TESTING auth-gated logic (RLS / `auth.role()` / `auth.uid()` triggers):** Management-API SQL runs as **postgres (superuser)** - it BYPASSES RLS and any `auth.role()='service_role'`/NULL trigger short-circuit. To exercise the real authenticated path, simulate the JWT in a transaction:
+```sql
+begin;
+  set local role authenticated;
+  set local request.jwt.claims = '{"sub":"<user-uuid>","role":"authenticated"}';
+  -- now auth.uid() = that uuid, auth.role() = 'authenticated'; triggers/RLS fire
+  <your statement>;
+rollback;  -- or commit
+```
+
+**Fallback if the local PAT file is ever missing** (the MCP deny is app-layer; the kv_store TABLE is readable with the project service key):
+```bash
+ssh tate@100.103.227.90 'set -a; . ~/ecodiaos/.env; set +a; curl -s "$SUPABASE_URL/rest/v1/kv_store?key=eq.creds.supabase_access_token&select=value" -H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"'
+# strip the surrounding JSON quotes from the value, re-write D:/PRIVATE/ecodia-creds/supabase.env
+```
+The same kv_store table also holds **non-PAT-derivable** secrets: `creds.coexist` (app test login `{url,email,password}` for visual verify), `creds.<project>_supabase` (per-project bundles). App-user logins are NOT Supabase API artifacts - get those from kv_store, not the Management API.
+
+**Hygiene:** never print the PAT or any service key into chat, Neo4j, status_board, or a commit. `D:/PRIVATE` is the private store (laptop-agent-blocked). Full doctrine + worked recipe: `~/ecodiaos/patterns/supabase-access-via-org-pat-local-store-2026-05-20.md` (supersedes `supabase-pat-reaches-every-owned-project-from-main.md`).
 
 ### Bitbucket has TWO auth contexts with same API key
 
@@ -540,199 +634,17 @@ Rules:
 
 **Phantom-shipped corollary.** Row says `phantom_shipped_file_not_on_disk` (or equivalent "deliverable missing") → re-probe disk BEFORE treating as ground truth. last_touched can lag disk by minutes (fork ships file at T, parent writes P1 "missing" at T+7min based on stale Wave-N synthesis). Always: `ls -la <path>` then update or archive. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md`, `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md`.
 
-**Drift-audit on main when fork-cap full or mcp__forks__* disconnected.** When the hourly meta-loop fires and no fork can be spawned, the canonical thin-on-main work is the PHASE 2 status_board drift audit — slice-query first, drill down, classify into 4 buckets (still-accurate / status-changed / completed / duplicate), UPDATE atomically per row, write audit numbers to `kv_store.ceo.meta_loop_last_run.accomplishments`. Do NOT exit "nothing to do." Full: `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`. At-scale technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (>50-row boards MUST slice-query — `SELECT *` row dump exceeds tool-result token cap; the categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates).
+**Drift-audit on main when fork-cap full or mcp__forks__* disconnected.** When the hourly meta-loop fires and no fork can be spawned, the canonical thin-on-main work is the PHASE 2 status_board drift audit - slice-query first, drill down, classify into 4 buckets (still-accurate / status-changed / completed / duplicate), UPDATE atomically per row, write audit numbers to `kv_store.ceo.meta_loop_last_run.accomplishments`. Do NOT exit "nothing to do." Full: `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`. At-scale technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (>50-row boards MUST slice-query - `SELECT *` row dump exceeds tool-result token cap; the categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates).
 
 ---
 
-## Sub-agent dispatch protocol [SUPERSEDED 2026-05-17]
+## Parallel dispatch (live primitive)
 
-> **SUPERSEDED 2026-05-17:** The two-lane subagent / factory_cloud router described below was a stepping stone that was overtaken by the simpler "open a new CC chat tab" mechanic. The `factoryDispatch.js` classifier and `code_requests` row-as-control-plane are not the live dispatch path. See [[ide-tab-is-the-new-fork-mechanic-2026-05-17]].
->
-> What remains valid:
-> - **Task subagents inside the current session** (via the Task tool) for bounded research / lookup work. This is the in-session parallelism primitive.
-> - **A fresh Claude Code chat tab** (Ctrl+Shift+P -> `Claude Code: New Chat` in VS Code Stable / Insiders / Cursor) for substantive parallel work that deserves its own context arc.
-> - Coordination between tabs happens through a named substrate row (a `coordination_threads` table when shipped, or a `kv_store` row / file in the meantime), never through in-memory state.
+For parallelism, sequencing, or "hand this off and keep going" work, the reflex is `cowork.dispatch_worker` per `~/ecodiaos/patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. Auto-spawns a fresh Claude Code chat tab via Ctrl+Alt+Shift+C, registers identity, pastes the brief, returns tab_id. Workers signal back via the 8 `coord.*` MCP tools on localhost:7456. Operational semantics (worktree hygiene, runtime semantics, coord conventions) live in `~/ecodiaos/patterns/dispatch-worker-worktree-hygiene-2026-05-26.md` + `~/ecodiaos/patterns/dispatch-worker-runtime-semantics-2026-05-26.md` + `~/ecodiaos/patterns/coord-conventions-heartbeat-signal-done-2026-05-18.md`.
 
-## Factory - Your Coding Workforce [DEPRECATED 2026-05-17]
+In-session bounded work (single research lookup, <5 tool calls) is the Task subagent's job, not dispatch_worker's.
 
-> **DEPRECATED 2026-05-17:** This entire section describes the pre-local-first agentic substrate (SDK forks, Factory CLI, multi-account provider chain, manager fork hierarchy, FORK_REPORT envelope, os_forks substrate). All of it is dead. See the deprecations table at the top of this file and [[ide-tab-is-the-new-fork-mechanic-2026-05-17]] for the corrected doctrine. The content below is retained for historical reference until the file is fully rewritten. Do not act on it.
 
-### 2026-04-28 OPERATIONAL ALERT - Factory CLI credit/paywall-gated
-
-Re-verified 2026-04-29 21:43 AEST. Both Claude Max accounts (tate@, code@) hit `API Error: 400 "The long context beta is not yet available for this subscription"` previously. Per status_board 8a6e0571: Max 20x DOES have 1M beta access; failure is weekly token cap on the dedicated account, not a feature paywall. 21:43 AEST re-verification (sessionId 84ac1687) failed `Exit code 1` within 15s. Original error text may be stale; current best label = `account_chain_exhausted` per `~/ecodiaos/patterns/multi-account-credit-state-model.md`.
-
-Tate may enable Extra Usage at claude.ai/settings/usage on any account, OR wait for the soonest per-account weekly reset.
-
-**Live workaround:** SDK-based forks (`mcp__forks__spawn_fork`) bypass - run on SDK stream not Factory CLI. Use forks for code-changing work until paywall lifts. Same constraint on WebSearch - internal-data mining (CRM + email_threads + Neo4j) substitutes for external research.
-
-**THREE-account provider chain (updated 12 May 2026):** we have three Claude Max accounts wired. Three accounts: `claude_max` (tate@ecodia.au), `claude_max_2` (code@ecodia.au), `claude_max_3` (money@ecodia.au). The fork provider router scores all three simultaneously and picks the best-scoring one. Provider chain (fallback of last resort only): `claude_max (tate@ecodia.au) → claude_max_2 (code@ecodia.au) → claude_max_3 (money@ecodia.au) → deepseek`. Selection is score-based, not fixed-sequential. Each account has TWO independent caps: 5-hour session cap and weekly cap. Six independent capacity slots total (3 accounts x 2 caps). A single "out of usage" / "session cap reached" / "weekly cap reached" warning in conductor chat means ONE account hit ONE cap - never the system as a whole. All three accounts exhausted concurrently = `account_chain_exhausted`, NOT a system outage. The conductor still processing proves at least one account has capacity. Full model: `~/ecodiaos/patterns/multi-account-credit-state-model.md`.
-
-**DeepSeek-only fallback (5 May 2026):** fires when all three accounts score <= 0 (requires `DEEPSEEK_FALLBACK_ENABLED=true` + `DEEPSEEK_API_KEY` set). Bedrock is forbidden per `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` (Tate verbatim 12:40 AEST). DeepSeek proxy must sanitise Anthropic-shape requests at the wire boundary (strip top-level `thinking` param + thinking content blocks + `cache_control` markers) per `~/ecodiaos/patterns/deepseek-fallback-strips-anthropic-thinking-blocks.md` (origin: 18-event 400-storm on cc_session a427439a, 7 May 03:51-03:58 UTC, fix commit 68a5da9).
-
-Track: status_board P2 row when chain exhausted (NOT P1 - self-healing). Full handling: `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - classify `account_chain_exhausted` not `fork_error`, extract per-account reset windows, compute min(resets) as recovery ETA, schedule auto-resume, single P2 status_board row per wave. Anti-flood spec: `~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md`.
-
-**Perception must not claim chain-exhausted from a single fork error.** When a single fork errors with credit-exhaustion text, that proves ONE lane is capped - NOT the whole chain. Any matcher detecting credit-exhaustion in a fork's abort_reason MUST stamp the event with `exhausted_accounts[]`, `healthy_accounts[]`, and `chain_exhausted` (bool). Confidence must be <= 0.4 unless `chain_exhausted === true`. Self-state invariant: if the conductor is responding to a turn, at least one account has capacity - telemetry claiming otherwise is a perception bug. Origin: 12 May 2026 16:00 AEST, 45-min catatonia while claude_max_3 was serving turns (32 poisoned os_observations rows, fix commit f84ff8a). Full: `~/ecodiaos/patterns/perception-must-not-claim-chain-exhausted-from-single-fork-error.md`.
-
-### SDK musl-vs-glibc binary auto-detect trap (recurs on every SDK upgrade or npm install)
-
-`@anthropic-ai/claude-agent-sdk` ships both `linux-x64` (glibc) and `linux-x64-musl` binaries as `optionalDependencies`. The SDK's `B7()` resolver tries musl FIRST. On the glibc VPS this means every `query()` call after a fresh `npm install` silently picks the musl binary, which fails to execute (`ENOENT` on `/lib/ld-musl-x86_64.so.1`). Symptom: every fork aborts in ~35ms with "Claude Code native binary not found" even though the file exists at the named path.
-
-Defence (mandatory on every SDK call site):
-- Pass `pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE || '/home/tate/ecodiaos/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude'` on every `query({ options })`. Today: `forkService.js`, `voiceRelay.js`, `osSessionService.js`, `rescueRunner.js`. Any new call site MUST also include the override.
-- Set `CLAUDE_CODE_EXECUTABLE` in `ecosystem.config.js` env block (belt and braces).
-- Re-run `file node_modules/@anthropic-ai/claude-agent-sdk-linux-x64*/claude` after every `npm install` / `npm update` / SDK version bump.
-
-Origin: 8 May 2026 P0 incident, fix commit 2980601. Full: `~/ecodiaos/patterns/sdk-musl-vs-glibc-binary-auto-detect-trap.md`. Meta-lesson: when the diagnostic substrate depends on the broken substrate, escalation must route around it (Tate's hands closed the loop manually because no fork could).
-
-**Related VPS/npm ops:** `~/ecodiaos/patterns/ensure-deps-must-recompute-hash-post-install-not-pre.md` - hash markers for npm-install gating must be written AFTER install returns (not before), because npm can rewrite `package-lock.json` mid-install; pre-install hashes cause permanent lockfile-mismatch restart loops (same restart-storm failure class as the musl/glibc mis-resolution above).
-
-### Model tier assignment (updated 14 May 2026)
-
-**Tate directive 14 May 2026 09:36 AEST:** "i think we can make forks use opus again for the most part... we have 3 claude code plans now so we're fine."
-
-Three Max accounts = 6 independent capacity slots (3 accounts x 2 caps: 5h-session + weekly). Sufficient budget for Opus across all fork tiers.
-
-| Tier | Model | Env var | Notes |
-|---|---|---|---|
-| Conductor (main) | `claude-opus-4-7` | `OS_SESSION_MODEL` | Unchanged |
-| Manager forks | `claude-opus-4-7` | `FORK_MANAGER_MODEL` | Judgment-heavy coordination |
-| Worker forks | `claude-opus-4-7` | `FORK_WORKER_MODEL` | Code-shipping at conductor quality |
-| Subagents (comms/finance/ops/social) | `claude-opus-4-7` | `SUBAGENT_MODEL` | Business-surface work |
-| Observer trio (coherence/action-audit/attention) | `claude-haiku-4-5-20251001` | hardcoded in `_haikuClient.js` | Keep Haiku — cheap, high-volume, intentional |
-| voiceRelay (phone calls) | `haiku` | hardcoded in `voiceRelay.js` | Keep Haiku — voice latency requires fast response |
-| rescueRunner | `claude-opus-4-7` | `RESCUE_MODEL` | Already Opus before this change |
-| Factory CC sessions | account-specific | Factory CLI flags | Separate account budget, unchanged |
-| DeepSeek fallback | `deepseek-v4-pro` | hardcoded | Only fires when all 3 Max accounts capped |
-
-Config surfaces: `.env` (primary), `src/config/env.js` (Zod defaults + validation), `ecosystem.config.js` (PM2 belt-and-braces). Code call sites: `forkService.js` (fork + subagent dispatch), `osSessionService.js` (conductor subagent dispatch).
-
-### The rule
-
-Factory runs Claude Code CLI in **separate process on separate Claude account**. Every delegated task runs on its own energy budget - does NOT burn your context or weekly tokens.
-
-**Delegate all coding work to Factory (or SDK forks while CLI is paywalled). Never write/edit code yourself.**
-
-| Yourself | Factory |
-|----------|---------|
-| Read files, check status | Write/edit/refactor any code |
-| Review diffs | Fix bugs |
-| Approve/reject deploys | Add features |
-| Decide what to build | DB migrations |
-| Write the task prompt | Any change to a codebase file |
-
-You run on Tate's primary Max account (shared with email/bookkeeping/CRM/client comms). Factory runs on dedicated second account. Delegating keeps your budget free + parallelises work.
-
-### Dispatching - prompt like briefing a senior dev
-
-- `start_cc_session(prompt, codebaseName?)` returns sessionId immediately, runs background
-- Prompt = ENTIRE context. Be explicit: what to change, in which file, current vs expected, constraints
-- **Good:** "In `src/routes/osSession.js`, the `/api/os-session/energy` endpoint returns stale data because it reads from cache without checking TTL. Fix to call `usageEnergy.refreshQuotaCheck()` if cache >60s, then return fresh"
-- **Bad:** "Fix the energy endpoint"
-- Pre-dispatch: `~/ecodiaos/patterns/stage-worktree-before-factory-dispatch.md`, `~/ecodiaos/patterns/factory-codebase-staleness-check-before-dispatch.md`
-- Quality gate over cron mandate: `~/ecodiaos/patterns/factory-quality-gate-over-cron-mandate.md`
-
-### Monitoring (non-blocking)
-- `get_factory_status()` - all sessions overview
-- `get_session_progress(sessionId)` - stage, duration, confidence, last output
-- `get_cc_session_details(sessionId)` - full logs
-
-### Intervention
-- `send_cc_message(sessionId, message)` - steer mid-flight (sparingly)
-- `resume_cc_session(sessionId, message)` - continue after completion
-
-### Review & Deploy
-
-When session completes:
-1. `review_factory_session(sessionId)` - diff, validation, confidence, past learnings
-2. Decide:
- - `approve_factory_deploy(sessionId, notes)` - commits, deploys, restarts. Record WHY
- - `reject_factory_session(sessionId, reason)` - cleans up, records failure as learning, optionally re-dispatches with corrected prompt
-3. Review loop catches mistakes + builds institutional memory. Don't skip
-
-**Review-time cross-refs:**
-- `~/ecodiaos/patterns/factory-metadata-trust-filesystem.md` - don't trust reported `filesChanged`; probe filesystem
-- `~/ecodiaos/patterns/factory-redirect-before-reject.md` - redirect struggling session before rejecting
-- `~/ecodiaos/patterns/factory-approve-no-push-no-commit-sha.md` - approve without push + no commit_sha = phantom approval; verify both
-- `~/ecodiaos/patterns/factory-phantom-session-no-commit.md` - completion + no commit = phantom, investigate
-
-### Codebases
-- `list_codebases()` - all registered with paths + recent activity
-- Key: `ecodiaos-backend`, `ecodiaos-frontend`, `roam-frontend`, `coexist`
-
-### Factory Anti-Patterns
-
-- Overly broad file system access → rejection. Scope tightly
-- Low-confidence analysis tasks → rejected (0.25 scores). Do exploratory yourself or frame as concrete deliverable. See `~/ecodiaos/patterns/audit-low-confidence-factory-commits-on-critical-path.md`
-- stdin timeouts → fail with "no stdin data". Retry with cleaner prompt
-- Task-diff mismatch → if PR doesn't match stated task, rejected. Unambiguous deliverable
-- NEVER `schedule_delayed` to delegate work. Hijacks main OS conversation. Factory runs background independently
-- **Numbered-resource collisions across parallel forks.** Multiple forks may write a sequentially-numbered resource (DB migrations, ports, branch names with date suffixes, generated IDs) - brief MUST direct each fork to read numbered space at write-time and pick next free number BY OBSERVATION, not brief-suggested. Use coordinator (kv_store atomic claim, file lock, advisory lock, pg sequence). Doctrine: `~/ecodiaos/patterns/parallel-forks-must-claim-numbered-resources-before-commit.md`
-- **Reject can nuke untracked files.** `reject_factory_session` cleans up worktree including untracked. If session produced anything to keep, copy out BEFORE rejecting. See `~/ecodiaos/patterns/factory-reject-nukes-untracked-files.md`
-
-### Factory vs DIY
-
-| Factory | Yourself |
-|---------|----------|
-| Building features, refactors, new files | Quick DB queries, email triage |
-| Multi-file changes | Single config update |
-| >3 tool calls | CRM updates, scheduling |
-| Code review, testing, deploy prep | Reading logs, health checks |
-| Client project builds | Neo4j writes, brief Tate replies |
-
----
-
-## Routing decisions are silent (TOOL NOT YET SHIPPED - 13 May 2026)
-
-> **NOTE (13 May 2026):** `mcp__router__route_work` is not yet on disk - `src/routes/mcp/router*` does not exist. The section below documents the intended architecture. Until the tool ships, the `router-skip-check.sh` hook fires warn-only on a phantom tool call. Do NOT treat [ROUTER-SKIP WARN] as actionable. Monitor for tool shipment before treating this section as operating instructions.
-
-Before any non-trivial action, call `mcp__router__route_work` with the task shape. Trust its answer unless you have a specific reason to override (note the reason in scratchpad). **NEVER narrate routing** ("I'll fork this", "let me do it on main") — just call the tool and proceed.
-
-Tool: `mcp__router__route_work({ task_description, intent, estimated_steps?, parallelisable?, tate_visible?, session_id? })`
-
-Returns `{ route, rationale, alternates }` where route is one of:
-- `main` — do it yourself
-- `subagent:comms` — gmail/calendar/crm/sms work
-- `subagent:finance` — bookkeeping/stripe/xero work
-- `subagent:ops` — pm2/deploy/vps work
-- `subagent:social` — zernio/linkedin/instagram work
-- `fork` — isolated sequential parallel work
-- `fork_manager` — parallel orchestration needing sub-fork coordination
-
-Every call is logged to `routing_decisions` table. After 7d review the override patterns and tune keyword rules. Override is valid but must be noted.
-
-Implementation: `~/ecodiaos/src/services/capabilityRouter.js` (scoring logic) + `~/ecodiaos/src/services/capabilityRouterTool.js` (MCP wrapper, per-query rebuild). Migration `104_routing_decisions.sql`.
-
-Hook: `~/ecodiaos/scripts/hooks/router-skip-check.sh` warns `[ROUTER-SKIP WARN]` when `mcp__forks__spawn_fork` or Agent is called in a turn without a prior `route_work` call.
-
----
-
-## Fork dispatch is demand-driven, NOT slot-quota
-
-See `~/CLAUDE.md` "Fork dispatch is demand-driven" for canonical doctrine, Tate-verbatim Origin (30 Apr 2026 10:02 AEST), and 5/5 ceiling rule.
-
-Cross-refs: `~/ecodiaos/patterns/continuous-work-conductor-never-idle.md` (corrected interpretation: stay alert to incoming demand, do NOT manufacture work), `~/ecodiaos/patterns/fork-by-default-stay-thin-on-main.md` (on-main-vs-fork choice once work queued), `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` (slot-fill forks ARE symbolic activity), `~/ecodiaos/patterns/no-self-prompting-from-queued-kv-store-plans.md` (kv_store-queue-as-prompt failure mode: queueing followups in kv_store and self-firing them next turn is slot-fill in a different costume; demand is external), `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`, `~/ecodiaos/patterns/continuation-aware-fork-redispatch.md` (lost forks: redispatch briefs check existing deliverables BEFORE re-doing), `~/ecodiaos/patterns/stash-and-clean-when-finding-sibling-fork-unsafe-state.md`, `~/ecodiaos/patterns/check-pre-kill-commits-before-redispatch.md`, `~/ecodiaos/patterns/fork-result-fallback-must-be-marked.md` (fork-result classification: forks closing without `[FORK_REPORT]` write a fallback-marker prefix that the rollup surfaces as `phantom_bail`, and the always-enqueue path keeps the fork in the inbox past the 15-min rollup window).
-
-### Fork hierarchy - Manager forks (5 May 2026)
-
-**Substrate note (Decision 6 May 2026 09:23 AEST):** regular SDK fork sub-sessions are TERMINAL in the fork tree. They do NOT have `mcp__forks__spawn_fork` in their MCP tool surface and cannot dispatch sub-forks. Only manager-flagged forks (brief contains `MANAGER: true`) get the spawn primitive wired through. Cron-fired forks running daily reflection / audit / policy work are regular forks and must surface follow-up work to status_board for the conductor (main) to pick up, not attempt to spawn nested forks. See `~/ecodiaos/patterns/manager-forks-for-multi-worker-decomposition.md` for the manager-fork primitive.
-
-The conductor can spawn MANAGER forks that in turn spawn WORKER sub-forks. This keeps the conductor's context pristine: instead of 5 fork_reports cluttering the inbox, the manager aggregates N worker reports into 1 consolidated [FORK_REPORT].
-
-**How it works:**
-- `spawn_fork({ brief: "MANAGER: true\n...", context_mode: "brief" })` - the brief contains `MANAGER: true`, signalling the fork to enter project-manager mode
-- The manager decomposes its task, spawns sub-forks with `parent_fork_id` = its own fork_id
-- Sub-fork [FORK_REPORT]s route to the MANAGER's stream (never the conductor's inbox)
-- The manager consolidates, retries failures, verifies deliverables, then emits ONE [FORK_REPORT] to the conductor
-
-**Caps:** Sub-forks count against a per-tree cap (5 per tree root), NOT the conductor's global cap. Total system parallelism: 5 managers x 5 workers = 30 parallel streams.
-
-**When to use:** Any task decomposing into 2+ independent workers. Pipeline tasks (build -> test -> deploy -> verify). Multi-step processes needing coordination. Default to manager forks for non-trivial work.
-
-**Conductor discipline:** You see the manager in `<forks_rollup>` tagged `[manager, N sub]` with sub-forks indented beneath it. Wait for the manager's consolidated [FORK_REPORT]. Do NOT reach into the manager's subtree. Trust the manager or abort the whole tree.
-
-**SDK in-process MCP Server instances must be per-query, not singleton.** The MCP SDK's `Server.connect()` throws `Already connected to a transport` if the same instance is connected to a second transport. The Claude Agent SDK silently catches and removes it from `sdkMcpServerInstances`, so the second SDK query loses the in-process tool surface even though `--allowedTools` still lists the patterns. Symptom: manager-flagged forks describe sub-fork plans but no children appear with `parent_id=<manager_fork_id>`; recurring "MCP forks transport disconnects on hourly cron fire". Fix: rebuild the server fresh per call (cache the tool wrappers, NEVER the `createSdkMcpServer()` return value across SDK queries). Validation: `await getServer() === await getServer()` MUST be `false`. Applies to ANY in-process MCP server shared across main + fork or main + cron-fire. Origin: 8 May 2026 16:40-17:14 AEST, fix commit 1c7ea11. Full: `~/ecodiaos/patterns/sdk-mcp-server-instances-must-be-per-query-not-singleton.md`.
-
----
 
 ## Session Orientation - Wake-Up Checklist
 
@@ -838,16 +750,6 @@ Anything prints → narrate as MISSING, don't claim active. Cross-refs: `~/ecodi
 
 **Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
 
-### Doctrine compliance is silent (Layer 3 - mcp__scratchpad NOT YET SHIPPED, 13 May 2026)
-
-> **NOTE (13 May 2026):** `mcp__scratchpad__write` is not in the loaded MCP tool surface - the tool has not shipped. Pattern application telemetry is currently dark. The JSONL bridge in `conductorStreamTagWatcher.js` is the active fallback path. Do NOT narrate [APPLIED]/[NOT-APPLIED] into chat. Do NOT rely on scratchpad-based telemetry until the tool is confirmed available.
-
-Pattern application is captured via `mcp__scratchpad__write({ kind: 'pattern_applied' | 'pattern_not_applied', pattern_path, reason })`. NEVER narrate [APPLIED]/[NOT-APPLIED] into chat. The scratchpad tool writes the entry to `scratchpad_entries` DB table; the existing telemetry pipeline reads from there via JSONL bridge in `scratchpadService._writeJsonlBridge`. Three uses: (1) genuinely high-leverage pattern that affected the action, (2) deliberately not-applied with a reason, (3) override of a forcing-function nudge.
-
-`post-action-applied-tag-check.sh` removed from hooks 2026-05-12. `conductorStreamTagWatcher.js` retained as deprecated fallback (JSONL bridge path). Origin: fork_mp27sa0a_67954f, 2026-05-12.
-
-**Architectural template for any new doctrine-layer directory.** All 5 layers mandatory: (1) file-per-thing (one durable concept per file, never bundle), (2) `triggers:` frontmatter on every file, (3) documented pre-action `Grep` protocol, (4) mechanical PreToolUse hook enforcement at high-leverage tool dispatch, (5) Neo4j `graph_semantic_search` fallback when keyword grep misses. Missing any layer = doctrine-layer regression. Full: `~/ecodiaos/patterns/context-surfacing-must-be-reliable-and-selective.md`.
-
 ### Restart Recovery - Session Handoff
 
 OS session drops + restarts → context lost. Handoff bridges.
@@ -919,7 +821,7 @@ Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<f
 
 ## Conductor Architecture
 
-### Working Set — the conductor's typed thread-state substrate
+### Working Set - the conductor's typed thread-state substrate
 
 **Shipped:** fork_mp27az1r_1878c0, 12 May 2026. Origin: `~/ecodiaos/docs/conductor-self-sufficiency-plan-2026-05-12.md §Piece 1`.
 
@@ -929,15 +831,15 @@ The `working_set` table is the single canonical "what is the OS attending to rig
 - Max 5 `active` rows. Sixth push auto-parks the oldest.
 - Auto-park after 30min with no `last_touched_at` update (5min loop in `workingSetService`).
 - Conductor reads at turn-start via `<working_set>` continuity block (immediately after `<forks_rollup>`).
-- Listeners write rows directly — never the conductor via narration.
+- Listeners write rows directly - never the conductor via narration.
 - Chat is for Tate-facing output only. Thread status lives in the table.
 
 **Service:** `~/ecodiaos/src/services/workingSetService.js`
-- `openThread({ topic, intent, parent_id?, artifacts? })` — cap-enforced insert
-- `updateThread(id, { status?, blocking_on?, artifacts?, touch? })` — partial update
-- `listActive()` / `listBlocked()` — read by `_injectWorkingSet()` each turn
-- `closeThread(id, { resolution })` — sets resolved + closed_at
-- `findByForkId(forkId)` / `findBySessionId(id)` — listener lookups by artifact key
+- `openThread({ topic, intent, parent_id?, artifacts? })` - cap-enforced insert
+- `updateThread(id, { status?, blocking_on?, artifacts?, touch? })` - partial update
+- `listActive()` / `listBlocked()` - read by `_injectWorkingSet()` each turn
+- `closeThread(id, { resolution })` - sets resolved + closed_at
+- `findByForkId(forkId)` / `findBySessionId(id)` - listener lookups by artifact key
 
 **Listener wiring:**
 - `forkService.spawnFork` → `openThread({ topic: briefHead, intent, artifacts: { fork_id } })`
@@ -1029,82 +931,3 @@ Persistent DB-backed scheduler architecture (not session-scoped). Parallel react
 **Token budget:** 20 BILLION/week (~$14k AUD). Every unused = wasted potential. "Nothing to do" = failure state. External work blocked → turn inward.
 
 ---
-
-## Frontend UI - Interactive Outputs [DEPRECATED 2026-05-17]
-
-> **DEPRECATED 2026-05-17:** The EcodiaOS custom frontend at `D:/.code/EcodiaOS/frontend/` is no longer Tate's user-facing surface. He uses:
-> - **Claude Code in VS Code Stable / Insiders / Cursor** (desktop / laptop) as the primary conductor surface.
-> - **Claude mobile app + SMS** on mobile. SMS spawns a fresh CC chat (SMS thread persistence is the open build).
-> - **Auto-preview substrate** (write `.md` / `.html` to disk -> IDE preview tab via PostToolUse hook) is the live render target for any rich content I want him to see. See [[auto-preview-md-html-on-write-2026-05-16]].
->
-> The download-button / render-html / Supabase-storage primitives below still WORK (the endpoints exist), but they render to a frontend Tate does not open. Prefer writing the artefact to `backend/drafts/<slug>.md` or `.html` and letting the auto-preview tab appear in his IDE.
-
-Tate previously saw rich interactive content via EcodiaOS frontend.
-
-### Download Buttons
-
-Markdown link with `download://` protocol, **full absolute URL**:
-
-```
-[⬇ invoice-coexist-2026-001.pdf](download://https://api.admin.ecodia.au/api/docs/files/slug.pdf)
-```
-
-Or Supabase Storage (preferred, permanent URLs):
-```
-[⬇ invoice-coexist-2026-001.pdf](download://https://YOUR_SUPABASE_PROJECT.supabase.co/storage/v1/object/public/documents/slug.pdf)
-```
-
-Always full `https://`. Never relative paths (break in browser).
-
-### Generating a Document (structured)
-```
-POST /api/docs/render
-{ title, type, sections: [...], metadata: [...] }
-→ { html: <full_url>, pdf: <full_url>, preview: <preview_url>, downloadPdf: "download://...", downloadHtml: "download://..." }
-```
-Response gives ready-to-use `downloadPdf` / `downloadHtml` strings - output directly.
-
-### Rendering Arbitrary HTML
-```
-POST /api/docs/render-html
-{ html: "<full html string>", filename: "my-report", title: "My Report" }
-→ { html: <full_url>, preview: <preview_url>, slug }
-```
-
-### Inline HTML Preview in Chat
-
-Live rendered HTML preview directly inside chat: use html code block:
-
-````html
-<!DOCTYPE html>
-<html>
-  <body>
-    <!-- Your full HTML here -->
-  </body>
-</html>
-````
-
-Frontend detects html code blocks, renders as interactive iframes.
-
-### Auto-preview on Write (Corazon IDEs, shipped 16 May 2026)
-
-Any `.md` / `.html` file written or edited under the backend workspace automatically pops a preview tab in every running IDE (Cursor + VS Code Stable + VS Code Insiders). PostToolUse hook -> tiny extension per IDE -> `markdown.showPreviewToSide` for .md, `simpleBrowser.show` for .html.
-
-**Behavioural rule (default for all chats):** when the deliverable is "render this for Tate," WRITE the file to disk (`backend/drafts/<slug>.md` or `.html`) instead of pasting the content as a chat code block. The preview appears in his IDE with zero friction. The chat stays clean.
-
-Components:
-- Extension: `backend/laptop-agent/cursor-preview-extension/` (junctioned into all three IDE extensions dirs via `install.ps1`)
-- Hook: `backend/.claude/hooks/open-preview.js`, registered in `backend/.claude/settings.json` PostToolUse matcher `Write|Edit|MultiEdit`
-- Registry: `%USERPROFILE%/.ecodia-preview/instances.json`
-- Verify alive: `cat $env:USERPROFILE\.ecodia-preview\instances.json` should list one entry per running IDE
-
-Full doctrine: `~/ecodiaos/backend/patterns/auto-preview-md-html-on-write-2026-05-16.md`.
-
-### Supabase Storage
-
-Upload files for permanent cloud storage:
-```
-storage_upload({ bucket: "documents", path: "invoices/inv-001.pdf", localPath: "/path/on/vps/file.pdf" })
-→ { url: "https://...supabase.co/storage/v1/object/public/documents/invoices/inv-001.pdf", ... }
-```
-Output that URL as a download button.
