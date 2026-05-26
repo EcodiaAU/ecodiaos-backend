@@ -134,7 +134,9 @@ Session-to-account attribution is heuristic (worker rows + swap history + active
 
 ## Prerequisite #1: IDE target decision
 
-(to be filled in Task 0.4 - leave placeholder)
+RESOLVED by Task 0.1 inventory. `cowork.dispatch_worker` already supports `params.ide` with values `"cursor"` (default), `"insiders"`, or `"stable"`. The keybinding is delegated to `vscode.new_claude_code_chat` which targets the chosen IDE.
+
+Decision: pass `ide: "stable"` to `dispatch_worker` in every scheduler-initiated dispatch. No `dispatch_worker` modification needed. Tate's "stable only" directive satisfied by parameter, not by code change. Task 0.4 closed without code changes.
 
 ---
 
@@ -146,7 +148,13 @@ Session-to-account attribution is heuristic (worker rows + swap history + active
 
 ## Prerequisite #3: coord signal tools
 
-(to be filled in Task 0.2 - leave placeholder)
+- `signal_done`: ALREADY EXISTED. Inbox-based, posts to `chat.conductor.inbox` with `body.type="done"`. Also stamps `terminated_at` on worker row + unlinks `.spawned` marker.
+- `signal_bound`: BUILT in Task 0.2 (commit b105153). Inbox-based, mirrors signal_done structure. Posts to `chat.conductor.inbox` with `body.type="bound"`. Does NOT terminate the worker row or unlink `.spawned` marker. Includes `parent_conductor_tab_id` from the worker row in the body when `ctx.tab_id` is set.
+- `wait_for_signal_bound`: NOT a separate function. Scheduler will call `wait_for_inbox({topic:"chat.conductor.inbox"})` and filter messages by `body.type === "bound" && body.task_id === <id>`.
+- `wait_for_signal_done`: same inbox-filtering pattern, filter for `body.type === "done"`.
+- MCP exposure: `coord.signal_bound` registered in `routes/mcpCoord.js`. Verified `coord.signal_done` is in the running agent's tool list (`coord.signal_bound` will appear after agent restart - pending).
+- Test file: `D:/.code/eos-laptop-agent/tools/coord.test.js`, 6 tests all passing.
+- Restart pending: the running laptop-agent process has NOT yet picked up the signal_bound change. Restart needed before Task 0.5 (probe in spawned chat) and before Phase 3 scheduler integration tests.
 
 ---
 
