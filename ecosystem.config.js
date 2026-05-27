@@ -96,6 +96,14 @@ module.exports = {
     // abort_reason='api_memory_restart' (misleading label - conductor, not api).
     // VPS has 8GB total / ~4GB available; 3G ceiling is safe in practice.
     { ...COMMON, name: 'ecodia-conductor', script: 'src/conductor.js', max_memory_restart: '3G', max_restarts: 200, restart_delay: 2000, env: { ...COMMON.env, CONDUCTOR_PROCESS: 'true', OS_CONV_LOG_ENABLED: 'true', KG_CONTEXT_MAX_DEPTH: '3', KG_CONTEXT_MAX_SEEDS: '8', CONDUCTOR_LOOPBACK_PORT: '3002', CONDUCTOR_OWNS_WORKERS: 'true', DB_POOL_MAX: '3' } },
+    // Corazon Watchdog - VPS-side monitor that SMSes Tate when the
+    // Corazon laptop-agent is unreachable or the scheduler queue is
+    // backing up. Runs entirely on raw http + postgres; no app modules.
+    // Four checks every 5 min: agent ping (3 fails -> SMS), queue backup
+    // (>20 overdue -> SMS), cred refresh failures, orphaned tasks.
+    // Anti-spam: 1-hour cooldown per alert kind.
+    // Origin: Phase 6 autonomy substrate, 2026-05-27.
+    { ...COMMON, name: 'corazon-watchdog', script: 'src/services/corazonWatchdog.js', max_memory_restart: '100M', max_restarts: 20, min_uptime: '30s', restart_delay: 5000, env: { ...COMMON.env, NODE_ENV: 'production', LAPTOP_AGENT_URL: 'http://100.114.219.69:7456' } },
     // ─────────────────────────────────────────────────────────────────
     // DISABLED 2026-04-15 - OS Session is the sole driver of work.
     // It invokes poll/consolidate/embed functions on-demand as tools.
