@@ -158,12 +158,19 @@ registerProbe('file_write', async (spec) => {
 // Callers pass { type:'neo4j_node', label:'Decision', name:'...' }.
 registerProbe('neo4j_node', async (spec) => {
   if (!spec.label || !spec.name) return { verified: false, drift_reason: 'spec_incomplete' }
+  // Cypher labels can't be parameterized - validate against a strict
+  // identifier regex before interpolating, mirroring the db_row probe.
+  // Backtick-quote the label so even allowed identifiers can't break
+  // out of the label position.
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(spec.label)) {
+    return { verified: false, drift_reason: 'spec_unsafe_label' }
+  }
   try {
     const neo4jService = require('./neo4jService')
     if (!neo4jService || typeof neo4jService.query !== 'function') {
       return { verified: false, drift_reason: 'neo4j_service_unavailable' }
     }
-    const cypher = `MATCH (n:${spec.label} {name: $name}) RETURN n LIMIT 1`
+    const cypher = `MATCH (n:\`${spec.label}\` {name: $name}) RETURN n LIMIT 1`
     const r = await neo4jService.query(cypher, { name: spec.name })
     if (!r || !r.records || r.records.length === 0) {
       return { verified: false, drift_reason: 'node_not_found' }
