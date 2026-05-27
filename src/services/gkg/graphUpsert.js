@@ -91,11 +91,17 @@ MERGE (h)-[r1:RUNS_HANDLER]->(u)
   ON CREATE SET r1.first_seen_at = datetime(), r1.observed_count = 1
   ON MATCH SET r1.observed_count = coalesce(r1.observed_count, 0) + 1, r1.last_seen_at = datetime()
 WITH a, u
-MATCH (prev:UIAction { action_id: a.prev_action_id })
-WHERE a.prev_action_id IS NOT NULL
-MERGE (prev)-[r2:LEADS_TO]->(u)
-  ON CREATE SET r2.first_seen_at = datetime(), r2.observed_count = 1, r2.via_action_id = a.action_id
-  ON MATCH SET r2.observed_count = coalesce(r2.observed_count, 0) + 1, r2.last_seen_at = datetime()
+// OPTIONAL MATCH so rows with prev_action_id=NULL (first action in a session)
+// or whose prev :UIAction is not yet in the graph survive the pipeline.
+// A plain MATCH here silently dropped every row, making count(u) below
+// return 0 and the writer report failed=actions.length with no reason set.
+// Surfaced 27 May 2026 cron task 757ec455 (2/2 actions failed-but-no-reason).
+OPTIONAL MATCH (prev:UIAction { action_id: a.prev_action_id })
+FOREACH (_ IN CASE WHEN a.prev_action_id IS NOT NULL AND prev IS NOT NULL THEN [1] ELSE [] END |
+  MERGE (prev)-[r2:LEADS_TO]->(u)
+    ON CREATE SET r2.first_seen_at = datetime(), r2.observed_count = 1, r2.via_action_id = a.action_id
+    ON MATCH SET r2.observed_count = coalesce(r2.observed_count, 0) + 1, r2.last_seen_at = datetime()
+)
 RETURN count(u) AS upserted
 `
 

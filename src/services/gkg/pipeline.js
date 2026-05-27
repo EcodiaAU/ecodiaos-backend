@@ -127,6 +127,8 @@ async function runPipeline(opts = {}) {
         upserted: r.upserted,
         failed: r.failed,
         reason: r.reason,
+        error: r.error,
+        code: r.code,
       }
     } catch (err) {
       logger.error('gkg.pipeline: stage upsert failed', { err: err.message })
