@@ -40,14 +40,14 @@ Inferred destination(s): MacinCloud_Full_Screen - SY094.macincloud.com:6000 - Re
 - foreground-window-equality probe (per `cowork-no-focus-collision.md`): foreground window MUST be `MacinCloud_Full_Screen ... Remote Desktop Connection` before any `input.click` fires.
 
 Program(s) involved:
-- MacinCloud_Full_Screen - SY094.macincloud.com:6000 - Remote Desktop Connection (program: mstsc.exe — the RDP shell. Xcode runs inside Aqua, invisible to UIA below this layer.)
+- MacinCloud_Full_Screen - SY094.macincloud.com:6000 - Remote Desktop Connection (program: mstsc.exe - the RDP shell. Xcode runs inside Aqua, invisible to UIA below this layer.)
 
 ## Replay constraints
 
 This recipe was captured via Corazon recorder while Tate operated through Microsoft RDP into SY094. UIA selectors describe the RDP shell (mstsc.exe `IHWindowClass`), NOT the Mac UI elements. Do NOT use UIA selectors for replay. Replay protocol:
 - pixel coordinates against the RDP window in its captured size
 - cropped-screenshot post-verify per step (compare a 50-100px crop around the click to the captured `frames/<n>-post.png`)
-- if the RDP window layout differs from capture (resolution, scale, sidebar widths), pixel coords will MISS — re-record before fast-pathing
+- if the RDP window layout differs from capture (resolution, scale, sidebar widths), pixel coords will MISS - re-record before fast-pathing
 
 See `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md`.
 
@@ -69,25 +69,25 @@ See `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md`.
 
 ## Step-by-step procedure
 
-1. Left-click `(669, 750)` in RDP window — Xcode lower-left interaction (likely target/scheme picker open).
-2. Left-click `(335, 621)` in RDP window — Xcode left sidebar interaction.
-3. Left-click `(234, 133)` in RDP window — Xcode top toolbar / project navigator area.
-4. Left-click `(585, 132)` in RDP window — Xcode top tab bar interaction.
-5. Left-click `(508, 151)` in RDP window — Xcode signing area row.
-6. Left-click `(551, 286)` in RDP window — Xcode signing team dropdown.
+1. Left-click `(669, 750)` in RDP window - Xcode lower-left interaction (likely target/scheme picker open).
+2. Left-click `(335, 621)` in RDP window - Xcode left sidebar interaction.
+3. Left-click `(234, 133)` in RDP window - Xcode top toolbar / project navigator area.
+4. Left-click `(585, 132)` in RDP window - Xcode top tab bar interaction.
+5. Left-click `(508, 151)` in RDP window - Xcode signing area row.
+6. Left-click `(551, 286)` in RDP window - Xcode signing team dropdown.
    _(Recorder paused here; second part picks up at T+39s.)_
-7. Left-click `(693, 756)` in RDP window — Xcode lower-area interaction (target/scheme picker re-open).
-8. Left-click `(692, 236)` in RDP window — Xcode "Signing & Capabilities" section interaction.
-9. Left-click `(936, 498)` in RDP window — Xcode signing-team selection finalised.
+7. Left-click `(693, 756)` in RDP window - Xcode lower-area interaction (target/scheme picker re-open).
+8. Left-click `(692, 236)` in RDP window - Xcode "Signing & Capabilities" section interaction.
+9. Left-click `(936, 498)` in RDP window - Xcode signing-team selection finalised.
 
 ### Noise events (excluded from replay)
 
 _Captured at session boundaries but tagged `noise_filtered: true` by the Mac-via-RDP noise filter._
 
-- Part1 pre-flow: click on Input Capture Window at `(917, 738)` (`02:35:18.000Z`) — recorder hotkey landing.
-- Part1 post-flow: click on tab "Certificates, Identifiers & Profiles - Apple Developer" at `(939, 0)` (`02:36:14.000Z`) — switching out to Apple Dev portal between parts.
-- Part2 pre-flow: click on Input Capture Window at `(928, 741)` (`02:36:44.000Z`) — recorder hotkey landing.
-- Part2 post-flow: click on tab "Certificates, Identifiers & Profiles - Apple Developer" at `(1056, 6)` (`02:37:15.000Z`) — switching out at end.
+- Part1 pre-flow: click on Input Capture Window at `(917, 738)` (`02:35:18.000Z`) - recorder hotkey landing.
+- Part1 post-flow: click on tab "Certificates, Identifiers & Profiles - Apple Developer" at `(939, 0)` (`02:36:14.000Z`) - switching out to Apple Dev portal between parts.
+- Part2 pre-flow: click on Input Capture Window at `(928, 741)` (`02:36:44.000Z`) - recorder hotkey landing.
+- Part2 post-flow: click on tab "Certificates, Identifiers & Profiles - Apple Developer" at `(1056, 6)` (`02:37:15.000Z`) - switching out at end.
 
 ## Verification protocol
 
@@ -110,7 +110,7 @@ input.click x=234 y=133
 input.click x=585 y=132
 input.click x=508 y=151
 input.click x=551 y=286
-# (interlude — Xcode may need 1-3s to open the team picker)
+# (interlude - Xcode may need 1-3s to open the team picker)
 input.click x=693 y=756
 input.click x=692 y=236
 input.click x=936 y=498
@@ -130,17 +130,17 @@ input.click x=936 y=498
 
 ## Anti-patterns
 
-- Pixel-click first when UI Automation works on the target. Inside RDP, UIA is BLIND to Mac Aqua — pixel is the only path. Outside RDP (Xcode launched on a real Mac), prefer AX/UIA.
-- Authoring coords from imagination — these were captured from a real run; do NOT amend coords without a fresh recording or live UIA enumeration.
+- Pixel-click first when UI Automation works on the target. Inside RDP, UIA is BLIND to Mac Aqua - pixel is the only path. Outside RDP (Xcode launched on a real Mac), prefer AX/UIA.
+- Authoring coords from imagination - these were captured from a real run; do NOT amend coords without a fresh recording or live UIA enumeration.
 - Marking this recipe `validated_v1` without a real replay. The capture proves the flow happened once; it does NOT prove the codified replay path works.
-- Trusting UIA selectors below the RDP boundary — `mstsc.exe` exposes only its own shell to UIA. Mac Aqua elements are pixel-only.
+- Trusting UIA selectors below the RDP boundary - `mstsc.exe` exposes only its own shell to UIA. Mac Aqua elements are pixel-only.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` — the meta-doctrine this recipe instantiates.
-- `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` — status flips to `validated_v1` only after a real replay run.
-- `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md` — capture-method-specific doctrine.
-- `~/ecodiaos/patterns/gui-step-verify-protocol.md` — the per-step pre/post-verify protocol all recipes implement.
-- `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md` — replay-method gating for Mac-via-RDP captures.
-- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` — sister recipe for the iOS release pipeline this signing-team-select feeds into.
-- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` — why this flow is RDP-bound (Xcode IDE = GUI Aqua context).
+- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` - the meta-doctrine this recipe instantiates.
+- `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - status flips to `validated_v1` only after a real replay run.
+- `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md` - capture-method-specific doctrine.
+- `~/ecodiaos/patterns/gui-step-verify-protocol.md` - the per-step pre/post-verify protocol all recipes implement.
+- `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md` - replay-method gating for Mac-via-RDP captures.
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - sister recipe for the iOS release pipeline this signing-team-select feeds into.
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` - why this flow is RDP-bound (Xcode IDE = GUI Aqua context).

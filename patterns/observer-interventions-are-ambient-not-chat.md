@@ -14,7 +14,7 @@ that is the bug.
 
 **Why:** Tate verbatim 13 May 2026: *"all the coherence stuff is coming
 through main chat and polluting the os context.... its doing what we
-didnt want it to do right?"* Yes — the original `_postIntervention` path
+didnt want it to do right?"* Yes - the original `_postIntervention` path
 sent observer messages through the same `/api/os-session/message` wire as
 Tate's typed input. Frontend rendered them as user-source bubbles.
 Conductor treated them as new Tate input → responded → observer fired on
@@ -26,7 +26,7 @@ context window. Architectural breach: observers ARE NOT users.
 - Every Haiku observer module routes intervention output through
   `observerSignalsService.writeSignal({ observer_name, signal_kind,
   message, reason, confidence })`. The `_observerBase._postIntervention`
-  wrapper does this for you — don't re-implement.
+  wrapper does this for you - don't re-implement.
 - Confidence floor: 0.85. Anything below should not fire.
 - Self-mute: same fingerprint 3× in 10min triggers automatic 1h cooldown
   + a status_board P3 row for tuning visibility.
@@ -44,13 +44,13 @@ context window. Architectural breach: observers ARE NOT users.
   equivalent endpoint) to mark `acknowledged = true` so it doesn't
   re-surface.
 - If a signal feels wrong or the observer is looping, the conductor can
-  IGNORE — the signal auto-expires + future fingerprint repeats trigger
+  IGNORE - the signal auto-expires + future fingerprint repeats trigger
   the observer's self-mute.
 - Observer signals are advisory. The conductor decides.
 
 **How to apply (frontend):**
 - ChatLog renders only conversational messages. Any message whose content
-  begins with `<observer source=` is stripped at render. Defensive — the
+  begins with `<observer source=` is stripped at render. Defensive - the
   backend already routes them to the new substrate, but this catches
   legacy artifacts from older sessions.
 
@@ -73,14 +73,14 @@ as if Tate had typed them. Architectural rewrite shipped commit `084c00f4`
 ecodiaos-frontend `eb1c8531` (chat strip).
 
 **Cross-refs:**
-- [[decision-quality-self-optimization-architecture]] — observers are
+- [[decision-quality-self-optimization-architecture]] - observers are
   Layer 3 of the architecture; this pattern defines their substrate
   contract.
-- [[haiku-semantic-reviewer-complement-to-heuristic-hooks]] — semantic
+- [[haiku-semantic-reviewer-complement-to-heuristic-hooks]] - semantic
   review is observer-class work.
-- [[tate-facing-context-blocks-must-not-render-to-frontend]] — same
+- [[tate-facing-context-blocks-must-not-render-to-frontend]] - same
   doctrine class: model-context blocks ≠ chat surface.
-- [[system-injection-blocks-must-not-render-in-director-chat]] — the
+- [[system-injection-blocks-must-not-render-in-director-chat]] - the
   original chat-stream-hygiene doctrine this extends.
-- [[perception-must-not-claim-chain-exhausted-from-single-fork-error]] —
+- [[perception-must-not-claim-chain-exhausted-from-single-fork-error]] -
   sibling doctrine for another class of telemetry-vs-reality mismatch.

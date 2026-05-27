@@ -6,7 +6,7 @@ triggers: xero, xero-oauth, xero-callback, redirect-uri, oauth-404, xero-tokens,
 
 ## The rule
 
-If `xero_tokens` is empty after a "successful" OAuth click, the first thing to check is whether `XERO_REDIRECT_URI` in `.env` matches the actual mounted callback route. A mismatch makes Xero send the user back to a non-existent URL — they see a 404 page (or a generic Xero "redirect failed" screen, depending on browser) and the OAuth state row is consumed but no token exchange happens. Repeated reauthorisation attempts fail the same way, and from inside the app it just looks like "Xero never connects."
+If `xero_tokens` is empty after a "successful" OAuth click, the first thing to check is whether `XERO_REDIRECT_URI` in `.env` matches the actual mounted callback route. A mismatch makes Xero send the user back to a non-existent URL - they see a 404 page (or a generic Xero "redirect failed" screen, depending on browser) and the OAuth state row is consumed but no token exchange happens. Repeated reauthorisation attempts fail the same way, and from inside the app it just looks like "Xero never connects."
 
 ## Do
 

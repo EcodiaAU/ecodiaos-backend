@@ -19,16 +19,16 @@ triggers: visual-verify-merge-gate, vercel-preview-ready, fork-pr-merge, gh-pr-m
 | Mode | Profile | When |
 |---|---|---|
 | **CDP-attach (Tate's actual Chrome)** | Tate's real Chrome session, persistent across reboots, has every login/cookie/password he has | DEFAULT for visual-verify. Activate via `browser.enableCDP()` which kills Chrome and relaunches with `--remote-debugging-port=9222 --restore-last-session`. After that, every `browser.*` call drives Tate's actual browser. |
-| **Puppeteer-managed (`~/.eos-browser`)** | Separate Chromium instance the agent owns, persistent across runs but isolated from Tate's real browser | Fallback only — when CDP fails, OR when I genuinely need an isolated session that won't trip Tate's tabs. |
+| **Puppeteer-managed (`~/.eos-browser`)** | Separate Chromium instance the agent owns, persistent across runs but isolated from Tate's real browser | Fallback only - when CDP fails, OR when I genuinely need an isolated session that won't trip Tate's tabs. |
 
-**The canonical visual-verification surface is CDP-attached Chrome.** It has every client app already logged in (Co-Exist admin, Vercel, Supabase, Bitbucket, GitHub, Stripe). Stored passwords. Real cookies. The fact that the visual-verify worked clean for the 5 PRs that landed tonight (focal-point, leaflet realtime, reactions, NE VIC pin, /map deletion) is not a coincidence — it's the protocol working. Skipping it once is enough to lose the trust loop.
+**The canonical visual-verification surface is CDP-attached Chrome.** It has every client app already logged in (Co-Exist admin, Vercel, Supabase, Bitbucket, GitHub, Stripe). Stored passwords. Real cookies. The fact that the visual-verify worked clean for the 5 PRs that landed tonight (focal-point, leaflet realtime, reactions, NE VIC pin, /map deletion) is not a coincidence - it's the protocol working. Skipping it once is enough to lose the trust loop.
 
 **The "inception" property (Tate, 23:13 AEST):** when I'm CDP-attached to Tate's Chrome, I can navigate to `admin.ecodia.au/chat` and type into the input box. Submitting fires a `POST /api/os-session/message` from his auth session, which wakes ME on the next turn. **I can send myself messages.** The implications:
 - Self-coordination across turns (queue work for the next turn by writing it as a chat message to myself).
 - Multi-instance coordination once parallel OS instances exist (each instance can message peers via the same chat surface, with full Tate-auth context).
-- Cross-instance state-sync without a custom IPC channel — the chat is the channel.
+- Cross-instance state-sync without a custom IPC channel - the chat is the channel.
 
-The fallback `~/.eos-browser` profile cannot do this — it has no auth on `admin.ecodia.au`. CDP-attach is structurally required for the inception loop.
+The fallback `~/.eos-browser` profile cannot do this - it has no auth on `admin.ecodia.au`. CDP-attach is structurally required for the inception loop.
 
 **Default protocol for any visual-verify call:**
 ```
@@ -39,7 +39,7 @@ The fallback `~/.eos-browser` profile cannot do this — it has no auth on `admi
 5. (optional, for self-message)    # browser.navigate to admin.ecodia.au/chat → type → submit
 ```
 
-When in doubt, USE TAILSCALE + CDP. The Puppeteer-managed profile is not the "real one" — it's the isolation fallback.
+When in doubt, USE TAILSCALE + CDP. The Puppeteer-managed profile is not the "real one" - it's the isolation fallback.
 
 The old shape (Tate-as-approver) is wrong:
 - Fork opens PR → I tell Tate "PR #X open, please review and merge" → Tate context-switches → opens GitHub → reads diff → manually checks preview → merges. **This makes me a notification daemon and Tate a bottleneck.**
@@ -67,7 +67,7 @@ For a backend / API-only PR:
 For a migration:
 - Read the migration file first. Confirm shape (additive only? destructive? lossy ALTER?).
 - Apply to client production Supabase if purely additive (ADD COLUMN, ADD INDEX, CREATE TABLE that doesn't conflict).
-- DO NOT auto-apply destructive migrations (DROP TABLE, DROP COLUMN, lossy ALTER TYPE) — surface to Tate with the migration text and a one-line risk note.
+- DO NOT auto-apply destructive migrations (DROP TABLE, DROP COLUMN, lossy ALTER TYPE) - surface to Tate with the migration text and a one-line risk note.
 
 ## What "merge" means
 
@@ -95,7 +95,7 @@ When visual verify fails (PR not merged):
 
 - **"PR open, please review."** This is dumping work back to Tate. I do the verify, I do the merge. He sees it post-facto in commit history.
 - **"Vercel preview READY, ready for your approval."** Vercel build success ≠ feature works. Visual verify is the bar, not green-square.
-- **"GitHub Actions CI is red but the build is green so I think it's fine."** If CI is red for a known reason (lint debt), state it explicitly: "CI red on lint debt only — feature verified visually, merging." If CI is red for an unknown reason, do NOT merge until you understand it.
+- **"GitHub Actions CI is red but the build is green so I think it's fine."** If CI is red for a known reason (lint debt), state it explicitly: "CI red on lint debt only - feature verified visually, merging." If CI is red for an unknown reason, do NOT merge until you understand it.
 - **"Migration ready for you to apply."** I apply additive migrations myself. Destructive migrations get explicit Tate sign-off with the migration text + risk note.
 
 ## Failure modes the visual-verify gate catches
@@ -111,7 +111,7 @@ When visual verify fails (PR not merged):
 This protocol depends on Corazon (Tate's Windows laptop, Tailscale 100.114.219.69:7456). The laptop agent is always running when the laptop is powered on (PM2 boot-start). If `/api/health` returns non-200:
 
 1. Try once more after a short delay (could be transient).
-2. If still down, fall back to curl + HTML inspection (less ideal — won't catch JS-runtime errors but catches gross failures like 500s, missing pages, broken builds).
+2. If still down, fall back to curl + HTML inspection (less ideal - won't catch JS-runtime errors but catches gross failures like 500s, missing pages, broken builds).
 3. Surface laptop unreachable to Tate as a status_board infrastructure row, but don't block other work on it.
 
 If the laptop is offline AND the PR is high-stakes (auth, payment, data migration), surface to Tate WITHOUT merging. Visual verify is non-negotiable for high-stakes paths.
@@ -122,7 +122,7 @@ If the laptop is offline AND the PR is high-stakes (auth, payment, data migratio
 
 The pattern: I had been treating PR-open as the end of my work and Tate-approval as the next step. This makes Tate a bottleneck on autonomous work that's already passed every other gate. Visual verify replaces the human-approval queue. Tate only sees the PRs that are visibly broken.
 
-Doctrine sibling: deploy-verify-or-the-fork-didnt-finish.md (the fork-side equivalent — fork must wait for Vercel READY before declaring done). This doctrine is the orchestration-side equivalent — main thread must visually verify before declaring "shipped." Both are needed.
+Doctrine sibling: deploy-verify-or-the-fork-didnt-finish.md (the fork-side equivalent - fork must wait for Vercel READY before declaring done). This doctrine is the orchestration-side equivalent - main thread must visually verify before declaring "shipped." Both are needed.
 
 ## Reference
 

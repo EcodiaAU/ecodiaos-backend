@@ -2,7 +2,7 @@
 triggers: cowork-cannot-enter-passwords, sensitive-action-reauth, admin-google-com, billing-page, password-prompt, duo-edge-case, cowork-claude-pre-stage, verify-step-tate-only, credentials-entry-blocked
 ---
 
-> **DEPRECATED — 5 May 2026.** The Cowork framing is deprecated per Tate's negation of Cowork. THE CORE INSIGHT (some safety-gated actions require Tate's physical presence) IS PRESERVED, but the pre-stage-via-Cowork path is moot. When the conductor drives Chrome directly via `input.*` + `screenshot.*`, it CAN type credentials from `kv_store` (the Cowork safety constraint does not apply to the conductor). Tate is still needed for phone-only 2FA, physical hardware, and identity-required actions. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+> **DEPRECATED - 5 May 2026.** The Cowork framing is deprecated per Tate's negation of Cowork. THE CORE INSIGHT (some safety-gated actions require Tate's physical presence) IS PRESERVED, but the pre-stage-via-Cowork path is moot. When the conductor drives Chrome directly via `input.*` + `screenshot.*`, it CAN type credentials from `kv_store` (the Cowork safety constraint does not apply to the conductor). Tate is still needed for phone-only 2FA, physical hardware, and identity-required actions. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 
 # [DEPRECATED] Cowork-Claude cannot enter credentials or pass sensitive-action re-auth gates
 
@@ -19,7 +19,7 @@ This means the duo split is:
 ## Concrete classes of gate that always kick back to Tate
 
 1. **Google sensitive-action re-auth.** admin.google.com, accounts.google.com password changes, security settings changes, OAuth scope grants, MFA setup. Google fires a re-auth prompt asking for the account password before allowing entry to the admin console even when the session was already authenticated.
-2. **Apple ID re-auth.** appstoreconnect.apple.com, developer.apple.com — same pattern: privileged actions trigger a fresh password prompt + 2FA code.
+2. **Apple ID re-auth.** appstoreconnect.apple.com, developer.apple.com - same pattern: privileged actions trigger a fresh password prompt + 2FA code.
 3. **Billing pages.** Stripe dashboard payment method changes, Anthropic console billing, GitHub billing, Vercel billing, Resend billing, any vendor "update credit card" flow.
 4. **GitHub sudo mode.** github.com/settings/* fires a sudo prompt that asks for password or passkey before sensitive settings changes.
 5. **Bitbucket / Atlassian sensitive-actions.** API token generation, OAuth app creation, account email change.
@@ -41,9 +41,9 @@ This means the duo split is:
 
 ## Do NOT
 
-- Do not attempt to type the credential via input.* or any other primitive — the safety rule applies at the Cowork-Claude layer, not the surface tool.
+- Do not attempt to type the credential via input.* or any other primitive - the safety rule applies at the Cowork-Claude layer, not the surface tool.
 - Do not assume "I have the password in kv_store" gives Cowork-Claude license to enter it. The constraint is on the agent's behavior, not the credential's presence.
-- Do not loop "try the prompt, see if it goes through" — every attempt is a logged Anthropic safety violation.
+- Do not loop "try the prompt, see if it goes through" - every attempt is a logged Anthropic safety violation.
 - Do not classify a sensitive-action-blocked row as `next_action_by=ecodiaos` and then re-attempt; it stays `next_action_by=tate` until he physically types the credential.
 
 ## Origin
@@ -54,7 +54,7 @@ Net: original `next_action_by=tate` classification on status_board row 2e08b39f 
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` — the parent doctrine for Cowork-Claude as primary substrate for web UI driving. This pattern is the bounded edge-case where the substrate cannot complete.
-- `~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md` — the inverse pattern: when Windows Hello / Windows passkey fires (NOT a SaaS sensitive-action gate), the conductor CAN inject the laptop unlock value via input.type. This is a different gate class.
-- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` — the 5-point check before classifying anything Tate-blocked. Step 3 of that check is exactly the sensitive-action question: does the gate need Tate's identity? If yes, Tate-blocked is legitimate.
-- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` — the parent macro doctrine that prefers logged-in GUI sessions over generated API keys. This pattern names the boundary case where even a logged-in session hits a re-auth gate.
+- `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` - the parent doctrine for Cowork-Claude as primary substrate for web UI driving. This pattern is the bounded edge-case where the substrate cannot complete.
+- `~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md` - the inverse pattern: when Windows Hello / Windows passkey fires (NOT a SaaS sensitive-action gate), the conductor CAN inject the laptop unlock value via input.type. This is a different gate class.
+- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - the 5-point check before classifying anything Tate-blocked. Step 3 of that check is exactly the sensitive-action question: does the gate need Tate's identity? If yes, Tate-blocked is legitimate.
+- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` - the parent macro doctrine that prefers logged-in GUI sessions over generated API keys. This pattern names the boundary case where even a logged-in session hits a re-auth gate.

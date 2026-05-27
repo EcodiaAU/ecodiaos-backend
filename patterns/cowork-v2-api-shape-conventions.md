@@ -4,7 +4,7 @@ priority: critical
 canonical: true
 ---
 
-> **NOTE — 5 May 2026.** Despite the "Cowork" name in the URL path and this file's title, the 17 REST endpoints at `/api/mcp/cowork/*` are live, useful infrastructure (headless MCP tools). They are NOT Cowork-specific — they provide status_board, kv_store, neo4j, forks, email, and scheduler access over HTTP. The endpoints will be renamed in a future pass. This file's six API-shape gotchas remain correct. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+> **NOTE - 5 May 2026.** Despite the "Cowork" name in the URL path and this file's title, the 17 REST endpoints at `/api/mcp/cowork/*` are live, useful infrastructure (headless MCP tools). They are NOT Cowork-specific - they provide status_board, kv_store, neo4j, forks, email, and scheduler access over HTTP. The endpoints will be renamed in a future pass. This file's six API-shape gotchas remain correct. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 
 # [LEGACY-NAMED] Cowork V2 MCP API-shape conventions
 

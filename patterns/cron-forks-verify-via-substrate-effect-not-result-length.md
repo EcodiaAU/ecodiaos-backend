@@ -3,28 +3,28 @@ triggers: cron-fork-verification, self-unverified, telemetry-cron, outcome-infer
 status: active
 ---
 
-# Cron Forks Must Verify Success via Substrate Effect — Not Result Length
+# Cron Forks Must Verify Success via Substrate Effect - Not Result Length
 
 ## Rule
 
-The outcome inferrer's generic "result_length > 0" heuristic is wrong for deterministic cron forks. A cron fork that runs a fixed shell script, writes a row to a table, or posts a metric produces a short, deterministic output — not a multi-paragraph narrative. Inferring `outcome='unverified'` because `result_length < threshold` silently corrupts the telemetry baseline for the exact forks that ARE the telemetry infrastructure.
+The outcome inferrer's generic "result_length > 0" heuristic is wrong for deterministic cron forks. A cron fork that runs a fixed shell script, writes a row to a table, or posts a metric produces a short, deterministic output - not a multi-paragraph narrative. Inferring `outcome='unverified'` because `result_length < threshold` silently corrupts the telemetry baseline for the exact forks that ARE the telemetry infrastructure.
 
 Cron forks that implement the telemetry pipeline (dispatch consumer, outcome inferrer, failure classifier) are a special case of a general principle: **for any fork whose success produces a predictable downstream substrate change, verify by probing the substrate, not by measuring output length.**
 
 ## Do
 
 - For telemetry-pipeline cron forks: verify success by checking whether the target substrate was updated after fork start time:
-  - Consumer fork: `SELECT COUNT(*) FROM dispatch_event WHERE ts > :fork_started_at` — if > 0, consumer ran
-  - Inferrer fork: `SELECT COUNT(*) FROM outcome_event WHERE ts > :fork_started_at` — if > 0, inferrer ran
-  - Classifier fork: `SELECT COUNT(*) FROM outcome_event WHERE classification_at > :fork_started_at` — if > 0, classifier ran
+  - Consumer fork: `SELECT COUNT(*) FROM dispatch_event WHERE ts > :fork_started_at` - if > 0, consumer ran
+  - Inferrer fork: `SELECT COUNT(*) FROM outcome_event WHERE ts > :fork_started_at` - if > 0, inferrer ran
+  - Classifier fork: `SELECT COUNT(*) FROM outcome_event WHERE classification_at > :fork_started_at` - if > 0, classifier ran
 - For any deterministic cron fork with a known side-effect: add a fork-brief prefix marker (e.g. `TELEMETRY DISPATCH CONSUMER:`, `INDEX REGEN:`, `HEALTH CHECK:`) and add a substrate-verification rule in the inferrer keyed on that prefix
-- If inferrer doesn't have a rule for the prefix, classify as `outcome='unverified'` with `evidence='deterministic_cron_no_substrate_rule'` rather than the generic unverified — this makes the gap visible
+- If inferrer doesn't have a rule for the prefix, classify as `outcome='unverified'` with `evidence='deterministic_cron_no_substrate_rule'` rather than the generic unverified - this makes the gap visible
 
 ## Do NOT
 
-- Infer `outcome='success'` on cron forks based on `result_length > N` — deterministic forks produce minimal output by design
-- Infer `outcome='unverified'` as a catch-all for telemetry cron forks — if the system's own verification machinery is "unverified", the telemetry baseline is self-corrupted
-- Leave the inferrer's `telemetry:` or `TELEMETRY` prefix unhandled — these forks are high-frequency (15min, 30min, 1h cycles) and misclassification accumulates rapidly
+- Infer `outcome='success'` on cron forks based on `result_length > N` - deterministic forks produce minimal output by design
+- Infer `outcome='unverified'` as a catch-all for telemetry cron forks - if the system's own verification machinery is "unverified", the telemetry baseline is self-corrupted
+- Leave the inferrer's `telemetry:` or `TELEMETRY` prefix unhandled - these forks are high-frequency (15min, 30min, 1h cycles) and misclassification accumulates rapidly
 
 ## Diagnosis
 
@@ -44,7 +44,7 @@ If any prefix row shows 100% `unverified`, the inferrer has no substrate rule fo
 
 This principle applies beyond telemetry cron forks. Any fork whose sole deliverable is a substrate write (db row, git commit, file write, status_board update) should be verified by probing that substrate, not by reading the fork's output text. The inferrer should have a "substrate-effect" verification path as a first-class alternative to "result_length and confidence-keywords."
 
-The inverse is also true: a fork with a long, fluent output but no substrate side-effect has produced nothing durable — output length is not the deliverable.
+The inverse is also true: a fork with a long, fluent output but no substrate side-effect has produced nothing durable - output length is not the deliverable.
 
 ## Origin
 

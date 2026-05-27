@@ -3,7 +3,7 @@ triggers: phase-d, phase-d-classifier, outcome-classification, failure-classifie
 status: active
 ---
 
-# Phase D Classifier Must Cover All Outcome Classes — Not Just Failure
+# Phase D Classifier Must Cover All Outcome Classes - Not Just Failure
 
 ## Rule
 
@@ -11,16 +11,16 @@ Phase D (the failure classifier / Layer 5 in the decision-quality architecture) 
 
 ## Do
 
-- Classify `success` rows: join to the application_event chain; if `tagged_silent=true` patterns exist in the surface chain, classify as `usage_success_with_silent_doctrine` (doctrine was present but not applied — this is the feedback signal the architecture was built to detect)
+- Classify `success` rows: join to the application_event chain; if `tagged_silent=true` patterns exist in the surface chain, classify as `usage_success_with_silent_doctrine` (doctrine was present but not applied - this is the feedback signal the architecture was built to detect)
 - Classify `unverified` rows older than 24h with no subsequent signal: classify as `classification_deficit` (no ground truth either way)
 - Classify `failure` rows with full three-class taxonomy: `usage_failure` (doctrine surfaced but ignored) / `surfacing_failure` (doctrine existed but did not surface) / `doctrine_failure` (corpus has a gap)
-- Emit a single-class-collapse alert to status_board (P2) when classifier output entropy over the rolling 50-row window drops below 0.5 — this is the instrumented form of the drift detector
+- Emit a single-class-collapse alert to status_board (P2) when classifier output entropy over the rolling 50-row window drops below 0.5 - this is the instrumented form of the drift detector
 
 ## Do NOT
 
-- Gate Phase D exclusively on `WHERE outcome = 'failure'` — this structurally darkens 93% of outcome_event rows
-- Treat "we only classify failures" as a sensible default — the architecture's value proposition (detect whether the conductor applies surfaced doctrine) depends on classifying success rows most of all
-- Count `classification IS NOT NULL` as a health signal without verifying the class distribution — a classifier that runs on all rows but only ever emits `surfacing_failure` is degenerate even with 100% coverage
+- Gate Phase D exclusively on `WHERE outcome = 'failure'` - this structurally darkens 93% of outcome_event rows
+- Treat "we only classify failures" as a sensible default - the architecture's value proposition (detect whether the conductor applies surfaced doctrine) depends on classifying success rows most of all
+- Count `classification IS NOT NULL` as a health signal without verifying the class distribution - a classifier that runs on all rows but only ever emits `surfacing_failure` is degenerate even with 100% coverage
 
 ## Diagnosis
 
@@ -35,11 +35,11 @@ If `SELECT count(*) FILTER (WHERE classification IS NOT NULL) / count(*)::float 
 3. For success rows: LEFT JOIN `application_event` where `dispatch_event_id` matches; if any row has `applied=false AND tagged_silent=true`, emit `classification='usage_success_with_silent_doctrine'`; if surface chain is clean, emit `classification='verified_clean'`
 4. For unverified rows > 24h: emit `classification='classification_deficit'`
 5. Add a synthetic-input regression test: feed three rows shaped to deserve each of the three classes, assert all three are emitted. Wire to CI.
-6. Verify by running: `SELECT outcome, classification, COUNT(*) FROM outcome_event GROUP BY 1, 2` — must see at least 3 distinct non-null classification values within one cron cycle.
+6. Verify by running: `SELECT outcome, classification, COUNT(*) FROM outcome_event GROUP BY 1, 2` - must see at least 3 distinct non-null classification values within one cron cycle.
 
 ## Origin
 
-Found in Phase G adversarial self-audit on 2026-05-05 (critique-02, `phase-G-audit-2026-05-05`), recurred on 2026-05-07 (critique-02, `phase-G-audit-2026-05-07`), and again on 2026-05-08 (critique-02) and 2026-05-11 (critique-05, `phase-G-audit-2026-05-11/critique-05-phase-d-classifies-only-failure-93pct-dark`). Four consecutive audit cycles with the same finding, each noting increasing urgency. The 2026-05-11 audit measured: `success=845 (70.5%), unverified=271 (22.6%), failure=83 (6.9%)` across 1,199 outcome rows; only the 83 failure rows had any classification, and all 83 were `operational_failure` — the three-class taxonomy was never exercised. Graduated from Critique nodes to pattern file 2026-05-12 via fork_mp1drm4m_dbb590 Phase G triage pass.
+Found in Phase G adversarial self-audit on 2026-05-05 (critique-02, `phase-G-audit-2026-05-05`), recurred on 2026-05-07 (critique-02, `phase-G-audit-2026-05-07`), and again on 2026-05-08 (critique-02) and 2026-05-11 (critique-05, `phase-G-audit-2026-05-11/critique-05-phase-d-classifies-only-failure-93pct-dark`). Four consecutive audit cycles with the same finding, each noting increasing urgency. The 2026-05-11 audit measured: `success=845 (70.5%), unverified=271 (22.6%), failure=83 (6.9%)` across 1,199 outcome rows; only the 83 failure rows had any classification, and all 83 were `operational_failure` - the three-class taxonomy was never exercised. Graduated from Critique nodes to pattern file 2026-05-12 via fork_mp1drm4m_dbb590 Phase G triage pass.
 
 ## Cross-refs
 

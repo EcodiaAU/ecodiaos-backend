@@ -29,11 +29,11 @@ A4 invoices MUST render to exactly one page. Multi-page invoices look unprofessi
 
 The "From" / sender contact block on every invoice MUST contain:
 
-- `Ecodia Pty Ltd` (legal entity — NOT "Ecodia", NOT "Ecodia Code")
+- `Ecodia Pty Ltd` (legal entity - NOT "Ecodia", NOT "Ecodia Code")
 - `ABN: 89 693 123 278`
-- `GST registered` (for invoices dated after the GST registration effective date — May 2026)
+- `GST registered` (for invoices dated after the GST registration effective date - May 2026)
 - `Sunshine Coast, QLD`
-- `code@ecodia.au` — NOT `tate@ecodia.au`, NOT `hello@ecodia.au`. Per `~/CLAUDE.md` Email Sender doctrine, all client-facing comms originate from `code@`. `hello@` is the inbound public address but is NEVER the sender on an invoice.
+- `code@ecodia.au` - NOT `tate@ecodia.au`, NOT `hello@ecodia.au`. Per `~/CLAUDE.md` Email Sender doctrine, all client-facing comms originate from `code@`. `hello@` is the inbound public address but is NEVER the sender on an invoice.
 
 If the entity issuing the invoice is Ecodia DAO LLC instead of Pty Ltd, swap the legal entity + ABN line for the WY DAO equivalents and use `code@ecodia.au` still (DAO ops use the same address).
 
@@ -56,7 +56,7 @@ Australian GST is 10%. The invoice math MUST be internally consistent:
 - `GST (10%) = Subtotal * 0.10` (round per line if any line is non-trivial decimal, otherwise round once at end to 2dp)
 - `Total (inc GST) = Subtotal + GST`
 
-Verification gate: before declaring done, manually compute `Subtotal * 1.10` and confirm it equals `Total`. Any mismatch is a defect to fix BEFORE upload — don't ship inconsistent numbers and apologise later.
+Verification gate: before declaring done, manually compute `Subtotal * 1.10` and confirm it equals `Total`. Any mismatch is a defect to fix BEFORE upload - don't ship inconsistent numbers and apologise later.
 
 Origin defect: INV-2026-003 v1/v2 listed GST $130.20 on a $1,282 subtotal (correct value $128.20). Total was $1,410.20 (matches $128.20 GST). Fixed at v3.
 
@@ -70,11 +70,11 @@ Browser default header/footer prints `file:///path/to/source.html` at the bottom
 
 ### 6. Attached PDF, not a download link
 
-Send via `gmail_send` with `attachments` param holding the absolute path to the rendered PDF. NEVER paste a Supabase Storage URL into the email body as the "invoice" — clients should be able to forward the email to their accountant without that accountant chasing a download link. The Supabase Storage URL is for our records and is also valid as a backup link, but the PDF attachment is the primary delivery.
+Send via `gmail_send` with `attachments` param holding the absolute path to the rendered PDF. NEVER paste a Supabase Storage URL into the email body as the "invoice" - clients should be able to forward the email to their accountant without that accountant chasing a download link. The Supabase Storage URL is for our records and is also valid as a backup link, but the PDF attachment is the primary delivery.
 
 ### 7. Tate-test-first (no exceptions)
 
-Per `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md`, EVERY client-bound invoice email MUST first go to `tate@ecodia.au` with subject prefix `[TEST]` (or `[TEST v2]` / `[TEST v3]` on revisions) and body explaining the changes. The conductor then waits for an explicit `send it` reply (or equivalent verbatim greenlight) before forwarding to the client. A forward of a previous invoice email from Tate is NOT authorisation to send the new one — every invoice gets its own per-message Tate go-ahead.
+Per `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md`, EVERY client-bound invoice email MUST first go to `tate@ecodia.au` with subject prefix `[TEST]` (or `[TEST v2]` / `[TEST v3]` on revisions) and body explaining the changes. The conductor then waits for an explicit `send it` reply (or equivalent verbatim greenlight) before forwarding to the client. A forward of a previous invoice email from Tate is NOT authorisation to send the new one - every invoice gets its own per-message Tate go-ahead.
 
 ### 8. Line items durably captured
 
@@ -101,9 +101,9 @@ Authored same arc as the fix (per `~/ecodiaos/patterns/codify-at-the-moment-a-ru
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/invoice-line-items-durable-doctrine.md` — line-items-at-agreement-time discipline
-- `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md` — Tate-test-first hard rule
-- `~/ecodiaos/patterns/recurring-billing-must-be-substrate-tracked-not-ad-hoc.md` — recurring billing substrate
-- `~/ecodiaos/patterns/parallel-forks-must-claim-numbered-resources-before-commit.md` — invoice numbering across parallel forks
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — pdfinfo Pages=1 is the gate, not narration
-- `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — why this file exists at v3 not at v4
+- `~/ecodiaos/patterns/invoice-line-items-durable-doctrine.md` - line-items-at-agreement-time discipline
+- `~/ecodiaos/patterns/no-client-contact-without-tate-goahead.md` - Tate-test-first hard rule
+- `~/ecodiaos/patterns/recurring-billing-must-be-substrate-tracked-not-ad-hoc.md` - recurring billing substrate
+- `~/ecodiaos/patterns/parallel-forks-must-claim-numbered-resources-before-commit.md` - invoice numbering across parallel forks
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - pdfinfo Pages=1 is the gate, not narration
+- `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` - why this file exists at v3 not at v4

@@ -17,7 +17,7 @@ If you find yourself writing a `SELECT` against a facts table in a page-level ho
 
 ```
 Layer 1: DB tables (source of truth)
-  events, transactions, submissions, sessions — whatever the domain facts are
+  events, transactions, submissions, sessions - whatever the domain facts are
 
 Layer 2: Canonical aggregation module (the only place that queries and aggregates)
   - A Postgres function: get_collective_stats(), get_dashboard_totals()

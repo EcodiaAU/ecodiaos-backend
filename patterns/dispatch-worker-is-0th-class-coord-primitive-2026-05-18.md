@@ -89,7 +89,7 @@ Caught live during the 2026-05-18 status_board drift-audit when Worker A dispatc
 - Fire-and-forget mode: pass `worker_acknowledgment_timeout_ms: 0` to skip the wait entirely (legacy behaviour).
 - Companion file: dispatcher writes `briefs/<task_id>-PASTE-VERIFY.flag` (JSON with task_id, tab_id, brief size, sha256, pasted_at) so workers with the brief can verify their clipboard payload didn't get truncated.
 
-Smoke-verified 2026-05-18 14:39 AEST: tiny `ack_timeout=100ms` dispatch correctly returned `orphan: true` in 2098ms (overshoot is the poll interval; not a bug — 90s default produces no observable overshoot). 14:42 AEST: real worker with 120s timeout returned `acknowledged: true` via heartbeat at 44.8s, signal_done landed cleanly.
+Smoke-verified 2026-05-18 14:39 AEST: tiny `ack_timeout=100ms` dispatch correctly returned `orphan: true` in 2098ms (overshoot is the poll interval; not a bug - 90s default produces no observable overshoot). 14:42 AEST: real worker with 120s timeout returned `acknowledged: true` via heartbeat at 44.8s, signal_done landed cleanly.
 
 ## Origin
 

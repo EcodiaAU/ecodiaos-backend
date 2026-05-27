@@ -19,7 +19,7 @@ Origin: 2026-05-19 CarPlay-entitlement submission flow. The headless Apple-Dev s
 ## How to apply
 
 - The `nativeFill` walker now descends into iframes (commit on `D:\.code\eos-laptop-agent\tools\cdp.js` line ~668). Restart the agent via `D:\.code\eos-laptop-agent\restart-detached.ps1` after any tools/*.js edit per `eos-laptop-agent-module-cache-requires-restart-after-handler-swap`.
-- Same descent pattern should land on `cdp.findVisible`, `cdp.clickByTag`, `cdp.deepFindRect`, `cdp.realClick` next time any of them misses an iframe-scoped element. Don't pre-emptively patch — wait for the next failure, follow the same recursive-improvement triad (helper + doctrine + hook nudge if regression-likely).
+- Same descent pattern should land on `cdp.findVisible`, `cdp.clickByTag`, `cdp.deepFindRect`, `cdp.realClick` next time any of them misses an iframe-scoped element. Don't pre-emptively patch - wait for the next failure, follow the same recursive-improvement triad (helper + doctrine + hook nudge if regression-likely).
 - For cross-origin iframes (e.g. third-party embeds), the CDP-native path is to enumerate frames via `Page.getFrameTree` and dispatch `Runtime.evaluate` against each frame's execution context. Not implemented in the helper yet; add when first needed.
 
 ## Verification recipe

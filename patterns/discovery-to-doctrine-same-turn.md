@@ -2,7 +2,7 @@
 triggers: discovery-to-doctrine, CLAUDE.md-update, claude-md-reflection, factory-cli-paywall, tool-broken-doctrine, workaround-supersedes, operational-reality-write, credential-rotation-doctrine, mcp-schema-change, fresh-session-needs, doctrine-deferred-write, doctrine-same-turn
 ---
 
-# Discovery to doctrine in one turn — operational realities land in CLAUDE.md the turn they emerge
+# Discovery to doctrine in one turn - operational realities land in CLAUDE.md the turn they emerge
 
 ## The rule
 
@@ -36,7 +36,7 @@ The cost is small per incident, large in aggregate, and the fix is a one-turn wr
 ## Do
 
 - The turn you discover the operational reality is the turn you edit CLAUDE.md.
-- Date the addition inline (`**2026-04-28 OPERATIONAL ALERT —** ...`). Date markers help future cleanup distinguish current alerts from durable doctrine.
+- Date the addition inline (`**2026-04-28 OPERATIONAL ALERT -** ...`). Date markers help future cleanup distinguish current alerts from durable doctrine.
 - Name the workaround if any. "Tool X is broken; use Y instead" is a complete unit of doctrine. "Tool X is broken" alone forces the next session to reinvent the wheel.
 - If the operational reality is generalisable (a class of failures, not a one-off), ALSO write a pattern file in `~/ecodiaos/patterns/` with `triggers:` frontmatter so it grep-surfaces.
 - If discovery happens inside a cron run, edit CLAUDE.md anyway. The cron is the trigger, not the constraint.
@@ -66,8 +66,8 @@ The five checks take under two minutes. Skipping them is what costs hours next w
 
 2026-04-28 20:00 AEST. claude-md-reflection cron fired 47.5h late (last fire 2026-04-26 20:20 AEST, just under silent-loop-detector's 2.5x threshold). During the cron I added two doctrine items to `~/ecodiaos/CLAUDE.md`:
 
-1. Factory CLI paywall operational alert — the long-context beta header is hardcoded into the CLI binary on both Claude Max accounts. SDK-based forks (`mcp__forks__spawn_fork`) bypass it. WebSearch is gated by the same paywall.
-2. Self-evolution scope-discipline — Decision today resolved that self-evolution stays ecodiaos-internal; client-codebase findings surface to status_board, never unilaterally fixed.
+1. Factory CLI paywall operational alert - the long-context beta header is hardcoded into the CLI binary on both Claude Max accounts. SDK-based forks (`mcp__forks__spawn_fork`) bypass it. WebSearch is gated by the same paywall.
+2. Self-evolution scope-discipline - Decision today resolved that self-evolution stays ecodiaos-internal; client-codebase findings surface to status_board, never unilaterally fixed.
 
 The Factory paywall had been live for >12h before this write. That is the latency this pattern is correcting. Discovery → doctrine is a one-turn move, not a once-a-day batch.
 

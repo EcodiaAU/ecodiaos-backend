@@ -4,7 +4,7 @@ date: 2026-05-08
 status: active
 ---
 
-# PM2 restart count is a lifetime counter, not a rate signal — probe rate metrics before classifying restart-loop incidents
+# PM2 restart count is a lifetime counter, not a rate signal - probe rate metrics before classifying restart-loop incidents
 
 ## Rule
 
@@ -12,10 +12,10 @@ When `pm2 list` shows a high restart count (e.g. 6483) on a long-running process
 
 Before classifying any "restart loop" as P1 and dispatching forks against it, probe rate metrics:
 
-1. **`uptime` column** in `pm2 list` output — current process uptime since the last restart. Sustained >5min uptime = no active loop, regardless of lifetime restart count.
-2. **`kv_store.auto_restart_last_at`** — last time the auto-restart logic actually fired. Compare to NOW(); >1h ago = no recent restart event.
-3. **`kv_store.health.restart_loop_detector`** — explicit `loop_detected: bool` and `rate` (per minute) signal. The authoritative read.
-4. **PM2 log roll-rate** — if logs roll faster than ~5min cycles, there's an active loop. If they have hours of accumulated content, there is not.
+1. **`uptime` column** in `pm2 list` output - current process uptime since the last restart. Sustained >5min uptime = no active loop, regardless of lifetime restart count.
+2. **`kv_store.auto_restart_last_at`** - last time the auto-restart logic actually fired. Compare to NOW(); >1h ago = no recent restart event.
+3. **`kv_store.health.restart_loop_detector`** - explicit `loop_detected: bool` and `rate` (per minute) signal. The authoritative read.
+4. **PM2 log roll-rate** - if logs roll faster than ~5min cycles, there's an active loop. If they have hours of accumulated content, there is not.
 
 The lifetime restart count is a sunk number. It only becomes signal when paired with a recent timestamp (e.g. "lifetime count jumped by N in the last hour").
 
@@ -31,7 +31,7 @@ The lifetime restart count is a sunk number. It only becomes signal when paired 
 - Treat `pm2 list` restart count as a real-time rate
 - Classify a restart loop as P1 from lifetime count alone without a rate probe
 - Dispatch a fork against an already-resolved incident because the lifetime counter still looks alarming
-- Re-ship a "fix" for a problem that was already fixed (this is the worse failure mode — the fork would have committed something on top of d7b8388 that wasn't needed)
+- Re-ship a "fix" for a problem that was already fixed (this is the worse failure mode - the fork would have committed something on top of d7b8388 that wasn't needed)
 
 ## Verification protocol
 
@@ -53,6 +53,6 @@ Cost: one bounded P1 fork (~11min, 35 tools). Mitigated by the fork being able t
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the meta-rule (probe ground truth before propagating "X is broken/shipped")
-- `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` — companion rule on stale readings
-- `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` — when several rows reference the same root, scope-narrow before dispatching against each
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the meta-rule (probe ground truth before propagating "X is broken/shipped")
+- `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` - companion rule on stale readings
+- `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md` - when several rows reference the same root, scope-narrow before dispatching against each

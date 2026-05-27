@@ -42,6 +42,6 @@ Every row returned is a guaranteed future Twitter failure.
 
 2026-04-22 08:16 AEST. Zernio email arrived overnight reporting failure on post `69e6fc895ff031cc2700f248` (936 chars, scheduled 22:00 UTC Apr 21). Twitter leg `status: failed`, `errorCategory: user_content`, `errorMessage: "Tweet text is too long (936 characters). Twitter's limit is 280 characters."` LinkedIn + Facebook legs both `published` cleanly.
 
-Queue audit showed 15 upcoming scheduled posts, all 800-1328 chars, all scheduled to linkedin+facebook+twitter. Every single one is a guaranteed Twitter failure. `status_board` row for "Context architecture rebuild — Africa-prep" had misdiagnosed the earlier Tuesday post failure as "platform integration issue, not urgent" - the actual cause was the same length overflow, the misdiagnosis hid the pattern.
+Queue audit showed 15 upcoming scheduled posts, all 800-1328 chars, all scheduled to linkedin+facebook+twitter. Every single one is a guaranteed Twitter failure. `status_board` row for "Context architecture rebuild - Africa-prep" had misdiagnosed the earlier Tuesday post failure as "platform integration issue, not urgent" - the actual cause was the same length overflow, the misdiagnosis hid the pattern.
 
 Fix deferred to Tate morning chat for strategy call (which of the three options). Pattern logged first so future-me doesn't re-diagnose the same failure as an integration bug.

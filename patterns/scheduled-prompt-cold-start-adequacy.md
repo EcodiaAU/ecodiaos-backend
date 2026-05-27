@@ -12,11 +12,11 @@ Immediately after calling `schedule_delayed` (or any scheduling tool), re-read t
 
 Every scheduled prompt must answer all five:
 
-1. **WHY** — Why was this task created? What prior work triggered it? What business/operational need does it serve? (So future-me knows if context has changed and the task should be cancelled.)
-2. **HOW TO EXECUTE** — Concrete tool names, API endpoints, credential locations (kv_store keys or env var names), data shapes, example payloads for any direct-API calls. Not "use Zernio" but "POST https://zernio.com/api/v1/posts, Bearer $ZERNIO_API_KEY from VPS env, body shape per mcp-servers/business-tools/zernio.js".
-3. **HOW TO EXIT** — Trigger conditions to skip, defer, or abort. Guardrails. Invariants. "If queue already has >=5 forward posts, self-delay 7d and exit" is correct. "Check if there's work to do" is not.
-4. **WHAT TO UPDATE** — kv_store keys to upsert, status_board rows to touch, Neo4j Episode to write (with prior_episode + :FOLLOWS edge per neo4j-episode-chain-relationships.md). Post-execution state changes are non-negotiable or the loop becomes untraceable.
-5. **HOW TO SELF-LOOP** — If the task is part of a recurring cadence (queue refresh, monthly audit, etc.), the prompt must include the schedule_delayed call for the next cycle with the EXACT prompt copied verbatim. Otherwise the loop dies after one execution.
+1. **WHY** - Why was this task created? What prior work triggered it? What business/operational need does it serve? (So future-me knows if context has changed and the task should be cancelled.)
+2. **HOW TO EXECUTE** - Concrete tool names, API endpoints, credential locations (kv_store keys or env var names), data shapes, example payloads for any direct-API calls. Not "use Zernio" but "POST https://zernio.com/api/v1/posts, Bearer $ZERNIO_API_KEY from VPS env, body shape per mcp-servers/business-tools/zernio.js".
+3. **HOW TO EXIT** - Trigger conditions to skip, defer, or abort. Guardrails. Invariants. "If queue already has >=5 forward posts, self-delay 7d and exit" is correct. "Check if there's work to do" is not.
+4. **WHAT TO UPDATE** - kv_store keys to upsert, status_board rows to touch, Neo4j Episode to write (with prior_episode + :FOLLOWS edge per neo4j-episode-chain-relationships.md). Post-execution state changes are non-negotiable or the loop becomes untraceable.
+5. **HOW TO SELF-LOOP** - If the task is part of a recurring cadence (queue refresh, monthly audit, etc.), the prompt must include the schedule_delayed call for the next cycle with the EXACT prompt copied verbatim. Otherwise the loop dies after one execution.
 
 ## Do
 

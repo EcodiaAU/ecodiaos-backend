@@ -31,7 +31,7 @@ Narrowed (after a tuning event):
 triggers: <tightened-trigger-set>
 status: narrowed
 narrowed_at: 2026-05-12
-narrowed_reason: '[NOT-APPLIED] rate 78% over 7d — was firing on every dispatch mentioning <broad-noun>; tightened to <compound>-<compound> only.'
+narrowed_reason: '[NOT-APPLIED] rate 78% over 7d - was firing on every dispatch mentioning <broad-noun>; tightened to <compound>-<compound> only.'
 ---
 ```
 

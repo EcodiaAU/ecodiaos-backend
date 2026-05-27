@@ -6,9 +6,9 @@ triggers: em-dash, en-dash, U+2014, U+2013, output-formatting, character-level-b
 
 ## The rule
 
-NO em-dashes (`—`, U+2014) ANYWHERE in any output. Ever. Character-level absolute.
+NO em-dashes (`-`, U+2014) ANYWHERE in any output. Ever. Character-level absolute.
 
-NO en-dashes (`–`, U+2013) UNLESS the dash sits between two digits (numeric range like `2024–2025`) AND the hyphen would be genuinely ambiguous. Default: replace with ` - ` too.
+NO en-dashes (`-`, U+2013) UNLESS the dash sits between two digits (numeric range like `2024-2025`) AND the hyphen would be genuinely ambiguous. Default: replace with ` - ` too.
 
 This applies to:
 - Source code (comments, string literals, JSDoc, JSX content, log messages)
@@ -45,7 +45,7 @@ Total roughly 2700 em-dash and 40 en-dash characters expunged in one pass. That'
 
 ## Why written discipline alone fails
 
-- Factory dispatches produce code with em-dashes by default. Claude Code (the dispatcher) inherits the model's training-distribution preference for `—` in prose comments and log messages. Without a hook, every Factory run is a fresh source of regression.
+- Factory dispatches produce code with em-dashes by default. Claude Code (the dispatcher) inherits the model's training-distribution preference for `-` in prose comments and log messages. Without a hook, every Factory run is a fresh source of regression.
 - Forks executing briefs author drafts and patterns containing em-dashes. Same training distribution, same regression vector.
 - Edge function code authored by humans (or by a different agent) ships through git untouched.
 - DB content seeded from prompted LLM output (events, legal pages, marketing strings) carries em-dashes into Postgres rows.

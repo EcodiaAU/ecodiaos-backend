@@ -56,7 +56,7 @@ if (!ok) {
 }
 ```
 
-The `entity_ref` keying makes the upsert idempotent — same canary firing every 6h hitting the same row, not creating new ones. The `consecutive_failures` reset on `ok=true` makes recovery automatic — row gets archived by the recovery cycle.
+The `entity_ref` keying makes the upsert idempotent - same canary firing every 6h hitting the same row, not creating new ones. The `consecutive_failures` reset on `ok=true` makes recovery automatic - row gets archived by the recovery cycle.
 
 ## Anti-pattern: a status_board row at FIRST failure with vague next_action
 
@@ -70,14 +70,14 @@ The fix is a structured `next_action` produced by the canary itself, including t
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — recording the metric without acting IS symbolic logging
-- `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` — the freshness rule for kv_store health rows; this pattern is the upstream half (canary writes correctly), that pattern is the downstream half (consumers read correctly)
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — five-layer applies here: producer → trigger → bridge → listener (canary cron + heartbeat aggregator) → side-effect (status_board upsert + Twilio SMS). The 46-failure-streak proved the side-effect layer was missing.
-- `~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md` — the autonomous-pilot SMS gate this canary's escalate-threshold needs to respect (don't bypass when Tate is live in chat)
+- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - recording the metric without acting IS symbolic logging
+- `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md` - the freshness rule for kv_store health rows; this pattern is the upstream half (canary writes correctly), that pattern is the downstream half (consumers read correctly)
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - five-layer applies here: producer → trigger → bridge → listener (canary cron + heartbeat aggregator) → side-effect (status_board upsert + Twilio SMS). The 46-failure-streak proved the side-effect layer was missing.
+- `~/ecodiaos/patterns/silent-alerts-defer-when-tate-is-live.md` - the autonomous-pilot SMS gate this canary's escalate-threshold needs to respect (don't bypass when Tate is live in chat)
 
 ## Origin
 
-Meta-loop fire 2026-05-09 22:05 + 23:05 AEST. The 23:05 fire surfaced a kv_store health row showing 46 consecutive failures since 2026-05-07T01:18 UTC — 2.5 days of silent degradation of a contact path between EcodiaOS and Tate, while a Twilio SMS fallback was available and doctrine-blessed for exactly this case.
+Meta-loop fire 2026-05-09 22:05 + 23:05 AEST. The 23:05 fire surfaced a kv_store health row showing 46 consecutive failures since 2026-05-07T01:18 UTC - 2.5 days of silent degradation of a contact path between EcodiaOS and Tate, while a Twilio SMS fallback was available and doctrine-blessed for exactly this case.
 
 The probe fork (fork_moyczp7o_1dcf2b) found compound failure: macOS TCC AppleEvents denied + LaunchAgents unloaded (RDP-required) + a NEW finding of inbound HMAC `awk '$2'`→`$NF` drift sister-script-pair from a 7 May patch (sibling drift sister to fork_moutg6ld_898d58 outbound patch).
 

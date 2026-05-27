@@ -21,7 +21,7 @@ Before dispatching ANY fix for a user-reported UI bug:
 1. **Identify the user's claimed surface in their words.** Quote their exact phrase. Don't paraphrase.
 2. **Grep the codebase for the rendered component path.** Multiple angles:
    - Grep for the literal feature mentioned ("map", "count", "list", "card") and find the component file.
-   - Grep for the data hook the feature uses (e.g. `useCollectiveMapData`, `useEvents`) — that traces back to every render site.
+   - Grep for the data hook the feature uses (e.g. `useCollectiveMapData`, `useEvents`) - that traces back to every render site.
    - Grep for the route the user says they're on (e.g. `path="/events"` in App.tsx or routes.ts).
 3. **List every file:line where the broken thing IS RENDERED.** There may be more than one.
 4. **Write the brief to fix at THAT path or those paths**, not at the route-name-the-user-said. Include the actual file paths in the brief.

@@ -22,9 +22,9 @@ The `dispatch_event.metadata` JSONB column must include a `kind` field on every 
 
 ## Do NOT
 
-- Rely on `fork_id` presence/absence as a proxy for dispatch kind — `fork_id` is a content field, not a routing field; rows with `fork_id = null` are not necessarily cron-fires
-- Assume future dispatch kinds will work with the current heuristic — new dispatch surfaces (voice chunks, batch jobs, macro runs) have neither `fork_id` nor `session_id` and fall silently through to the SMS/unverified default
-- Leave `kind` as an optional field in the dispatch event schema — it is required for correct outcome routing; treat absence as a schema violation, not a soft default
+- Rely on `fork_id` presence/absence as a proxy for dispatch kind - `fork_id` is a content field, not a routing field; rows with `fork_id = null` are not necessarily cron-fires
+- Assume future dispatch kinds will work with the current heuristic - new dispatch surfaces (voice chunks, batch jobs, macro runs) have neither `fork_id` nor `session_id` and fall silently through to the SMS/unverified default
+- Leave `kind` as an optional field in the dispatch event schema - it is required for correct outcome routing; treat absence as a schema violation, not a soft default
 
 ## Diagnosis
 
@@ -35,7 +35,7 @@ SELECT COUNT(*) AS total,
 FROM dispatch_event WHERE ts > NOW() - INTERVAL '7 days';
 ```
 
-`without_kind` approaching `total` means outcome routing is operating on heuristics rather than explicit routing — classification is best-effort for every dispatched operation.
+`without_kind` approaching `total` means outcome routing is operating on heuristics rather than explicit routing - classification is best-effort for every dispatched operation.
 
 ## Backfill (one-off if rolling out `kind` after the fact)
 
@@ -59,5 +59,5 @@ Found in Phase G adversarial self-audit 2026-05-08 as critique-05 (`phase-G-audi
 
 - `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 4 outcome model (kind-routing specification)
 - `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` (dispatch-side schema vs architecture-doc seam)
-- `~/ecodiaos/src/services/telemetry/outcomeInference.js` (the consumer that compensates with fork_id heuristic — update when kind is populated)
-- `~/ecodiaos/src/services/telemetry/dispatchEventConsumer.js` (the producer JSONL→DB consumer — add kind emit here)
+- `~/ecodiaos/src/services/telemetry/outcomeInference.js` (the consumer that compensates with fork_id heuristic - update when kind is populated)
+- `~/ecodiaos/src/services/telemetry/dispatchEventConsumer.js` (the producer JSONL→DB consumer - add kind emit here)

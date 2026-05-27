@@ -63,12 +63,12 @@ When an MCP call fails on a parameter-name error:
 
 - Retry with permuted variants (`messageId`, `message_id`, `id`, `messageIDs`) hoping one sticks
 - Guess that snake_case is the underlying Google API name (it is, but our wrapper uses camelCase)
-- Conflate this with the transport-stringification bug — that one is harness, this one is me
+- Conflate this with the transport-stringification bug - that one is harness, this one is me
 - Make the same mistake on `gmail_trash` after just learning it on `gmail_archive`
 
-## Defence in depth — schema-side normalisation
+## Defence in depth - schema-side normalisation
 
-Where it does not break compatibility, the schema itself should accept both singular and plural for array params via a `z.preprocess` alias: accept `message_id` or `messageId` and coerce to `messageIds: [value]`. This is the structural fix being applied alongside this pattern. If you see a future call still fail on `message_id`, the alias has been removed or never landed — file it as a regression.
+Where it does not break compatibility, the schema itself should accept both singular and plural for array params via a `z.preprocess` alias: accept `message_id` or `messageId` and coerce to `messageIds: [value]`. This is the structural fix being applied alongside this pattern. If you see a future call still fail on `message_id`, the alias has been removed or never landed - file it as a regression.
 
 ## Origin
 

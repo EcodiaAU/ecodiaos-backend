@@ -6,11 +6,11 @@ triggers: coord-heartbeat, heartbeat-protocol, signal-done, signal_done, termina
 
 Operational protocol for workers dispatched via [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]]. Every worker follows the same shape so the conductor can rely on it without per-task wiring.
 
-## Substrate prerequisite — MCP schema passes ctx args through (patched 2026-05-18 17:30 AEST)
+## Substrate prerequisite - MCP schema passes ctx args through (patched 2026-05-18 17:30 AEST)
 
-Before 17:30 AEST 18 May 2026 the coord.* MCP tools only declared per-tool properties in `inputSchema.properties`; `tab_id` / `tab_credential` were absent except on `register_conductor` / `unregister_conductor`. Even though `additionalProperties: true` was set, MCP clients treat `inputSchema.properties` as the allowlist for what they actually send — so passthrough `{tab_id, tab_credential}` got stripped on the way to the laptop-agent route, and `extractCtx` returned undefined. Every worker call returned `tab_id required`.
+Before 17:30 AEST 18 May 2026 the coord.* MCP tools only declared per-tool properties in `inputSchema.properties`; `tab_id` / `tab_credential` were absent except on `register_conductor` / `unregister_conductor`. Even though `additionalProperties: true` was set, MCP clients treat `inputSchema.properties` as the allowlist for what they actually send - so passthrough `{tab_id, tab_credential}` got stripped on the way to the laptop-agent route, and `extractCtx` returned undefined. Every worker call returned `tab_id required`.
 
-Fixed in `routes/mcpCoord.js` by injecting a shared `CTX_PROPS` block into every coord.* tool's schema after the `TOOLS` const (`Object.freeze` is shallow). Heartbeats, send_message, signal_done, wait_for_inbox — all coord.* tools now pass passthrough args through to the route. Verified end-to-end by smoke-patch1-heartbeat 2026-05-18 14:42 AEST (worker called heartbeat with passthrough args, dispatcher detected the heartbeat-advance in 44.8s, signal_done landed cleanly).
+Fixed in `routes/mcpCoord.js` by injecting a shared `CTX_PROPS` block into every coord.* tool's schema after the `TOOLS` const (`Object.freeze` is shallow). Heartbeats, send_message, signal_done, wait_for_inbox - all coord.* tools now pass passthrough args through to the route. Verified end-to-end by smoke-patch1-heartbeat 2026-05-18 14:42 AEST (worker called heartbeat with passthrough args, dispatcher detected the heartbeat-advance in 44.8s, signal_done landed cleanly).
 
 Generalised in [[mcp-schemas-must-explicitly-declare-passthrough-ctx-args-2026-05-18]].
 

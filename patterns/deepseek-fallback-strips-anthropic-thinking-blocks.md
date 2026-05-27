@@ -13,7 +13,7 @@ Anthropic-compatible endpoint (the third tier of the
 HTTP body MUST be sanitised of Anthropic-only fields before it is forwarded.
 Three coupled strips are required, and they are not optional or independent:
 
-1. **Top-level `thinking` parameter — FORCE-WRITE to `{type:'disabled'}`.**
+1. **Top-level `thinking` parameter - FORCE-WRITE to `{type:'disabled'}`.**
    v1 (commit `68a5da9`, 7 May 2026 05:14 UTC) blanket-deleted the param
    to escape the storm where the SDK was sending
    `thinking:{type:'enabled', budget_tokens:1500}`. That worked at the time
@@ -143,12 +143,12 @@ reverting the force-write to v1's delete fails 8 of 15). RCA at
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` — the chain
+- `~/ecodiaos/patterns/no-bedrock-deepseek-only-fallback.md` - the chain
   this sanitiser sits inside.
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` —
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` -
   the validation gate is empirical (cc_events absence), not narrative.
-- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` — the
+- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - the
   upstream condition that triggers the DeepSeek tier in the first place.
-- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` —
+- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` -
   the proxy is a thin sanitiser, not a parallel SDK; it preserves the
   Anthropic surface end-to-end and only mutates at the wire.

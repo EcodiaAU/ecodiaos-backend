@@ -84,8 +84,8 @@ If `audio.webm` download returns "Object not found":
 
 ## Cross-refs
 
-- `src/services/transcriptionService.js` — `transcribeWithChunking()`
-- `src/routes/meetings.js` — stop handler + runTranscription fallback
+- `src/services/transcriptionService.js` - `transcribeWithChunking()`
+- `src/routes/meetings.js` - stop handler + runTranscription fallback
 - Supabase free tier limits: 50MB/file upload, no multipart
 - Whisper API limits: 25MB/request
 - Origin: 2026-05-12 64-min recording P1 failure (meeting e229c4ea, audio unrecoverable)

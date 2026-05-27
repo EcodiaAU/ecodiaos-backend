@@ -13,14 +13,14 @@ Every inbound SMS / Telegram message fires `reflex.fire` on the laptop-agent, wh
 
 Three components:
 
-**1. Stop hook** — `d:/.code/EcodiaOS/backend/.claude/hooks/chat-heartbeat.js`
+**1. Stop hook** - `d:/.code/EcodiaOS/backend/.claude/hooks/chat-heartbeat.js`
 Fires when the assistant finishes a turn. Writes to `~/.ecodia-preview/chat-heartbeats.json`:
 ```json
 { "sessions": { "<CLAUDE_SESSION_ID>": { "last_stop_at": "ISO", "cwd": "...", "pid": ... } } }
 ```
 Registered as `Stop` hook in `d:/.code/EcodiaOS/backend/.claude/settings.json`.
 
-**2. Sweeper module** — `d:/.code/EcodiaOS/backend/laptop-agent/cursor-preview-extension/sweeper.js`
+**2. Sweeper module** - `d:/.code/EcodiaOS/backend/laptop-agent/cursor-preview-extension/sweeper.js`
 Loaded by the Ecodia Preview extension on activate. Tracks per-tab activity via `vscode.window.tabGroups.onDidChangeTabs` + `onDidChangeActiveTab`. Runs sweep every 90s.
 
 A Claude Code tab is closed when ALL of:
@@ -29,19 +29,19 @@ A Claude Code tab is closed when ALL of:
 - its last in-extension activity is older than TTL_MIN (default 8 min, env `ECODIA_CHAT_IDLE_TTL_MIN`), AND
 - the tab's workspace has NOT had a Stop-hook fire within the TTL window.
 
-**3. Extension wiring** — `d:/.code/EcodiaOS/backend/laptop-agent/cursor-preview-extension/extension.js`
+**3. Extension wiring** - `d:/.code/EcodiaOS/backend/laptop-agent/cursor-preview-extension/extension.js`
 - On activate: `loadSweeper().init(vscode)` starts the tracker + 90s interval.
 - New endpoints (alongside existing `POST /open-preview`):
-  - `POST /sweep-claude-tabs` — manual sweep (`{dryRun: true}` for inspection)
-  - `GET /list-claude-tabs` — enumerate Claude Code webview tabs in this window
+  - `POST /sweep-claude-tabs` - manual sweep (`{dryRun: true}` for inspection)
+  - `GET /list-claude-tabs` - enumerate Claude Code webview tabs in this window
 - On deactivate: `sweeperHandle.dispose()` clears interval + unsubscribes events.
 
 ## How to apply
 
 When this surfaces, check:
-- `~/.ecodia-preview/chat-heartbeats.json` exists and is fresh (last entry within last few min if any chat just finished a turn). Empty / stale = Stop hook isn't firing — check `.claude/settings.json` has the `Stop` hook entry and the hook file exists.
+- `~/.ecodia-preview/chat-heartbeats.json` exists and is fresh (last entry within last few min if any chat just finished a turn). Empty / stale = Stop hook isn't firing - check `.claude/settings.json` has the `Stop` hook entry and the hook file exists.
 - Hit `GET http://127.0.0.1:<port>/list-claude-tabs` against each instance in `~/.ecodia-preview/instances.json` to see what each IDE sees.
-- For manual sweep test: `POST /sweep-claude-tabs` with `{"dryRun": true}` — returns what *would* be closed without actually closing.
+- For manual sweep test: `POST /sweep-claude-tabs` with `{"dryRun": true}` - returns what *would* be closed without actually closing.
 
 ## Live-loading discipline
 
@@ -49,15 +49,15 @@ The extension's `extension.js` is loaded ONCE at IDE start. Editing it does NOT 
 
 ## V1 limitations to accept
 
-- Workspace heartbeat applies to ALL Claude Code tabs in that workspace. If two CC chats share a workspace and one is abandoned, the other's activity keeps the abandoned one alive until BOTH go idle. Acceptable for V1 — Tate's pain is total tab count, not surgical preservation.
+- Workspace heartbeat applies to ALL Claude Code tabs in that workspace. If two CC chats share a workspace and one is abandoned, the other's activity keeps the abandoned one alive until BOTH go idle. Acceptable for V1 - Tate's pain is total tab count, not surgical preservation.
 - Tab identification relies on label + viewType + viewColumn (VS Code tabs don't expose a unique ID). Edge collisions possible.
-- "Active tab" = user focused on it in this VS Code window. If Tate alt-tabs away from the window entirely, all tabs in it become inactive — but they're still kept alive by the workspace-recent-stop check until TTL elapses since the last Stop fire.
+- "Active tab" = user focused on it in this VS Code window. If Tate alt-tabs away from the window entirely, all tabs in it become inactive - but they're still kept alive by the workspace-recent-stop check until TTL elapses since the last Stop fire.
 
 ## Future tightening (not in V1)
 
 - Pass a unique chat ID via `reflex.fire` → CC env → Stop hook → sweeper, so sweep can target the exact tab spawned by a specific reflex fire.
 - "Cleanup on exit" path: when `reflex.fire` is called with `idempotency_key=tg-...` (SMS / Telegram), enqueue an automatic close-after-N-min for the spawned tab, not based on Stop hook.
-- Pin protection: respect `tab.isPinned` as "never close" — already implicit (active tab refresh) but worth making explicit if Tate uses pinned tabs.
+- Pin protection: respect `tab.isPinned` as "never close" - already implicit (active tab refresh) but worth making explicit if Tate uses pinned tabs.
 
 ## Origin
 

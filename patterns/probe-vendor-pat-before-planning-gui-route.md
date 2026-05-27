@@ -18,7 +18,7 @@ If a programmatic credential exists for that vendor in `kv_store.creds.*` or doc
 2. **Vendor's REST API** with the stored token via `curl` or SDK
 3. **Vendor's logged-in GUI** via Corazon `input.*` + `screenshot.*`
 
-GUI driving is ONLY correct when steps 1 and 2 are not available — either because no programmatic credential exists for the vendor, or because the specific action is not exposed by CLI/API (rare for first-party vendors, common only for billing/identity-verification flows).
+GUI driving is ONLY correct when steps 1 and 2 are not available - either because no programmatic credential exists for the vendor, or because the specific action is not exposed by CLI/API (rare for first-party vendors, common only for billing/identity-verification flows).
 
 ## What this rule is the inverse of
 
@@ -43,15 +43,15 @@ The distinction at decision time:
 ## Do not
 
 - Plan a GUI route to a vendor without first checking whether a PAT exists for it
-- Treat the kv_store as a "fallback" surface — it's the FIRST surface for vendor work
+- Treat the kv_store as a "fallback" surface - it's the FIRST surface for vendor work
 - Make Tate clarify "we have a PAT for that". The probe is on me, not on him
 
 ## Verification protocol
 
 Before any brief authored that names a vendor:
 
-1. `Grep "triggers:" ~/ecodiaos/docs/secrets/ -A 1` — does any file's triggers include the vendor name?
-2. `db_query SELECT key FROM kv_store WHERE key LIKE 'creds.<vendor>%'` — is there a row?
+1. `Grep "triggers:" ~/ecodiaos/docs/secrets/ -A 1` - does any file's triggers include the vendor name?
+2. `db_query SELECT key FROM kv_store WHERE key LIKE 'creds.<vendor>%'` - is there a row?
 3. If either is YES, the brief uses CLI/API as primary, GUI as fallback if-and-only-if the action is not exposed programmatically
 4. If both are NO, fall through to the GUI rule (inverse pattern) and probe whether Tate's existing logged-in session covers it
 
@@ -65,8 +65,8 @@ This is the second-strike pattern: I had already learned `~/ecodiaos/patterns/gu
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` — symmetric companion (don't generate creds when GUI works)
-- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` — 5-point check baseline
-- `~/ecodiaos/patterns/when-a-tool-is-unavailable-solve-the-routing-problem-do-not-accept-the-block.md` — every block is a routing problem; PAT route is one of the routes
-- `~/ecodiaos/docs/secrets/INDEX.md` — full inventory of provisioned + pending credentials
-- `~/ecodiaos/CLAUDE.md` Credentials section — kv_store canonical locations
+- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` - symmetric companion (don't generate creds when GUI works)
+- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - 5-point check baseline
+- `~/ecodiaos/patterns/when-a-tool-is-unavailable-solve-the-routing-problem-do-not-accept-the-block.md` - every block is a routing problem; PAT route is one of the routes
+- `~/ecodiaos/docs/secrets/INDEX.md` - full inventory of provisioned + pending credentials
+- `~/ecodiaos/CLAUDE.md` Credentials section - kv_store canonical locations

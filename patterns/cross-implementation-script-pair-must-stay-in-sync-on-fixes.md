@@ -11,8 +11,8 @@ When a bug is fixed in one script of a paired set (inbound watcher + outbound wa
 ## Concrete origin (9 May 2026)
 
 SY094 watcher pair (legacy contact-channel scripts in `~/.bin/`):
-- Outbound watcher script line 26 — patched 7 May 2026 (fork_moutg6ld_898d58) from `awk '{print $2}'` to `awk '{print $NF}'` because macOS LibreSSL outputs `<hex>` (1 field) while GNU OpenSSL on Linux outputs `(stdin)= <hex>` (2 fields). `$2` returns empty on macOS → empty signature → 401.
-- Inbound watcher script line 21 — STILL had `awk '{print $2}'` 9 days later. Every inbound POST since 7 May had carried an empty HMAC signature header → server rejected with HTTP 400/401. Surfaced via error log showing 80+ consecutive 400s and finally a 401, never an HMAC success.
+- Outbound watcher script line 26 - patched 7 May 2026 (fork_moutg6ld_898d58) from `awk '{print $2}'` to `awk '{print $NF}'` because macOS LibreSSL outputs `<hex>` (1 field) while GNU OpenSSL on Linux outputs `(stdin)= <hex>` (2 fields). `$2` returns empty on macOS → empty signature → 401.
+- Inbound watcher script line 21 - STILL had `awk '{print $2}'` 9 days later. Every inbound POST since 7 May had carried an empty HMAC signature header → server rejected with HTTP 400/401. Surfaced via error log showing 80+ consecutive 400s and finally a 401, never an HMAC success.
 
 The outbound script's own comment names the bug class verbatim: "awk $NF (last field) instead of $2 because LibreSSL on macOS outputs just '<hex>' (single field) while GNU OpenSSL on Linux outputs '(stdin)= <hex>' (two fields). $NF works for both."
 
@@ -26,29 +26,29 @@ Same author, same shell language, same failure-mode comment in the codebase, fix
   grep -rn "openssl dgst -sha256 -hmac" ~/ecodiaos/scripts/
   ```
 - For watcher-pair primitives, write the fix as a sourced helper (`source ~/.bin/lib/hmac.sh`) so future divergence is structurally impossible.
-- When authoring the second script of a pair, copy the first verbatim and edit only the deltas (URL, payload shape) — never re-derive primitives from memory.
+- When authoring the second script of a pair, copy the first verbatim and edit only the deltas (URL, payload shape) - never re-derive primitives from memory.
 - Land both scripts in the same commit when a primitive is patched. Single-script commits to a known-pair are a code smell.
-- Listener-pipeline five-layer verification (`listener-pipeline-needs-five-layer-verification.md`) MUST run on each script of a pair separately — green on outbound does not imply green on inbound.
+- Listener-pipeline five-layer verification (`listener-pipeline-needs-five-layer-verification.md`) MUST run on each script of a pair separately - green on outbound does not imply green on inbound.
 
 ## Do not
 
 - Patch one half of a pair and assume the comment "this fix applies wherever HMAC happens" is enforced. It isn't.
-- Trust per-script unit tests over end-to-end live verification — sibling drift only shows up when production traffic hits both paths.
-- Use grep on `awk '{print $NF}'` (the fixed form) to find unpatched call sites — you'll miss them. Grep the buggy primitive instead.
+- Trust per-script unit tests over end-to-end live verification - sibling drift only shows up when production traffic hits both paths.
+- Use grep on `awk '{print $NF}'` (the fixed form) to find unpatched call sites - you'll miss them. Grep the buggy primitive instead.
 
 ## Verification protocol
 
 After patching primitive X in script A:
-1. `grep -rn "<primitive-X buggy form>" <repo or directory>` — must return zero matches OR list of every sibling needing the same patch.
+1. `grep -rn "<primitive-X buggy form>" <repo or directory>` - must return zero matches OR list of every sibling needing the same patch.
 2. Patch every sibling in the same arc.
 3. Run end-to-end live verification on each sibling separately (POST a real payload, observe 2xx response, observe DB row landed). Green on the patched original is not transitive.
 4. Commit all sibling patches together with a "Co-fix: <sibling-paths>" trailer in the commit message.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — sibling-pair drift is a class of layer-4 failure (signature/encoding) that survives upstream all-green when only one sibling was tested.
-- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` — patching from SSH worked here; the watcher's *runtime* environment was the GUI-required half.
-- `~/ecodiaos/patterns/discovery-to-doctrine-same-turn.md` — fix lands AND doctrine lands in the same arc.
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - sibling-pair drift is a class of layer-4 failure (signature/encoding) that survives upstream all-green when only one sibling was tested.
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` - patching from SSH worked here; the watcher's *runtime* environment was the GUI-required half.
+- `~/ecodiaos/patterns/discovery-to-doctrine-same-turn.md` - fix lands AND doctrine lands in the same arc.
 
 ## Origin
 

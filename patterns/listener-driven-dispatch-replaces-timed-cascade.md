@@ -23,9 +23,9 @@ Substrate: `dispatch_queue` table (migration 086) + `dispatchQueueListener` (sub
 - Do not schedule a chain of `schedule_delayed` tasks at T+30, T+60, T+90 hoping the prior step finished. That's the timed-cascade anti-pattern. Real fork durations vary 2× either way; the timed cascade either fires before the dependency is ready (wasted work, broken assumptions) or fires too late (Tate waiting on idle conductor).
 - Do not enqueue `dispatch_type='enqueue_message'` to drop a `[SCHEDULED:]` prompt into the conductor chat. That pollutes the chat stream. Use `spawn_fork` for any cascade step that produces work; the conductor doesn't need to be in the loop for fork-to-fork hand-offs.
 - Do not skip `depends_on_id` when the cascade is genuinely sequential. Without it, row B fires on the FIRST `fork_complete` event, which may not be A's completion.
-- Do not assume `fork_done_clean` filters out partial-success forks perfectly — it's a heuristic on `result` text. If the upstream fork's clean-vs-broken state matters, add a manual review checkpoint (a `manual` trigger row that the conductor fires with `/api/dispatch-queue/:id/fire-now` after eyeballing the deliverable).
+- Do not assume `fork_done_clean` filters out partial-success forks perfectly - it's a heuristic on `result` text. If the upstream fork's clean-vs-broken state matters, add a manual review checkpoint (a `manual` trigger row that the conductor fires with `/api/dispatch-queue/:id/fire-now` after eyeballing the deliverable).
 
-## Protocol — enqueueing a cascade
+## Protocol - enqueueing a cascade
 
 For "F6 ships clean → F7 dispatches; F7 ships clean → F8 dispatches; F8 ships clean → final summary email":
 
@@ -84,7 +84,7 @@ The conductor walks away. F6 finishes → listener fires F7 row. F7 finishes →
 
 - Stale `expires_at`: row past expiry stays `queued` until the cleanup sweep (TODO: add a 60s expiry-check tick to the listener init). Expect a small window of "expired but still queued".
 - Listener not loaded: registry's `EXPECTED_LOADED_COUNT` mismatch warning fires at boot. If the count is wrong, no events flow. Probe `getListeners()` length before trusting the substrate.
-- Dispatch failure cascading: if F7 dispatch fails, F8's `depends_on_id` will see F7 with `status='failed'` (not `'fired'`), so F8 stays queued forever. This is intentional — failed cascades require conductor intervention, not auto-retry. The conductor reads `/api/dispatch-queue/list?status=failed` on next turn.
+- Dispatch failure cascading: if F7 dispatch fails, F8's `depends_on_id` will see F7 with `status='failed'` (not `'fired'`), so F8 stays queued forever. This is intentional - failed cascades require conductor intervention, not auto-retry. The conductor reads `/api/dispatch-queue/list?status=failed` on next turn.
 
 ## Origin
 
@@ -94,10 +94,10 @@ The dispatch_queue substrate replaces the timed-cascade pattern that was used fo
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — 5-layer architecture all listeners must satisfy
-- `~/ecodiaos/patterns/scheduler-no-pregate-trust-os-message-queue.md` — gate-removal that motivated the substrate refactor
-- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — disk-backed queue is the artefact, not "I'll remember"
-- `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md` — cron-firing isn't completion; cascade rows must produce a deliverable per step
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - 5-layer architecture all listeners must satisfy
+- `~/ecodiaos/patterns/scheduler-no-pregate-trust-os-message-queue.md` - gate-removal that motivated the substrate refactor
+- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - disk-backed queue is the artefact, not "I'll remember"
+- `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md` - cron-firing isn't completion; cascade rows must produce a deliverable per step
 - `~/ecodiaos/src/db/migrations/086_dispatch_queue.sql`
 - `~/ecodiaos/src/services/listeners/dispatchQueueListener.js`
 - `~/ecodiaos/src/routes/dispatchQueue.js`

@@ -4,7 +4,7 @@ priority: critical
 canonical: true
 ---
 
-> **DEPRECATED — 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The canonical replacement is Tailscale laptop-agent (Corazon's `input.*` + `screenshot.*` + `shell.shell` through the laptop-agent HTTP API) + macro/GUI recipes. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+> **DEPRECATED - 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The canonical replacement is Tailscale laptop-agent (Corazon's `input.*` + `screenshot.*` + `shell.shell` through the laptop-agent HTTP API) + macro/GUI recipes. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
 
 # [DEPRECATED] Cowork is a GUI tool, not a peer brain - the conductor stays in the loop
 

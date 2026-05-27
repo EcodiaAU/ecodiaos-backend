@@ -8,10 +8,10 @@ triggers: haiku-reviewer, semantic-review, framing-miss, assumption-catcher, sec
 
 Every PreToolUse on `mcp__forks__spawn_fork` and `mcp__factory__start_cc_session` runs TWO classes of reviewer in parallel:
 
-1. **Heuristic hooks** (`brief-consistency-check.sh`, `cred-mention-surface.sh`, `anthropic-first-check.sh`, `episode-resurface.sh`, `cowork-first-check.sh`) — fast bash + jq + grep against the brief text. Catch keyword/regex shape misses. Cheap (~ms), high recall on token-level patterns, blind to framing.
-2. **Haiku-class semantic reviewer** (`haiku-semantic-review.sh`) — calls `claude-haiku-4-5` against a cached doctrine summary at `~/ecodiaos/scripts/hooks/lib/haiku-doctrine-summary.md`. Catches FRAMING and ASSUMPTION misses the heuristics cannot. Surfaces verdict as `[HAIKU-REVIEW PASS|WARN|BLOCK] <reason>` to stderr; injects `additionalContext` JSON only on WARN/BLOCK so PASS is silent.
+1. **Heuristic hooks** (`brief-consistency-check.sh`, `cred-mention-surface.sh`, `anthropic-first-check.sh`, `episode-resurface.sh`, `cowork-first-check.sh`) - fast bash + jq + grep against the brief text. Catch keyword/regex shape misses. Cheap (~ms), high recall on token-level patterns, blind to framing.
+2. **Haiku-class semantic reviewer** (`haiku-semantic-review.sh`) - calls `claude-haiku-4-5` against a cached doctrine summary at `~/ecodiaos/scripts/hooks/lib/haiku-doctrine-summary.md`. Catches FRAMING and ASSUMPTION misses the heuristics cannot. Surfaces verdict as `[HAIKU-REVIEW PASS|WARN|BLOCK] <reason>` to stderr; injects `additionalContext` JSON only on WARN/BLOCK so PASS is silent.
 
-Both are warn-only. Neither blocks dispatch. The two layers complement each other — one catches what the other misses.
+Both are warn-only. Neither blocks dispatch. The two layers complement each other - one catches what the other misses.
 
 ## Where heuristic hooks suffice
 
@@ -22,14 +22,14 @@ Heuristic hooks are correct first-line defence when the violation is **shape-det
 - Brief mentions iOS/ASC/Bitbucket/Resend without a `~/ecodiaos/docs/secrets/` cross-ref → `cred-mention-surface.sh` flags.
 - Brief mentions Anthropic-shipped capabilities while building parallel infrastructure → `anthropic-first-check.sh` flags.
 
-These are keyword problems. A Haiku call is overkill — heuristics are 1000× cheaper and catch the exact same thing with zero false-negative on the literal pattern.
+These are keyword problems. A Haiku call is overkill - heuristics are 1000× cheaper and catch the exact same thing with zero false-negative on the literal pattern.
 
 ## Where Haiku catches what heuristic misses
 
 Heuristic hooks fail silently when the violation is **frame-detectable**:
 
 - A brief that **assumes Tate is sending it the work** when the conductor was self-composing in autonomy mode. All the keywords look right. The assumption is wrong. (rule 4 + 5)
-- A brief that **structures a 4-stream pipeline as a single worker fork**, missing the manager-fork doctrine. The keyword `MANAGER:` is absent — heuristics have nothing to flag — but the WORK SHAPE is multi-worker. (rule 2)
+- A brief that **structures a 4-stream pipeline as a single worker fork**, missing the manager-fork doctrine. The keyword `MANAGER:` is absent - heuristics have nothing to flag - but the WORK SHAPE is multi-worker. (rule 2)
 - A brief that **pre-resolves file paths and pastes them into instructions**, framing the fork as a worker that needs a fully-specified work order rather than a context-identical clone. No keyword tells you "this is pre-probed". The PLAN reveals it. (rule 3)
 - A brief that **proposes outbound to a client without naming a Tate go-ahead reference**. The string `"send to <client>"` may not appear; the recipient might be inferred from a CRM lookup the brief instructs the fork to do. Heuristics don't catch the inferred recipient. (rule 6)
 - A brief that **reuses Co-Exist as the wedge product to a non-Kurt prospect**. The keyword "Co-Exist" appears; heuristics have nothing to flag because the keyword is not the violation. The CONTEXT (peak body / Landcare / NRM / council) makes Co-Exist-as-wedge wrong. (rule 7)
@@ -47,7 +47,7 @@ Compare: a single Sonnet/Opus parent call burning through retries on a brief Hai
 
 Daily upper bound: even 200 dispatches/day × $0.0023 (no caching) = $0.46/day. With caching across the workday, more like $0.05/day. Negligible against the ~$14k/week token budget.
 
-## Worked example — the gap that motivated this layer (6 May 2026 09:50 AEST)
+## Worked example - the gap that motivated this layer (6 May 2026 09:50 AEST)
 
 Earlier today, a fork brief on the GUI-macro discovery surface was framed as a **Tate-message-arrival problem**: it scoped the discovery hook to fire when Tate types a message that mentions a GUI target. The brief read coherently, all keywords were correct, every heuristic hook passed.
 
@@ -67,10 +67,10 @@ Tate, 6 May 2026 09:56 AEST verbatim: "haiku chat could be really good for picki
 
 ## Doctrine cross-refs
 
-- `~/ecodiaos/CLAUDE.md` "Mechanical surfacing hooks" section — the heuristic-hook stack this reviewer joins.
-- `~/ecodiaos/patterns/context-surfacing-must-be-reliable-and-selective.md` — the meta-doctrine on doctrine layering. This reviewer is layer 6 (semantic second-pass) on top of layers 1-5 (file-per-thing, triggers frontmatter, grep protocol, mechanical PreToolUse hooks, Neo4j fallback).
-- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` — Haiku as the right Anthropic primitive (not building a parallel reviewer agent).
-- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3 — applied-pattern-tag forcing function. This reviewer's verdict log feeds the same telemetry surface (catches that heuristics missed are a high-leverage signal of where the heuristic layer needs new hooks).
+- `~/ecodiaos/CLAUDE.md` "Mechanical surfacing hooks" section - the heuristic-hook stack this reviewer joins.
+- `~/ecodiaos/patterns/context-surfacing-must-be-reliable-and-selective.md` - the meta-doctrine on doctrine layering. This reviewer is layer 6 (semantic second-pass) on top of layers 1-5 (file-per-thing, triggers frontmatter, grep protocol, mechanical PreToolUse hooks, Neo4j fallback).
+- `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md` - Haiku as the right Anthropic primitive (not building a parallel reviewer agent).
+- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` Layer 3 - applied-pattern-tag forcing function. This reviewer's verdict log feeds the same telemetry surface (catches that heuristics missed are a high-leverage signal of where the heuristic layer needs new hooks).
 
 ## Origin
 

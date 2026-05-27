@@ -64,9 +64,9 @@ The wrong notification name skips the plugin's observer entirely, so the JS `reg
 
 ## Why
 
-The Capacitor `ApplicationDelegateProxy` pattern: when an AppDelegate defines a system delegate callback itself (rather than letting the proxy chain handle it), the AppDelegate's implementation wins and must explicitly forward to the plugin chain. The plugin chain listens on a specific `NotificationCenter` name — not the generic `"didRegisterForRemoteNotificationsWithDeviceToken"` string. The Capacitor team chose a namespaced rawValue (`"CapacitorDidRegisterForRemoteNotificationsNotification"`) precisely so that plugin code wouldn't collide with arbitrary other observers.
+The Capacitor `ApplicationDelegateProxy` pattern: when an AppDelegate defines a system delegate callback itself (rather than letting the proxy chain handle it), the AppDelegate's implementation wins and must explicitly forward to the plugin chain. The plugin chain listens on a specific `NotificationCenter` name - not the generic `"didRegisterForRemoteNotificationsWithDeviceToken"` string. The Capacitor team chose a namespaced rawValue (`"CapacitorDidRegisterForRemoteNotificationsNotification"`) precisely so that plugin code wouldn't collide with arbitrary other observers.
 
-The Preferences prefix exists for the same reason — to allow multiple sub-systems on the same `UserDefaults.standard` without key collisions.
+The Preferences prefix exists for the same reason - to allow multiple sub-systems on the same `UserDefaults.standard` without key collisions.
 
 A plain Capacitor app with a stock 49-line AppDelegate (no manual interception) works for free, because the proxy chain posts the right name automatically. The bug only appears when an app needs to add Firebase or another native SDK that requires the APNs token, so the developer writes a custom AppDelegate to bridge. If they hand-type the name from the iOS delegate function signature, they get the wrong name and break the entire push pipeline.
 
@@ -74,16 +74,16 @@ A plain Capacitor app with a stock 49-line AppDelegate (no manual interception) 
 
 Before merging any AppDelegate change that touches push:
 
-1. `grep "capacitorDidRegisterForRemoteNotifications\|CapacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift` — must return at least one hit and that hit must be the `NotificationCenter.default.post` call.
-2. `grep "didRegisterForRemoteNotificationsWithDeviceToken" ios/App/App/AppDelegate.swift` — should only appear in the iOS delegate function signature, NOT in any `NotificationCenter.default.post(name:...)` argument.
-3. `grep "CapacitorStorage\." ios/App/App/AppDelegate.swift` — every `UserDefaults.standard.set(...)` that the JS side polls via Preferences must use this prefix.
+1. `grep "capacitorDidRegisterForRemoteNotifications\|CapacitorDidRegisterForRemoteNotifications" ios/App/App/AppDelegate.swift` - must return at least one hit and that hit must be the `NotificationCenter.default.post` call.
+2. `grep "didRegisterForRemoteNotificationsWithDeviceToken" ios/App/App/AppDelegate.swift` - should only appear in the iOS delegate function signature, NOT in any `NotificationCenter.default.post(name:...)` argument.
+3. `grep "CapacitorStorage\." ios/App/App/AppDelegate.swift` - every `UserDefaults.standard.set(...)` that the JS side polls via Preferences must use this prefix.
 4. After ship: open `/admin/push-debug` on a real device, tap "Force register". Within 5s the `apnsTokenHex`, `firebaseConfigured`, `didRegisterCalled` fields must populate, and the `push_tokens` DB rows section must show at least one entry.
 
 ## Origin
 
 - 17 May 2026 16:30-17:00 AEST. Tate flagged that Co-Exist push notifications "STILL don't work" and that Roam (sister Capacitor app on the same team) was fine.
 - Root cause traced in one pass: AppDelegate posted `Notification.Name(rawValue: "didRegisterForRemoteNotificationsWithDeviceToken")` while the plugin observed `Notification.Name.capacitorDidRegisterForRemoteNotifications` (rawValue `"CapacitorDidRegisterForRemoteNotificationsNotification"`). Single-typo bug, broke every device registration since the Firebase wiring landed at commit `4b1dbf0`.
-- Compounded by the Preferences key-prefix mismatch — AppDelegate wrote bare keys (`fcmToken`, `firebaseConfigured`, `apnsTokenHex`, etc.) while the JS-side push-debug page polled `Preferences.get({ key: 'fcmToken' })` which reads `CapacitorStorage.fcmToken`. The diagnostic UI showed "all unknown" and the FCM token bridge poll silently returned null even when Firebase had actually minted the token.
+- Compounded by the Preferences key-prefix mismatch - AppDelegate wrote bare keys (`fcmToken`, `firebaseConfigured`, `apnsTokenHex`, etc.) while the JS-side push-debug page polled `Preferences.get({ key: 'fcmToken' })` which reads `CapacitorStorage.fcmToken`. The diagnostic UI showed "all unknown" and the FCM token bridge poll silently returned null even when Firebase had actually minted the token.
 - Fix in commit `3860821` ("fix(push): correct NotificationCenter name so Capacitor plugin sees APNs token"), shipped as Co-Exist 1.8.7(7) at 16:59 AEST 17 May 2026. Delivery UUID `4e63e949-f0e7-4a6b-ba24-7cc6612d5921`.
 
 ## Cross-references

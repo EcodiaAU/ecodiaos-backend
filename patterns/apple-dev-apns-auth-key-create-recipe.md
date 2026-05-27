@@ -3,7 +3,7 @@ triggers: macro-recipe, captured-recipe, apple-dev-apns-auth-key-create, apns-au
 capture_method: os-hook-recorder
 captured_at: 2026-05-07T03:13:34.660Z
 flow_slug: apple-dev-apns-auth-key-create
-note: Renamed 7 May 2026 13:22 AEST per Tate correction — captured flow is APNs Auth Key creation/download, NOT bundle-id register (Xcode automatic signing handled bundle-id automatically; no recording needed). Original slug apple-dev-bundle-id-register was a brief-time mislabel.
+note: Renamed 7 May 2026 13:22 AEST per Tate correction - captured flow is APNs Auth Key creation/download, NOT bundle-id register (Xcode automatic signing handled bundle-id automatically; no recording needed). Original slug apple-dev-bundle-id-register was a brief-time mislabel.
 status: untested_spec
 replay_method: uia_or_pixel
 raw_event_count: 12
@@ -18,7 +18,7 @@ session_id: 2026-05-07-1226-wzhn9t
 
 ## Origin
 
-Captured 2026-05-07 ~12:26 AEST during the EOS Mobile iOS-release pipeline setup. Tate hit Ctrl+Shift+R on Corazon, performed the Apple Developer portal flow in Chrome (creating + downloading the EOS Mobile APNs auth key for the registered bundle ID), stopped the recorder. Slug `apple-dev-bundle-id-register` is the per-app one-time-setup arc — bundle ID registration plus the APNs key it needs for push notifications. Captured at 1366x768 Chrome window. Status remains `untested_spec` per `macros-must-be-validated-by-real-run-before-codification.md`; flips to `validated_v1` after a real replay against a fresh app's Apple Dev portal.
+Captured 2026-05-07 ~12:26 AEST during the EOS Mobile iOS-release pipeline setup. Tate hit Ctrl+Shift+R on Corazon, performed the Apple Developer portal flow in Chrome (creating + downloading the EOS Mobile APNs auth key for the registered bundle ID), stopped the recorder. Slug `apple-dev-bundle-id-register` is the per-app one-time-setup arc - bundle ID registration plus the APNs key it needs for push notifications. Captured at 1366x768 Chrome window. Status remains `untested_spec` per `macros-must-be-validated-by-real-run-before-codification.md`; flips to `validated_v1` after a real replay against a fresh app's Apple Dev portal.
 
 ## When to use this
 

@@ -6,15 +6,15 @@ triggers: doctrine-surface-block, recent-doctrine-injection, relevant-memory-inj
 
 ## TOP-LINE INVARIANT
 
-The blocks the backend stitches into the SDK prompt — `<now>`, `<doctrine_surface>`, `<recent_doctrine>`, `<relevant_memory>`, `<forks_rollup>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`, plus the `[SCHEDULED: <task_name>]` prefix added by `schedulerPollerService.fireTask` — are **scaffolding for the conductor**. They are NOT content the human director should ever see in the chat view. Any frontend surface (existing or future) that renders these blocks to Tate's chat is leaking backend plumbing into a human-facing view.
+The blocks the backend stitches into the SDK prompt - `<now>`, `<doctrine_surface>`, `<recent_doctrine>`, `<relevant_memory>`, `<forks_rollup>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`, plus the `[SCHEDULED: <task_name>]` prefix added by `schedulerPollerService.fireTask` - are **scaffolding for the conductor**. They are NOT content the human director should ever see in the chat view. Any frontend surface (existing or future) that renders these blocks to Tate's chat is leaking backend plumbing into a human-facing view.
 
 ## Status today (30 Apr 2026)
 
-**Currently safe — but only by accident, not by design.**
+**Currently safe - but only by accident, not by design.**
 
 - Tate-typed messages: FE adds `addUserMessage(typedContent)` *locally* in `osSessionStore.ts:305-362` with the unstitched typed string. Backend then stitches blocks into the SDK prompt and persists the stitched version to `os_conversation.content`. The FE never re-reads `os_conversation` for chat display.
 - Cron-fire prompts (`source:'scheduler'`): no FE user-card is rendered at all. The cron prompt with `[SCHEDULED: ...]` prefix and `<doctrine_surface>` block lives in `os_conversation` and the SDK prompt only.
-- Queue-mode delivery (`message_queue:delivered`): broadcasts pre-stitch `bodies` from the `message_queue` table — these are clean (no continuity blocks because they were never run through `_sendMessageImpl`'s stitching).
+- Queue-mode delivery (`message_queue:delivered`): broadcasts pre-stitch `bodies` from the `message_queue` table - these are clean (no continuity blocks because they were never run through `_sendMessageImpl`'s stitching).
 
 So the blocks DO live in DB at `os_conversation.content` (stitched verbatim) but are NOT rendered to the chat by any current code path.
 
@@ -49,11 +49,11 @@ When building or modifying any FE surface that displays conversation content:
    - Leading `[HEARTBEAT]` prefix on heartbeat turns
    - `[Pending queued messages delivered opportunistically]` preamble + bodies (queue-drain shape)
 3. **Even with stripping, prefer NOT rendering the user-side of cron-fire / heartbeat / suppressed turns at all.** Those are conductor-internal turns. The breadcrumb logic (`osSessionService.js:2323-2325`) already excludes them from session continuity for the same reason. The chat view should follow suit.
-4. **Add a backend helper, not a FE-only filter, for any new feature.** Put `stripContinuityBlocks` in `src/services/conversationDisplay.js` so any new endpoint or feature that surfaces conversation content can call it. The FE should NEVER do the stripping itself when the source is `os_conversation` rows — that's a backend responsibility because the FE shouldn't be aware of the block shapes.
+4. **Add a backend helper, not a FE-only filter, for any new feature.** Put `stripContinuityBlocks` in `src/services/conversationDisplay.js` so any new endpoint or feature that surfaces conversation content can call it. The FE should NEVER do the stripping itself when the source is `os_conversation` rows - that's a backend responsibility because the FE shouldn't be aware of the block shapes.
 
 ## The chat-view filter (separate concern, separate doctrine)
 
-The current chat-pollution issue (30 Apr 2026) is about `[APPLIED]` / `[NOT-APPLIED]` / `[FORK-NUDGE]` etc. tag lines bleeding into the assistant's `text_delta` stream — that's a DIFFERENT surface than the system injection blocks. See the sibling pattern `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md`. The frontend filter for tag noise is appropriate (FE-side) because the tags appear in `text_delta` events, not in DB-stored content. The block-stripping rule above is appropriate (BE-side) because the blocks live in DB and only leak if a feature reads them back.
+The current chat-pollution issue (30 Apr 2026) is about `[APPLIED]` / `[NOT-APPLIED]` / `[FORK-NUDGE]` etc. tag lines bleeding into the assistant's `text_delta` stream - that's a DIFFERENT surface than the system injection blocks. See the sibling pattern `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md`. The frontend filter for tag noise is appropriate (FE-side) because the tags appear in `text_delta` events, not in DB-stored content. The block-stripping rule above is appropriate (BE-side) because the blocks live in DB and only leak if a feature reads them back.
 
 ## Do
 
@@ -67,7 +67,7 @@ The current chat-pollution issue (30 Apr 2026) is about `[APPLIED]` / `[NOT-APPL
 - Do NOT add a new FE component that renders `os_conversation` rows directly. If the feature is necessary, it gets a stripped backend endpoint.
 - Do NOT build a debug / "show what the conductor saw" panel without explicit stripping. Even debug surfaces leak Tate's view if Tate happens to be looking when a debug overlay is on.
 - Do NOT treat the blocks as "harmless context" the human can scroll past. Tate has flagged chat pollution before (30 Apr 2026); the cost of a dump is real and immediate.
-- Do NOT special-case the stripping for "only show in dev mode" — that's the same trap. Build the helper, use it everywhere, no envelope-of-exceptions.
+- Do NOT special-case the stripping for "only show in dev mode" - that's the same trap. Build the helper, use it everywhere, no envelope-of-exceptions.
 
 ## Verification protocol (when shipping any new conversation-display feature)
 
@@ -97,14 +97,14 @@ All of that, rendered verbatim to Tate, would be a 3-5KB dump per cron fire. The
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md` — sibling rule covering `[APPLIED]` tag pollution in `text_delta` stream. Same root invariant (backend scaffolding never renders to humans), different surface.
-- `~/ecodiaos/patterns/no-retrospective-dumps-in-director-chat.md` — the parent doctrine. Director chat is for actions, decisions, deltas. NOT for backend telemetry, scaffolding, or self-analysis.
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — the visual-verify rule that catches block-leak features at merge time even if doctrine drifts.
-- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` — the architectural framing. `os_conversation` is one substrate; the FE chat view is another; rendering across the seam without an explicit stripping protocol is the seam-failure pattern.
-- `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` — why this rule is being authored pre-emptively before the first leak feature ships, not post-hoc after the leak happens.
+- `~/ecodiaos/patterns/cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md` - sibling rule covering `[APPLIED]` tag pollution in `text_delta` stream. Same root invariant (backend scaffolding never renders to humans), different surface.
+- `~/ecodiaos/patterns/no-retrospective-dumps-in-director-chat.md` - the parent doctrine. Director chat is for actions, decisions, deltas. NOT for backend telemetry, scaffolding, or self-analysis.
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - the visual-verify rule that catches block-leak features at merge time even if doctrine drifts.
+- `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md` - the architectural framing. `os_conversation` is one substrate; the FE chat view is another; rendering across the seam without an explicit stripping protocol is the seam-failure pattern.
+- `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md` - why this rule is being authored pre-emptively before the first leak feature ships, not post-hoc after the leak happens.
 
 ## Origin
 
-**30 Apr 2026 09:25 AEST.** Tate flagged `[APPLIED]` tag pollution in director chat. While auditing the surfaces in scope (audit at `~/ecodiaos/drafts/chat-pollution-audit-2026-04-30.md`), this fork (fork_mokoql7k_e365e9) discovered that the system injection blocks are persisted to `os_conversation.content` verbatim and are currently NOT leaking to the FE only because no code path reads them back. That's not a guarantee — it's a coincidence of which features have been built so far. Codifying the rule now means any future feature is gated by the doctrine + the `stripContinuityBlocks` helper protocol BEFORE the first leak ships.
+**30 Apr 2026 09:25 AEST.** Tate flagged `[APPLIED]` tag pollution in director chat. While auditing the surfaces in scope (audit at `~/ecodiaos/drafts/chat-pollution-audit-2026-04-30.md`), this fork (fork_mokoql7k_e365e9) discovered that the system injection blocks are persisted to `os_conversation.content` verbatim and are currently NOT leaking to the FE only because no code path reads them back. That's not a guarantee - it's a coincidence of which features have been built so far. Codifying the rule now means any future feature is gated by the doctrine + the `stripContinuityBlocks` helper protocol BEFORE the first leak ships.
 
 The rule subsumes the same invariant family as `no-retrospective-dumps-in-director-chat.md` and the sibling `cron-fire-responses-do-not-emit-applied-tags-as-chat-output.md`: backend-internal artefacts (telemetry tags, prompt scaffolding, debug instrumentation) are not for human eyes regardless of their utility to the conductor.

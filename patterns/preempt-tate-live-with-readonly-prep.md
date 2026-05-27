@@ -15,8 +15,8 @@ This is a specialisation of the default-to-action principle: when the row itself
 - Do the read-only dig (invoice history, git log, CRM context, Gmail search, Neo4j query, status_board cross-ref) BEFORE Tate returns
 - Append findings to the row's `context` field with timestamp and explicit hypothesis per item
 - Frame findings as "hypothesis + what-Tate-must-decide" so Tate's cognitive task is approve/reject, not classify-from-scratch
-- Keep `next_action_by='tate'` (or whoever owns the decision) — the prep does NOT shift ownership, only reduces the decision surface
-- Stop at the classification boundary — do not mutate ledger/CRM/client state on the basis of your hypothesis
+- Keep `next_action_by='tate'` (or whoever owns the decision) - the prep does NOT shift ownership, only reduces the decision surface
+- Stop at the classification boundary - do not mutate ledger/CRM/client state on the basis of your hypothesis
 
 ## Do NOT
 

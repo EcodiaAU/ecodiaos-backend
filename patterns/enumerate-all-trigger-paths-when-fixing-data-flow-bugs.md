@@ -21,7 +21,7 @@ Tonight (2026-04-28 23:02 AEST), Tate flagged that PR #8 (the survey-task-cleari
 
 > "But the input came from the microsoft form and is in the sheet now, which should then sync to the db and remove the task shouldnt it? I dont think it is right now."
 
-PR #8 added a SQL trigger on `survey_responses` INSERT/UPDATE that mirrors the JS `syncSurveyImpact` server-side. That covers the survey-via-link path and any future direct survey-row writes. But the actual originating user scenario was Forms→sheet→DB→event_impact via jobid 9 (excel-from-sync Edge Function). That path doesn't write to `survey_responses` — it writes to `events` and `event_impact` directly. The leader_task gate (`usePendingImpactFormTasks`) checks for `event_impact` existence. So the from-excel path SHOULD have cleared the task, but apparently isn't.
+PR #8 added a SQL trigger on `survey_responses` INSERT/UPDATE that mirrors the JS `syncSurveyImpact` server-side. That covers the survey-via-link path and any future direct survey-row writes. But the actual originating user scenario was Forms→sheet→DB→event_impact via jobid 9 (excel-from-sync Edge Function). That path doesn't write to `survey_responses` - it writes to `events` and `event_impact` directly. The leader_task gate (`usePendingImpactFormTasks`) checks for `event_impact` existence. So the from-excel path SHOULD have cleared the task, but apparently isn't.
 
 Two failures in one bug:
 1. **My fix only covered ONE of TWO trigger paths.** survey_responses path was covered; event_impact path was not.
@@ -40,13 +40,13 @@ Before writing a data-flow fix:
    - Backfill / one-shot migration paths.
    - Admin / direct-DB paths.
    - Test-only paths (might want to bypass).
-2. **For each path, write the source table or function name in the brief.** Don't say "the survey path" — say "INSERT INTO survey_responses" OR "Edge Function from-excel writing INSERT INTO event_impact for Forms-canonical events."
+2. **For each path, write the source table or function name in the brief.** Don't say "the survey path" - say "INSERT INTO survey_responses" OR "Edge Function from-excel writing INSERT INTO event_impact for Forms-canonical events."
 3. **Decide which paths the fix covers.** A trigger on table X only covers writes to table X. If the data flows through multiple tables, the fix needs to either:
    - Hook the LATEST common table all paths land in (e.g. trigger on `event_impact` instead of `survey_responses` if both feed into event_impact).
    - Add multiple triggers (one per source).
    - Refactor producers to converge on one canonical write path.
 4. **Verify the LATEST-common-table approach where possible.** Triggering on a downstream table that all producers write to is more robust than shadowing each producer.
-5. **State the path coverage explicitly in the PR body.** "This fix covers paths A and B. Path C is not yet covered — tracked in row X." So the reviewer (Tate, future-you) can see the coverage map.
+5. **State the path coverage explicitly in the PR body.** "This fix covers paths A and B. Path C is not yet covered - tracked in row X." So the reviewer (Tate, future-you) can see the coverage map.
 
 ## Do NOT
 

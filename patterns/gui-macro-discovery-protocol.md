@@ -4,7 +4,7 @@ priority: critical
 canonical: true
 ---
 
-# Before any GUI-driving tool, grep `~/ecodiaos/patterns/` for the target — the recipe is probably already authored
+# Before any GUI-driving tool, grep `~/ecodiaos/patterns/` for the target - the recipe is probably already authored
 
 When the user (or a brief, or an internal plan) names a GUI target ("open macincloud", "drive chrome", "open ASC", "launch the RDP shortcut", "screenshot Tate's Vercel dashboard", "click the Stripe charge"), the FIRST tool call MUST be a grep across `~/ecodiaos/patterns/` for that target keyword. NOT `ssh`, NOT `sshpass`, NOT `cu.*`, NOT `input.*`, NOT `browser.*`, NOT `mouse.*`, NOT `keyboard.*`. The recipe is almost always already authored. Reaching for a low-level GUI primitive before the grep is the failure mode this pattern prevents.
 
@@ -28,7 +28,7 @@ Grep "triggers:" ~/ecodiaos/patterns/ -A 1 | grep -i <target_keyword>
 
 If the grep returns ≥1 hit, READ the matched recipe in full BEFORE the GUI primitive call. If the grep returns 0 hits, then the GUI primitive is the only path, and the work flow becomes "compose primitives, capture the run, author a new recipe per `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`."
 
-## Known GUI targets — keyword → recipe path
+## Known GUI targets - keyword → recipe path
 
 | User-intent keyword(s) | Recipe path | Verified runtime |
 |---|---|---|

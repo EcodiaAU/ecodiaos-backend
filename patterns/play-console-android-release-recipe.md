@@ -2,9 +2,9 @@
 triggers: play-console, google-play-console, android-release, android-upload, capacitor-android, gradle-bundle, aab-upload, signed-app-bundle, play-console-release, ship-android, android-shipping-pipeline, ecodia-android-release, app-bundle-upload, internal-testing, production-release, release-tracks, version-code-bump, gradlew-bundlerelease, capacitor-cap-sync-android, android-studio-build, generate-signed-app-bundle, aab-vs-apk, play-app-signing, upload-key-fingerprint, coexist-android-release, roam-android-release, com.coexistaus.app, ship coexist android, ship roam android, release android build, upload aab, drag-drop aab, play console internal testing, play console production track, fastlane-supply-fallback, play-developer-api, android-versionCode-bump, gradle-signingconfigs, jks-signing, android-deploy, deploy-android-build, play-store-upload
 ---
 
-# Google Play Console Android release recipe — paper authored 6 May 2026 (verification pending)
+# Google Play Console Android release recipe - paper authored 6 May 2026 (verification pending)
 
-> **VERIFICATION PENDING — 6 May 2026.** This recipe is authored from industry-standard knowledge of the Capacitor → Gradle → AAB → Play Console pipeline. No coordinates have been verified against a live Play Console session. On first real Android ship event, the operator MUST update this recipe with: (a) verified screenshot anchors, (b) verified click coordinates at known viewport, (c) actual end-to-end runtime measurement, (d) any failure modes encountered. Until then, treat as informational reference only — operator should expect to deviate where reality diverges from the paper.
+> **VERIFICATION PENDING - 6 May 2026.** This recipe is authored from industry-standard knowledge of the Capacitor → Gradle → AAB → Play Console pipeline. No coordinates have been verified against a live Play Console session. On first real Android ship event, the operator MUST update this recipe with: (a) verified screenshot anchors, (b) verified click coordinates at known viewport, (c) actual end-to-end runtime measurement, (d) any failure modes encountered. Until then, treat as informational reference only - operator should expect to deviate where reality diverges from the paper.
 
 > **Meta-doctrine.** This is a paper-authored worked instance of `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`. The sibling iOS recipe `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` is the verified-end-to-end shape template for this style of release recipe. Read both before authoring or optimising further.
 
@@ -25,21 +25,21 @@ Use this recipe when:
 
 Do NOT use this recipe when:
 
-- The app is not Capacitor-based (the Gradle bundle phase is portable; the Capacitor sync phase is not — re-author the build phase)
-- The change is a Play Console settings mutation (app metadata, store listing, content rating, pricing) — that is outside the release-pipeline scope, drive directly via Play Console GUI without invoking this recipe
+- The app is not Capacitor-based (the Gradle bundle phase is portable; the Capacitor sync phase is not - re-author the build phase)
+- The change is a Play Console settings mutation (app metadata, store listing, content rating, pricing) - that is outside the release-pipeline scope, drive directly via Play Console GUI without invoking this recipe
 - The change is a Play App Signing key upgrade (slow, requires Play support intervention; not a routine release)
 - The build needs to ship without a versionCode bump (Play rejects any AAB whose versionCode is equal to or lower than a previously-uploaded AAB for the same applicationId; bump is mandatory)
 
 ## Pre-flight
 
-> **The build phase (Phase A) runs from inside Terminal — preferably on the VPS where the workspace is canonical, or on Tate's laptop if the VPS environment lacks a JDK/`keytool`. The upload phase (Phase B) runs on Corazon, driving Tate's logged-in Chrome at play.google.com/console via the Tailscale laptop-agent's `input.*` + `screenshot.*` primitives.**
+> **The build phase (Phase A) runs from inside Terminal - preferably on the VPS where the workspace is canonical, or on Tate's laptop if the VPS environment lacks a JDK/`keytool`. The upload phase (Phase B) runs on Corazon, driving Tate's logged-in Chrome at play.google.com/console via the Tailscale laptop-agent's `input.*` + `screenshot.*` primitives.**
 
 Foreground-collision check applies to Phase B. See `~/ecodiaos/patterns/cowork-no-focus-collision.md`. Probe Corazon foreground-window equality before any `input.*` keystroke; defer or fall back if Tate's foreground is the planned Chrome target.
 
 | Requirement | Verification | Per-app variant |
 |---|---|---|
 | App slug + applicationId known | `grep applicationId ~/workspaces/{slug}/android/app/build.gradle` | Co-Exist: `com.coexistaus.app` (verified per build.gradle). Roam: probe `~/workspaces/roam-frontend/android/app/build.gradle` `applicationId` field on first Roam ship. |
-| Keystore present at expected path | `ls ~/workspaces/{slug}/android/app/{slug}-release.jks` (Co-Exist); for Roam, the keystore is currently at workspace root and the signing wiring is incomplete per `~/ecodiaos/docs/secrets/android-keystores.md` "Build wiring drift" — close that gap before first Roam ship | Co-Exist: yes, also committed to git per `git log --oneline -- android/app/coexist-release.jks` → `f56d01b`. Roam: at `~/workspaces/roam-frontend/roam-release.keystore` (workspace root), needs move into `android/app/` per drift note. |
+| Keystore present at expected path | `ls ~/workspaces/{slug}/android/app/{slug}-release.jks` (Co-Exist); for Roam, the keystore is currently at workspace root and the signing wiring is incomplete per `~/ecodiaos/docs/secrets/android-keystores.md` "Build wiring drift" - close that gap before first Roam ship | Co-Exist: yes, also committed to git per `git log --oneline -- android/app/coexist-release.jks` → `f56d01b`. Roam: at `~/workspaces/roam-frontend/roam-release.keystore` (workspace root), needs move into `android/app/` per drift note. |
 | `creds.android.{slug}` row in kv_store with `keystore_b64` populated | `SELECT value::jsonb ? 'keystore_b64' FROM kv_store WHERE key='creds.android.{slug}'` returns `t` | Both slugs backed up 1 May 2026 by `fork_momjmkd0_a850d1`. Verify SHA-256 matches `keystore_sha256` field after restoration. |
 | `creds.android.{slug}.keystore_password` + `creds.android.{slug}.key_password` populated | `SELECT (value::jsonb ->> 'keystore_password') IS NOT NULL FROM kv_store WHERE key='creds.android.{slug}'` returns `t` | **CURRENTLY NULL for both slugs** per `~/ecodiaos/docs/secrets/android-keystores.md` PARTIAL status (status_board row `d51856c1-d0aa-4842-bc8e-40605ab7ee97`). `scripts/release.sh:605-615` Android branch errors at preflight via `require_cred 'creds.android.$SLUG.keystore_password'` until populated. **HARD GATE on first real ship.** |
 | Tate's Chrome on Corazon authenticated to play.google.com/console | After navigation in Phase B, `screenshot.screenshot` shows the Play Console developer dashboard, not the sign-in prompt | If sign-in prompt appears, run the 5-point laptop-route check per `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`; do NOT classify as Tate-required without exhausting the saved-credential / passkey paths first. |
@@ -70,15 +70,15 @@ Resolution: **Likely 1366×768 Corazon RDP fullscreen** (matching iOS recipe con
 | Confirmation dialog **Rollout** button | Modal "Rollout to {track}?" dialog | PENDING | not yet verified |
 | Released-state status indicator | Release dashboard for the chosen track | PENDING | not yet verified |
 
-`<all rows pending — populated on first real ship>`. On first real ship: walk the DOM via `browser.evaluate` accessibility tree if needed, otherwise screenshot + visual locate, capture (X, Y) at the recorded resolution, update this table with date-stamp.
+`<all rows pending - populated on first real ship>`. On first real ship: walk the DOM via `browser.evaluate` accessibility tree if needed, otherwise screenshot + visual locate, capture (X, Y) at the recorded resolution, update this table with date-stamp.
 
 ## Step-by-step procedure
 
-### Phase A — Build the signed AAB
+### Phase A - Build the signed AAB
 
 Phase A runs from inside Terminal on whichever build machine has JDK + Android SDK. Default is the VPS workspace (`~/workspaces/{slug}/`); fallback is Tate's laptop if VPS lacks `keytool`/JDK.
 
-**A.1 — Pull latest source.**
+**A.1 - Pull latest source.**
 
 ```bash
 cd ~/workspaces/{slug}
@@ -87,7 +87,7 @@ git pull origin main
 
 If `git pull` produces non-trivial output (merge conflicts, divergent branches, network failures), HALT the recipe per `~/ecodiaos/patterns/client-code-scope-discipline.md`. Do NOT auto-resolve. Surface a status_board P2 row with the verbatim error and exit.
 
-**A.2 — Web build.**
+**A.2 - Web build.**
 
 ```bash
 npm install
@@ -96,15 +96,15 @@ npm run build
 
 Vite `npm run build` produces `dist/` (Co-Exist) or analogous output. Watch for peer-dep failures or build errors; HALT and surface if either occurs.
 
-**A.3 — Capacitor sync to Android.**
+**A.3 - Capacitor sync to Android.**
 
 ```bash
 npx cap sync android
 ```
 
-Capacitor 7+ uses Gradle (no CocoaPods on Android side; SPM is iOS-only). Plugins resolve via Gradle dependencies. Output may include advisory warnings about plugin compatibility — these do not block the sync.
+Capacitor 7+ uses Gradle (no CocoaPods on Android side; SPM is iOS-only). Plugins resolve via Gradle dependencies. Output may include advisory warnings about plugin compatibility - these do not block the sync.
 
-**A.4 — Restore keystore from kv_store IF not already on disk.**
+**A.4 - Restore keystore from kv_store IF not already on disk.**
 
 The .jks bytes live in `kv_store.creds.android.{slug}.keystore_b64`. Restoration block per `~/ecodiaos/docs/secrets/android-keystores.md`:
 
@@ -121,7 +121,7 @@ sha256sum ~/workspaces/$SLUG/android/app/${SLUG}-release.jks
 
 Co-Exist's keystore is also committed to git (`f56d01b`) so this restoration is usually unnecessary; included for parity with the keystores doc and for slugs whose keystore is NOT committed.
 
-**A.5 — Set keystore env vars from kv_store.**
+**A.5 - Set keystore env vars from kv_store.**
 
 `build.gradle` `signingConfigs.release` block reads passwords from environment. Co-Exist reads `COEXIST_KEYSTORE_PASSWORD` and `COEXIST_KEY_PASSWORD`; mirror per slug.
 
@@ -132,9 +132,9 @@ export ${SLUG_UPPER}_KEYSTORE_PASSWORD=$(psql -At -c "SELECT value::jsonb->>'key
 export ${SLUG_UPPER}_KEY_PASSWORD=$(psql -At -c "SELECT value::jsonb->>'key_password' FROM kv_store WHERE key='creds.android.$SLUG'")
 ```
 
-**Currently NULL — release blocks here per PARTIAL status.** See keystores doc for closure paths. Until passwords ship, A.5 returns empty strings and `./gradlew bundleRelease` fails at signing with a Gradle exception about empty keystore password. Tracked at `status_board` row `d51856c1-d0aa-4842-bc8e-40605ab7ee97`; do not duplicate.
+**Currently NULL - release blocks here per PARTIAL status.** See keystores doc for closure paths. Until passwords ship, A.5 returns empty strings and `./gradlew bundleRelease` fails at signing with a Gradle exception about empty keystore password. Tracked at `status_board` row `d51856c1-d0aa-4842-bc8e-40605ab7ee97`; do not duplicate.
 
-**A.6 — Bump versionCode.**
+**A.6 - Bump versionCode.**
 
 In `~/workspaces/{slug}/android/app/build.gradle`, increment `versionCode` by `+1` at minimum. Optionally also bump `versionName` to mirror the iOS MARKETING_VERSION when shipping a coordinated train.
 
@@ -148,7 +148,7 @@ grep -E 'versionCode|versionName' build.gradle
 
 Per `~/ecodiaos/patterns/client-code-scope-discipline.md`, leave the bump **uncommitted** by default. Tate decides whether to commit + push after upload success.
 
-**A.7 — Build signed AAB.**
+**A.7 - Build signed AAB.**
 
 ```bash
 cd ~/workspaces/{slug}/android
@@ -157,7 +157,7 @@ cd ~/workspaces/{slug}/android
 
 Output lands at `android/app/build/outputs/bundle/release/app-release.aab`. Build time: ~30-90s warm derived data, ~3-5min cold (first-ever build on a fresh machine).
 
-**A.8 — Verify AAB signed (optional, sanity check).**
+**A.8 - Verify AAB signed (optional, sanity check).**
 
 ```bash
 keytool -list -keystore ~/workspaces/{slug}/android/app/{slug}-release.jks -v
@@ -165,7 +165,7 @@ keytool -list -keystore ~/workspaces/{slug}/android/app/{slug}-release.jks -v
 
 Requires JDK with `keytool`. VPS currently lacks one; verify on Tate's laptop or a JDK-installed environment. Compare the SHA-1 fingerprint against the upload-key fingerprint registered in Play Console → Setup → App integrity → App signing.
 
-**A.9 — Locally smoke-test if possible (optional, recommended before first ship).**
+**A.9 - Locally smoke-test if possible (optional, recommended before first ship).**
 
 `bundletool` extract → install on connected device or emulator. Skip on subsequent ships once the pipeline is trusted.
 
@@ -173,15 +173,15 @@ Requires JDK with `keytool`. VPS currently lacks one; verify on Tate's laptop or
 # bundletool build-apks ... ; bundletool install-apks ...
 ```
 
-### Phase B — Upload to Play Console (GUI flow on Corazon, drives Tate's logged-in Chrome)
+### Phase B - Upload to Play Console (GUI flow on Corazon, drives Tate's logged-in Chrome)
 
 Phase B runs on Corazon via the Tailscale laptop-agent. All `input.*` calls are gated by foreground-equality probe per `~/ecodiaos/patterns/cowork-no-focus-collision.md`.
 
-**B.1 — Foreground-collision check.**
+**B.1 - Foreground-collision check.**
 
 Probe Corazon foreground-window equality (Win32 `GetForegroundWindow` + title) via `shell.shell`. If Tate's foreground is the planned Chrome target (or another window he is actively typing into), defer Phase B or fall back to a different window. The laptop-agent CAN drive a Chrome tab while Tate types in another window; the probe is per-tool gating, not human-idle.
 
-**B.2 — Navigate to Play Console.**
+**B.2 - Navigate to Play Console.**
 
 ```bash
 # Open address bar
@@ -198,11 +198,11 @@ curl ... -d '{"tool":"screenshot.screenshot","params":{}}'
 
 If sign-in prompt appears instead of the dashboard, fall back to `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`.
 
-**B.3 — Click app card matching slug.**
+**B.3 - Click app card matching slug.**
 
 Coords PENDING. On first real ship, screenshot the dashboard and click the Co-Exist (or Roam) app card. If multiple apps are listed, filter by name search at the top of the dashboard.
 
-**B.4 — Choose release track via left sidebar.**
+**B.4 - Choose release track via left sidebar.**
 
 Sidebar → **Release** → choose track:
 
@@ -213,24 +213,24 @@ Sidebar → **Release** → choose track:
 
 Default for first ship of a new build: **Internal testing**. Promote to higher tracks after pre-launch report passes and TestFlight-equivalent validation completes.
 
-**B.5 — Click "Create new release".**
+**B.5 - Click "Create new release".**
 
 Coords PENDING. Top-right of the chosen track's release page.
 
-**B.6 — Upload the AAB (drag-drop preferred).**
+**B.6 - Upload the AAB (drag-drop preferred).**
 
 Drag-drop the `app-release.aab` file into the "App bundles and APKs" drop zone. Drag-drop is preferred over the file-picker click-through because:
 - Coords drift across Play Console UI iterations
 - Drag-drop matches the `gui-macro-uses-logged-in-session-not-generated-api-key.md` doctrine (use the user's logged-in session naturally)
 - Faster (one motion, no file picker dialog)
 
-Drag-drop programmatic invocation may require synthesising a drag event via `browser.evaluate` if `input.drag` from the laptop-agent doesn't trigger the Play Console drop handler — verify on first real ship which path works.
+Drag-drop programmatic invocation may require synthesising a drag event via `browser.evaluate` if `input.drag` from the laptop-agent doesn't trigger the Play Console drop handler - verify on first real ship which path works.
 
-**B.7 — Wait for upload + Play-side processing.**
+**B.7 - Wait for upload + Play-side processing.**
 
 Estimated 1-5 min depending on AAB size. Play renders a progress indicator; verify with `screenshot.screenshot` at ~30s intervals. Polling for "Processed" / "Ready" state is preferred over a fixed sleep.
 
-**B.8 — Fill release notes (mandatory).**
+**B.8 - Fill release notes (mandatory).**
 
 Copy from `~/ecodiaos/clients/{slug}.md` "Release notes" section if present. Otherwise terse default:
 
@@ -241,37 +241,37 @@ Copy from `~/ecodiaos/clients/{slug}.md` "Release notes" section if present. Oth
 
 Click into the release-notes textarea (coords PENDING) and `input.type` the contents.
 
-**B.9 — Click "Save".**
+**B.9 - Click "Save".**
 
 Saves the draft release. Required before "Review release" is enabled.
 
-**B.10 — Click "Review release".**
+**B.10 - Click "Review release".**
 
-Play surfaces any policy / pre-launch-report / metadata issues at this step. Address blocking issues; advisory warnings can be acknowledged. If a hard block surfaces (e.g. missing privacy policy URL, missing content rating, sensitive permission gate), HALT and surface a status_board P2 row — do not paper over policy issues.
+Play surfaces any policy / pre-launch-report / metadata issues at this step. Address blocking issues; advisory warnings can be acknowledged. If a hard block surfaces (e.g. missing privacy policy URL, missing content rating, sensitive permission gate), HALT and surface a status_board P2 row - do not paper over policy issues.
 
-**B.11 — Click "Start rollout to {track}".**
+**B.11 - Click "Start rollout to {track}".**
 
 For Production track, this initiates a staged rollout (default 5-20%, ramp managed via Play Console). For testing tracks, this releases immediately to the configured tester list.
 
-**B.12 — Confirm in dialog.**
+**B.12 - Confirm in dialog.**
 
 Modal "Rollout to {track}?" appears; click the **Rollout** confirm button.
 
-**B.13 — Capture deliverable evidence.**
+**B.13 - Capture deliverable evidence.**
 
 `screenshot.screenshot` of the "Released" / "In review" status state. Save to `~/ecodiaos/drafts/{slug}-android-release-runs/run-YYYY-MM-DD-HHMM/release-status.png`.
 
-### Phase C — Post-upload monitoring
+### Phase C - Post-upload monitoring
 
-**C.1 — Pre-launch report.**
+**C.1 - Pre-launch report.**
 
 Play runs an automated test-suite on real devices ~30-60min after upload. Check Play Console → Release → Pre-launch report for crashes, accessibility warnings, performance issues, policy flags. For Co-Exist's first Android ship, the pre-launch report is the highest-value automated signal we get.
 
-**C.2 — Production rollout ramp (Production track only).**
+**C.2 - Production rollout ramp (Production track only).**
 
 For Production: rollout starts at 5-20% of users by default. Stage manually via Play Console → Production → Manage rollout. Pause if crash rate spikes.
 
-**C.3 — Update status_board.**
+**C.3 - Update status_board.**
 
 Insert a status_board row recording the upload (status='uploaded', next_action='monitor pre-launch report', next_action_by='ecodiaos', priority=3) so the meta-loop or morning briefing surfaces the next step naturally.
 
@@ -380,7 +380,7 @@ Conductor-driven steps: **~3 minutes**. External-floor latency: **~3-5 minutes**
 | **[TODO HIGH]** Probe-for-state on Phase B.7 (poll for "Processed" via `browser.evaluate` DOM query) instead of fixed 3-5min sleep | proposed | up to 1-2min on warm Play days |
 | **[TODO HIGH]** Single-shell PowerShell collapse of B.3+B.4+B.5+B.8+B.9 GUI clicks into one .NET SendInput batch | proposed | ~3s round-trip per click × 5 clicks = ~15s |
 | **[TODO LOW]** Pre-warm Gradle daemon by running `./gradlew tasks` after every workspace pull (so first real bundleRelease is warm-not-cold) | proposed | ~2-4min on cold builds |
-| **[INHERENT FLOOR]** Play-side processing (~3-5min per AAB upload) | cannot optimise | — |
+| **[INHERENT FLOOR]** Play-side processing (~3-5min per AAB upload) | cannot optimise | - |
 
 ## Failure modes
 
@@ -408,7 +408,7 @@ Conductor-driven steps: **~3 minutes**. External-floor latency: **~3-5 minutes**
 ## Anti-patterns
 
 - **Do NOT use the service-account API to upload as the default path.** Per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`, Tate's logged-in Chrome session IS the canonical credential. The service account (`creds.google_play_service_account_json`) is fallback only and is currently unprovisioned / demoted per `~/ecodiaos/docs/secrets/_pending-google-play-service-account.md`.
-- **Do NOT skip Internal Testing and ship straight to Production for new Capacitor sync changes.** The pre-launch report is the highest-value automated signal we get on Android, and it runs on every track. Production-direct skips zero process — but new Capacitor sync changes risk regressions worth catching in a low-risk track first.
+- **Do NOT skip Internal Testing and ship straight to Production for new Capacitor sync changes.** The pre-launch report is the highest-value automated signal we get on Android, and it runs on every track. Production-direct skips zero process - but new Capacitor sync changes risk regressions worth catching in a low-risk track first.
 - **Do NOT bump versionCode by +N "to be safe".** Play allows any monotonic increase; +1 is sufficient. Larger jumps consume the version-code namespace faster and provide zero safety benefit.
 - **Do NOT upload the unsigned AAB and let Play sign it.** Play App Signing requires the upload-key-signed bundle as input. Unsigned uploads are rejected. Always sign with the upload key in `signingConfigs.release` block.
 - **Do NOT click through the file picker instead of drag-drop.** Coords drift across Play Console UI iterations. Drag-drop is more stable, faster, and matches the logged-in-session doctrine.
@@ -423,17 +423,17 @@ Conductor-driven steps: **~3 minutes**. External-floor latency: **~3-5 minutes**
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` — meta-doctrine for recipe authoring/optimisation; this recipe is a paper-authored worked instance pending verification
-- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` — sibling iOS release recipe (verified end-to-end ~10min), strongest shape template for this recipe
-- `~/ecodiaos/patterns/cowork-no-focus-collision.md` — foreground-window probe rule, applies to all `input.*` calls in Phase B regardless of substrate
-- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` — doctrine that justifies driving Tate's logged-in Chrome session over generating a Play Developer API service account
-- `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` — current substrate doctrine: Tailscale laptop-agent on Corazon (`input.*` + `screenshot.*` + `shell.shell`) is the default UI-driving path
-- `~/ecodiaos/docs/secrets/android-keystores.md` — `creds.android.{slug}` schema, restoration block, PARTIAL status (passwords pending), build wiring drift for Roam
-- `~/ecodiaos/docs/secrets/_pending-google-play-service-account.md` — service-account JSON status (PENDING and demoted to fallback under the GUI-macro doctrine)
-- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` — 5-point laptop-route check for Phase B sign-in / 2FA fallback
-- `~/ecodiaos/patterns/client-code-scope-discipline.md` — the versionCode bump is the only mutation; left uncommitted; never `git push` from the recipe
-- `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` — coords drift; re-walk on Play Console UI upgrades; first real ship populates the coords table
-- `~/ecodiaos/patterns/code-at-ecodia-au-is-only-google-workspace-and-claude-max.md` — Play developer account lives on `code@ecodia.au` (Google Workspace), do not log into another account
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — "Released" status in Play Console + first install on a real device is the ground-truth confirmation, not just upload-success dialog
-- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` — Corazon's full tool surface (input.*, screenshot.*, shell.shell, etc.) is what Phase B calls
-- `~/ecodiaos/clients/coexist.md` (if exists) — Co-Exist client-specific architecture/contract context
+- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` - meta-doctrine for recipe authoring/optimisation; this recipe is a paper-authored worked instance pending verification
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - sibling iOS release recipe (verified end-to-end ~10min), strongest shape template for this recipe
+- `~/ecodiaos/patterns/cowork-no-focus-collision.md` - foreground-window probe rule, applies to all `input.*` calls in Phase B regardless of substrate
+- `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md` - doctrine that justifies driving Tate's logged-in Chrome session over generating a Play Developer API service account
+- `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` - current substrate doctrine: Tailscale laptop-agent on Corazon (`input.*` + `screenshot.*` + `shell.shell`) is the default UI-driving path
+- `~/ecodiaos/docs/secrets/android-keystores.md` - `creds.android.{slug}` schema, restoration block, PARTIAL status (passwords pending), build wiring drift for Roam
+- `~/ecodiaos/docs/secrets/_pending-google-play-service-account.md` - service-account JSON status (PENDING and demoted to fallback under the GUI-macro doctrine)
+- `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md` - 5-point laptop-route check for Phase B sign-in / 2FA fallback
+- `~/ecodiaos/patterns/client-code-scope-discipline.md` - the versionCode bump is the only mutation; left uncommitted; never `git push` from the recipe
+- `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md` - coords drift; re-walk on Play Console UI upgrades; first real ship populates the coords table
+- `~/ecodiaos/patterns/code-at-ecodia-au-is-only-google-workspace-and-claude-max.md` - Play developer account lives on `code@ecodia.au` (Google Workspace), do not log into another account
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - "Released" status in Play Console + first install on a real device is the ground-truth confirmation, not just upload-success dialog
+- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - Corazon's full tool surface (input.*, screenshot.*, shell.shell, etc.) is what Phase B calls
+- `~/ecodiaos/clients/coexist.md` (if exists) - Co-Exist client-specific architecture/contract context

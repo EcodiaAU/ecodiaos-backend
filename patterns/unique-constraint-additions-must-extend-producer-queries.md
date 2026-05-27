@@ -21,7 +21,7 @@ fallback outcome they need to stop cycling).
 
 1. Constraint added to prevent future duplicates (correct)
 2. Existing INSERT code continues to fire without conflict handling
-3. Constraint blocks the INSERT — violation raised, row caught in try-catch, `errors += 1`
+3. Constraint blocks the INSERT - violation raised, row caught in try-catch, `errors += 1`
 4. Dispatch/record has no row → selected again on next tick → same violation → infinite loop
 5. `errors` counter inflates every run; logs are noisy; the actual state is "stuck"
 
@@ -43,7 +43,7 @@ const ins = await client.query(
 if (ins.rowCount > 0) {
   // Success
 } else {
-  // Conflict fired — handle it explicitly, do NOT just increment skipped.
+  // Conflict fired - handle it explicitly, do NOT just increment skipped.
   // If the row needs to be settled with a fallback state, INSERT that fallback here.
   // Without this, the caller cycles forever because the record still has no row.
   await client.query(
@@ -66,11 +66,11 @@ const dup = await client.query(
    LIMIT 1`,
   [new_value, existing_row_id]
 )
-if (dup.rowCount > 0) continue // Already attributed elsewhere — skip
+if (dup.rowCount > 0) continue // Already attributed elsewhere - skip
 await client.query(`UPDATE table SET col = $1 WHERE id = $2`, [new_value, existing_row_id])
 ```
 
-## The correct pattern (WHERE clause — do NOT over-broaden)
+## The correct pattern (WHERE clause - do NOT over-broaden)
 
 When fixing the WHERE clause that selects candidates for insertion, resist the temptation
 to change a general LEFT JOIN (exclude ALL outcome rows) to a specific LEFT JOIN (exclude

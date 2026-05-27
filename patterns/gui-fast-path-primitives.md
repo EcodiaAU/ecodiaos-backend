@@ -2,7 +2,7 @@
 triggers: gui-fast-path, gui-speed, gui-primitives, fast-gui-flow, gui-optimisation, coord-cache, coord-table, no-spotlight-click, no-dock-discovery, osascript-activate, open-a-app, fewer-verifications, decision-branch-verify, triple-click-unreliable, home-shift-end-select, foreground-collision-auto-probe, sy094-direct-reachability, rdp-redraw-latency, gui-step-budget, fast-path-recipe, sleep-screenshot-tax, dark-pixel-icon-scan, ui-automation-osascript, mac-uia-from-windows, deterministic-text-field-clear
 ---
 
-# GUI fast-path primitives — replace per-keystroke verify with decision-branch verify, replace clicking-discovery with `osascript activate` and `open -a`
+# GUI fast-path primitives - replace per-keystroke verify with decision-branch verify, replace clicking-discovery with `osascript activate` and `open -a`
 
 GUI driving on the SY094 RDP path is dominated by verification overhead and discovery overhead, not actual work. A typical 5-keystroke field edit costs 20-30 seconds wall-clock, of which ~3 seconds is the actual typing and ~25 seconds is screenshot+crop+read+sleep cycles plus dock-icon scanning and Spotlight clicking. The 7 fast-path primitives below are the rules I learned this session (6 May 2026 Co-Exist iOS 1.8(2) release) for collapsing that overhead.
 
@@ -16,7 +16,7 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 
 ## The 7 primitives
 
-### 1. Coord caching — consult the recipe's `*.coords.json` sidecar BEFORE re-scanning
+### 1. Coord caching - consult the recipe's `*.coords.json` sidecar BEFORE re-scanning
 
 **The drift this fixes:** every time I open a Mac dialog, I re-screenshot, re-crop, re-Pillow-scan to find the same coords (Build field, Spotlight, Dock Terminal). Cost: ~5-10 seconds per re-discovery × N actions per session.
 
@@ -31,7 +31,7 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 - Re-Pillow-scan for "Build field y position" if the sidecar already has it.
 - Hard-code coords inline in the recipe markdown without also writing them to the JSON sidecar.
 
-### 2. Verify only at decision branches — not after every keystroke
+### 2. Verify only at decision branches - not after every keystroke
 
 **The drift this fixes:** I screenshot+sleep after every `input.type` and `input.key` even when the next step is sequential and unbranching. RDP redraw + curl + Pillow + Read = ~4-6s minimum per verify, and I do it ~3-5x per field edit.
 
@@ -52,14 +52,14 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 **Do:**
 - Click once to focus the field
 - Send `home` (jumps cursor to start of line)
-- Send `shift+end` (selects from cursor to end of line) — `input.shortcut` with `[shift,end]`
-- THEN type the new value — it overwrites the selection
+- Send `shift+end` (selects from cursor to end of line) - `input.shortcut` with `[shift,end]`
+- THEN type the new value - it overwrites the selection
 - Cross-platform: works on macOS text fields, also on Windows. Deterministic.
 - Alternative for ultra-safe paths: click once to focus, send N backspace keys (N >= max likely content length), then type. Slower but deterministic.
 
 **Do not:**
 - Use triple-click for select-all-on-line. It's unreliable across macOS field types (NSTextField vs NSSecureTextField vs NSComboBox vs Inspector field).
-- Use cmd+a — Cmd does NOT pass through Microsoft RDP. The keystroke arrives as plain `a` and gets typed.
+- Use cmd+a - Cmd does NOT pass through Microsoft RDP. The keystroke arrives as plain `a` and gets typed.
 
 ### 4. Auto-foreground-probe before any input.* sequence
 
@@ -68,11 +68,11 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 **Do:**
 - Before the FIRST input.* call in any sequence, run `verify-fg <target>` (~200ms). If RDP is not foreground, run `rdp-fg.ps1` to switch + verify match=True.
 - Run the probe again after any 30+ second gap (Tate may have alt-tabbed during the gap).
-- The probe IS NOT a screenshot — `screenshot.screenshot` doesn't steal focus and doesn't tell us about foreground. Use `GetForegroundWindow` via PowerShell.
+- The probe IS NOT a screenshot - `screenshot.screenshot` doesn't steal focus and doesn't tell us about foreground. Use `GetForegroundWindow` via PowerShell.
 
 **Do not:**
 - Click first, screenshot after, hope the click landed where intended. That's the failure mode.
-- Run `rdp-fg.ps1` between every keystroke — it's idempotent but the Win32 SwitchToThisWindow does steal focus from Tate if he's in another window. Use only when probe says fg≠target.
+- Run `rdp-fg.ps1` between every keystroke - it's idempotent but the Win32 SwitchToThisWindow does steal focus from Tate if he's in another window. Use only when probe says fg≠target.
 
 ### 5. Replace Spotlight-click with `osascript activate` from Terminal
 
@@ -93,7 +93,7 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 
 ### 6. Replace Dock-icon-discovery with `open -a "AppName"` from Terminal
 
-**The drift this fixes:** On 6 May I used a Pillow dark-pixel scan to find Terminal in the Dock. Worked for Terminal (black square). For Xcode I clicked at the next dark icon and got Android Studio (also a dark icon with similar shape) — wrong app, recovery cycle to escape its launch dialog.
+**The drift this fixes:** On 6 May I used a Pillow dark-pixel scan to find Terminal in the Dock. Worked for Terminal (black square). For Xcode I clicked at the next dark icon and got Android Studio (also a dark icon with similar shape) - wrong app, recovery cycle to escape its launch dialog.
 
 **Do:**
 - Once Terminal is open in RDP, launch any app via:
@@ -105,7 +105,7 @@ Any RDP-mediated GUI flow on SY094 (and by extension any Corazon-driven GUI flow
 
 **Do not:**
 - Click Dock icons by Pillow-coordinate-guessing unless the recipe coord table has a verified entry for that exact icon.
-- Trust dark-pixel scans across icon sets — Android Studio, Apple TV, Terminal, and certain dark-themed apps all match.
+- Trust dark-pixel scans across icon sets - Android Studio, Apple TV, Terminal, and certain dark-themed apps all match.
 
 ### 7. Crop server-side once, no multi-stage round-trips
 
@@ -133,7 +133,7 @@ After applying these primitives to a flow:
 
 - [ ] Coord-cache sidecar consulted (`*.coords.json` for this recipe)
 - [ ] Foreground-probe run, fg=target confirmed
-- [ ] Decision branches identified — verification points planned
+- [ ] Decision branches identified - verification points planned
 - [ ] App activation via `osascript activate` or `open -a`, NOT Spotlight or Dock click
 - [ ] Field edits use home + shift+end + type, NOT triple-click
 - [ ] Crops are pre-positioned to known fields, NOT full-screen
@@ -162,7 +162,7 @@ Cumulative: a single iOS release flow goes from ~12 minutes (with manual recover
 
 - **Coord-discovery dressed as caution**: "let me re-scan to be safe" when the cache has a coord verified 5 minutes ago in the same session = wasted 5 seconds.
 - **Verification theatre**: screenshot+Read after every single tool call to "be sure" without identifying whether the step has a branching outcome. Be sure at the branch, not at every keystroke.
-- **Spotlight muscle memory**: clicking the magnifying glass icon because that's what humans do. We're an agent driving via RDP — the Terminal-osascript path is faster and more reliable.
+- **Spotlight muscle memory**: clicking the magnifying glass icon because that's what humans do. We're an agent driving via RDP - the Terminal-osascript path is faster and more reliable.
 - **Hardcoded coords without sidecar update**: writing `(790, 398)` inline in the recipe markdown but forgetting to populate the `.coords.json` sidecar leaves future sessions re-discovering the same coord.
 
 ## Reachability footnote (6 May 2026)
@@ -178,13 +178,13 @@ Once SY094 is on the tailnet, Worker 3 of the original GUI speed-up plan re-fire
 
 6 May 2026 12:50-12:53 AEST. During the Co-Exist iOS 1.8(2) release flow on SY094 (build field bump, archive, distribute), I observed that ~70% of wall-clock time was verification + discovery overhead, not actual work. The recovery cycles from a triple-click failure (project rename mistake → "2App" → "App" recovery, ~3 minutes) and a Dock-icon misclick (Android Studio instead of Xcode, ~1 minute) made the cost concrete. Tate flagged the slowness explicitly: "we chat about the speed of your gui usage" → "you go ahead and implement everything you need to and can to make your gui usage better. You all out."
 
-Pattern authored on main thread (energy cap rejected the manager fork at the time of writing — see `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`). The accompanying helper scripts (`gui-fast.ps1` on Corazon, `gui-fast` on VPS) and recipe-update sweeps to follow as energy frees up.
+Pattern authored on main thread (energy cap rejected the manager fork at the time of writing - see `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md`). The accompanying helper scripts (`gui-fast.ps1` on Corazon, `gui-fast` on VPS) and recipe-update sweeps to follow as energy frees up.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` — the recipe being optimised; due for an update pass that swaps Spotlight clicks for osascript-activate
-- `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` — RDP entry recipe; due for the same update pass
-- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` — the meta-doctrine that calls for 7-step optimisation; this pattern IS the second worked example
-- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` — the peer paradigm; fast-path primitives are peer-surface compositions
-- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` — the constraint that motivates the Tailscale-on-SY094 reachability path
-- `~/ecodiaos/patterns/gui-step-verify-protocol.md` — step-verify protocol; fast-path's primitive 2 is a refinement (verify at branches, not all steps)
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - the recipe being optimised; due for an update pass that swaps Spotlight clicks for osascript-activate
+- `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - RDP entry recipe; due for the same update pass
+- `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md` - the meta-doctrine that calls for 7-step optimisation; this pattern IS the second worked example
+- `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md` - the peer paradigm; fast-path primitives are peer-surface compositions
+- `~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md` - the constraint that motivates the Tailscale-on-SY094 reachability path
+- `~/ecodiaos/patterns/gui-step-verify-protocol.md` - step-verify protocol; fast-path's primitive 2 is a refinement (verify at branches, not all steps)

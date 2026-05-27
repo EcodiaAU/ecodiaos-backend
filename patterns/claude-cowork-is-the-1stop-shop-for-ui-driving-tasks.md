@@ -4,7 +4,7 @@ priority: critical
 canonical: true
 ---
 
-> **DEPRECATED — 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The canonical replacement is Tailscale laptop-agent (Corazon's `input.*` + `screenshot.*` + `shell.shell` through the laptop-agent HTTP API at `100.114.219.69:7456`) + macro/GUI recipes per `gui-recipes-authoring-optimisation-and-verification.md`. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` for the canonical UI-driving doctrine.
+> **DEPRECATED - 5 May 2026.** Tate has negated Claude Cowork as a UI-driving substrate. The canonical replacement is Tailscale laptop-agent (Corazon's `input.*` + `screenshot.*` + `shell.shell` through the laptop-agent HTTP API at `100.114.219.69:7456`) + macro/GUI recipes per `gui-recipes-authoring-optimisation-and-verification.md`. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` for the canonical UI-driving doctrine.
 
 # [DEPRECATED] Claude Cowork is the 1stop shop for UI-driving tasks - drive it via Ctrl+E + input + screenshot
 

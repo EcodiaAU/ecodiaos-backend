@@ -21,7 +21,7 @@ and 11 May 2026. Tate verbatim 14:07 AEST 11 May 2026: "This can not happen in f
 
 ## The three layers
 
-### Layer 1 — DB uniqueness constraint (installed 2026-05-11)
+### Layer 1 - DB uniqueness constraint (installed 2026-05-11)
 
 Index name: `uq_events_collective_date_title_new`
 Table: `public.events`
@@ -35,7 +35,7 @@ recreate as a full unique index.
 Migration file: `supabase/migrations/20260511030000_event_dupe_prevention.sql`
 Branch: `fix/event-dupe-prevention-2026-05-11` (push SHA 85f0cce)
 
-### Layer 2 — Application-level ON CONFLICT guard
+### Layer 2 - Application-level ON CONFLICT guard
 
 The `syncFromExcel` INSERT path must use `ON CONFLICT DO NOTHING` (or `ON CONFLICT DO UPDATE`)
 on the unique key tuple. This makes the INSERT idempotent: a re-import of the same event
@@ -43,7 +43,7 @@ is a no-op rather than a duplicate row.
 
 Responsibility: Worker B code audit (sibling fork to fork_mp0oo9cz_626123).
 
-### Layer 3 — Daily cron monitor (installed 2026-05-11)
+### Layer 3 - Daily cron monitor (installed 2026-05-11)
 
 Cron name: `coexist-dupe-suspect-check`
 Cron ID: `bad85847-e860-42ca-b1b8-f422ae80388e`
@@ -70,7 +70,7 @@ Silent success (count == 0) is the correct and expected outcome per
 ## Do not
 
 - Do not INSERT events without checking the unique key first (app layer).
-- Do not assume the DB constraint alone is sufficient — the partial index does not
+- Do not assume the DB constraint alone is sufficient - the partial index does not
   cover duplication of pre-constraint rows by new rows.
 - Do not skip the daily cron. If `coexist-dupe-suspect-check` goes silent (no fires at
   all), verify the task is still active in `os_scheduled_tasks`.
@@ -78,8 +78,8 @@ Silent success (count == 0) is the correct and expected outcome per
 ## Uniqueness key choice rationale
 
 Probe run 2026-05-11 against the first 500 events (ordered by `created_at DESC`):
-- `(collective_id, date_start::date, lower(title))` — 171 violation groups
-- `(collective_id, date_start::date)` alone — 173 violation groups
+- `(collective_id, date_start::date, lower(title))` - 171 violation groups
+- `(collective_id, date_start::date)` alone - 173 violation groups
 
 Same-day multi-event per collective IS possible (two different events same day) so
 `(collective_id, date_start::date)` alone is too narrow. Adding `lower(title)` reduces
@@ -98,11 +98,11 @@ avoid the VOLATILE cast problem (`timestamptz::date` depends on session timezone
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/excel-sync-collectives-migration.md` — the import path that
+- `~/ecodiaos/patterns/excel-sync-collectives-migration.md` - the import path that
   generates the events being constrained
-- `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md` — why synthetic
+- `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md` - why synthetic
   rows must not feed back into the source sheet
-- `~/ecodiaos/patterns/enumerate-all-trigger-paths-when-fixing-data-flow-bugs.md` —
+- `~/ecodiaos/patterns/enumerate-all-trigger-paths-when-fixing-data-flow-bugs.md` -
   all paths that INSERT events must be audited, not just the obvious one
-- `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md` —
+- `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md` -
   silent exit on clean count is correct for the daily monitor

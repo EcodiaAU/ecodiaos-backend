@@ -19,7 +19,7 @@ Observed frequency: every 3-14 minutes on a bad afternoon. `os_incidents` showed
 ## Do
 
 - Keep grace-timer behind `SDK_ABORT_GRACE_EXIT_ENABLED` env flag. Default FALSE.
-- Log-only mode: `logger.warn('SDK_ABORT_GRACE_EXPIRED — exit suppressed')`, clear `_abortInProgress`, continue.
+- Log-only mode: `logger.warn('SDK_ABORT_GRACE_EXPIRED - exit suppressed')`, clear `_abortInProgress`, continue.
 - Before ever turning the flag to true, reproduce a genuine wedge (a syscall that ignores AbortController) in a test environment, prove the abort does not propagate, AND confirm the process is not serving any live chat.
 - On any inactivity_timeout / empty_sdk_stream / turn_watchdog event, the turn-level recovery (retry with fresh session_id, context_reset breadcrumb, auto-wake) MUST be the primary path. Process recycle is a nuclear last resort, not a default.
 - Run PM2 with restart counter visible - if `ecodia-api restarts` climbs by >2 per hour, assume the grace timer or another exit path has re-armed itself. Investigate immediately.

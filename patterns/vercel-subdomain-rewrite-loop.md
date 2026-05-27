@@ -33,7 +33,7 @@ The page redirect was probably written assuming the user hit `/some-route` direc
 
 ## Diagnostic protocol
 
-1. `curl -sI https://broken.tld/` — look for `x-matched-path` header. If it differs from the request path, middleware is rewriting.
+1. `curl -sI https://broken.tld/` - look for `x-matched-path` header. If it differs from the request path, middleware is rewriting.
 2. Check Vercel project domains: `curl -H "Authorization: Bearer $VT" https://api.vercel.com/v9/projects/<project>/domains`
 3. Read the project's `middleware.ts` for hostname-based rewrites.
 4. Read the page handler at the matched path for `redirect()` / `permanentRedirect()` calls.
@@ -43,11 +43,11 @@ The page redirect was probably written assuming the user hit `/some-route` direc
 1. **Remove the domain binding** (`DELETE /v9/projects/<project>/domains/<domain>`). Cleanest if the subdomain isn't actually intended to serve content. Returns 404 DEPLOYMENT_NOT_FOUND, no loop. DNS unaffected.
 2. **Fix the page handler.** Remove the `redirect('/')` or make it conditional on hostname. Requires code change + deploy.
 3. **Fix the middleware.** Don't rewrite if the request would loop. Requires code change + deploy.
-4. **Vercel domain-level redirect** (`PATCH .../domains/<domain>` with `redirect: "https://target", redirectStatusCode: 308`). NOTE: Vercel rejects targets that are themselves on the same project ("Unable to redirect to X, because that domain is not added to the project" — misleading error). Useful only when redirecting to a domain on a DIFFERENT Vercel project or external host.
+4. **Vercel domain-level redirect** (`PATCH .../domains/<domain>` with `redirect: "https://target", redirectStatusCode: 308`). NOTE: Vercel rejects targets that are themselves on the same project ("Unable to redirect to X, because that domain is not added to the project" - misleading error). Useful only when redirecting to a domain on a DIFFERENT Vercel project or external host.
 
 ## Vercel API quirks worth remembering
 
-- The `redirect` field on a domain only works for targets that are NOT bound to the same project. The error message is misleading — it says "not added to the project" when the truth is "this combination isn't allowed."
+- The `redirect` field on a domain only works for targets that are NOT bound to the same project. The error message is misleading - it says "not added to the project" when the truth is "this combination isn't allowed."
 - `DELETE /v9/projects/<project>/domains/<domain>` returns `{}` on success and detaches the domain. DNS records are untouched.
 - The `x-matched-path` response header is the single most useful diagnostic for Vercel routing weirdness. Always check it first.
 

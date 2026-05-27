@@ -6,7 +6,7 @@ triggers: drift-audit-slice-query, status-board-row-dump-token-cap, drift-audit-
 
 ## Rule
 
-When `status_board` (or any audited table) has more than ~50 active rows, the drift audit MUST use **slice-queries by red-flag category** — count of stale-7d, p1p2-stale-14d, monitor-rows, tate-blocked-high-pri, priority distribution — and NOT a full `SELECT * ... ORDER BY priority` row dump.
+When `status_board` (or any audited table) has more than ~50 active rows, the drift audit MUST use **slice-queries by red-flag category** - count of stale-7d, p1p2-stale-14d, monitor-rows, tate-blocked-high-pri, priority distribution - and NOT a full `SELECT * ... ORDER BY priority` row dump.
 
 Two reasons:
 
@@ -51,7 +51,7 @@ Always `LIMIT 30`. If a category produces more than 30 hits, that itself is a fi
 - Run the slice-query FIRST when the board exceeds ~50 active rows. Use the count results to decide which red-flag categories warrant drill-down.
 - Drill down on each red-flag category with `LIMIT 30` and a category-specific `WHERE`.
 - Generalise the technique to any large table where the audit asks categorical questions: `cc_sessions` (sessions completed, sessions stuck >1h, sessions with confidence <0.4), `os_scheduled_tasks` (silent-failed crons last 24h), `os_forks` (phantom-bailed forks last hour). Slice-query the survey, drill-down the row inspection.
-- When drill-down rows surface a row that needs forking later, write a P3 status_board row capturing the work — do not inline the work into a meta-loop fire.
+- When drill-down rows surface a row that needs forking later, write a P3 status_board row capturing the work - do not inline the work into a meta-loop fire.
 
 ## Do not
 

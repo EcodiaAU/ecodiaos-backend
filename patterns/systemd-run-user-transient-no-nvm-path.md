@@ -11,7 +11,7 @@ triggers: systemd-run, systemd-run-user, transient-unit, transient-timer, --on-a
 ## Symptom
 
 ```
-Ã— ecodia-api-restart-classifier-fix-2026-05-09.service - "pm2 restart ecodia-api"
+Ã- ecodia-api-restart-classifier-fix-2026-05-09.service - "pm2 restart ecodia-api"
    Loaded: loaded (transient)
      Active: failed (Result: exit-code) since ...
    Duration: 10ms

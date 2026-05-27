@@ -2,7 +2,7 @@
 triggers: gui-recipe, recipe-authoring, recipe-optimisation, recipe-verification, ui-automation-recipe, fast-path-recipe, gui-flow-codify, end-to-end-timing, baseline-before-tune, programmatic-mutation-primary, pixel-click-fallback, enum-tree-before-guessing-coords, probe-for-state, fixed-sleep-vs-probe, failed-attempts-must-be-codified, gui-anatomy, recipe-anatomy, gui-fast-path, recipe-index, computer-use, computer-use-api, vision-grounded-clicks, path-a-vs-path-b, first-run-authoring-driver, recorded-macro-vs-computer-use, anthropic-computer-use-tool, author a gui recipe, write a gui recipe, codify a gui flow, verify a gui recipe, optimise a gui recipe, 10-section recipe, how do i write a recipe, new recipe, document a gui flow
 ---
 
-> **NOTE — 5 May 2026.** Cowork is deprecated as the primary UI-driving substrate. The substrate selection table below originally listed Cowork as the default first-run driver for logged-in webapp flows. This is superseded by the direct Tailscale laptop-agent path via `input.*` + `screenshot.*` + `shell.shell` composed as macro/GUI recipes. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. Cowork-via-Claude-Desktop remains a fallback option for specific hard-to-reach UI surfaces, but is no longer the default.
+> **NOTE - 5 May 2026.** Cowork is deprecated as the primary UI-driving substrate. The substrate selection table below originally listed Cowork as the default first-run driver for logged-in webapp flows. This is superseded by the direct Tailscale laptop-agent path via `input.*` + `screenshot.*` + `shell.shell` composed as macro/GUI recipes. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. Cowork-via-Claude-Desktop remains a fallback option for specific hard-to-reach UI surfaces, but is no longer the default.
 
 # GUI recipes - authoring, optimisation, and verification
 
@@ -55,13 +55,13 @@ Mandate: every recipe's verification protocol section (or a sub-table inside the
 | Step | Pre-verify (must hold before action) | Action | Post-verify (must hold within budget) | Budget |
 |---|---|---|---|---|
 
-See `~/ecodiaos/patterns/gui-step-verify-protocol.md` for the canonical protocol — sections (A) pre-step verify, (B) post-step verify, (C) time budget, (D) foreground-recovery sub-protocol, (E) cropped visual-diff verification, (F) step-drive loop template. The first worked instance is the per-step verify table in `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` (Step verification protocol section). New recipes must follow that shape; existing recipes must add the per-step table on next re-verification pass.
+See `~/ecodiaos/patterns/gui-step-verify-protocol.md` for the canonical protocol - sections (A) pre-step verify, (B) post-step verify, (C) time budget, (D) foreground-recovery sub-protocol, (E) cropped visual-diff verification, (F) step-drive loop template. The first worked instance is the per-step verify table in `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` (Step verification protocol section). New recipes must follow that shape; existing recipes must add the per-step table on next re-verification pass.
 
 Origin (6 May 2026, ~5min flail driving the MIC RDP recipe): the recipe's outer verification ("screenshot Finder visible") was correct but never reached because the inner steps chained blindly when Tate held foreground in another app. Pre/post per-step verify catches the Z-buried-dialog failure mode in <500ms; without it the conductor wasted ~5 minutes on chained focus-steal tricks.
 
 ## The 5-step authoring workflow (first run of a new recipe)
 
-1. **Walk before guessing.** Run UI Automation enumeration on the target window or dialog. Get exact `BoundingRectangle` X/Y/W/H for every interactive element. Do not pixel-hunt by trial-and-error. **If UIA returns nothing for the load-bearing controls (XAML / Canvas / DirectComposition / browser-rendered): switch first-run authoring driver to Computer Use (Path B) instead of conductor verify-then-click — see substrate selection below.**
+1. **Walk before guessing.** Run UI Automation enumeration on the target window or dialog. Get exact `BoundingRectangle` X/Y/W/H for every interactive element. Do not pixel-hunt by trial-and-error. **If UIA returns nothing for the load-bearing controls (XAML / Canvas / DirectComposition / browser-rendered): switch first-run authoring driver to Computer Use (Path B) instead of conductor verify-then-click - see substrate selection below.**
 2. **Identify the programmatic surface.** For each load-bearing element, query its supported patterns: `WindowPattern`, `TogglePattern`, `InvokePattern`, `ValuePattern`, `SelectionPattern`, `ExpandCollapsePattern`. If a pattern is exposed, programmatic mutation is the primary path; pixel-click is the fallback.
 3. **Run the recipe live with timing instrumentation.** Bash `date +%s.%N` before and after each phase. Capture a baseline end-to-end time. Numbers, not vibes.
 4. **Capture failures explicitly.** When a click misses, when a sleep is too short, when a coord is off, when a programmatic call throws "Unsupported Pattern" - record the symptom, the cause once known, and the working fix. Future-you reads these breadcrumbs before retrying.
@@ -74,9 +74,9 @@ GUI flows have three viable first-run authoring drivers. Pick by target characte
 | Driver | When to use first-run | Codified output | Cost / latency |
 |---|---|---|---|
 | **UI Automation tree walk + pattern mutation** (Tier 0/1) | Target exposes UIA properties for every load-bearing element | Recipe with programmatic-mutation primary, pixel-click fallback | Free, ~50-100ms per click |
-| **Path B — Anthropic Computer Use API** | Target has XAML/Canvas/DirectComposition/browser-rendered controls UIA cannot see, AND flow is novel (no recorded macro yet exists) | Click sequence captured during the validated run; Phase 3 of the Computer Use spec auto-exports to a Path A recorded macro | ~$0.02-0.10/click on Sonnet 4.6, ~3-8s per turn |
-| **Path A — recorded macro (Path A)** | Recipe is already validated end-to-end; we are encoding the proven sequence for fast replay | Single-shell PowerShell / shell script with batched action sequence | Free, ~50ms per click batched |
-| **Conductor verify-then-click** (Tier 5) | Fallback when Computer Use is unavailable (rate-limited, cost-capped, beta header rejected) | Should not be codified — it is the slow default we are trying to replace | ~$0.10-0.20/click and 3+ screenshots per click |
+| **Path B - Anthropic Computer Use API** | Target has XAML/Canvas/DirectComposition/browser-rendered controls UIA cannot see, AND flow is novel (no recorded macro yet exists) | Click sequence captured during the validated run; Phase 3 of the Computer Use spec auto-exports to a Path A recorded macro | ~$0.02-0.10/click on Sonnet 4.6, ~3-8s per turn |
+| **Path A - recorded macro (Path A)** | Recipe is already validated end-to-end; we are encoding the proven sequence for fast replay | Single-shell PowerShell / shell script with batched action sequence | Free, ~50ms per click batched |
+| **Conductor verify-then-click** (Tier 5) | Fallback when Computer Use is unavailable (rate-limited, cost-capped, beta header rejected) | Should not be codified - it is the slow default we are trying to replace | ~$0.10-0.20/click and 3+ screenshots per click |
 
 **Default first-run driver for novel desktop / RDP flows:** Path B (Computer Use). Validated runs auto-export to Path A for next-time replay (per Phase 3 of the Computer Use integration spec).
 

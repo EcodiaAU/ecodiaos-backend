@@ -10,7 +10,7 @@ Recurring failure class. Every time `npm run build` is used instead of the Capac
 
 **NEVER run bare `npm run build` before `npx cap sync ios`/`npx cap sync android` on a Capacitor project.** Always use the dedicated native build script which sets the `CAPACITOR_BUILD=true` env var.
 
-For Co-Exist: `npm run build:ios` or `npm run build:android` — these are defined in package.json and handle the flag correctly.
+For Co-Exist: `npm run build:ios` or `npm run build:android` - these are defined in package.json and handle the flag correctly.
 
 ## Do
 
@@ -25,14 +25,14 @@ npm run build:android  # = CAPACITOR_BUILD=true npm run build && npx cap sync an
 ## Do NOT
 
 ```bash
-npm run build          # produces /assets/... absolute paths — web-only
+npm run build          # produces /assets/... absolute paths - web-only
 npx cap sync ios       # copies broken absolute-path dist/ into iOS bundle
 # result: white screen on device
 ```
 
 ## Why
 
-Vite's `base` config controls whether asset URLs are root-absolute (`/assets/...`) or relative (`./assets/...`). Root-absolute paths work on Vercel/web where there is an HTTP server. In a Capacitor WKWebView on iOS, the app bundle is served from a custom URL scheme (`coexist://localhost`) or file system. Without a real HTTP server at `/`, absolute paths resolve to nothing — the JS bundle silently fails to load and the WebView renders a white screen.
+Vite's `base` config controls whether asset URLs are root-absolute (`/assets/...`) or relative (`./assets/...`). Root-absolute paths work on Vercel/web where there is an HTTP server. In a Capacitor WKWebView on iOS, the app bundle is served from a custom URL scheme (`coexist://localhost`) or file system. Without a real HTTP server at `/`, absolute paths resolve to nothing - the JS bundle silently fails to load and the WebView renders a white screen.
 
 The `vite.config.ts` toggle:
 ```js
@@ -74,9 +74,9 @@ unzip -p /tmp/my-app.ipa "Payload/App.app/public/index.html" | grep "src="
 - Build script: `npm run build:ios` in `~/Desktop/projects/coexist/package.json`
 - `.env.production` is present on SY094 at `~/Desktop/projects/coexist/.env.production`
 - Correct build produces `./assets/index-*.js` in `dist/index.html`
-- Archive uses `-project App.xcodeproj` (NOT `-workspace` — Co-Exist uses SPM, not CocoaPods)
+- Archive uses `-project App.xcodeproj` (NOT `-workspace` - Co-Exist uses SPM, not CocoaPods)
 - Keychain for SSH-headless archive: `security unlock-keychain -p "$PW" ~/Library/Keychains/login.keychain-db && security set-keychain-settings -lut 7200 ~/Library/Keychains/login.keychain-db` BEFORE xcodebuild
-- Do NOT pass `CODE_SIGN_STYLE=Automatic` to xcodebuild — conflicts with the manual "Ecodia Code" provisioning profile in the pbxproj
+- Do NOT pass `CODE_SIGN_STYLE=Automatic` to xcodebuild - conflicts with the manual "Ecodia Code" provisioning profile in the pbxproj
 
 ## Archive command (SSH-headless, Co-Exist)
 
@@ -94,7 +94,7 @@ xcodebuild -project App.xcodeproj -scheme App -configuration Release \
 
 ## Prior occurrences
 
-- 1.8.6(4) — 13 May 2026: build run without `CAPACITOR_BUILD=true` via a prior fork that called bare `npm run build`. White screen on Tate's device. Fixed in 1.8.6(5) by running `npm run build:ios`. Delivery UUID: `f45a96ac-f0a9-4b67-bad2-eec7bedc23c7`.
+- 1.8.6(4) - 13 May 2026: build run without `CAPACITOR_BUILD=true` via a prior fork that called bare `npm run build`. White screen on Tate's device. Fixed in 1.8.6(5) by running `npm run build:ios`. Delivery UUID: `f45a96ac-f0a9-4b67-bad2-eec7bedc23c7`.
 - "Blank page fix: LIVE" in `~/ecodiaos/clients/coexist.md` refers to the same class (git commit `49f674a fix(vite): set base path so SPA routes /events/new and /admin/* render correctly`).
 
 ## Origin
@@ -103,7 +103,7 @@ Tate verbatim 15:05 AEST 13 May 2026: "build 4 on my phone is just showing a whi
 
 ## Cross-references
 
-- `~/ecodiaos/clients/coexist.md` — build workflow section, "Pre-Build Checklist"
-- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` — full Co-Exist iOS release recipe
-- `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` — SSH-headless keychain unlock pattern
-- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` — always verify IPA contents before upload
+- `~/ecodiaos/clients/coexist.md` - build workflow section, "Pre-Build Checklist"
+- `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - full Co-Exist iOS release recipe
+- `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` - SSH-headless keychain unlock pattern
+- `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md` - always verify IPA contents before upload

@@ -12,7 +12,7 @@ The pipeline is mandatory for: [redacted] (`[redacted]/be`, `[redacted]/fe`), Co
 
 Run these in order. If any step fails, do not push. Fix the branch first.
 
-### Step 1 — Scope gate: `git diff --stat origin/<base>..HEAD`
+### Step 1 - Scope gate: `git diff --stat origin/<base>..HEAD`
 
 List every changed file. For each file ask, out loud:
 
@@ -22,7 +22,7 @@ List every changed file. For each file ask, out loud:
 
 "It seemed like a good idea while I was in there" is a failure mode. Clients experience unscoped changes as hostile, even when they're technically improvements.
 
-### Step 2 — Risk classification on every changed file
+### Step 2 - Risk classification on every changed file
 
 Tag each changed file with one of:
 
@@ -38,17 +38,17 @@ Tag each changed file with one of:
 
 Anything tagged `pipeline`, `db-schema`, or `infra` triggers Step 4.
 
-### Step 3 — Provenance check for surprising changes
+### Step 3 - Provenance check for surprising changes
 
 For each non-trivial change that a reviewer might flag as "wait, why is this here?", write a one-line note:
 
-> `file.path` — requested by `<reviewer> comment #<id>` / `<ticket>` / `implied by <instruction>`
+> `file.path` - requested by `<reviewer> comment #<id>` / `<ticket>` / `implied by <instruction>`
 
 Keep this list. If the PR description doesn't already cover it, paste it as the top section of the PR description. Make the reviewer's job trivial.
 
 **Critical rule: "A reviewer asked for it inline" is NOT sufficient provenance for a pipeline or db-schema change.** Inline review comments on an unrelated PR are feedback, not tickets. Pipeline and schema changes need their own ticket, their own rollout plan, and their own PR. See Step 4.
 
-### Step 4 — Rollout plan for pipeline / db-schema / infra
+### Step 4 - Rollout plan for pipeline / db-schema / infra
 
 If Step 2 flagged anything at `pipeline`, `db-schema`, or `infra`, the change is **not push-ready** until there's a written rollout plan that answers all of:
 
@@ -61,19 +61,19 @@ If Step 2 flagged anything at `pipeline`, `db-schema`, or `infra`, the change is
 
 If any of these is unanswered, the change is not ready for a feature PR. Pull the change off the branch, open a separate ticket with the rollout plan, and ship the feature PR without it.
 
-**Real example — [redacted] PR 212, Apr 2026.** Eugene's inline comment asked to swap `prisma db push` → `prisma migrate deploy` and add a baseline migration. This is a `pipeline` + `db-schema` change. The correct response was:
+**Real example - [redacted] PR 212, Apr 2026.** Eugene's inline comment asked to swap `prisma db push` → `prisma migrate deploy` and add a baseline migration. This is a `pipeline` + `db-schema` change. The correct response was:
 
 > "Agreed this is a good direction. I'll keep it out of this PR and open a separate ticket with the rollout plan (run `prisma migrate resolve --applied 00000000000000_baseline` on UAT and prod, verify `_prisma_migrations` state, then merge the pipeline swap). That way the auth work here can ship on its own timeline."
 
 Instead we shipped it in the feature PR. Eugene later reversed his position and called the changes "unplanned, unreviewed." The revert cost half a day and some trust.
 
-### Step 5 — Em-dash and voice sweep
+### Step 5 - Em-dash and voice sweep
 
-`git diff origin/<base>..HEAD | grep -n '—'` → must be empty. No em-dashes in any file we touch, including commit messages and PR descriptions. Hyphens with spaces, or restructure.
+`git diff origin/<base>..HEAD | grep -n '-'` → must be empty. No em-dashes in any file we touch, including commit messages and PR descriptions. Hyphens with spaces, or restructure.
 
 Same sweep for `X, not Y` rhetorical constructions in any README / PR-description prose we're writing.
 
-### Step 6 — Final hostile-reviewer filter
+### Step 6 - Final hostile-reviewer filter
 
 Read the `git diff --stat` one more time, pretending to be the most aggressive reviewer on the team. Ask:
 
@@ -81,18 +81,18 @@ Read the `git diff --stat` one more time, pretending to be the most aggressive r
 - Could anything be called "scope creep" or "drive-by refactor"?
 - Is there any file in the diff that a reviewer would open and say "why is this in this PR"?
 
-If the answer to any is yes — even if the change is technically correct, even if a reviewer verbally asked for it — rework the branch.
+If the answer to any is yes - even if the change is technically correct, even if a reviewer verbally asked for it - rework the branch.
 
-### Step 7 — Reproduce the client's CI gauntlet locally
+### Step 7 - Reproduce the client's CI gauntlet locally
 
 Read the client's CI config (`bitbucket-pipelines.yml`, `.github/workflows/`, `.gitlab-ci.yml`) and run the exact commands on the exact Node version locally before pushing. Do not assume passes. Capture exit codes.
 
-**[redacted] (`[redacted]/be`) specifically** — reproduce their PR gauntlet:
+**[redacted] (`[redacted]/be`) specifically** - reproduce their PR gauntlet:
 
 ```bash
 cd ~/workspaces/[redacted]/be
 git fetch origin <base-branch>
-# Trap 1 — VPS has NODE_ENV=production by default. That silently skips
+# Trap 1 - VPS has NODE_ENV=production by default. That silently skips
 # devDeps (eslint, jest, nest CLI, prisma client generator). yarn install
 # will say "Done" but the binaries will not exist.
 export NODE_ENV=development
@@ -104,7 +104,7 @@ yarn lint                         # must be exit 0
 yarn test                         # must be exit 0
 yarn build                        # must be exit 0
 node_modules/.bin/tsc --noEmit    # belt-and-braces type check (not in their CI)
-git diff <base-branch>..HEAD | grep '—' && echo 'EM-DASH FOUND - fix before push'
+git diff <base-branch>..HEAD | grep '-' && echo 'EM-DASH FOUND - fix before push'
 git merge-tree <base-branch> HEAD | grep -E '^<<<<<<<|^=======' && echo 'MERGE CONFLICT - rebase before push'
 ```
 
@@ -112,7 +112,7 @@ All of those must be exit 0 / empty grep before the push. If any step fails, the
 
 **Also read before push:** every open comment thread on the PR from every reviewer. Not just the latest. If a previous comment asked for something and it was done, verify it's still done. If a comment is ambiguous, classify it before pushing. Never push believing "Eugene said do X so I did X" without a direct-quote receipt pulled from the Bitbucket API (`GET /repositories/<ws>/<repo>/pullrequests/<id>/comments`).
 
-### Step 8 — Only now: push
+### Step 8 - Only now: push
 
 ```
 git push origin <branch>
@@ -137,7 +137,7 @@ Then:
 - Ship schema migrations in a feature PR unless the feature IS the schema change.
 - Assume that "reviewer asked for it inline" = "reviewer will defend it politically two days later."
 - Push to a client remote without running Steps 1-6.
-- Use `prisma db push` on any repo that has migration history. Use `prisma migrate deploy`. But if the existing repo uses `db push`, do not flip it in a feature PR — that's a separate rollout.
+- Use `prisma db push` on any repo that has migration history. Use `prisma migrate deploy`. But if the existing repo uses `db push`, do not flip it in a feature PR - that's a separate rollout.
 
 ## Verification after each push
 
@@ -150,7 +150,7 @@ After `git push`, before moving on:
 
 ## Origin
 
-Apr 23 2026. [redacted] PR 212 (`feat/cognito-be-integration`). Eugene's inline review comment on Apr 20 (id 785397745) explicitly requested three infra changes: add migrations support ("Which is a good idea"), swap `prisma db push` to `prisma migrate deploy` in `bitbucket-pipelines.yml`, and update the `README.md`. We shipped exactly what he asked, with a documented baseline migration (`04332ee`, tested against a UAT clone for P3005). Two days later (Apr 23, comment id 786876526) Eugene reversed his position and called the changes "unplanned, unreviewed infrastructure changes that were not part of this task." The reversal was dishonest about provenance but operationally correct — flipping a live-prod pipeline from `db push` to `migrate deploy` needs a coordinated `prisma migrate resolve --applied` on both databases before the pipeline change lands, which is staged rollout, not a feature PR. Revert (`24ab453`) landed Apr 23 ~14:34 AEST.
+Apr 23 2026. [redacted] PR 212 (`feat/cognito-be-integration`). Eugene's inline review comment on Apr 20 (id 785397745) explicitly requested three infra changes: add migrations support ("Which is a good idea"), swap `prisma db push` to `prisma migrate deploy` in `bitbucket-pipelines.yml`, and update the `README.md`. We shipped exactly what he asked, with a documented baseline migration (`04332ee`, tested against a UAT clone for P3005). Two days later (Apr 23, comment id 786876526) Eugene reversed his position and called the changes "unplanned, unreviewed infrastructure changes that were not part of this task." The reversal was dishonest about provenance but operationally correct - flipping a live-prod pipeline from `db push` to `migrate deploy` needs a coordinated `prisma migrate resolve --applied` on both databases before the pipeline change lands, which is staged rollout, not a feature PR. Revert (`24ab453`) landed Apr 23 ~14:34 AEST.
 
 The lesson is not "Eugene is unreliable" (although he is, for this project). The lesson is: **pipeline and schema changes never belong in a feature PR, regardless of who asked for them inline.** The correct response to "also add a migration and swap the pipeline" on a feature PR is always "good call, separate PR."
 

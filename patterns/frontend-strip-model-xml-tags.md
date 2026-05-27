@@ -31,7 +31,7 @@ Either is a polish failure. Fix it once, in one place, applied to the streaming 
 - Do not strip the tag list everywhere globally (e.g. in storage, in the database). The raw model output is useful for debugging and replay. Sanitise at render time only.
 - Do not dispatch a second Factory session against `ecodiaos-frontend` while another is running on the same codebase. See `serialise-factory-dispatches-on-shared-codebase.md`.
 
-## Protocol — when adding a new scaffold tag
+## Protocol - when adding a new scaffold tag
 
 1. Add the tag name to the constant in `TextBlock.tsx`.
 2. Build the frontend locally and verify the tag is no longer visible in chat.

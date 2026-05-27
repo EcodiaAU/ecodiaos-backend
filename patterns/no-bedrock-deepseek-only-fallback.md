@@ -28,8 +28,8 @@ The provider priority is exactly three tiers, in this order:
 - Do NOT set `CLAUDE_CODE_USE_BEDROCK=1` in any session env.
 - Do NOT add `bedrock_fallback` to alert types or send `alertBedrockFallback()` emails.
 - Do NOT add `bedrockHours` to digests.
-- Do NOT validate `BEDROCK_MODEL` env shape — the env var is unused.
-- Do NOT add `'bedrock'` to the `_currentProvider` switch-back guard in `usageEnergy.on('claude-available', ...)` — the guard only needs `'deepseek'`.
+- Do NOT validate `BEDROCK_MODEL` env shape - the env var is unused.
+- Do NOT add `'bedrock'` to the `_currentProvider` switch-back guard in `usageEnergy.on('claude-available', ...)` - the guard only needs `'deepseek'`.
 
 ## Verification
 
@@ -41,15 +41,15 @@ Should return zero hits in `src/`. Only `~/ecodiaos/patterns/no-bedrock-deepseek
 
 ## Code sites that previously branched on Bedrock (now collapsed)
 
-- `src/services/usageEnergyService.js` — `getBestProvider()` priority chain. `_activeProvider === 'bedrock'` checks. Doc-comment provider priority.
-- `src/services/forkService.js` — `_resolveProviderForFork()` Bedrock branch. Removed.
-- `src/services/osSessionService.js` — `if (best.isBedrockFallback) { ... }` branch in main provider-resolution. `bedrockDefault` constant. AWS env copies. `_currentProvider === 'bedrock'` checks. Removed.
-- `src/services/osAlertingService.js` — `bedrock_fallback` cooldown entry, `SMS_ALERT_TYPES`, `alertBedrockFallback()` function, `bedrockHours` digest field. Removed.
-- `src/services/schedulerPollerService.js` — pay-as-you-go provider label `'deepseek/bedrock'` simplified to `'deepseek'`.
-- `src/services/osHeartbeatService.js` — `isBedrockFallback` energy-gate check simplified to `isDeepseekFallback` only.
-- `src/services/osSelfCheckService.js` — same simplification.
-- `src/services/osIncidentService.js` — `'provider_switch'` comment generalised; vocabulary unchanged.
-- `src/config/env.js` — `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `BEDROCK_MODEL` retained as no-op env defs (unused, harmless to leave for now).
+- `src/services/usageEnergyService.js` - `getBestProvider()` priority chain. `_activeProvider === 'bedrock'` checks. Doc-comment provider priority.
+- `src/services/forkService.js` - `_resolveProviderForFork()` Bedrock branch. Removed.
+- `src/services/osSessionService.js` - `if (best.isBedrockFallback) { ... }` branch in main provider-resolution. `bedrockDefault` constant. AWS env copies. `_currentProvider === 'bedrock'` checks. Removed.
+- `src/services/osAlertingService.js` - `bedrock_fallback` cooldown entry, `SMS_ALERT_TYPES`, `alertBedrockFallback()` function, `bedrockHours` digest field. Removed.
+- `src/services/schedulerPollerService.js` - pay-as-you-go provider label `'deepseek/bedrock'` simplified to `'deepseek'`.
+- `src/services/osHeartbeatService.js` - `isBedrockFallback` energy-gate check simplified to `isDeepseekFallback` only.
+- `src/services/osSelfCheckService.js` - same simplification.
+- `src/services/osIncidentService.js` - `'provider_switch'` comment generalised; vocabulary unchanged.
+- `src/config/env.js` - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `BEDROCK_MODEL` retained as no-op env defs (unused, harmless to leave for now).
 
 ## Origin
 
@@ -61,4 +61,4 @@ Cross-refs:
 
 - `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md`
 - `~/ecodiaos/patterns/discovery-to-doctrine-same-turn.md`
-- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` — credit-exhaustion classifier still applies; the recovery path now waits for a Claude reset rather than billing AWS.
+- `~/ecodiaos/patterns/graceful-credit-exhaustion-handling.md` - credit-exhaustion classifier still applies; the recovery path now waits for a Claude reset rather than billing AWS.

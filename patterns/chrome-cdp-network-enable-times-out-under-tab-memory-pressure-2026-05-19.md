@@ -65,7 +65,7 @@ within seconds of opening the agent endpoint - this is not flakiness.
 
 5. **DO NOT close Tate's tabs** to free memory unless he asks. Auto-closing
    the DigitalOcean / Stripe / ASC tabs to fix YOUR tooling is wrong
-   shape — that's his working session.
+   shape - that's his working session.
 
 ## What NOT to do
 

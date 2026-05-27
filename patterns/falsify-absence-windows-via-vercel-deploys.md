@@ -28,7 +28,7 @@ The signal is cheap, public, and high-fidelity. Tate cannot push to Vercel from 
 
 - Continue ballistic deep-research and infrastructure work (Tate's standing directive still applies regardless of whether he's at the keyboard).
 - Stop fabricating "for-when-Tate-returns" packaging.
-- Triage digests still serve as a layer he reads when he sits down — keep producing them, but don't time-anchor them to a specific return.
+- Triage digests still serve as a layer he reads when he sits down - keep producing them, but don't time-anchor them to a specific return.
 - Outreach drafts: still no unilateral client contact. The absence-falsification doesn't change the no-client-contact-without-go-ahead rule, only the framing of when he might respond.
 
 ## Origin

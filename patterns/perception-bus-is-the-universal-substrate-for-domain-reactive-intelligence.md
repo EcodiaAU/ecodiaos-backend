@@ -6,7 +6,7 @@ triggers: perception-bus, universal-listener, domain-reactive-intelligence, shar
 
 ## The rule
 
-When EcodiaOS needs to react to something happening in any stream (conductor turn, fork turn, cron-fired turn) — for example, surface relevant status_board rows when finance words appear, escalate errors to P1 status_board, surface CRM activity when a client is mentioned — that reaction goes into the **perception dispatcher**: an in-process subscriber on the perception bus that runs **regex + DB lookups only, no LLM calls**.
+When EcodiaOS needs to react to something happening in any stream (conductor turn, fork turn, cron-fired turn) - for example, surface relevant status_board rows when finance words appear, escalate errors to P1 status_board, surface CRM activity when a client is mentioned - that reaction goes into the **perception dispatcher**: an in-process subscriber on the perception bus that runs **regex + DB lookups only, no LLM calls**.
 
 It does **not** become a separate listener chat (a long-running Claude session subscribed to events). One bus, many streams, N domain matchers, zero extra LLM cost.
 
@@ -15,7 +15,7 @@ This is the multiplier. The cost of adding new domain-reactive intelligence is t
 ## Do
 
 - Add new reactive intelligence by adding a domain matcher to `src/services/listeners/perceptionDispatcher.js` (regex over event payload + DB lookup + side-effect: status_board write or context surface).
-- Have every stream publish to the same `perceptionBus.publish(event_type, payload)` — conductor turns, fork turns, cron-fired turns. Fork publishes `fork_complete` with full metadata; conductor publishes turn-text events; crons publish their fire+result.
+- Have every stream publish to the same `perceptionBus.publish(event_type, payload)` - conductor turns, fork turns, cron-fired turns. Fork publishes `fork_complete` with full metadata; conductor publishes turn-text events; crons publish their fire+result.
 - Treat the dispatcher as part of the **substrate** (like the database, the scheduler, the API), not a feature. It boots with the API, runs the lifetime of the process, no per-request cost.
 - For each new matcher, follow the listener-pipeline 5-layer check (`~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md`): producer, trigger, bridge, listener, side-effect. A matcher is "wired but dark" if it loaded but no event ever reaches it.
 - Verify the dispatcher loaded after every PM2 restart: `pm2 logs ecodia-api | grep "perceptionDispatcher: subscribed"`. Absent log line = silent regression.
@@ -96,7 +96,7 @@ The rule is durable. The implementation evolves.
 
 ## Cross-references
 
-- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` — every matcher must pass 5-layer check
-- `~/ecodiaos/patterns/listener-driven-dispatch-replaces-timed-cascade.md` — adjacent doctrine: event-driven beats timed for fork-to-fork dependencies
-- `~/ecodiaos/patterns/listener-driven-dispatch-replaces-timed-cascade.md` — the dispatch_queue listener is itself an example of a domain matcher (dispatch matcher) on the perception bus pattern
-- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` — matchers must produce a real artefact (status_board row, context surface, kv_store key); "logged" without an artefact is symbolic
+- `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` - every matcher must pass 5-layer check
+- `~/ecodiaos/patterns/listener-driven-dispatch-replaces-timed-cascade.md` - adjacent doctrine: event-driven beats timed for fork-to-fork dependencies
+- `~/ecodiaos/patterns/listener-driven-dispatch-replaces-timed-cascade.md` - the dispatch_queue listener is itself an example of a domain matcher (dispatch matcher) on the perception bus pattern
+- `~/ecodiaos/patterns/no-symbolic-logging-act-or-schedule.md` - matchers must produce a real artefact (status_board row, context surface, kv_store key); "logged" without an artefact is symbolic

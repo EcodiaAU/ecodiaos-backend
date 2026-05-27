@@ -11,14 +11,14 @@ origin_fork: fork_mp3o3hvx_9a7222
 
 The `decision-quality-classifier` cron is the only process that classifies `outcome_event` rows. If it silently falls behind, the Phase D metric pipeline produces stale/misleading signals with no visible alarm. Two failure modes must be instrumented:
 
-1. **Silent backlog accumulation** — unclassified rows pile up without triggering any alert.
-2. **Single-pass starvation** — cheap rows (success/unverified) eat the entire per-tick budget, starving expensive rows (failure/correction) that need semantic search.
+1. **Silent backlog accumulation** - unclassified rows pile up without triggering any alert.
+2. **Single-pass starvation** - cheap rows (success/unverified) eat the entire per-tick budget, starving expensive rows (failure/correction) that need semantic search.
 
 ## Do
 
 - **Heartbeat every tick**: write `kv_store.health.decision_quality_classifier` with `{ts, processed, unclassified, oldest_unclassified_age_sec}` on EVERY run, including zero-work ticks. This is the canary that lets monitoring detect starvation without querying `outcome_event` directly.
 
-- **Two-pass architecture**: separate cheap rows (success, unverified — no semantic search) from expensive rows (failure, correction — one Neo4j vector probe each) with independent per-tick caps.
+- **Two-pass architecture**: separate cheap rows (success, unverified - no semantic search) from expensive rows (failure, correction - one Neo4j vector probe each) with independent per-tick caps.
   - `DEFAULT_MAX_CHEAP_PER_TICK = 200` (success + unverified)
   - `DEFAULT_MAX_SEMANTIC_PER_TICK = 50` (failure + correction, embedding budget cap)
   
@@ -34,29 +34,29 @@ The `decision-quality-classifier` cron is the only process that classifies `outc
 
 ## Do not
 
-- Do not use a single `LIMIT N` query for all outcome classes when cheap and expensive rows coexist in the queue — cheap rows will always win the timestamp ordering and starve the expensive path.
-- Do not skip the heartbeat write on no-op ticks (classified=0) — a silent no-op is indistinguishable from a crash if there is no heartbeat.
-- Do not alert on a single over-threshold observation — transient spikes (single burst hour) should not page. Consecutive-run gating filters transients.
-- Do not send more than one SMS per 12h for the same alert level — the `soft_sms_last_sent` dedup key enforces this.
+- Do not use a single `LIMIT N` query for all outcome classes when cheap and expensive rows coexist in the queue - cheap rows will always win the timestamp ordering and starve the expensive path.
+- Do not skip the heartbeat write on no-op ticks (classified=0) - a silent no-op is indistinguishable from a crash if there is no heartbeat.
+- Do not alert on a single over-threshold observation - transient spikes (single burst hour) should not page. Consecutive-run gating filters transients.
+- Do not send more than one SMS per 12h for the same alert level - the `soft_sms_last_sent` dedup key enforces this.
 
 ## Verification protocol
 
 After shipping a change to the classifier:
 1. Run with `--dry-run` and verify `[DRY_RUN] would SMS` lines appear at the correct thresholds.
 2. Check `kv_store.health.decision_quality_classifier` was written with a fresh `ts`.
-3. Query `SELECT outcome, classification, COUNT(*) FROM outcome_event WHERE classification IS NULL GROUP BY 1, 2` — the only acceptable NULL rows are `unverified` younger than 24h.
+3. Query `SELECT outcome, classification, COUNT(*) FROM outcome_event WHERE classification IS NULL GROUP BY 1, 2` - the only acceptable NULL rows are `unverified` younger than 24h.
 
 ## Origin
 
 2026-05-13, fork_mp3o3hvx_9a7222, Phase G audit-2026-05-12 critique-03.
 
-**Root cause diagnosed:** After Critique #5 (2026-05-12) expanded the classifier to process success/unverified rows (~93% of population), the single `LIMIT 50` caused every tick to fill its budget with cheap unverified→classification_deficit rows. Failure and correction rows — the semantically meaningful ground-truth signals — were permanently starved. Evidence: `outcome='failure', classification=NULL: 50 rows; outcome='success', classification=NULL: 150 rows; outcome='unverified', classification=NULL: 242 rows` accumulated over 38+ hours despite the cron firing 38+ times.
+**Root cause diagnosed:** After Critique #5 (2026-05-12) expanded the classifier to process success/unverified rows (~93% of population), the single `LIMIT 50` caused every tick to fill its budget with cheap unverified→classification_deficit rows. Failure and correction rows - the semantically meaningful ground-truth signals - were permanently starved. Evidence: `outcome='failure', classification=NULL: 50 rows; outcome='success', classification=NULL: 150 rows; outcome='unverified', classification=NULL: 242 rows` accumulated over 38+ hours despite the cron firing 38+ times.
 
 **Backfill executed:** `--max-cheap=500 --max-semantic=100 --dry-run` on 2026-05-13T06:25 cleared 228 rows (50 operational_failure + 10 usage_success_with_silent_doctrine + 140 verified_clean + 28 classification_deficit). `unclassified_after=0`. Entropy restored to 0.826 bits.
 
 ## Cross-refs
 
-- `~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md` — threshold-based escalation doctrine
-- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` — Phase D / Layer 5 spec
-- `~/ecodiaos/patterns/phase-d-must-classify-all-outcome-classes-not-just-failure.md` — single-class collapse spec
-- `~/ecodiaos/src/services/telemetry/failureClassifier.js` — implementation
+- `~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md` - threshold-based escalation doctrine
+- `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md` - Phase D / Layer 5 spec
+- `~/ecodiaos/patterns/phase-d-must-classify-all-outcome-classes-not-just-failure.md` - single-class collapse spec
+- `~/ecodiaos/src/services/telemetry/failureClassifier.js` - implementation
