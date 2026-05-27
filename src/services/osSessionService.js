@@ -1626,6 +1626,150 @@ async function _injectObserverSignals() {
   }
 }
 
+// _injectApprovalQueue - surfaces pending Tate-approval queue items (read-only).
+// The conductor never resolves items itself; this block exists so it does not
+// double-queue an action that is already pending Tate. Hard cap: 800 bytes.
+// Per spec backend/docs/superpowers/specs/2026-05-26-tate-approval-queue-design.md §4.
+async function _injectApprovalQueue() {
+  try {
+    const queue = require('./approvalQueueService')
+    const r = await queue.listPending({ limit: 30 })
+    if (!r.ok || !r.rows || r.rows.length === 0) return null
+
+    const critical = r.rows.filter(x => x.urgency === 'critical')
+    const counts = { critical: critical.length, normal: 0, low: 0 }
+    for (const row of r.rows) {
+      if (row.urgency === 'normal') counts.normal += 1
+      else if (row.urgency === 'low') counts.low += 1
+    }
+
+    const header = `<approval_queue count="${r.rows.length}" critical="${counts.critical}">`
+    const usage = '  <!-- Items pending Tate Y/N/edit via iOS app. READ-ONLY: do NOT call resolve from chat. Surfaces so you do not double-queue. -->'
+    const critLines = critical.slice(0, 5).map(row => {
+      const title = String(row.title || '').slice(0, 90)
+      const type = row.item_type
+      return `  <critical id="${String(row.id).slice(0, 8)}" type="${type}" title="${title}">`
+    })
+    if (critical.length > 5) {
+      critLines.push(`  <!-- ${critical.length - 5} more critical items omitted -->`)
+    }
+    const summary = `  <summary normal="${counts.normal}" low="${counts.low}">`
+    const footer = '</approval_queue>'
+
+    let block = [header, usage, ...critLines, summary, footer].join('\n')
+
+    if (Buffer.byteLength(block, 'utf8') > 800) {
+      // Drop critical line bodies, keep just the count
+      const tight = [header, usage, summary, footer].join('\n')
+      block = tight
+    }
+
+    logger.debug('OS Session: approval_queue injected', {
+      total: r.rows.length,
+      critical: counts.critical,
+      bytes: Buffer.byteLength(block, 'utf8'),
+    })
+    return block
+  } catch (err) {
+    logger.debug('OS Session: approval_queue injection failed (skipping)', { error: err.message })
+    return null
+  }
+}
+
+// _injectCoordEvents - surfaces fresh worker signals from coord substrate on
+// Corazon (laptop-agent at 100.114.219.69:7456 over Tailscale). VPS conductors
+// (iOS native + voice + cron-spawned) need to see worker signal_done / error /
+// inbound_sms events at turn-start same way the Cursor conductor's UserPromptSubmit
+// hook surfaces them locally. Per Layer 4 of the 24/7 autonomy spec
+// (backend/docs/superpowers/specs/2026-05-27-24x7-autonomy-architecture-design.md).
+//
+// Cred path: AGENT_TOKEN must be in env (provisioned via .env on VPS). Falls
+// back to null silently if unavailable - VPS conductors without Tailscale
+// reach to Corazon should not crash on this. Hard cap 1500 bytes.
+async function _injectCoordEvents() {
+  try {
+    const agentUrl = process.env.COWORK_AGENT_URL || 'http://100.114.219.69:7456'
+    const agentToken = process.env.LAPTOP_AGENT_TOKEN || process.env.AGENT_TOKEN
+    if (!agentToken) return null
+
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 2500)
+    let resp
+    try {
+      resp = await fetch(`${agentUrl}/api/tool`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Authorization: `Bearer ${agentToken}` },
+        body: JSON.stringify({ tool: 'coord.peek_inbox', params: { topic: 'chat.conductor.inbox' } }),
+        signal: controller.signal,
+      })
+    } finally { clearTimeout(t) }
+    if (!resp.ok) return null
+    const j = await resp.json()
+    const msgs = (j && j.result && j.result.messages) || []
+
+    const INCLUDE = new Set(['done', 'error', 'signal_done', 'signal_bound', 'inbound_sms', 'inbound_telegram', 'pending_restart', 'verification_failed', 'tate_message'])
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    const fresh = []
+    for (const m of msgs) {
+      if (m.acknowledged_at) continue
+      const created = m.created_at ? Date.parse(m.created_at) : 0
+      if (!created || created < cutoff) continue
+      const body = m.body || {}
+      if (!INCLUDE.has(body.type)) continue
+      fresh.push(m)
+    }
+    if (!fresh.length) return null
+
+    const lines = []
+    for (const m of fresh.slice(0, 8)) {
+      const body = m.body || {}
+      const summary = String(body.result_summary || body.message || body.error || '').slice(0, 120).replace(/\n/g, ' ')
+      const ts = String(m.created_at || '').slice(0, 19)
+      lines.push(`  <event id="${String(m.id).slice(0, 8)}" ts="${ts}Z" from="${m.from || '?'}" type="${body.type}" task="${m.task_id || '-'}">${summary}</event>`)
+    }
+    if (fresh.length > 8) {
+      lines.push(`  <truncated>${fresh.length - 8} more omitted</truncated>`)
+    }
+    let block = [`<coord_events count="${fresh.length}">`, ...lines, '</coord_events>'].join('\n')
+    if (Buffer.byteLength(block, 'utf8') > 1500) {
+      block = Buffer.from(block, 'utf8').slice(0, 1500).toString('utf8') + '\n[truncated]'
+    }
+    return block
+  } catch (err) {
+    logger.debug('OS Session: coord_events injection failed (skipping)', { error: err.message })
+    return null
+  }
+}
+
+// _injectPendingRestartRequests - surface workers requesting ecodia-api restart.
+// Only the conductor is authorised to approve (per conductor-owns-restart doctrine).
+// Hard cap 800 bytes.
+async function _injectPendingRestartRequests() {
+  try {
+    const rows = await db`
+      SELECT id, requesting_fork_id, reason, requested_at
+      FROM pending_restart_requests
+      WHERE status = 'pending'
+      ORDER BY requested_at ASC
+      LIMIT 5
+    `
+    if (!rows.length) return null
+    const lines = rows.map(r => {
+      const reason = String(r.reason || '').slice(0, 120).replace(/\n/g, ' ')
+      const ts = String(r.requested_at || '').slice(0, 19)
+      const frk = String(r.requesting_fork_id || '-').slice(0, 20)
+      return `  <request id="${String(r.id).slice(0, 8)}" from="${frk}" requested_at="${ts}Z">${reason}</request>`
+    })
+    const block = [`<pending_restart_requests count="${rows.length}">`, ...lines, '</pending_restart_requests>'].join('\n')
+    return Buffer.byteLength(block, 'utf8') > 800
+      ? Buffer.from(block, 'utf8').slice(0, 800).toString('utf8') + '\n[truncated]'
+      : block
+  } catch (err) {
+    logger.debug('OS Session: pending_restart_requests injection failed (skipping)', { error: err.message })
+    return null
+  }
+}
+
 async function _sendMessageImpl(content, opts = {}) {
   const { suppressOutput = false } = opts
   const retryDepth = opts._retryDepth || 0
@@ -2393,6 +2537,27 @@ async function _sendMessageImpl(content, opts = {}) {
     2000,
     'observer signals',
   )
+  // approval_queue - pending Tate Y/N items so the conductor does not double-queue.
+  // Cheap DB read (max 30 rows), capped at 2s.
+  const _approvalQueuePromise = _withTimeout(
+    _injectApprovalQueue().catch(() => null),
+    2000,
+    'approval queue',
+  )
+  // coord_events - fresh worker signals from Corazon laptop-agent. Layer 4 of
+  // 24/7 autonomy spec. Cap 3s (HTTP over Tailscale).
+  const _coordEventsPromise = _withTimeout(
+    _injectCoordEvents().catch(() => null),
+    3000,
+    'coord events',
+  )
+  // pending_restart_requests - workers wanting ecodia-api restart.
+  // Conductor-owns-restart doctrine. Cap 2s (cheap DB read).
+  const _pendingRestartPromise = _withTimeout(
+    _injectPendingRestartRequests().catch(() => null),
+    2000,
+    'pending restart requests',
+  )
   // Stubs retained for legacy compat — both return null immediately.
   const _commitmentsPromise = Promise.resolve(null)
   const _carryForwardPromise = Promise.resolve(null)
@@ -2443,6 +2608,18 @@ async function _sendMessageImpl(content, opts = {}) {
   let _observerSignalsBlock = null
   try { _observerSignalsBlock = await _observerSignalsPromise } catch (err) {
     logger.debug('OS Session: observer signals injection failed', { error: err.message })
+  }
+  let _approvalQueueBlock = null
+  try { _approvalQueueBlock = await _approvalQueuePromise } catch (err) {
+    logger.debug('OS Session: approval queue injection failed', { error: err.message })
+  }
+  let _coordEventsBlock = null
+  try { _coordEventsBlock = await _coordEventsPromise } catch (err) {
+    logger.debug('OS Session: coord events injection failed', { error: err.message })
+  }
+  let _pendingRestartBlock = null
+  try { _pendingRestartBlock = await _pendingRestartPromise } catch (err) {
+    logger.debug('OS Session: pending restart injection failed', { error: err.message })
   }
   try { _commitmentsBlock = await _commitmentsPromise } catch { /* stub, always null */ }
   try { _carryForwardBlock = await _carryForwardPromise } catch { /* stub, always null */ }
@@ -2521,6 +2698,9 @@ async function _sendMessageImpl(content, opts = {}) {
       '<working_set>':          _workingSetBlock,
       '<scratchpad_recent>':    _scratchpadBlock,
       '<observer_signals>':     _observerSignalsBlock,
+      '<coord_events>':         _coordEventsBlock,
+      '<pending_restart_requests>': _pendingRestartBlock,
+      '<approval_queue>':       _approvalQueueBlock,
       // conductor_commitments + thread_carry_forward replaced by working_set
       // (fork_mp27az1r_1878c0, 12 May 2026). Stubs return null; keys omitted.
       '<recent_doctrine>':      _doctrineBlock,
@@ -2543,6 +2723,9 @@ async function _sendMessageImpl(content, opts = {}) {
       '<working_set>',
       '<scratchpad_recent>',
       '<observer_signals>',
+      '<coord_events>',
+      '<pending_restart_requests>',
+      '<approval_queue>',
       '<recent_doctrine>',
       '<relevant_memory>',
       '<perception_summary>',
@@ -2560,6 +2743,9 @@ async function _sendMessageImpl(content, opts = {}) {
       working_set: !!emitted['<working_set>'],
       scratchpad_recent: !!emitted['<scratchpad_recent>'],
       observer_signals: !!emitted['<observer_signals>'],
+      coord_events: !!emitted['<coord_events>'],
+      pending_restart_requests: !!emitted['<pending_restart_requests>'],
+      approval_queue: !!emitted['<approval_queue>'],
       recent_doctrine: !!emitted['<recent_doctrine>'],
       memory: !!emitted['<relevant_memory>'],
       perception_summary: !!emitted['<perception_summary>'],
