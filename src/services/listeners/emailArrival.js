@@ -95,6 +95,35 @@ module.exports = {
       `Source: emailArrival listener (sourceEventId=${ctx.sourceEventId}).`
     )
     logger.info('emailArrival: handle invoked', { eventId: row.id })
+
+    // Multi-conductor lease: prevent double-wake for the same email_events row.
+    // The listener can fire twice on pg_notify race / listener-restart replay,
+    // and there can be sibling conductor sessions also picking up email work.
+    // Lease per event_id, 5min TTL (email triage finishes well within that).
+    // If not acquired, another conductor/listener instance already has this -
+    // skip cleanly. Per Layer 5 of the 24/7 autonomy architecture.
+    let _emailClaim = null
+    try {
+      const claims = require('../conductorClaimsService')
+      const r = await claims.acquire({
+        entity_type: 'email_thread',
+        entity_ref: `email_event:${row.id}`,
+        conductor_id: 'listener:emailArrival',
+        ttl_minutes: 5,
+        context: { email_event_id: row.id, kind: row.kind || null },
+      })
+      if (!r.ok) {
+        logger.info('emailArrival: lease not acquired - skipping (held by other)', {
+          eventId: row.id, held_by: r.held_by, expires_at: r.expires_at,
+        })
+        return  // someone else owns this event - skip cleanly
+      }
+      _emailClaim = r.claim
+    } catch (err) {
+      // Claims unavailable - degrade to legacy behaviour (just wake).
+      logger.debug('emailArrival: claims unavailable, proceeding without lease', { error: err.message })
+    }
+
     try { require('../perceptionBus').publish({ source: 'email', kind: row.kind || 'email_arrival', data: { id: row.id, kind: row.kind }, confidence: 1.0 }) } catch {}
     // pipeline-stage signal: if this inbound has prior outbound from us in
     // the last 14d (crm_activity_log activity_type='email_sent' for the

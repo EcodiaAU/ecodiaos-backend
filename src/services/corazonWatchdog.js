@@ -36,6 +36,7 @@ const { URL } = require('url')
 // Lazy-imported so the watchdog starts even if the DB or SMS module is wedged.
 let _smsModule = null
 let _postgresModule = null
+let _escalateModule = null
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000   // 5 minutes
 const AGENT_FAILURE_THRESHOLD = 3         // consecutive failures before SMS
@@ -172,6 +173,10 @@ async function checkRefreshFailures() {
 /**
  * Send an SMS to Tate using the existing smsTransport module.
  * Best-effort: logs and continues if the module or Twilio is unavailable.
+ *
+ * Retained as the fallback path: if failureEscalate.fire throws (e.g.
+ * observerSignalsService import fails), the watchdog still SMSes directly.
+ * The watchdog's HARD INVARIANT is "must alert"; consistency is secondary.
  * @param {string} text
  */
 async function _smsTate(text) {
@@ -191,6 +196,32 @@ async function _smsTate(text) {
   } catch (err) {
     console.warn('[corazonWatchdog] SMS unavailable:', err.message)
     return false
+  }
+}
+
+/**
+ * Route a watchdog finding through failureEscalateService for consistent
+ * tier-based fan-out (sms + observer_signal + status_board) + 1h dedupe.
+ *
+ * The watchdog still keeps its local in-memory cooldown as belt + braces
+ * (failureEscalate's dedupe is kv_store-based; in-memory protects against
+ * the kv_store path failing). If failureEscalate throws or its module is
+ * unavailable, falls back to direct _smsTate so the watchdog's "must alert"
+ * contract is preserved.
+ *
+ * @param {{severity:string, kind:string, message:string, dedupe_key:string, context?:object}} args
+ */
+async function _escalate({ severity, kind, message, dedupe_key, context }) {
+  try {
+    if (!_escalateModule) {
+      // eslint-disable-next-line global-require
+      _escalateModule = require('./failureEscalateService')
+    }
+    return await _escalateModule.fire({ severity, kind, message, dedupe_key, context })
+  } catch (err) {
+    console.warn('[corazonWatchdog] failureEscalate unavailable, falling back to direct SMS:', err.message)
+    await _smsTate(message)
+    return { ok: true, fallback: true }
   }
 }
 
@@ -232,7 +263,13 @@ async function _checkAgentHealth() {
     const key = 'agent:unreachable'
     if (!isAlertCooled(key)) {
       markAlerted(key)
-      await _smsTate('EcodiaOS alert: laptop-agent unreachable for 15+ min')
+      await _escalate({
+        severity: 'time_critical',
+        kind: 'corazon_agent_unreachable',
+        message: 'laptop-agent unreachable for 15+ min',
+        dedupe_key: 'watchdog:agent_unreachable',
+        context: { consecutive_failures: _consecutiveFailures, agent_url: process.env.LAPTOP_AGENT_URL || 'http://100.114.219.69:7456' },
+      })
     }
   }
 }
@@ -243,7 +280,13 @@ async function _checkQueueBackupAlert() {
     const key = 'queue:backup'
     if (!isAlertCooled(key)) {
       markAlerted(key)
-      await _smsTate(`EcodiaOS alert: ${overdue} scheduled tasks overdue`)
+      await _escalate({
+        severity: 'time_critical',
+        kind: 'scheduler_queue_backup',
+        message: `${overdue} scheduled tasks overdue (>30 min)`,
+        dedupe_key: 'watchdog:queue_backup',
+        context: { overdue_count: overdue, threshold: QUEUE_BACKUP_THRESHOLD },
+      })
     }
   }
 }
@@ -254,7 +297,15 @@ async function _checkOrphanedAlert() {
     const key = 'orphaned:tasks'
     if (!isAlertCooled(key)) {
       markAlerted(key)
-      await _smsTate(`EcodiaOS alert: ${orphaned} orphaned tasks (>6h running, no signal_done)`)
+      // action_recommended - workers crashed, needs cleanup but not life-or-death.
+      // Will surface via observer + status_board (no SMS), conductor handles on next turn.
+      await _escalate({
+        severity: 'action_recommended',
+        kind: 'scheduler_orphaned_tasks',
+        message: `${orphaned} orphaned tasks (>6h running, no signal_done)`,
+        dedupe_key: 'watchdog:orphaned',
+        context: { orphaned_count: orphaned },
+      })
     }
   }
 }
@@ -275,7 +326,13 @@ async function _checkRefreshFailureAlerts() {
       } catch {
         errorMsg = String(row.value || '').slice(0, 80)
       }
-      await _smsTate(`EcodiaOS alert: cred refresh failing for ${account} (${errorMsg})`)
+      await _escalate({
+        severity: 'time_critical',
+        kind: 'cred_refresh_failure',
+        message: `cred refresh failing for ${account} (${errorMsg})`,
+        dedupe_key: `watchdog:cred_refresh:${account}`,
+        context: { account, error_excerpt: errorMsg.slice(0, 200) },
+      })
     }
   }
 }
@@ -318,6 +375,7 @@ module.exports = {
     _alertedKeys.clear()
     _smsModule = null
     _postgresModule = null
+    _escalateModule = null
   },
   _setConsecutiveFailures(n) { _consecutiveFailures = n },
   _getConsecutiveFailures() { return _consecutiveFailures },
