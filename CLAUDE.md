@@ -54,6 +54,12 @@ we also shouldnt have to update 2 copies of documents").
 
 ---
 
+## 🛠️ DEV PROCESS - eight rungs, every code change (0th-class reflex, Tate verbatim 2026-05-27)
+
+Every feature or fix on any app or site goes through eight rungs in order: (1) research codebase, (2) plan, (3) write the code, (4) unit tests, (5) integration tests, (6) visual verify via CDP on the platforms that surface ships to, (7) push to GitHub with a GitHub-recognised commit author, (8) verify the deploy lands (Vercel READY + canary screenshot, or SY094 ship script + ASC/Play upload-accepted). Skipping rung 6 or rung 8 is a quality regression. CDP through the laptop-agent and SY094 over SSH or RDP from Corazon are both reachable on every turn. Default to use, not to skip. Per-codebase variables (platforms, Vercel URL, ship script path, test login) live in `~/.claude/hooks/ecodia/lib/dev-process-registry.json` and are auto-surfaced by `dev_process_reflex_surface.py` on every UserPromptSubmit that smells like feature work. When a codebase lands that is not in the registry, add a row in the same edit that ships rung 1. When a ship script for a codebase does not exist yet, author it before the first ship, based on the closest existing recipe. Full doctrine + per-codebase summary table + anti-patterns: [[dev-process-end-to-end-visual-cdp-deploy-verify]].
+
+---
+
 ## ⚡ STATUS BOARD - READ FIRST, UPDATE ALWAYS
 
 `status_board` is single source of truth. Query at start of EVERY session. Update after EVERY action. No exceptions.
@@ -644,7 +650,25 @@ For parallelism, sequencing, or "hand this off and keep going" work, the reflex 
 
 In-session bounded work (single research lookup, <5 tool calls) is the Task subagent's job, not dispatch_worker's.
 
+---
 
+## 🤖 24/7 AUTONOMY SUBSTRATE - the four primitives (0th-class, 2026-05-27)
+
+The autonomy architecture that lets EcodiaOS run unattended (Africa trip Oct-Dec 2026) has four substrate primitives. Full spec: `backend/docs/superpowers/specs/2026-05-27-24x7-autonomy-architecture-design.md`. The 10 load-bearing invariants: `~/ecodiaos/patterns/24x7-autonomy-architecture-invariants-2026-05-27.md`. Reach for these by reflex, the same way `cowork.dispatch_worker` is the reflex for parallelism.
+
+**1. Worker tab self-close - `coord.close_my_tab`.** Every dispatched worker calls it as its FINAL action after `coord.signal_done({terminate:true})`. Without it, IDE chat tabs accumulate and burn memory. The brief already mandates it; if you author a brief by hand, include it. Lives in `D:/.code/eos-laptop-agent/tools/coord.js`.
+
+**2. Conductor turn-start awareness.** Worker `signal_done` events reach a live conductor automatically: the Cursor conductor via the `coord_events_pending.py` UserPromptSubmit hook (surfaces `<coord_events>` + `<pending_restart_requests>` + `<status_board_critical>` + `<active_workers>`); VPS conductors (iOS/voice/cron) via `_injectCoordEvents` + `_injectPendingRestartRequests` in `osSessionService.js`. Never manually poll `coord.read_inbox` first - check the turn-start block.
+
+**3. Multi-conductor claims - `conductorClaimsService`.** Before acting on a shared entity (status_board row, email thread, scheduled task) when other conductors may be alive, acquire a lease so two conductors don't double-act. Pattern: `const r = await claims.withClaim({entity_type, entity_ref, conductor_id}, async (claim) => {...})`. If `r.acquired===false`, someone else owns it - defer. Table `coordination_claims` (migration 138). Service: `backend/src/services/conductorClaimsService.js`.
+
+**4. Outcome verification - `outcomeVerificationService`.** Narrated success is not real success (per `verify-deployed-state-against-narrated-state.md`). When a worker/fork reports done with a verifiable deliverable, run a probe: `verify.verify({type:'status_board'|'db_row'|'file_write'|'neo4j_node', ...})`. Workers declare intent via `result_pointer:'verify:type=...;k=v'`. Service: `backend/src/services/outcomeVerificationService.js`.
+
+**Escalation routing - `failureEscalateService`.** ANY failure that needs surfacing goes through ONE helper, never an ad-hoc SMS or status_board write: `await escalate.fire({severity, kind, message, context, dedupe_key})`. Six tiers route to the right surfaces: `routine_info`/`action_recommended`/`conductor_decision` (observer + board), `tate_judgement` (approval_queue + observer), `time_critical`/`hard_tripwire` (sms.tate + observer + board). Dedupe key suppresses repeats for 1h. Service: `backend/src/services/failureEscalateService.js`.
+
+**Credential substrate (the part that broke 3x).** Scheduler `rotate_to` swaps `~/.claude/.credentials.json` from per-account files in `D:/PRIVATE/ecodia-creds/{tate,code,money}.json`. The `cred-refresher.js` PM2 daemon keeps those fresh via 30-min OAuth refresh. NEVER blind-restart PM2 (reloads the dump, has thrice reloaded the zombie `refresh-clobber-watchdog` and signed out every account) - see the hard-stop tripwire in `~/.claude/CLAUDE.md` + `pm2_restart_guard.py` PreToolUse hook (bypass token `# pm2-guard-ok` after the 3-step pre-check). Pattern: [[pm2-restart-reloads-dangerous-dump-never-blind-restart-2026-05-27]].
+
+---
 
 ## Session Orientation - Wake-Up Checklist
 
