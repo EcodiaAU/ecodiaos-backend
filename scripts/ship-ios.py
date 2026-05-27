@@ -391,6 +391,72 @@ def step_submit_for_review(spec, asv_id):
     return sid
 
 
+def enqueue_release_proposal(spec, build_num, asv_id, ipa_path, build_id=None):
+    """POST a release_ship proposal to the backend approval queue.
+
+    Returns the queue row id on success, None on failure. Falls back silently:
+    if the backend is unreachable the script just continues to direct submit.
+    Per spec backend/docs/superpowers/specs/2026-05-26-tate-approval-queue-design.md.
+    """
+    payload = {
+        "build_id": build_id or str(build_num),
+        "app_slug": spec.get("slug") or spec.get("name"),
+        "version": f"{spec['marketing_version']}({build_num})",
+        "release_notes": spec.get("release_notes")
+        or f"TestFlight build {build_num} ready. Approve to submit for App Store review.",
+        "ship_action": {
+            "platform": "ios",
+            "asv_id": asv_id,
+            "build_num": build_num,
+            "ipa_path": ipa_path,
+            "resume_command": f"python3 ~/ship-ios.py {spec.get('slug')} --resume <queue_id>",
+        },
+    }
+    vps_alias = os.environ.get("ECODIAOS_VPS_SSH", "tate@100.103.227.90")
+    api_base = os.environ.get("ECODIAOS_API", "https://api.admin.ecodia.au")
+    # Bearer pulled from VPS kv_store - the same path other scripts use.
+    fetch = (
+        f"ssh -o BatchMode=yes -o ConnectTimeout=8 {vps_alias} "
+        "'set -a; . ~/ecodiaos/.env 2>/dev/null; set +a; "
+        'curl -s "$SUPABASE_URL/rest/v1/kv_store?key=eq.creds.ecodia_full_mcp_bearer&select=value" '
+        '-H "apikey: $SUPABASE_SERVICE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_KEY"\''
+    )
+    try:
+        r = subprocess.run(
+            fetch, shell=True, capture_output=True, text=True, timeout=15
+        )
+        data = json.loads(r.stdout)
+        bearer = data[0]["value"]
+        if isinstance(bearer, str) and bearer.startswith('"'):
+            bearer = json.loads(bearer)
+    except Exception as e:
+        print(f"[propose] WARN: could not load bearer ({e}); skipping enqueue")
+        return None
+
+    req = urllib.request.Request(
+        f"{api_base}/api/ops/approval-queue/enqueue-release",
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {bearer}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = json.loads(resp.read().decode())
+            if body.get("ok") and body.get("id"):
+                return body["id"]
+            print(f"[propose] WARN: enqueue returned non-ok: {body}")
+            return None
+    except urllib.error.HTTPError as e:
+        print(f"[propose] WARN: enqueue HTTP {e.code} {e.reason}")
+        return None
+    except Exception as e:
+        print(f"[propose] WARN: enqueue threw ({e})")
+        return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("slug")
@@ -398,6 +464,13 @@ def main():
     ap.add_argument("--skip-bump", action="store_true")
     ap.add_argument(
         "--no-submit", action="store_true", help="upload only, skip review submission"
+    )
+    ap.add_argument(
+        "--propose",
+        action="store_true",
+        help="upload to TestFlight, then enqueue an approval_queue release_ship "
+        "item gating the App Store submission on Tate's Y. Use during the "
+        "Africa-trip autonomous window.",
     )
     args = ap.parse_args()
     bootstrap_ssh_path()
@@ -427,8 +500,16 @@ def main():
     ensure_export_options(spec)
 
     if spec.get("cap_sync_required"):
-        print("=== [4] npm install + cap sync ===")
+        print("=== [4] npm install + web build + cap sync ===")
         sh("npm install --no-audit --no-fund", cwd=spec["build_dir"])
+        # Build the web layer BEFORE cap sync. Without this, cap sync copies a
+        # stale webDir into the native project and ships old UI under a bumped
+        # build number (Glovebox shipped an 8-day-stale bundle this way,
+        # 2026-05-28: builds 32+33 wrapped a May-20 out/). Override per-app via
+        # spec.web_build_cmd; default covers every Vite/Next Capacitor app.
+        web_build = spec.get("web_build_cmd", "npm run build")
+        if web_build:
+            sh(web_build, cwd=spec["build_dir"])
         sh("npx cap sync ios", cwd=spec["build_dir"])
 
     print("=== [5] archive ===")
@@ -450,6 +531,21 @@ def main():
 
     print("=== [9a] attach build to ASV ===")
     step_attach(spec, asv_id, build_id)
+
+    if args.propose:
+        print("=== [9b] --propose: enqueue approval_queue release_ship item ===")
+        queue_id = enqueue_release_proposal(spec, build_num, asv_id, ipa, build_id)
+        if queue_id:
+            print(
+                f"--propose: enqueued queue_id={queue_id}. "
+                f"App Store submission gated on Tate Y via iOS app. "
+                f"Resume after approval: python3 ship-ios.py {args.slug} --resume {queue_id}"
+            )
+            return
+        print(
+            "--propose: enqueue failed; falling through to direct submit "
+            "(spec defines fallback as the safe default for non-Africa windows)"
+        )
 
     print("=== [9b] submit for review ===")
     sid = step_submit_for_review(spec, asv_id)
