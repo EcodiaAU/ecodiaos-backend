@@ -12,9 +12,39 @@ const axios = require('axios')
 const env = require('../config/env')
 const db = require('../config/db')
 const logger = require('../config/logger')
-const xeroService = require('./xeroService')
 
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0'
+const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token'
+const CUSTOM_CONNECTION_SCOPE = [
+  'accounting.banktransactions',
+  'accounting.banktransactions.read',
+  'accounting.contacts',
+  'accounting.contacts.read',
+  'accounting.settings.read',
+].join(' ')
+
+// In-memory cached Custom Connection access token. Tokens last 30 min;
+// we refresh at 25 min to leave a safety margin.
+let _cachedToken = null
+let _cachedExpiry = 0
+
+async function _getCustomConnectionToken() {
+  const now = Date.now()
+  if (_cachedToken && now < _cachedExpiry) return _cachedToken
+  const resp = await axios.post(
+    XERO_TOKEN_URL,
+    new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: env.XERO_CLIENT_ID,
+      client_secret: env.XERO_CLIENT_SECRET,
+      scope: CUSTOM_CONNECTION_SCOPE,
+    }),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15_000 }
+  )
+  _cachedToken = resp.data.access_token
+  _cachedExpiry = now + Math.max(60_000, (resp.data.expires_in - 300) * 1000)
+  return _cachedToken
+}
 
 // Maps our source_account values to Xero's bank account UUIDs (probed earlier
 // from /Accounts?where=Type=="BANK").
@@ -99,7 +129,7 @@ async function pushBankTransaction(stagedId) {
     return { stagedId, status: 'not_syncable', reason: e.message }
   }
 
-  const token = await xeroService.getValidAccessToken()
+  const token = await _getCustomConnectionToken()
   let resp
   try {
     resp = await axios.post(
