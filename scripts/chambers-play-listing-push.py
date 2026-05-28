@@ -22,7 +22,7 @@ from googleapiclient.http import MediaIoBaseUpload
 
 KEY = r"D:/PRIVATE/ecodia-creds/play/play-uploader-key.json"
 PACKAGE = "au.ecodia.chambers"
-LANG = "en-AU"
+LANG = "en-GB"
 
 ICON_PATH = Path(r"D:/.code/chambers-frontend-uxfix/public/icon-512.png")
 SHOTS_DIR = Path(
