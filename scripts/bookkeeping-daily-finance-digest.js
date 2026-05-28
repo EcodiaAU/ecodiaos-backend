@@ -49,16 +49,16 @@ async function pullSnapshot() {
   return {
     date: today,
     fy_start: fyStart,
-    ecodia_bank_cents: ecodiaBank,
-    ecodia_savings_cents: ecodiaSavings,
-    director_loan_cents: dl.balance_cents,
-    director_loan_direction: dl.direction,
-    fy_income_cents: pnl.total_income_cents,
-    fy_expenses_cents: pnl.total_expenses_cents,
-    fy_net_cents: pnl.net_profit_cents,
-    balance_sheet_balanced: bs.balanced,
-    unsynced_xero: unsyncedRow.cnt,
-    flagged_review: flaggedRow.cnt,
+    ecodia_bank_cents: ecodiaBank ?? 0,
+    ecodia_savings_cents: ecodiaSavings ?? 0,
+    director_loan_cents: dl?.balance_cents ?? 0,
+    director_loan_direction: dl?.direction ?? 'unknown',
+    fy_income_cents: pnl?.total_income_cents ?? 0,
+    fy_expenses_cents: pnl?.total_expenses_cents ?? 0,
+    fy_net_cents: pnl?.net_profit_cents ?? 0,
+    balance_sheet_balanced: bs?.balanced ?? false,
+    unsynced_xero: unsyncedRow?.cnt ?? 0,
+    flagged_review: flaggedRow?.cnt ?? 0,
   }
 }
 
