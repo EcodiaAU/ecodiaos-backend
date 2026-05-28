@@ -219,7 +219,9 @@ async function pushBankTransaction(stagedId) {
  * Batch push all unsynced posted staged_transactions for Ecodia bank accounts.
  * Returns summary counts.
  */
-async function syncAllUnsynced({ limit = 100 } = {}) {
+async function syncAllUnsynced({ limit = 100, sleepMs = 1100 } = {}) {
+  // Xero's API rate limit is ~60 calls/minute (1/sec). sleepMs=1100 keeps
+  // us comfortably under. On 429 we back off and retry once before giving up.
   const candidates = await db`
     SELECT id FROM staged_transactions
     WHERE status = 'posted'
@@ -230,7 +232,7 @@ async function syncAllUnsynced({ limit = 100 } = {}) {
     ORDER BY occurred_at DESC
     LIMIT ${limit}
   `
-  const counts = { processed: 0, synced: 0, not_syncable: 0, failed: 0 }
+  const counts = { processed: 0, synced: 0, not_syncable: 0, failed: 0, retried: 0 }
   for (const c of candidates) {
     counts.processed++
     try {
@@ -238,8 +240,20 @@ async function syncAllUnsynced({ limit = 100 } = {}) {
       if (r.status === 'synced') counts.synced++
       else if (r.status === 'not_syncable') counts.not_syncable++
     } catch (e) {
-      counts.failed++
+      // Retry once after a 60s pause on 429-style errors
+      if (e.message.includes('429')) {
+        counts.retried++
+        await new Promise(r => setTimeout(r, 60_000))
+        try {
+          const r2 = await pushBankTransaction(c.id)
+          if (r2.status === 'synced') counts.synced++
+          else counts.failed++
+        } catch { counts.failed++ }
+      } else {
+        counts.failed++
+      }
     }
+    if (sleepMs > 0) await new Promise(r => setTimeout(r, sleepMs))
   }
   return counts
 }
