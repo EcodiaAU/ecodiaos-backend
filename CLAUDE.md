@@ -646,7 +646,7 @@ Rules:
 
 ## Parallel dispatch (live primitive)
 
-For parallelism, sequencing, or "hand this off and keep going" work, the reflex is `cowork.dispatch_worker` per `~/ecodiaos/patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. Auto-spawns a fresh Claude Code chat tab via Ctrl+Alt+Shift+C, registers identity, pastes the brief, returns tab_id. Workers signal back via the 8 `coord.*` MCP tools on localhost:7456. Operational semantics (worktree hygiene, runtime semantics, coord conventions) live in `~/ecodiaos/patterns/dispatch-worker-worktree-hygiene-2026-05-26.md` + `~/ecodiaos/patterns/dispatch-worker-runtime-semantics-2026-05-26.md` + `~/ecodiaos/patterns/coord-conventions-heartbeat-signal-done-2026-05-18.md`.
+For parallelism, sequencing, or "hand this off and keep going" work, the reflex is `cowork.dispatch_worker` per `~/ecodiaos/patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. Auto-spawns a fresh Claude Code chat tab in VS Code Stable via Ctrl+Alt+Shift+C, registers identity, pastes the brief, returns tab_id. VS Code Stable is the only supported worker host; the `ide` param is gone. Workers signal back via the 8 `coord.*` MCP tools on localhost:7456. Operational semantics (worktree hygiene, runtime semantics, coord conventions) live in `~/ecodiaos/patterns/dispatch-worker-worktree-hygiene-2026-05-26.md` + `~/ecodiaos/patterns/dispatch-worker-runtime-semantics-2026-05-26.md` + `~/ecodiaos/patterns/coord-conventions-heartbeat-signal-done-2026-05-18.md`.
 
 In-session bounded work (single research lookup, <5 tool calls) is the Task subagent's job, not dispatch_worker's.
 
