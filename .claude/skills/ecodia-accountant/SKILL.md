@@ -96,6 +96,20 @@ Funds Introduced 881
 
 **Personal banks (1010, 1020) NEVER appear as ledger lines on Ecodia's books.** The 2026-05-28 refactor enforces this in code. Any journal touching 1010 or 1020 is a bug.
 
+### Categorisation defaults (Tate verbatim 2026-05-28)
+
+Two interacting rules that the categoriser prompt must encode and any human-review pass must respect:
+
+**Rule 1 - DEFAULT TO ECODIA for software/SaaS/cloud/AI/dev-tool spend on ANY account.** Tate uses his phone and laptop ~99% of the time for Ecodia work. Apple subscriptions, Google Workspace, Google Cloud, Vercel, Anthropic, OpenAI, Supabase, MacInCloud, Fly.io, GitHub, Cursor, Replicate, RunPod, Figma, Canva, GoDaddy, Hostinger, AWS, Twilio, Resend, etc are Ecodia business expenses regardless of which account paid (personal-bank versions go via Director Loan path). Only flip to DISCARD when explicitly personal (Audible, Netflix, Spotify family plan, personal iCloud storage when separable from Apple One business use).
+
+**Rule 2 - DEFAULT TO DISCARD for ambiguous NON-software spend on personal accounts.** Conservative ATO posture - undercharging the deduction is safer than overclaiming and getting audited. Event tickets, restaurants, travel, retail purchases on personal accounts default to DISCARD unless there is an explicit business hook (vendor name matches a known client/supplier, description references a meeting/conference, recurring pattern matches a known business workflow). On the Ecodia bank account the default flips back to business unless clearly personal (drawing).
+
+**Worked examples from the 2026-05-28 audit:**
+- GMB Scraper $61/month on Up Bank → Ecodia (early Ecodia project subscription, kept business per Tate)
+- "Tate Donohoe - Desks" $4.48 on Up Bank → DISCARD (autocorrect spam of personal Osko payment)
+- POS TICKETS*QUEENSLAND $92.75 on BA Ecodia → Ecodia 6120 Entertainment (Queensland Environment Day, business event)
+- SAFECO TIX-MEET ±$18 on Up Bank → DISCARD (event ticket, ambiguous, safer to personal)
+
 ### Xero mirror (xeroReconcileService)
 - BankTransactions endpoint: for ba_ecodia / ba_ecodia_savings transactions. Xero auto-matches against live BA feed statement lines.
 - ManualJournals endpoint: for personal-bank business expenses (up_personal / ba_personal). DR Expense Xero code / CR 881 Funds Introduced.
