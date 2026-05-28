@@ -53,6 +53,50 @@ const XERO_BANK_ACCOUNT_IDS = {
   ba_ecodia_savings: '0f852d85-f337-435f-bef2-109c70671449', // Ecodia Savings
 }
 
+// Maps our internal GL codes (defined in db gl_accounts) to Xero's
+// default AU SME chart of accounts codes. Ecodia's Xero hasn't been
+// customised by an accountant yet, so we use the standard codes. An
+// accountant can later split 485 Subscriptions into finer buckets.
+const INTERNAL_TO_XERO_CODE = {
+  // Income
+  '4100': '200', // Licensing & Subscription Revenue -> Sales
+  '4000': '200', // ECO Local -> Sales
+  // Direct/operating expenses
+  '5000': '485', // Hosting & Infrastructure -> Subscriptions
+  '5010': '485', // Domain Registrations -> Subscriptions
+  '5020': '485', // Third-Party Software & APIs -> Subscriptions
+  '5030': '485', // App Store Fees -> Subscriptions
+  '5015': '404', // Stripe Fees -> Bank Fees
+  '6000': '485', // Software Subscriptions -> Subscriptions
+  '6010': '485', // Cloud Services -> Subscriptions
+  '6020': '400', // Marketing & Advertising -> Advertising
+  '6030': '485', // Design Tools -> Subscriptions
+  '6040': '485', // AI & Development Tools -> Subscriptions
+  '6050': '433', // Business Insurance -> Insurance
+  '6060': '441', // Legal & Compliance -> Legal expenses
+  '6070': '453', // Office Supplies & Equipment -> Office Expenses
+  '6080': '449', // Motor Vehicle -> Motor Vehicle Expenses
+  '6090': '404', // Bank Fees -> Bank Fees
+  '6100': '477', // Wages -> Wages and Salaries
+  '6110': '412', // Contractor -> Consulting & Accounting
+  '6120': '420', // Meals & Entertainment -> Entertainment
+  '6130': '429', // Miscellaneous -> General Expenses
+  '6140': '494', // International Travel -> Travel - International
+  '6150': '441', // Government Fees -> Legal expenses
+  // Equity / Director Loan
+  '2100': '881', // Director Loan -> Owner A Funds Introduced (positive direction)
+  // Already-Xero codes pass through unchanged
+}
+
+function _xeroAccountCode(internalCode) {
+  if (!internalCode) return null
+  if (/^\d{3}$/.test(internalCode)) return internalCode // already a 3-digit Xero code
+  const mapped = INTERNAL_TO_XERO_CODE[internalCode]
+  if (mapped) return mapped
+  // Unknown internal code: fall back to General Expenses to avoid hard failure
+  return '429'
+}
+
 function _taxTypeFor({ isIncome, gstCents }) {
   if (gstCents > 0) return isIncome ? 'OUTPUT' : 'INPUT'
   return isIncome ? 'EXEMPTOUTPUT' : 'EXEMPTEXPENSES'
@@ -87,6 +131,7 @@ function buildPayload(tx) {
     : String(tx.occurred_at).slice(0, 10)
   const taxType = _taxTypeFor({ isIncome, gstCents: tx.gst_amount_cents || 0 })
 
+  const xeroCode = _xeroAccountCode(tx.category)
   return {
     Type: isIncome ? 'RECEIVE' : 'SPEND',
     Contact: { Name: _supplierNameFor(tx) },
@@ -99,7 +144,7 @@ function buildPayload(tx) {
       Description: (tx.description || 'Imported by EcodiaOS').slice(0, 1000),
       Quantity: '1',
       UnitAmount: amount,
-      AccountCode: tx.category,
+      AccountCode: xeroCode,
       TaxType: taxType,
     }],
   }
