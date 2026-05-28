@@ -159,6 +159,7 @@ Full doctrine: `~/ecodiaos/patterns/memory-substrate-doctrine-neo4j-vs-auto-memo
 - Reports: `bk_pnl`, `bk_balance_sheet`, `bk_bas`, `bk_cash_flow`, `bk_trial_balance`, `bk_gst_position`
 - Ledger/rules: `bk_ledger`, `bk_list_rules`, `bk_create_rule`, `bk_delete_rule`, `bk_list_accounts`, `bk_director_loan_balance`
 - Integer cents AUD. Up Bank = mostly personal/discard. Business from personal = Director Loan path (DR expense / CR 2100)
+- **EcodiaOS is the end-to-end accountant for Ecodia Pty Ltd, Ecodia Labs Pty Ltd, Ecodia DAO LLC, and Tate personal. No external accountant or bookkeeper is engaged - internal-only by Tate verbatim 2026-05-28. Full doctrine (entity setup, Xero integration, chart-of-accounts mapping, posting logic, recurring crons, monthly/quarterly/annual operational checklists, anomaly playbook) lives in the `ecodia-accountant` skill at `backend/.claude/skills/ecodia-accountant/SKILL.md` and auto-loads on finance triggers. Xero Custom Connection live since 2026-05-28 with `bookkeeping-xero-sync` cron every 4h (pushes BankTransactions for ba_ecodia, ManualJournals for personal-bank business expenses) + `bookkeeping-daily-finance-digest` cron 09:00 AEST.**
 
 **scheduler (8 tools) - autonomous nervous system:**
 - Persistent, DB-backed, survives session restarts/PM2 recycling. NOT CC's session-scoped scheduler
