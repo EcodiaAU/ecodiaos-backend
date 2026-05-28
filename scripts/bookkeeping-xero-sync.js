@@ -16,9 +16,10 @@ const xr = require('../src/services/xeroReconcileService')
 
 ;(async () => {
   const t0 = Date.now()
-  const counts = await xr.syncAllUnsynced({ limit: 200, sleepMs: 1200 })
+  const bank = await xr.syncAllUnsynced({ limit: 200, sleepMs: 1200 })
+  const mj = await xr.syncAllPersonalUnsynced({ limit: 200, sleepMs: 1200 })
   const ms = Date.now() - t0
-  console.log(JSON.stringify({ ts: new Date().toISOString(), ms, ...counts }))
+  console.log(JSON.stringify({ ts: new Date().toISOString(), ms, bankTx: bank, manualJournal: mj }))
   process.exit(0)
 })().catch(e => {
   console.error(JSON.stringify({ ts: new Date().toISOString(), error: e.message, stack: e.stack?.split('\n').slice(0, 3) }))
