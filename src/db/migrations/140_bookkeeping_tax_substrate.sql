@@ -30,12 +30,12 @@ CREATE TABLE IF NOT EXISTS fixed_assets (
     method              TEXT NOT NULL DEFAULT 'prime_cost'
                         CHECK (method IN ('prime_cost', 'diminishing_value', 'instant_writeoff')),
     effective_life_years REAL,
-    purchase_tx_id      UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    purchase_tx_id      TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     source_ref          TEXT,
     notes               TEXT,
     disposed_at         DATE,
     disposal_proceeds_cents INTEGER,
-    disposal_tx_id      UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    disposal_tx_id      TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_fixed_assets_entity ON fixed_assets(entity);
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS depreciation_runs (
     period_end          DATE NOT NULL,
     depreciation_cents  INTEGER NOT NULL,
     book_value_cents    INTEGER NOT NULL,
-    ledger_tx_id        UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    ledger_tx_id        TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (asset_id, period_end)
 );
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS tax_provisions (
     bas_lodged          BOOLEAN DEFAULT FALSE,
     bas_lodged_at       TIMESTAMPTZ,
     bas_payment_ref     TEXT,
-    ledger_tx_id        UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    ledger_tx_id        TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     notes               TEXT,
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (entity, period_end)
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS drawdown_targets (
     consent_rationale   TEXT,
     drawn_cents         INTEGER DEFAULT 0,
     drawn_at            TIMESTAMPTZ,
-    drawn_tx_id         UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    drawn_tx_id         TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     status              TEXT NOT NULL DEFAULT 'planned'
                         CHECK (status IN ('planned', 'tracking', 'consent_pending', 'consent_granted',
                                          'partially_drawn', 'fully_drawn', 'cancelled')),
@@ -166,8 +166,8 @@ CREATE TABLE IF NOT EXISTS drawdown_targets (
 -- Extend staged_transactions for transfers + refunds + FX
 ALTER TABLE staged_transactions
     ADD COLUMN IF NOT EXISTS is_transfer BOOLEAN DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS transfer_pair_id UUID REFERENCES staged_transactions(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS refund_of_tx_id UUID REFERENCES ledger_transactions(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS transfer_pair_id TEXT REFERENCES staged_transactions(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS refund_of_tx_id TEXT REFERENCES ledger_transactions(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS fx_currency TEXT,
     ADD COLUMN IF NOT EXISTS fx_amount_cents INTEGER,
     ADD COLUMN IF NOT EXISTS fx_rate NUMERIC(14, 6);
