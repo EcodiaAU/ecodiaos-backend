@@ -588,18 +588,36 @@ async function postStagedTransaction(stagedId) {
     throw new Error(`Cannot post: category (${tx.category}) is the same as source account (${bankAccount}). This transaction should probably be DISCARD or recategorized.`)
   }
 
-  if (tx.is_personal && !isIncome) {
-    // Two sub-cases distinguished by which bank account paid:
-    // (a) Business expense paid from Tate's PERSONAL bank (1010 Up, 1020 BA Personal):
-    //     Ecodia recognises the expense AND owes Tate more. DR Expense / CR Director Loan.
-    //     Personal bank stays off Ecodia's books for this journal.
-    // (b) Personal-lifestyle expense paid from ECODIA bank (1000, 1005):
-    //     Drawing. Tate's loan position reduces. DR Director Loan / CR Ecodia Bank.
-    //     P&L not touched - drawings are equity, not expense.
-    const PERSONAL_BANK_CODES = new Set(['1010', '1020'])
-    const isFromPersonalBank = PERSONAL_BANK_CODES.has(bankAccount)
-    if (isFromPersonalBank) {
-      // (a) Business expense paid from personal bank
+  // Bank-account routing rules.
+  // - PERSONAL banks (1010 Up, 1020 BA Personal) must NEVER appear as
+  //   ledger lines on Ecodia's books. Ecodia doesn't own those accounts.
+  //   Any tx routed through them flows via Director Loan 2100 instead.
+  // - ECODIA banks (1000, 1005) are real Ecodia assets and DO appear.
+  // - is_personal is a refinement signal only for the Ecodia-bank case
+  //   (distinguishes drawing from operating expense).
+  const PERSONAL_BANK_CODES = new Set(['1010', '1020'])
+  const isFromPersonalBank = PERSONAL_BANK_CODES.has(bankAccount)
+
+  if (isFromPersonalBank) {
+    // ── PERSONAL BANK SHORT-CIRCUIT ─────────────────────────────────
+    // All transactions through Tate's personal accounts journal via
+    // Director Loan, never via the personal bank itself.
+    if (isIncome) {
+      // Income landed in Tate's personal bank but it's been categorised
+      // as business income (e.g. client misdirected to personal acct).
+      // True personal income is DISCARDed earlier; if it reaches here
+      // it's business. Loan reduces (Tate owes more / is owed less).
+      lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
+      if (gst > 0) {
+        lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: exGst, tax_code: 'GST' })
+        lines.push({ account_code: '2120', debit_cents: 0, credit_cents: gst, tax_code: 'GST', tax_amount_cents: gst })
+      } else {
+        lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: amountAbs })
+      }
+    } else {
+      // Expense paid from Tate's personal bank. Business expense
+      // (DISCARD-personal stuff was ignored earlier and never posted).
+      // Ecodia recognises the cost and owes Tate more.
       if (gst > 0) {
         lines.push({ account_code: tx.category, debit_cents: exGst, credit_cents: 0, tax_code: 'Input' })
         lines.push({ account_code: '2110', debit_cents: gst, credit_cents: 0, tax_code: 'Input', tax_amount_cents: gst })
@@ -607,26 +625,20 @@ async function postStagedTransaction(stagedId) {
         lines.push({ account_code: tx.category, debit_cents: amountAbs, credit_cents: 0 })
       }
       lines.push({ account_code: '2100', debit_cents: 0, credit_cents: amountAbs })
-    } else {
-      // (b) Personal-lifestyle expense paid from Ecodia bank (drawing)
-      lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
-      lines.push({ account_code: bankAccount, debit_cents: 0, credit_cents: amountAbs })
     }
+  } else if (tx.is_personal && !isIncome) {
+    // ── ECODIA BANK, PERSONAL-LIFESTYLE EXPENSE (DRAWING) ────────────
+    // Tate using Ecodia bank for personal stuff. Reduces loan position.
+    lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
+    lines.push({ account_code: bankAccount, debit_cents: 0, credit_cents: amountAbs })
   } else if (tx.is_personal && isIncome) {
-    // Personal income: company paying director back, or salary, etc.
-    // From company bank (1000): DR 2100 / CR 1000 (reduces director loan via company bank)
-    // From personal bank (2100): DR 2100 / CR category (personal income doesn't touch company)
-    // - but personal income on personal bank should usually be DISCARD
-    if (bankAccount === '2100') {
-      // Personal bank: DR director loan (reduce what's owed) / CR the income category
-      lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
-      lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: amountAbs })
-    } else {
-      // Company bank: director repaying → DR bank / CR director loan
-      lines.push({ account_code: bankAccount, debit_cents: amountAbs, credit_cents: 0 })
-      lines.push({ account_code: '2100', debit_cents: 0, credit_cents: amountAbs })
-    }
+    // ── ECODIA BANK, PERSONAL INCOME (RARE / EDGE) ───────────────────
+    // Company-bank receipt that's been tagged personal. Treat as loan
+    // repayment: DR Bank / CR Director Loan.
+    lines.push({ account_code: bankAccount, debit_cents: amountAbs, credit_cents: 0 })
+    lines.push({ account_code: '2100', debit_cents: 0, credit_cents: amountAbs })
   } else if (isIncome) {
+    // ── ECODIA BANK, BUSINESS INCOME ─────────────────────────────────
     lines.push({ account_code: bankAccount, debit_cents: amountAbs, credit_cents: 0 })
     if (gst > 0) {
       lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: exGst, tax_code: 'GST' })
@@ -635,7 +647,7 @@ async function postStagedTransaction(stagedId) {
       lines.push({ account_code: tx.category, debit_cents: 0, credit_cents: amountAbs })
     }
   } else {
-    // Business expense - DR expense, CR bank account
+    // ── ECODIA BANK, BUSINESS EXPENSE ────────────────────────────────
     if (gst > 0) {
       lines.push({ account_code: tx.category, debit_cents: exGst, credit_cents: 0, tax_code: 'Input' })
       lines.push({ account_code: '2110', debit_cents: gst, credit_cents: 0, tax_code: 'Input', tax_amount_cents: gst })
