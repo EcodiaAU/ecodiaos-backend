@@ -18,6 +18,8 @@ const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token'
 const CUSTOM_CONNECTION_SCOPE = [
   'accounting.banktransactions',
   'accounting.banktransactions.read',
+  'accounting.manualjournals',
+  'accounting.manualjournals.read',
   'accounting.contacts',
   'accounting.contacts.read',
   'accounting.settings.read',
