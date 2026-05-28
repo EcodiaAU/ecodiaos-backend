@@ -215,6 +215,166 @@ async function pushBankTransaction(stagedId) {
   return { stagedId, status: 'synced', xeroId: created.BankTransactionID }
 }
 
+// Xero AU SME chart: Director Loan creditor side. When Tate pays for
+// Ecodia stuff from his personal account, the loan grows in his favour -
+// we credit Funds Introduced. When he draws money out of Ecodia for
+// personal stuff, we debit Drawings.
+const FUNDS_INTRODUCED_CODE = '881'
+const DRAWINGS_CODE = '880'
+
+/**
+ * Build a Xero ManualJournal payload for a personal-bank-paid business
+ * expense (or rare personal-bank business income). The journal moves
+ * the expense to the right Xero account and offsets via Director Loan
+ * (Funds Introduced 881 / Drawings 880).
+ *
+ * For SPEND (negative amount, paid from personal):
+ *   DR <expense> / CR 881 (Ecodia owes Tate more for funding this)
+ * For RECEIVE (positive, income landed in personal):
+ *   DR 881 / CR <income> (rare; treat as Director Loan reduction)
+ */
+function buildManualJournalPayload(tx) {
+  if (!tx.category || tx.category === 'DISCARD') {
+    throw new Error(`Not syncable: tx ${tx.id} has no business category`)
+  }
+  const PERSONAL_BANK_SOURCES = new Set(['up_personal', 'ba_personal'])
+  if (!PERSONAL_BANK_SOURCES.has(tx.source_account)) {
+    throw new Error(`source_account ${tx.source_account} is not a personal bank (Manual Journal path only)`)
+  }
+  const isIncome = tx.amount_cents > 0
+  const amount = (Math.abs(tx.amount_cents) / 100).toFixed(2)
+  const occurredISO = tx.occurred_at instanceof Date
+    ? tx.occurred_at.toISOString().slice(0, 10)
+    : String(tx.occurred_at).slice(0, 10)
+  const expenseOrIncomeCode = _xeroAccountCode(tx.category)
+  const taxType = _taxTypeFor({ isIncome, gstCents: tx.gst_amount_cents || 0 })
+
+  const journalLines = isIncome
+    ? [
+        // Income from personal acct: DR Director Loan / CR Income
+        { LineAmount: amount, AccountCode: FUNDS_INTRODUCED_CODE, TaxType: 'BASEXCLUDED', Description: (tx.description || '').slice(0, 1000) },
+        { LineAmount: `-${amount}`, AccountCode: expenseOrIncomeCode, TaxType: taxType, Description: (tx.description || '').slice(0, 1000) },
+      ]
+    : [
+        // Expense paid from personal: DR Expense / CR Director Loan (Funds Introduced)
+        { LineAmount: amount, AccountCode: expenseOrIncomeCode, TaxType: taxType, Description: (tx.description || '').slice(0, 1000) },
+        { LineAmount: `-${amount}`, AccountCode: FUNDS_INTRODUCED_CODE, TaxType: 'BASEXCLUDED', Description: `Funded via ${tx.source_account}` },
+      ]
+
+  return {
+    Narration: `${_supplierNameFor(tx)} - ${tx.source_account} (${occurredISO})`.slice(0, 100),
+    Date: occurredISO,
+    Status: 'POSTED',
+    LineAmountTypes: 'Inclusive',
+    JournalLines: journalLines,
+  }
+}
+
+/**
+ * Push a single personal-bank staged_transaction to Xero as ManualJournal.
+ */
+async function pushManualJournal(stagedId) {
+  const [tx] = await db`
+    SELECT id, source, source_ref, source_account, occurred_at, amount_cents,
+           description, category, subcategory, is_personal, gst_amount_cents,
+           status, xero_manual_journal_id
+    FROM staged_transactions WHERE id = ${stagedId}
+  `
+  if (!tx) throw new Error(`staged_transaction ${stagedId} not found`)
+  if (tx.xero_manual_journal_id) {
+    return { stagedId, status: 'already_synced', xeroId: tx.xero_manual_journal_id }
+  }
+
+  let payload
+  try { payload = buildManualJournalPayload(tx) }
+  catch (e) {
+    await db`UPDATE staged_transactions SET xero_sync_error=${e.message.slice(0, 500)} WHERE id=${stagedId}`
+    return { stagedId, status: 'not_syncable', reason: e.message }
+  }
+
+  const token = await _getCustomConnectionToken()
+  let resp
+  try {
+    resp = await axios.post(
+      `${XERO_API_BASE}/ManualJournals`,
+      { ManualJournals: [payload] },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'xero-tenant-id': env.XERO_TENANT_ID,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        timeout: 30_000,
+      }
+    )
+  } catch (e) {
+    const errMsg = (e.response?.data?.Elements?.[0]?.ValidationErrors?.[0]?.Message
+      || e.response?.data?.Detail
+      || e.response?.data?.Message
+      || e.message).slice(0, 500)
+    await db`UPDATE staged_transactions SET xero_sync_error=${errMsg} WHERE id=${stagedId}`
+    logger.warn('XeroReconcile: ManualJournal push failed', { stagedId, status: e.response?.status, errMsg })
+    throw new Error(`Xero rejected MJ: ${errMsg}`)
+  }
+
+  const created = resp.data?.ManualJournals?.[0]
+  if (!created?.ManualJournalID) {
+    const errMsg = 'No ManualJournalID in Xero response'
+    await db`UPDATE staged_transactions SET xero_sync_error=${errMsg} WHERE id=${stagedId}`
+    throw new Error(errMsg)
+  }
+
+  await db`
+    UPDATE staged_transactions
+    SET xero_manual_journal_id=${created.ManualJournalID},
+        xero_synced_at=COALESCE(xero_synced_at, NOW()),
+        xero_sync_error=NULL
+    WHERE id=${stagedId}
+  `
+  logger.info('XeroReconcile: pushed ManualJournal', { stagedId, xeroId: created.ManualJournalID })
+  return { stagedId, status: 'synced', xeroId: created.ManualJournalID }
+}
+
+/**
+ * Batch push all unsynced personal-bank business expenses as ManualJournals.
+ */
+async function syncAllPersonalUnsynced({ limit = 500, sleepMs = 1200 } = {}) {
+  const candidates = await db`
+    SELECT id FROM staged_transactions
+    WHERE status = 'posted'
+      AND source_account IN ('up_personal', 'ba_personal')
+      AND xero_manual_journal_id IS NULL
+      AND category IS NOT NULL
+      AND category NOT IN ('DISCARD', 'CAPITAL_CONTRIBUTION', 'REIMBURSEMENT')
+    ORDER BY occurred_at DESC
+    LIMIT ${limit}
+  `
+  const counts = { processed: 0, synced: 0, not_syncable: 0, failed: 0, retried: 0 }
+  for (const c of candidates) {
+    counts.processed++
+    try {
+      const r = await pushManualJournal(c.id)
+      if (r.status === 'synced') counts.synced++
+      else if (r.status === 'not_syncable') counts.not_syncable++
+    } catch (e) {
+      if (e.message.includes('429')) {
+        counts.retried++
+        await new Promise(r => setTimeout(r, 60_000))
+        try {
+          const r2 = await pushManualJournal(c.id)
+          if (r2.status === 'synced') counts.synced++
+          else counts.failed++
+        } catch { counts.failed++ }
+      } else {
+        counts.failed++
+      }
+    }
+    if (sleepMs > 0) await new Promise(r => setTimeout(r, sleepMs))
+  }
+  return counts
+}
+
 /**
  * Batch push all unsynced posted staged_transactions for Ecodia bank accounts.
  * Returns summary counts.
@@ -258,4 +418,7 @@ async function syncAllUnsynced({ limit = 100, sleepMs = 1100 } = {}) {
   return counts
 }
 
-module.exports = { pushBankTransaction, syncAllUnsynced, buildPayload }
+module.exports = {
+  pushBankTransaction, syncAllUnsynced, buildPayload,
+  pushManualJournal, syncAllPersonalUnsynced, buildManualJournalPayload,
+}
