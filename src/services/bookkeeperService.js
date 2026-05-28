@@ -9,12 +9,13 @@ const logger = require('../config/logger')
 const deepseek = require('./deepseekService')
 
 // Maps staged_transactions.source_account values (source names) to GL account codes.
-// Verified current values in production: ba_ecodia, ba_personal, up_personal.
+// Verified current values in production: ba_ecodia, ba_ecodia_savings, ba_personal, up_personal.
 // Fallback handles legacy rows that already stored a GL code directly (e.g. '1000', '2100').
 const SOURCE_ACCOUNT_TO_GL = {
-  ba_ecodia:   '1000', // Business Bank Account (Bank Australia - Ecodia)
-  up_personal: '1010', // Up Bank (Personal)
-  ba_personal: '1020', // Bank Australia (Personal)
+  ba_ecodia:         '1000', // Business Bank Account (Bank Australia - Ecodia Everyday)
+  ba_ecodia_savings: '1005', // Bank Australia Savings (Ecodia)
+  up_personal:       '1010', // Up Bank (Personal)
+  ba_personal:       '1020', // Bank Australia (Personal)
 }
 
 function resolveBankAccount(sourceAccount) {
