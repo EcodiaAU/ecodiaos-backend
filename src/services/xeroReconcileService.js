@@ -439,7 +439,73 @@ async function syncAllUnsynced({ limit = 100, sleepMs = 1100 } = {}) {
   return counts
 }
 
+/**
+ * Void an existing Xero ManualJournal (Status='VOIDED' makes Xero treat it
+ * as effectively-deleted for reporting). Used when a previously-pushed MJ
+ * turns out to be the wrong call (e.g. categoriser revised by Tate's eye).
+ */
+async function voidManualJournal(stagedId) {
+  const [tx] = await db`SELECT id, xero_manual_journal_id FROM staged_transactions WHERE id = ${stagedId}`
+  if (!tx) throw new Error(`staged_transaction ${stagedId} not found`)
+  if (!tx.xero_manual_journal_id) return { stagedId, status: 'nothing_to_void' }
+
+  const token = await _getCustomConnectionToken()
+  try {
+    await axios.post(
+      `${XERO_API_BASE}/ManualJournals/${tx.xero_manual_journal_id}`,
+      { ManualJournals: [{ ManualJournalID: tx.xero_manual_journal_id, Status: 'VOIDED' }] },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'xero-tenant-id': env.XERO_TENANT_ID,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        timeout: 30_000,
+      }
+    )
+  } catch (e) {
+    const errMsg = (e.response?.data?.Detail || e.response?.data?.Message || e.message).slice(0, 500)
+    throw new Error(`Xero void MJ failed: ${errMsg}`)
+  }
+  await db`UPDATE staged_transactions SET xero_manual_journal_id=NULL, xero_synced_at=NULL, xero_sync_error=NULL WHERE id=${stagedId}`
+  return { stagedId, status: 'voided', xeroId: tx.xero_manual_journal_id }
+}
+
+/**
+ * Void an existing Xero BankTransaction (Status='DELETED'). Used to undo
+ * a previous push when the categorisation was wrong.
+ */
+async function voidBankTransaction(stagedId) {
+  const [tx] = await db`SELECT id, xero_bank_transaction_id FROM staged_transactions WHERE id = ${stagedId}`
+  if (!tx) throw new Error(`staged_transaction ${stagedId} not found`)
+  if (!tx.xero_bank_transaction_id) return { stagedId, status: 'nothing_to_void' }
+
+  const token = await _getCustomConnectionToken()
+  try {
+    await axios.post(
+      `${XERO_API_BASE}/BankTransactions/${tx.xero_bank_transaction_id}`,
+      { BankTransactions: [{ BankTransactionID: tx.xero_bank_transaction_id, Status: 'DELETED' }] },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'xero-tenant-id': env.XERO_TENANT_ID,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        timeout: 30_000,
+      }
+    )
+  } catch (e) {
+    const errMsg = (e.response?.data?.Detail || e.response?.data?.Message || e.message).slice(0, 500)
+    throw new Error(`Xero void BT failed: ${errMsg}`)
+  }
+  await db`UPDATE staged_transactions SET xero_bank_transaction_id=NULL, xero_synced_at=NULL, xero_sync_error=NULL WHERE id=${stagedId}`
+  return { stagedId, status: 'voided', xeroId: tx.xero_bank_transaction_id }
+}
+
 module.exports = {
   pushBankTransaction, syncAllUnsynced, buildPayload,
   pushManualJournal, syncAllPersonalUnsynced, buildManualJournalPayload,
+  voidManualJournal, voidBankTransaction,
 }
