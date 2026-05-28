@@ -1369,6 +1369,292 @@ async function getIncomeTaxEstimate(fyStart, fyEnd) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// TAX-TIME PREP: FY DATA DUMP IN ATO LINE-ITEM SHAPE
+// ═══════════════════════════════════════════════════════════════════════
+// Produces every number the company tax return + Tate personal return needs.
+// Maps to ATO Company Tax Return labels (e.g. 6S Total income, 7T Total
+// expenses) so we can drive ATO online services CDP-fill end-to-end.
+async function getTaxReturnPrep(fyEnd) {
+  const fyStartYear = parseInt(fyEnd.slice(0, 4)) - 1
+  const fyStart = `${fyStartYear}-07-01`
+  const pnl = await getPnLReport(fyStart, fyEnd)
+  const bs = await getBalanceSheet(fyEnd)
+  const dl = await getDirectorLoanBalance()
+  const cashflow = await getCashFlowStatement(fyStart, fyEnd)
+  const trial = await getTrialBalance(fyEnd)
+  const basQ1 = await getBASReport(`${fyStartYear}-07-01`, `${fyStartYear}-09-30`)
+  const basQ2 = await getBASReport(`${fyStartYear}-10-01`, `${fyStartYear}-12-31`)
+  const basQ3 = await getBASReport(`${fyStartYear + 1}-01-01`, `${fyStartYear + 1}-03-31`)
+  const basQ4 = await getBASReport(`${fyStartYear + 1}-04-01`, `${fyStartYear + 1}-06-30`)
+  const depreciationLines = await db`
+    SELECT a.code, a.name, COALESCE(SUM(l.debit_cents), 0)::int AS total
+    FROM ledger_lines l JOIN ledger_transactions t ON t.id = l.tx_id
+    JOIN gl_accounts a ON a.code = l.account_code
+    WHERE t.occurred_at >= ${fyStart} AND t.occurred_at <= ${fyEnd}
+      AND a.code IN ('6200', '7100', '6400', '4400')
+    GROUP BY a.code, a.name`
+  const assets = await db`
+    SELECT id, name, asset_class, purchase_date, cost_cents, method, effective_life_years, disposed_at
+    FROM fixed_assets WHERE entity = 'ecodia_pty_ltd' AND (disposed_at IS NULL OR disposed_at > ${fyEnd})`
+  const provisions = await db`
+    SELECT period_start, period_end, taxable_income_cents, provision_cents, payg_installment_cents, bas_lodged
+    FROM tax_provisions WHERE entity = 'ecodia_pty_ltd'
+      AND period_end >= ${fyStart} AND period_end <= ${fyEnd}
+    ORDER BY period_end`
+  const incomeByCode = Object.fromEntries(pnl.income_items.map(i => [i.account_code, i.amount_cents]))
+  const expenseByCode = Object.fromEntries(pnl.expense_items.map(e => [e.account_code, e.amount_cents]))
+  return {
+    entity: 'Ecodia Pty Ltd',
+    fy_label: `FY${String(fyStartYear).slice(2)}/${String(fyStartYear + 1).slice(2)}`,
+    fy_start: fyStart,
+    fy_end: fyEnd,
+    company_tax_return_labels: {
+      '6S_total_income': pnl.total_income_cents,
+      '6_income_by_account': pnl.income_items,
+      '6Q_other_income': (incomeByCode['4300'] || 0) + (incomeByCode['4400'] || 0),
+      '7T_total_expenses': pnl.total_expenses_cents,
+      '7_expenses_by_account': pnl.expense_items,
+      '7X_depreciation_expense': depreciationLines.find(d => d.code === '6200')?.total || 0,
+      '7N_bad_debts': depreciationLines.find(d => d.code === '7100')?.total || 0,
+      '7B_foreign_currency_loss': depreciationLines.find(d => d.code === '6400')?.total || 0,
+      '7V_subtotal_taxable_income': pnl.net_profit_cents,
+      '8_taxable_income_or_loss': pnl.net_profit_cents,
+      'tax_payable_at_25pct': Math.max(0, Math.round(pnl.net_profit_cents * 0.25)),
+    },
+    bas_quarterly: { q1: basQ1, q2: basQ2, q3: basQ3, q4: basQ4 },
+    bas_annual_summary: {
+      total_gst_collected_cents: basQ1.gst_collected_cents + basQ2.gst_collected_cents + basQ3.gst_collected_cents + basQ4.gst_collected_cents,
+      total_gst_paid_cents: basQ1.gst_paid_cents + basQ2.gst_paid_cents + basQ3.gst_paid_cents + basQ4.gst_paid_cents,
+      total_sales_cents: basQ1.total_sales_cents + basQ2.total_sales_cents + basQ3.total_sales_cents + basQ4.total_sales_cents,
+      total_purchases_cents: basQ1.total_purchases_cents + basQ2.total_purchases_cents + basQ3.total_purchases_cents + basQ4.total_purchases_cents,
+    },
+    balance_sheet_at_fyend: bs,
+    trial_balance: trial,
+    director_loan_position: dl,
+    fixed_asset_register: assets,
+    cash_flow_statement: cashflow,
+    tax_provisions_for_fy: provisions,
+    ato_warnings: _ataWarningsForFy(pnl, dl, assets, basQ1, basQ2, basQ3, basQ4),
+  }
+}
+
+function _ataWarningsForFy(pnl, dl, assets, q1, q2, q3, q4) {
+  const warnings = []
+  if (dl.balance_cents < 0) warnings.push(`Director Loan in COMPANY-OWES-DIRECTOR direction at FY close. Division 7A applies if loan was made FROM company TO director and not repaid by lodgement date. Review urgently.`)
+  if (pnl.total_income_cents > 7500000) warnings.push(`Income > $75k turnover threshold - confirm GST registration is current.`)
+  if (pnl.total_income_cents > 200000000) warnings.push(`Income > $2M turnover - not eligible for cash-basis GST. Confirm accrual basis.`)
+  if (pnl.net_profit_cents > 0 && (q1.gst_collected_cents + q2.gst_collected_cents + q3.gst_collected_cents + q4.gst_collected_cents) === 0) warnings.push(`Net profit positive but zero GST collected across all 4 quarters - check income GST treatment.`)
+  for (const a of assets) {
+    if (a.cost_cents > 2000000 && a.method === 'instant_writeoff') warnings.push(`Asset "${a.name}" cost $${(a.cost_cents/100).toFixed(2)} flagged instant_writeoff but exceeds $20k SME threshold. Reclassify to prime_cost or diminishing_value.`)
+  }
+  return warnings
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FIXED ASSETS + DEPRECIATION
+// ═══════════════════════════════════════════════════════════════════════
+
+async function recordFixedAsset({ name, asset_class, purchase_date, cost_cents, method = 'prime_cost', effective_life_years = null, purchase_tx_id = null, source_ref = null, notes = null, entity = 'ecodia_pty_ltd' }) {
+  // Default effective lives per ATO TR 2024/4
+  const defaultLives = {
+    computer_hardware: 2,
+    computer_software: 4,
+    office_furniture: 10,
+    office_equipment: 5,
+    motor_vehicle: 8,
+    photographic_equipment: 7,
+    audio_visual: 5,
+    intangible_ip: 5,
+    other: 5,
+  }
+  const life = effective_life_years || defaultLives[asset_class] || 5
+  const [asset] = await db`
+    INSERT INTO fixed_assets (entity, name, asset_class, purchase_date, cost_cents, method, effective_life_years, purchase_tx_id, source_ref, notes)
+    VALUES (${entity}, ${name}, ${asset_class}, ${purchase_date}, ${cost_cents}, ${method}, ${life}, ${purchase_tx_id}, ${source_ref}, ${notes})
+    RETURNING *`
+  // If purchased through ledger (not just registered after the fact), reclassify the expense line into 1500
+  if (purchase_tx_id) {
+    await db`UPDATE ledger_lines SET account_code = '1500' WHERE tx_id = ${purchase_tx_id} AND debit_cents > 0 AND account_code NOT IN ('1000','1005','1010','1020','2100')`
+  }
+  return asset
+}
+
+async function runDepreciation(periodStart, periodEnd) {
+  // Monthly depreciation cron. Prime-cost method: cost / life / 12 each month.
+  // Diminishing-value: (book_value * (2/life)) / 12 each month.
+  const assets = await db`
+    SELECT * FROM fixed_assets
+    WHERE (disposed_at IS NULL OR disposed_at > ${periodEnd})
+      AND purchase_date <= ${periodEnd}
+      AND method IN ('prime_cost', 'diminishing_value')`
+  const results = []
+  for (const a of assets) {
+    const exists = await db`SELECT id FROM depreciation_runs WHERE asset_id = ${a.id} AND period_end = ${periodEnd}`
+    if (exists.length) continue
+    const prior = await db`SELECT COALESCE(SUM(depreciation_cents), 0)::int AS total FROM depreciation_runs WHERE asset_id = ${a.id} AND period_end <= ${periodEnd}`
+    const accumulated = prior[0]?.total || 0
+    const bookValue = a.cost_cents - accumulated
+    if (bookValue <= 0) continue
+    let monthly = 0
+    if (a.method === 'prime_cost') {
+      monthly = Math.round(a.cost_cents / a.effective_life_years / 12)
+    } else {
+      monthly = Math.round(bookValue * (2 / a.effective_life_years) / 12)
+    }
+    monthly = Math.min(monthly, bookValue) // do not depreciate below zero
+    const description = `Depreciation: ${a.name} (${a.method}, life ${a.effective_life_years}y) ${periodStart} to ${periodEnd}`
+    const [tx] = await db`
+      INSERT INTO ledger_transactions (occurred_at, description, source_system, source_ref, tags)
+      VALUES (${periodEnd}, ${description}, 'manual', ${`depreciation:${a.id}:${periodEnd}`}, '["depreciation"]')
+      RETURNING id`
+    await db`INSERT INTO ledger_lines (tx_id, account_code, debit_cents, credit_cents) VALUES (${tx.id}, '6200', ${monthly}, 0)`
+    await db`INSERT INTO ledger_lines (tx_id, account_code, debit_cents, credit_cents) VALUES (${tx.id}, '1510', 0, ${monthly})`
+    await db`
+      INSERT INTO depreciation_runs (asset_id, period_start, period_end, depreciation_cents, book_value_cents, ledger_tx_id)
+      VALUES (${a.id}, ${periodStart}, ${periodEnd}, ${monthly}, ${bookValue - monthly}, ${tx.id})`
+    results.push({ asset_id: a.id, name: a.name, depreciation_cents: monthly, book_value_cents: bookValue - monthly })
+  }
+  return { period_start: periodStart, period_end: periodEnd, assets_depreciated: results.length, lines: results }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// QUARTERLY TAX PROVISION
+// ═══════════════════════════════════════════════════════════════════════
+// Accrues 25% company tax on YTD net profit at quarter-end so the balance
+// sheet reflects the upcoming liability rather than hiding it until EOFY.
+async function accrueQuarterlyTax(periodStart, periodEnd, entity = 'ecodia_pty_ltd') {
+  const pnl = await getPnLReport(periodStart, periodEnd)
+  const taxableIncome = Math.max(0, pnl.net_profit_cents)
+  const provisionCents = Math.round(taxableIncome * 0.25)
+  // Idempotent on (entity, period_end)
+  const existing = await db`SELECT id FROM tax_provisions WHERE entity = ${entity} AND period_end = ${periodEnd}`
+  if (existing.length) {
+    await db`UPDATE tax_provisions SET taxable_income_cents=${taxableIncome}, provision_cents=${provisionCents}, notes='auto-accrued' WHERE id=${existing[0].id}`
+    return { entity, period_end: periodEnd, provision_cents: provisionCents, updated: true }
+  }
+  let ledgerTxId = null
+  if (provisionCents > 0) {
+    const [tx] = await db`
+      INSERT INTO ledger_transactions (occurred_at, description, source_system, source_ref, tags)
+      VALUES (${periodEnd}, ${`Co. tax accrual ${periodStart} to ${periodEnd} at 25%`}, 'manual', ${`tax_accrual:${entity}:${periodEnd}`}, '["tax_accrual"]')
+      RETURNING id`
+    await db`INSERT INTO ledger_lines (tx_id, account_code, debit_cents, credit_cents) VALUES (${tx.id}, '7000', ${provisionCents}, 0)`
+    await db`INSERT INTO ledger_lines (tx_id, account_code, debit_cents, credit_cents) VALUES (${tx.id}, '2300', 0, ${provisionCents})`
+    ledgerTxId = tx.id
+  }
+  await db`
+    INSERT INTO tax_provisions (entity, period_start, period_end, taxable_income_cents, tax_rate_pct, provision_cents, ledger_tx_id, notes)
+    VALUES (${entity}, ${periodStart}, ${periodEnd}, ${taxableIncome}, 25.0, ${provisionCents}, ${ledgerTxId}, 'auto-accrued')`
+  return { entity, period_end: periodEnd, taxable_income_cents: taxableIncome, provision_cents: provisionCents, ledger_tx_id: ledgerTxId }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INTER-ACCOUNT TRANSFER DETECTION + REFUND HANDLING
+// ═══════════════════════════════════════════════════════════════════════
+
+async function detectInterAccountTransfers(periodStart, periodEnd) {
+  // Find pairs of staged transactions where one is a debit on account A and the
+  // other a credit on account B, same day +/- 1, same amount, descriptions
+  // matching ("Transfer", "TFR", "From <other account>", etc).
+  const rows = await db`
+    SELECT s1.id AS a_id, s1.source_account AS a_acct, s1.amount_cents AS a_amount, s1.occurred_at AS a_date, s1.description AS a_desc,
+           s2.id AS b_id, s2.source_account AS b_acct, s2.amount_cents AS b_amount, s2.occurred_at AS b_date, s2.description AS b_desc
+    FROM staged_transactions s1 JOIN staged_transactions s2 ON
+      s1.id < s2.id
+      AND s1.amount_cents = -s2.amount_cents
+      AND abs(extract(day from (s1.occurred_at::timestamp - s2.occurred_at::timestamp))) <= 1
+      AND s1.source_account != s2.source_account
+    WHERE s1.occurred_at >= ${periodStart} AND s1.occurred_at <= ${periodEnd}
+      AND (s1.is_transfer IS NULL OR s1.is_transfer = FALSE)
+      AND (s2.is_transfer IS NULL OR s2.is_transfer = FALSE)
+      AND (s1.description ILIKE '%transfer%' OR s1.description ILIKE '%tfr%' OR s1.description ILIKE '%from %' OR s1.description ILIKE '%to %'
+           OR s2.description ILIKE '%transfer%' OR s2.description ILIKE '%tfr%' OR s2.description ILIKE '%from %' OR s2.description ILIKE '%to %')`
+  for (const r of rows) {
+    await db`UPDATE staged_transactions SET is_transfer = TRUE, transfer_pair_id = ${r.b_id}, status = 'ignored', categorizer_reasoning = 'auto-detected inter-account transfer' WHERE id = ${r.a_id}`
+    await db`UPDATE staged_transactions SET is_transfer = TRUE, transfer_pair_id = ${r.a_id}, status = 'ignored', categorizer_reasoning = 'auto-detected inter-account transfer' WHERE id = ${r.b_id}`
+  }
+  return { pairs_detected: rows.length }
+}
+
+async function recordRefund(originalLedgerTxId, refundStagedId) {
+  // Reverse-of-style refund: post the new staged tx as a credit to the same
+  // expense account the original debited, and tag both sides as refund-linked.
+  const [orig] = await db`SELECT * FROM ledger_transactions WHERE id = ${originalLedgerTxId}`
+  if (!orig) throw new Error(`Original tx ${originalLedgerTxId} not found`)
+  const origLines = await db`SELECT * FROM ledger_lines WHERE tx_id = ${originalLedgerTxId}`
+  const expenseLine = origLines.find(l => l.debit_cents > 0)
+  if (!expenseLine) throw new Error(`Original tx has no debit line to reverse`)
+  await db`UPDATE staged_transactions SET refund_of_tx_id = ${originalLedgerTxId} WHERE id = ${refundStagedId}`
+  return { staged_id: refundStagedId, reverses_account: expenseLine.account_code }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FX RATE LOOKUP + CONVERSION
+// ═══════════════════════════════════════════════════════════════════════
+
+async function convertFx(amountCents, foreignCurrency, asOfDate, baseCurrency = 'AUD') {
+  if (foreignCurrency === baseCurrency) return { base_amount_cents: amountCents, rate: 1, rate_date: asOfDate, source: 'identity' }
+  const [row] = await db`
+    SELECT rate, rate_date, source FROM fx_rates
+    WHERE base_currency = ${baseCurrency} AND foreign_currency = ${foreignCurrency}
+      AND rate_date <= ${asOfDate}
+    ORDER BY rate_date DESC LIMIT 1`
+  if (!row) return { base_amount_cents: null, rate: null, rate_date: null, source: 'missing', error: `No FX rate found for ${foreignCurrency} on or before ${asOfDate}` }
+  const baseAmount = Math.round(amountCents / parseFloat(row.rate))
+  return { base_amount_cents: baseAmount, rate: parseFloat(row.rate), rate_date: row.rate_date, source: row.source }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CASH RUNWAY + AFRICA DRAWDOWN
+// ═══════════════════════════════════════════════════════════════════════
+
+async function getCashRunway(daysHorizon = 180, asOfDate = null) {
+  const asOf = asOfDate || new Date().toISOString().slice(0, 10)
+  const bs = await getBalanceSheet(asOf)
+  const cashCents = (bs.assets || []).filter(a => ['1000', '1005'].includes(a.account_code))
+    .reduce((s, a) => s + a.balance_cents, 0)
+  // Lookback 90d for burn rate baseline
+  const start = new Date(asOf); start.setDate(start.getDate() - 90)
+  const startStr = start.toISOString().slice(0, 10)
+  const pnl = await getPnLReport(startStr, asOf)
+  const monthlyBurn = Math.round(pnl.total_expenses_cents / 3)
+  const monthlyIncome = Math.round(pnl.total_income_cents / 3)
+  const monthlyNet = monthlyIncome - monthlyBurn
+  const months = monthlyBurn > 0 ? cashCents / monthlyBurn : 999
+  return {
+    as_of: asOf,
+    ecodia_cash_cents: cashCents,
+    monthly_income_cents: monthlyIncome,
+    monthly_burn_cents: monthlyBurn,
+    monthly_net_cents: monthlyNet,
+    runway_months: Math.round(months * 10) / 10,
+    runway_days: Math.round(months * 30),
+    projection_horizon_days: daysHorizon,
+    projected_cash_at_horizon_cents: cashCents + Math.round(monthlyNet * (daysHorizon / 30)),
+  }
+}
+
+async function getDrawdownTargets() {
+  const rows = await db`
+    SELECT id, name, target_cents, target_date, purpose, requires_ecodiaos_consent,
+           consent_granted_at, drawn_cents, status,
+           (target_cents - drawn_cents) AS remaining_cents
+    FROM drawdown_targets
+    WHERE status NOT IN ('fully_drawn', 'cancelled')
+    ORDER BY target_date`
+  const bs = await getBalanceSheet(new Date().toISOString().slice(0, 10))
+  const cashCents = (bs.assets || []).filter(a => ['1000', '1005'].includes(a.account_code))
+    .reduce((s, a) => s + a.balance_cents, 0)
+  return rows.map(r => ({
+    ...r,
+    current_ecodia_cash_cents: cashCents,
+    fundable_now: cashCents >= r.remaining_cents,
+    cash_shortfall_cents: Math.max(0, r.remaining_cents - cashCents),
+    days_until_target: Math.floor((new Date(r.target_date) - new Date()) / (1000 * 60 * 60 * 24)),
+  }))
+}
+
 module.exports = {
   parseAnyBankCSV, upsertStaged, listStaged, getStaged, updateStaged,
   markPosted, markIgnored, getStagedCounts,
@@ -1390,4 +1676,11 @@ module.exports = {
   saveReceipt, matchReceiptToTransaction, listReceipts,
   linkTransactionToClient, getClientTransactions, getProjectTransactions,
   getIncomeTaxEstimate,
+  // 2026-05-28 tax substrate
+  getTaxReturnPrep,
+  recordFixedAsset, runDepreciation,
+  accrueQuarterlyTax,
+  detectInterAccountTransfers, recordRefund,
+  convertFx,
+  getCashRunway, getDrawdownTargets,
 }

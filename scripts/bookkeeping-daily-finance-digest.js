@@ -18,7 +18,10 @@ const ANOMALY_THRESHOLDS = {
   director_loan_delta_cents: 200_000,        // $2,000 overnight swing
   xero_unsynced_max: 50,                     // unsynced staged_transactions queue
   ecodia_bank_min_cents: 0,                  // BA Ecodia goes negative
-  flagged_review_max: 20,                    // accumulated <0.7 confidence backlog
+  flagged_review_max: 20,                    // accumulated <0.9 confidence backlog
+  runway_months_floor: 3,                    // <3mo runway = anomaly
+  drawdown_shortfall_cents: 0,               // cash < required = anomaly
+  drawdown_days_warning: 90,                 // alert when <90d to target
 }
 
 function fmt(cents) {
@@ -34,6 +37,8 @@ async function pullSnapshot() {
   const bs = await bk.getBalanceSheet(today)
   const dl = await bk.getDirectorLoanBalance()
   const pnl = await bk.getPnLReport(fyStart, today)
+  const runway = await bk.getCashRunway(180, today)
+  const drawdowns = await bk.getDrawdownTargets()
 
   const ecodiaBank = bs.assets?.find(a => a.account_code === '1000')?.balance_cents ?? 0
   const ecodiaSavings = bs.assets?.find(a => a.account_code === '1005')?.balance_cents ?? 0
@@ -45,20 +50,44 @@ async function pullSnapshot() {
       OR (source_account IN ('up_personal','ba_personal') AND xero_manual_journal_id IS NULL))
   `
   const [flaggedRow] = await db`SELECT COUNT(*)::int AS cnt FROM staged_transactions WHERE status IN ('flagged','categorized') AND confidence < 0.9`
+  const [provisionRow] = await db`
+    SELECT COALESCE(SUM(provision_cents), 0)::int AS total
+    FROM tax_provisions WHERE entity = 'ecodia_pty_ltd' AND period_end >= ${fyStart} AND period_end <= ${today}`
+  const [gstRow] = await db`
+    SELECT
+      COALESCE(SUM(CASE WHEN account_code='2120' THEN credit_cents - debit_cents ELSE 0 END), 0)::int AS gst_collected,
+      COALESCE(SUM(CASE WHEN account_code='2110' THEN debit_cents - credit_cents ELSE 0 END), 0)::int AS gst_paid
+    FROM ledger_lines l JOIN ledger_transactions t ON t.id = l.tx_id
+    WHERE t.occurred_at >= (
+      SELECT COALESCE(MAX(period_end), ${fyStart}::date) FROM tax_provisions
+      WHERE bas_lodged = TRUE AND entity = 'ecodia_pty_ltd'
+    ) AND t.occurred_at <= ${today}`
+  const accruedCoTax = Math.max(0, Math.round((pnl?.net_profit_cents ?? 0) * 0.25))
+  const liveGstLiability = (gstRow?.gst_collected || 0) - (gstRow?.gst_paid || 0)
 
   return {
     date: today,
     fy_start: fyStart,
     ecodia_bank_cents: ecodiaBank ?? 0,
     ecodia_savings_cents: ecodiaSavings ?? 0,
+    ecodia_total_cash_cents: ecodiaBank + ecodiaSavings,
     director_loan_cents: dl?.balance_cents ?? 0,
     director_loan_direction: dl?.direction ?? 'unknown',
     fy_income_cents: pnl?.total_income_cents ?? 0,
     fy_expenses_cents: pnl?.total_expenses_cents ?? 0,
     fy_net_cents: pnl?.net_profit_cents ?? 0,
+    accrued_co_tax_at_25pct_cents: accruedCoTax,
+    accrued_co_tax_recorded_cents: provisionRow?.total ?? 0,
+    live_gst_liability_cents: liveGstLiability,
     balance_sheet_balanced: bs?.balanced ?? false,
     unsynced_xero: unsyncedRow?.cnt ?? 0,
     flagged_review: flaggedRow?.cnt ?? 0,
+    runway_months: runway.runway_months,
+    monthly_burn_cents: runway.monthly_burn_cents,
+    monthly_income_cents: runway.monthly_income_cents,
+    monthly_net_cents: runway.monthly_net_cents,
+    projected_cash_180d_cents: runway.projected_cash_at_horizon_cents,
+    drawdown_targets: drawdowns,
   }
 }
 
@@ -91,6 +120,17 @@ function detectAnomalies(snap, prior) {
   if (snap.flagged_review > ANOMALY_THRESHOLDS.flagged_review_max) {
     anomalies.push(`${snap.flagged_review} categorised txs awaiting review (<0.9 confidence)`)
   }
+  if (snap.runway_months < ANOMALY_THRESHOLDS.runway_months_floor && snap.monthly_burn_cents > 0) {
+    anomalies.push(`Cash runway ${snap.runway_months} months (burn ${fmt(snap.monthly_burn_cents)}/mo, income ${fmt(snap.monthly_income_cents)}/mo). REVENUE CAPTURE NEEDED.`)
+  }
+  for (const d of (snap.drawdown_targets || [])) {
+    if (d.cash_shortfall_cents > ANOMALY_THRESHOLDS.drawdown_shortfall_cents && d.days_until_target < ANOMALY_THRESHOLDS.drawdown_days_warning) {
+      anomalies.push(`Drawdown "${d.name}" needs ${fmt(d.cash_shortfall_cents)} more cash in ${d.days_until_target}d. Current ${fmt(d.current_ecodia_cash_cents)}, target ${fmt(d.target_cents)}.`)
+    }
+  }
+  if (snap.accrued_co_tax_at_25pct_cents > 0 && snap.accrued_co_tax_recorded_cents < (snap.accrued_co_tax_at_25pct_cents * 0.7)) {
+    anomalies.push(`Co. tax accrual is behind YTD. Computed ${fmt(snap.accrued_co_tax_at_25pct_cents)} at 25%, only ${fmt(snap.accrued_co_tax_recorded_cents)} recorded. Run accrueQuarterlyTax.`)
+  }
   return anomalies
 }
 
@@ -114,9 +154,10 @@ async function upsertStatusBoardRow(snap, anomalies) {
     ? `ANOMALIES (${anomalies.length}) | DL ${fmt(snap.director_loan_cents)} ${snap.director_loan_direction}`
     : `clean | DL ${fmt(snap.director_loan_cents)} ${snap.director_loan_direction} | Ecodia bank ${fmt(snap.ecodia_bank_cents)}`
   const name = `${ROW_NAME_PREFIX} ${snap.date}`
+  const drawdownLine = (snap.drawdown_targets || []).map(d => `${d.name}: ${fmt(d.drawn_cents)}/${fmt(d.target_cents)} by ${d.target_date} (${d.days_until_target}d, ${d.fundable_now ? 'FUNDABLE NOW' : 'shortfall ' + fmt(d.cash_shortfall_cents)})`).join(' || ') || 'none'
   const next_action = anomalies.length > 0
     ? `Anomalies surfaced: ${anomalies.join(' | ')}`
-    : `FY${snap.fy_start.slice(2, 4)}->${snap.date.slice(2, 4)} net ${fmt(snap.fy_net_cents)} (income ${fmt(snap.fy_income_cents)}, expenses ${fmt(snap.fy_expenses_cents)}). Director Loan ${fmt(snap.director_loan_cents)} ${snap.director_loan_direction}. Ecodia bank ${fmt(snap.ecodia_bank_cents)} + savings ${fmt(snap.ecodia_savings_cents)}. ${snap.unsynced_xero} unsynced Xero, ${snap.flagged_review} flagged for review.`
+    : `FY${snap.fy_start.slice(2, 4)}->${snap.date.slice(2, 4)} net ${fmt(snap.fy_net_cents)} (income ${fmt(snap.fy_income_cents)}, expenses ${fmt(snap.fy_expenses_cents)}, accrued co.tax ${fmt(snap.accrued_co_tax_at_25pct_cents)}). Director Loan ${fmt(snap.director_loan_cents)} ${snap.director_loan_direction}. Ecodia cash ${fmt(snap.ecodia_total_cash_cents)} (bank ${fmt(snap.ecodia_bank_cents)} + savings ${fmt(snap.ecodia_savings_cents)}). Runway ${snap.runway_months}mo at burn ${fmt(snap.monthly_burn_cents)}/mo, income ${fmt(snap.monthly_income_cents)}/mo (net ${fmt(snap.monthly_net_cents)}/mo). Projected cash 180d ${fmt(snap.projected_cash_180d_cents)}. GST live liability ${fmt(snap.live_gst_liability_cents)}. Drawdowns: ${drawdownLine}. ${snap.unsynced_xero} unsynced Xero, ${snap.flagged_review} flagged for review.`
   const priority = anomalies.length > 0 ? 2 : 4
   const next_action_by = anomalies.length > 0 ? 'ecodiaos' : 'ecodiaos'
 
