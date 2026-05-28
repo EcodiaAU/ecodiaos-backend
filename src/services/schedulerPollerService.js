@@ -20,6 +20,84 @@ const POLL_INTERVAL_MS = 30_000
 const TZ_OFFSET_HOURS = 10 // AEST (UTC+10, no DST)
 const API_PORT = process.env.PORT || 3001
 
+// ── Laptop-agent dispatch (2026-05-28 patch) ────────────────────────────
+// See ~/ecodiaos/patterns/scheduler-poller-must-dispatch-worker-not-os-session-message-2026-05-28.md
+// Legacy path POSTed to /api/os-session/message (deprecated post-2026-05-17
+// local-first migration, requires auth header the poller never sent, 401s).
+// New path: dispatch the scheduled prompt as a worker brief to cowork.dispatch_worker
+// on the laptop-agent, which spawns a fresh Claude Code chat tab in VS Code Stable.
+// Worker brief MUST end with coord.signal_done({terminate:true}) then close_my_tab.
+// Falls back to the legacy os-session/message POST on agent-unreachable so we
+// don't silently drop fires during the transition.
+const LAPTOP_AGENT_TOOL_URL = process.env.REFLEX_AGENT_URL || 'http://100.114.219.69:7456/api/tool'
+const WORKER_ACK_TIMEOUT_MS = 180_000 // see worker-ack-timeout-default-90s-too-tight-for-cold-mcp-load-2026-05-28.md
+let _agentTokenCache = { value: null, expiresAt: 0 }
+
+async function _loadLaptopAgentToken() {
+  if (process.env.REFLEX_AGENT_TOKEN) return process.env.REFLEX_AGENT_TOKEN
+  if (_agentTokenCache.expiresAt > Date.now() && _agentTokenCache.value) {
+    return _agentTokenCache.value
+  }
+  try {
+    const rows = await db`SELECT value FROM kv_store WHERE key = 'creds.laptop_agent' LIMIT 1`
+    const raw = rows?.[0]?.value
+    let parsed = null
+    if (typeof raw === 'string') {
+      try { parsed = JSON.parse(raw) } catch { parsed = raw }
+    } else if (raw && typeof raw === 'object') {
+      parsed = raw
+    }
+    const token = parsed?.agent_token || null
+    _agentTokenCache.value = token
+    _agentTokenCache.expiresAt = Date.now() + 5 * 60 * 1000
+    return token
+  } catch (err) {
+    logger.warn('Scheduler: laptop-agent token load failed', { error: err.message })
+    return null
+  }
+}
+
+async function _dispatchScheduledPromptAsWorker(taskName, prompt) {
+  const token = await _loadLaptopAgentToken()
+  if (!token) return { ok: false, reason: 'no_token' }
+  try {
+    const res = await fetch(LAPTOP_AGENT_TOOL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        tool: 'cowork.dispatch_worker',
+        params: {
+          task_id: taskName,
+          brief: prompt,
+          worker_acknowledgment_timeout_ms: WORKER_ACK_TIMEOUT_MS,
+        },
+      }),
+      signal: AbortSignal.timeout(300_000), // 5min spawn budget
+    })
+    if (!res.ok) {
+      return { ok: false, reason: `http_${res.status}` }
+    }
+    const body = await res.json().catch(() => ({}))
+    // body shape: { ok: true, result: { ok, tab_id, tab_credential, ack_via, ... } }
+    const inner = body?.result || body
+    if (inner?.ok === false) {
+      return { ok: false, reason: inner.error || 'dispatch_returned_not_ok', inner }
+    }
+    return {
+      ok: true,
+      tab_id: inner?.tab_id,
+      tab_credential: inner?.tab_credential,
+      ack_via: inner?.ack_via,
+      ack_elapsed_ms: inner?.ack_elapsed_ms,
+    }
+  } catch (err) {
+    return { ok: false, reason: `agent_unreachable: ${err.message}` }
+  }
+}
+
 // ESSENTIAL_CRON_NAMES removed 5 May 2026 (fork_mos3hwpk_9fbdc5) along with
 // the critical-energy pre-gate. Trust /api/os-session/message queue downstream
 // per ~/ecodiaos/patterns/scheduler-no-pregate-trust-os-message-queue.md.
@@ -326,13 +404,41 @@ async function fireTask(task) {
         surfaces: surfaceMatches.map(s => s.base),
       })
     }
-    const res = await fetch(`http://127.0.0.1:${API_PORT}/api/os-session/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: prompt, source: 'scheduler' }),
-      signal: AbortSignal.timeout(1_800_000), // 30 min
-    })
-    const result = await res.json().catch(() => ({}))
+    // 2026-05-28 patch: try cowork.dispatch_worker on the laptop-agent FIRST
+    // (real worker tab spawns in VS Code Stable, brief executes, self-closes).
+    // Fall back to legacy os-session/message ONLY when the agent is unreachable
+    // (preserves legacy delivery during transition - never silently drops a fire).
+    let result
+    let dispatched_via = null
+    const workerDispatch = await _dispatchScheduledPromptAsWorker(task.name, prompt)
+    if (workerDispatch.ok) {
+      result = {
+        dispatched_via: 'cowork.dispatch_worker',
+        tab_id: workerDispatch.tab_id,
+        ack_via: workerDispatch.ack_via,
+        ack_elapsed_ms: workerDispatch.ack_elapsed_ms,
+      }
+      dispatched_via = 'worker'
+      logger.info('Scheduler dispatched as worker', {
+        name: task.name,
+        tab_id: workerDispatch.tab_id,
+        ack_elapsed_ms: workerDispatch.ack_elapsed_ms,
+      })
+    } else {
+      logger.warn('Scheduler: worker dispatch failed, falling back to os-session/message', {
+        name: task.name,
+        reason: workerDispatch.reason,
+      })
+      const res = await fetch(`http://127.0.0.1:${API_PORT}/api/os-session/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: prompt, source: 'scheduler' }),
+        signal: AbortSignal.timeout(1_800_000), // 30 min
+      })
+      result = await res.json().catch(() => ({}))
+      result.worker_dispatch_fallback_reason = workerDispatch.reason
+      dispatched_via = 'os-session-fallback'
+    }
 
     const now = new Date()
     if (task.type === 'cron') {

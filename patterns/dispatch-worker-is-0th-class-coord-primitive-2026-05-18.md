@@ -28,11 +28,12 @@ This is paired with [[reflex-is-0th-class-primitive]] (reflex.fire) and [[ide-ta
 
 ```
 cowork.dispatch_worker({
-  ide: 'cursor' | 'stable' | 'insiders',  // cursor is the only one with the keybinding currently wired
   task_id: '<stable id you'll use to correlate>',
   brief: '<full self-contained brief; identity is auto-prepended>',
 })
 ```
+
+Worker spawns in VS Code Stable. That is the only supported worker host.
 
 Returns: `{ok, tab_id, tab_credential, registered_at, task_id, tab_handle, brief_file_audit, ...}`. Brief auto-written to `D:/.code/EcodiaOS/coordination/briefs/<task_id>.md` for audit + recovery.
 
@@ -68,7 +69,7 @@ Workers can take 30s-4min on their first turn because the new CC tab loads ~13 M
 ## Substrate
 
 - Dispatcher: [tools/cowork.js](D:/.code/eos-laptop-agent/tools/cowork.js) `dispatch_worker()`
-- Spawn mechanic: Ctrl+Alt+Shift+C in Cursor (Tate-configured editor-tab keybinding, [[reference-editor-area-claude-code-chat-keybinding]])
+- Spawn mechanic: Ctrl+Alt+Shift+C in VS Code Stable (Tate-configured editor-tab keybinding, [[reference-editor-area-claude-code-chat-keybinding]])
 - Registration: synchronous, conductor-side, `/api/comms/register-worker` on laptop-agent port 7456
 - Inter-tab messaging: 8 `coord.*` MCP tools at `http://localhost:7456/api/mcp/coord`
 - Persistence: file-backed at `D:/.code/EcodiaOS/coordination/{workers,messages,inbox,state}/`
@@ -78,7 +79,7 @@ Workers can take 30s-4min on their first turn because the new CC tab loads ~13 M
 
 The load-bearing failure mode is **orphan tab**: dispatcher returns `ok: true` (tab spawned, brief pasted, register-worker succeeded) but the worker model never actually starts executing. Causes: clipboard race under memory pressure, model OOM, auth gate stuck, brief paste landed before chat was ready to receive. Symptom: spawned tab sends zero coord.* calls.
 
-Caught live during the 2026-05-18 status_board drift-audit when Worker A dispatched into Cursor and never sent a single message in 14+ min while Worker B (parallel dispatch) heartbeated + signal_done'd cleanly.
+Caught live during the 2026-05-18 status_board drift-audit when Worker A never sent a single message in 14+ min while Worker B (parallel dispatch) heartbeated + signal_done'd cleanly.
 
 **Hardened dispatch (now default):**
 
