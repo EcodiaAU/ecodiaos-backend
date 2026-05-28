@@ -589,9 +589,29 @@ async function postStagedTransaction(stagedId) {
   }
 
   if (tx.is_personal && !isIncome) {
-    // Personal expense on company card: you owe the company → DR Director Loan / CR Bank
-    lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
-    lines.push({ account_code: bankAccount, debit_cents: 0, credit_cents: amountAbs })
+    // Two sub-cases distinguished by which bank account paid:
+    // (a) Business expense paid from Tate's PERSONAL bank (1010 Up, 1020 BA Personal):
+    //     Ecodia recognises the expense AND owes Tate more. DR Expense / CR Director Loan.
+    //     Personal bank stays off Ecodia's books for this journal.
+    // (b) Personal-lifestyle expense paid from ECODIA bank (1000, 1005):
+    //     Drawing. Tate's loan position reduces. DR Director Loan / CR Ecodia Bank.
+    //     P&L not touched - drawings are equity, not expense.
+    const PERSONAL_BANK_CODES = new Set(['1010', '1020'])
+    const isFromPersonalBank = PERSONAL_BANK_CODES.has(bankAccount)
+    if (isFromPersonalBank) {
+      // (a) Business expense paid from personal bank
+      if (gst > 0) {
+        lines.push({ account_code: tx.category, debit_cents: exGst, credit_cents: 0, tax_code: 'Input' })
+        lines.push({ account_code: '2110', debit_cents: gst, credit_cents: 0, tax_code: 'Input', tax_amount_cents: gst })
+      } else {
+        lines.push({ account_code: tx.category, debit_cents: amountAbs, credit_cents: 0 })
+      }
+      lines.push({ account_code: '2100', debit_cents: 0, credit_cents: amountAbs })
+    } else {
+      // (b) Personal-lifestyle expense paid from Ecodia bank (drawing)
+      lines.push({ account_code: '2100', debit_cents: amountAbs, credit_cents: 0 })
+      lines.push({ account_code: bankAccount, debit_cents: 0, credit_cents: amountAbs })
+    }
   } else if (tx.is_personal && isIncome) {
     // Personal income: company paying director back, or salary, etc.
     // From company bank (1000): DR 2100 / CR 1000 (reduces director loan via company bank)
