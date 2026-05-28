@@ -99,6 +99,19 @@ function _xeroAccountCode(internalCode) {
   return '429'
 }
 
+// Xero income account codes (REVENUE class). Tax type for these must be
+// OUTPUT/EXEMPTOUTPUT. Everything else (expense/equity) uses INPUT/EXEMPTEXPENSES
+// or BASEXCLUDED for equity movements like Funds Introduced (881) / Drawings (880).
+const XERO_INCOME_CODES = new Set(['200', '260', '270'])
+const XERO_EQUITY_CODES = new Set(['880', '881', '960', '970'])
+
+function _taxTypeForAccount(xeroCode, gstCents) {
+  if (XERO_EQUITY_CODES.has(xeroCode)) return 'BASEXCLUDED'
+  const hasGst = gstCents > 0
+  if (XERO_INCOME_CODES.has(xeroCode)) return hasGst ? 'OUTPUT' : 'EXEMPTOUTPUT'
+  return hasGst ? 'INPUT' : 'EXEMPTEXPENSES' // expense / asset / liability default
+}
+
 function _taxTypeFor({ isIncome, gstCents }) {
   if (gstCents > 0) return isIncome ? 'OUTPUT' : 'INPUT'
   return isIncome ? 'EXEMPTOUTPUT' : 'EXEMPTEXPENSES'
@@ -134,6 +147,7 @@ function buildPayload(tx) {
   const taxType = _taxTypeFor({ isIncome, gstCents: tx.gst_amount_cents || 0 })
 
   const xeroCode = _xeroAccountCode(tx.category)
+  const accountAwareTaxType = _taxTypeForAccount(xeroCode, tx.gst_amount_cents || 0)
   return {
     Type: isIncome ? 'RECEIVE' : 'SPEND',
     Contact: { Name: _supplierNameFor(tx) },
@@ -147,7 +161,7 @@ function buildPayload(tx) {
       Quantity: '1',
       UnitAmount: amount,
       AccountCode: xeroCode,
-      TaxType: taxType,
+      TaxType: accountAwareTaxType,
     }],
   }
 }
@@ -249,17 +263,22 @@ function buildManualJournalPayload(tx) {
     ? tx.occurred_at.toISOString().slice(0, 10)
     : String(tx.occurred_at).slice(0, 10)
   const expenseOrIncomeCode = _xeroAccountCode(tx.category)
-  const taxType = _taxTypeFor({ isIncome, gstCents: tx.gst_amount_cents || 0 })
+  // Tax type is chosen by the ACCOUNT, not the journal direction. A
+  // refund (isIncome=true) hitting an expense account 485 still uses
+  // INPUT/EXEMPTEXPENSES because expense accounts can't take OUTPUT.
+  const accountTaxType = _taxTypeForAccount(expenseOrIncomeCode, tx.gst_amount_cents || 0)
 
   const journalLines = isIncome
     ? [
-        // Income from personal acct: DR Director Loan / CR Income
+        // Money received into personal acct categorised as business:
+        // could be income or an expense refund. Either way: DR Director
+        // Loan / CR <whatever-the-mapped-account-is>.
         { LineAmount: amount, AccountCode: FUNDS_INTRODUCED_CODE, TaxType: 'BASEXCLUDED', Description: (tx.description || '').slice(0, 1000) },
-        { LineAmount: `-${amount}`, AccountCode: expenseOrIncomeCode, TaxType: taxType, Description: (tx.description || '').slice(0, 1000) },
+        { LineAmount: `-${amount}`, AccountCode: expenseOrIncomeCode, TaxType: accountTaxType, Description: (tx.description || '').slice(0, 1000) },
       ]
     : [
         // Expense paid from personal: DR Expense / CR Director Loan (Funds Introduced)
-        { LineAmount: amount, AccountCode: expenseOrIncomeCode, TaxType: taxType, Description: (tx.description || '').slice(0, 1000) },
+        { LineAmount: amount, AccountCode: expenseOrIncomeCode, TaxType: accountTaxType, Description: (tx.description || '').slice(0, 1000) },
         { LineAmount: `-${amount}`, AccountCode: FUNDS_INTRODUCED_CODE, TaxType: 'BASEXCLUDED', Description: `Funded via ${tx.source_account}` },
       ]
 
