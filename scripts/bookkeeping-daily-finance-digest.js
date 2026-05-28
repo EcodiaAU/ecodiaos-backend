@@ -27,12 +27,12 @@ function fmt(cents) {
 }
 
 async function pullSnapshot() {
-  const bs = await bk.getBalanceSheet()
-  const dl = await bk.getDirectorLoanBalance()
   const today = new Date().toISOString().slice(0, 10)
   const fyStart = new Date(today).getMonth() >= 6
     ? `${new Date(today).getFullYear()}-07-01`
     : `${new Date(today).getFullYear() - 1}-07-01`
+  const bs = await bk.getBalanceSheet(today)
+  const dl = await bk.getDirectorLoanBalance()
   const pnl = await bk.getPnLReport(fyStart, today)
 
   const ecodiaBank = bs.assets?.find(a => a.account_code === '1000')?.balance_cents ?? 0
