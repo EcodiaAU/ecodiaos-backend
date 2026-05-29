@@ -1,0 +1,11 @@
+{
+  "name": "preview",
+  "publisher": "ecodia",
+  "displayName": "Ecodia Preview",
+  "description": "HTTP endpoint that opens .md/.html files in preview mode. Driven by Claude Code PostToolUse hook.",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.80.0" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {}
+}
