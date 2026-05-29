@@ -335,15 +335,21 @@ app.use('/api/rescue', require('./routes/rescue'))
 app.use('/api/triage', require('./routes/triage'))
 app.use('/api/telemetry', require('./routes/telemetry'))
 app.use('/api/hands', require('./routes/hands'))
-app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
-// /api/mcp/ecodia-full - wider bearer, proxies 10 stdio MCP servers +
-// re-exposes cowork V2 tools. Authored as Lane E of the VPS-to-local
-// migration (2026-05-15). See backend/docs/MIGRATION_FULL_ARCHITECTURE_2026-05-15.md.
-app.use('/api/mcp/ecodia-full', require('./routes/mcp/ecodiaFull'))
+// DEPRECATED MCP gateways unmounted 2026-05-29 (status_board 2bf2c734, Tate
+// "everything native"). The /api/mcp/cowork (gen-1) + /api/mcp/ecodia-full
+// (gen-2 monolith) gateways + the OAuth PKCE wrapper that fronted ecodia-full
+// are retired: the Anthropic Routines that consumed them are deleted, the
+// webhook shims now dispatch natively (src/routes/webhooks/*), and the conductor
+// uses the 10 narrow domain-scoped connectors below. Route files
+// (routes/mcp/cowork.js, ecodiaFull.js, oauth/mcpOauth.js) remain on disk for
+// one verification cycle, then get deleted. NB: this is unrelated to the ALIVE
+// cowork.dispatch_worker laptop-agent primitive the scheduler poller uses.
+//   app.use('/api/mcp/cowork', require('./routes/mcp/cowork'))
+//   app.use('/api/mcp/ecodia-full', require('./routes/mcp/ecodiaFull'))
+//   app.use('/api/oauth/mcp', require('./routes/oauth/mcpOauth'))
 // Phase 2 Lane 10 (2026-05-15) - 10 domain-scoped MCP connectors. Each is a
 // narrow HTTP endpoint with its own bearer + OAuth client_id + scope subset.
-// See: migration-lanes/phase2/10-domain-scoped-mcp-connectors.md
-// ecodia-full above is kept alive for 30d as a migration alias.
+// These are now the canonical MCP surface.
 ;(function mountDomainScopedConnectors() {
   const mountConnector = require('./routes/mcp/mountConnector')
   const { CONNECTORS } = require('./services/connectorManifests')
@@ -352,9 +358,6 @@ app.use('/api/mcp/ecodia-full', require('./routes/mcp/ecodiaFull'))
     app.use('/api/mcp/' + connector.mountPath, mountConnector(connector))
   }
 })()
-// /api/oauth/mcp/* - OAuth 2.0 PKCE wrapper around the ecodia-full bearer,
-// defensive ship in case claude.ai Custom Connectors require OAuth (Lane E).
-app.use('/api/oauth/mcp', require('./routes/oauth/mcpOauth'))
 // /api/stream/* - streaming substrate (Phase 2 Lane 06, 2026-05-15). SSE
 // channel hub complementing MCP. Channel registry at backend/streaming/channels.json.
 app.use('/api/stream', require('./routes/streaming'))
@@ -376,6 +379,10 @@ app.use('/api/ops/pattern-fire', require('./routes/ops/patternFire'))
 app.use('/api/ops/stuck', require('./routes/ops/stuck'))
 // /api/ops/mcp-discovery - snapshot of MCP servers available to forks (AUTONOMY_AUDIT_2026-05-13)
 app.use('/api/ops/mcp-discovery', require('./routes/ops/mcpDiscovery'))
+// /api/approval-queue - unified Tate-approval queue (spec 2026-05-26-tate-approval-queue-design.md)
+app.use('/api/approval-queue', require('./routes/approvalQueue'))
+// /api/ops/approval-queue - producer-side HTTP wrappers (ship-ios.py + stripe webhooks)
+app.use('/api/ops/approval-queue', require('./routes/ops/approvalQueueEnqueue'))
 // /api/web-search - Brave-Search-backed web search w/ 24h cache (AUTONOMY_AUDIT_2026-05-13)
 app.use('/api/web-search', require('./routes/webSearch'))
 // /api/documents-extract - PDF + OCR extraction (AUTONOMY_AUDIT_2026-05-13)
