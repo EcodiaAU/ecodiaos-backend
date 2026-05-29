@@ -290,21 +290,17 @@ Full: `D:/.code/EcodiaOS/backend/patterns/cowork-no-focus-collision.md`. The rul
 
 When the laptop-agent hits Windows Hello during Chrome credential autofill, the conductor injects the passkey via `input.type` from VPS using `kv_store.creds.laptop_passkey`. Detection: `process.listProcesses` for `LogonUI.exe` + foreground-window-title fallback. Never log passkey value. Full: `D:/.code/EcodiaOS/backend/patterns/cowork-passkey-stall-conductor-injects.md`.
 
-### MCP headless REST endpoints (legacy Cowork V2 substrate)
+### MCP surface (narrow domain-scoped connectors - canonical since 2026-05-29)
 
-LIVE on `https://api.admin.ecodia.au/api/mcp/cowork/*` as of 30 Apr 2026 12:47 AEST. **Despite the "Cowork" name in the URL path, these are useful headless REST tools**, not Cowork-specific infrastructure. They provide status_board, kv_store, neo4j, forks, email, and scheduler access over HTTP.
+The conductor's MCP hands are the 10 narrow domain-scoped connectors at `https://api.admin.ecodia.au/api/mcp/ecodia-<name>`, each scoped-bearer-authed via `kv_store.creds.ecodia_<name>_mcp_bearer`. The local seat loads its subset through `.mcp.json`. Scheduling is `ecodia-scheduler` (`schedule_delayed` / `schedule_cron`); substrate writes are `ecodia-core` (status_board / kv_store / neo4j / patterns / email_threads). Full taxonomy in the user-global CLAUDE.md "MCP endpoints" section and `connectorManifests.js`.
 
-- 22 MCP tools at `/api/mcp/cowork/*`: status_board.query/upsert, kv_store.get/set, neo4j.search/write_episode/write_decision, forks.spawn/list, patterns.semantic_search, email_threads.read, crm.get_intelligence, os_session.message, gmail.send, sms.tate, scheduler trio (Wave 3)
-- Bearer scopes count = 20. Custom connector registered on claude.ai
-- Ship lineage `src/routes/mcp/cowork.js`: `3f5be8e` V2 substrate, `a17611d` MCP JSON-RPC shim, `05fee8b` CORS allowlist + auth-exempt discovery, `dbf2504` Wave 3
-- The endpoints will be renamed in a future pass to remove the "cowork" from the URL path
+**Deprecated, sunset-pending (2026-05-29 migration, status_board 2bf2c734):**
+- `/api/mcp/cowork/*` (gen-1, `creds.cowork_mcp_bearer`, 22 tools, `src/routes/mcp/cowork.js`). The claude.ai `EcodiaOS Cowork V2` Custom Connector that fronted it is deleted; the gateway itself stays mounted on the VPS to serve live Routines until the scheduler repoint is verified, then it goes.
+- `/api/mcp/ecodia-full` (gen-2 monolith, `creds.ecodia_full_mcp_bearer`, 157 tools, `src/routes/mcp/ecodiaFull.js`). Same sunset arc.
 
-**Probe before referencing in fork briefs/status_board:**
-1. `git log --oneline -- src/routes/mcp/cowork.js | head -5`
-2. `curl -s -H "Authorization: Bearer $COWORK" https://api.admin.ecodia.au/api/mcp/cowork | jq '.tools | length'` returns 22
-3. At least one live roundtrip through the surface
+Do not point new work at either. The narrow connectors carry every tool both exposed. Note the naming clash: this dead `/api/mcp/cowork` gateway is unrelated to the alive `cowork.dispatch_worker` + `coord.*` laptop-agent primitive.
 
-Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/cowork-v2-api-shape-conventions.md` (six API-shape gotchas remain accurate).
+Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/domain-scoped-mcp-connectors-not-monolith-2026-05-15.md`.
 
 ### Chrome profile gotcha
 
