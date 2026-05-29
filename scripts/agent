@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+#
+# agent - call the eos-laptop-agent over HTTP with one line, no inline token-load.
+#
+# Usage:
+#   agent <tool.name> '<json-params>'
+#   agent <tool.name> @<path-to-json-file>     # reads file (avoids shell escape soup)
+#   agent <tool.name> @-                       # reads JSON from stdin
+#
+# Examples:
+#   agent gui.enable_chrome_cdp '{"port":9222}'
+#   agent shell.shell             '{"command":"pm2 list"}'
+#   agent cdp.findVisible         '{"target":{"alias":"main"}}'
+#   agent gui.sequence            '{"steps":[{"tool":"cdp.findVisible","params":{}}]}'
+#   agent shell.shell             @D:/tmp/restart.json   # complex payload from file
+#   echo '{"port":9222}' | agent gui.enable_chrome_cdp @-
+#
+# Token resolution order:
+#   $ECODIA_AGENT_TOKEN
+#   $HOME/.ecodiaos/laptop-agent.token
+#   /c/Users/tjdTa/.ecodiaos/laptop-agent.token (Windows mount)
+#   C:/Users/tjdTa/.ecodiaos/laptop-agent.token
+#
+# Host resolution order:
+#   $ECODIA_AGENT_HOST
+#   127.0.0.1:7456   (we are on Corazon)
+#   100.114.219.69:7456  (Tailscale Corazon)
+#
+# Exit code 0 on HTTP 200, 1 on any other status. Stdout is the response body.
+# See: backend/patterns/laptop-agent-helper-not-inline-token-load.md
+
+set -e
+set -o pipefail
+
+if [ "$#" -lt 1 ]; then
+  echo "usage: agent <tool.name> '<json-params>'" >&2
+  exit 2
+fi
+
+TOOL="$1"
+if [ "$#" -ge 2 ]; then
+  RAW="$2"
+  # File / stdin escape hatch for payloads that don't survive shell quoting.
+  case "$RAW" in
+    @-)
+      PARAMS="$(cat)"
+      ;;
+    @*)
+      FPATH="${RAW#@}"
+      if [ ! -f "$FPATH" ]; then
+        echo "agent: payload file not found: $FPATH" >&2
+        exit 4
+      fi
+      PARAMS="$(cat "$FPATH")"
+      ;;
+    *)
+      PARAMS="$RAW"
+      ;;
+  esac
+else
+  PARAMS='{}'
+fi
+
+# --- token resolution ---------------------------------------------------
+resolve_token() {
+  if [ -n "$ECODIA_AGENT_TOKEN" ]; then
+    printf '%s' "$ECODIA_AGENT_TOKEN"; return 0
+  fi
+  for p in \
+    "$HOME/.ecodiaos/laptop-agent.token" \
+    "/c/Users/tjdTa/.ecodiaos/laptop-agent.token" \
+    "C:/Users/tjdTa/.ecodiaos/laptop-agent.token"; do
+    if [ -f "$p" ]; then
+      tr -d '[:space:]' < "$p"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# --- host resolution ----------------------------------------------------
+resolve_host() {
+  if [ -n "$ECODIA_AGENT_HOST" ]; then
+    printf '%s' "$ECODIA_AGENT_HOST"; return 0
+  fi
+  # Probe 127.0.0.1:7456 first (on Corazon). Fall back to Tailscale.
+  if curl -fsS --max-time 1 http://127.0.0.1:7456/api/health >/dev/null 2>&1; then
+    printf '127.0.0.1:7456'; return 0
+  fi
+  if curl -fsS --max-time 2 http://100.114.219.69:7456/api/health >/dev/null 2>&1; then
+    printf '100.114.219.69:7456'; return 0
+  fi
+  # Nothing reachable; return localhost so the curl below errors with a clear message.
+  printf '127.0.0.1:7456'
+}
+
+TOK="$(resolve_token)" || {
+  echo "agent: no token found. Set ECODIA_AGENT_TOKEN or put a token at ~/.ecodiaos/laptop-agent.token" >&2
+  exit 3
+}
+HOST="$(resolve_host)"
+
+# --- envelope and call --------------------------------------------------
+# We pass tool + params through jq if it is available, otherwise compose by hand.
+# jq is preferred because it validates the params JSON.
+if command -v jq >/dev/null 2>&1; then
+  BODY=$(jq -nc --arg tool "$TOOL" --argjson params "$PARAMS" '{tool:$tool, params:$params}')
+else
+  # crude fallback - assume PARAMS is already valid JSON
+  BODY="{\"tool\":\"$TOOL\",\"params\":$PARAMS}"
+fi
+
+HTTP_CODE=$(curl -sS -o /tmp/agent.out -w '%{http_code}' \
+  -X POST "http://$HOST/api/tool" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOK" \
+  --data "$BODY")
+
+cat /tmp/agent.out
+echo
+
+if [ "$HTTP_CODE" != "200" ]; then
+  echo "agent: HTTP $HTTP_CODE on $HOST tool=$TOOL" >&2
+  exit 1
+fi
