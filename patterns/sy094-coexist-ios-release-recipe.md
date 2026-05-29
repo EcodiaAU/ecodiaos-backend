@@ -1,8 +1,23 @@
 ---
-triggers: coexist-ios-release, coexist-asc-upload, sy094-ios-pipeline, capacitor-ios-build, capacitor-ios-archive, xcode-archive, xcode-export-archive, xcode-organizer-distribute, ios-shipping-pipeline, ios-release-recipe, ipa-export, manual-signing-archive, errSecInternalComponent, headless-codesign-keychain, distribution-provisioning-profile, app-store-connect-key, ecodia-code-profile, coexistaus-bundle, xcode-apple-id-signin, version-train-closed, marketing-version-bump, cfbundleshortversionstring, run-button-toolbar-coords, ios-gui-flow-end-to-end, ship-coexist-ios, coexist-testflight-upload, npx-cap-sync, npx-cap-open
+triggers: xcode-gui-archive-fallback, xcode-organizer-distribute-gui, mic-rdp-archive-fallback, coexist-ios-gui-rdp-fallback, run-button-toolbar-coords, xcode-apple-id-signin
+status: deprecated_use_headless
+superseded_by: coexist-ios-headless-ship-recipe.md
 ---
 
-# Co-Exist iOS release recipe - verified end-to-end ~10min from version bump to "Uploaded to Apple"
+# Co-Exist iOS release recipe - GUI-via-MIC-RDP path (DEPRECATED 2026-05-29)
+
+> **DEPRECATED 2026-05-29 - use the SSH-headless path instead.**
+>
+> For routine ships: `python3 ~/asc-scripts/ship-ios.py coexist` on SY094 (one-line driver). Full protocol: [ios-app-asc-headless-ship-protocol.md](ios-app-asc-headless-ship-protocol.md). Co-Exist deltas: [coexist-ios-headless-ship-recipe.md](coexist-ios-headless-ship-recipe.md).
+>
+> The "SSH path silently fails even with unlock + set-key-partition-list because there is no GUI auth context" warning in Phase G-headless of this recipe was wrong - verified 2026-05-29 ship of Co-Exist 1.8.25(1) end-to-end via SSH-headless in 2min56s. `security set-key-partition-list -S apple-tool:,apple:,codesign:` IS sufficient on SY094; no GUI Aqua context is required for xcodebuild + xcrun altool.
+>
+> Keep this file for:
+> 1. The Xcode coordinates table (still valid for MIC-RDP-only debugging when SSH path fails)
+> 2. The Apple ID signin sub-procedure (when Xcode logs out of code@ecodia.au and SSH path's auto-signing breaks)
+> 3. Historical record of the GUI flow Tate originally specified
+>
+> Triggers were narrowed: removed broad terms (coexist-ios-release, ios-release-recipe, ship-coexist-ios, ipa-export, etc) so the dev-process registry's quick_ship one-liner surfaces first. Only matches now: GUI-fallback debugging cases.
 
 > **NOTE - Cowork deprecated 5 May 2026.** The Cowork no-focus-collision cross-ref (line 58 original) refers to a rule whose framing is deprecated, but the rule itself (foreground-window probe before any `input.*` operation) is preserved per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The foreground probe applies to ALL laptop-agent `input.*` calls regardless of substrate.
 
