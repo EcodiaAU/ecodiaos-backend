@@ -5,7 +5,8 @@ trigger: schedule
 repos: EcodiaTate/ecodiaos-backend
 connectors: ecodia-core, ecodia-graph
 permissions: claude/-prefixed branches only (default); status_board P3 writes; neo4j read-only
-requires_bearer: cowork
+requires_bearer: ecodia-core
+bearer_note: "Repointed from the deprecated cowork bearer to the ecodia-core narrow connector 2026-05-29 (status_board 2bf2c734)."
 purpose: Daily audit of Corazon auto-memory entries for promotion candidates per memory-substrate doctrine
 ---
 

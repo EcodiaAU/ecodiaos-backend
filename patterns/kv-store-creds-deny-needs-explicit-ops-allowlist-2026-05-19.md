@@ -8,6 +8,8 @@ metadata:
 
 # kv_store creds.* deny needs an explicit ops-allow-list, not wholesale prefix-open
 
+**SURFACE NOTE 2026-05-29.** The creds-deny rule still holds, but the bearer it references is the deprecated cowork/ecodia-full surface. The narrow connectors carry the same creds-deny prefix. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]].
+
 ## The recurring failure
 
 Conductor needs a credential the doctrine itself names. Example:

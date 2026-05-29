@@ -8,6 +8,8 @@ authors: Corazon Claude Code (Lane E of VPS-to-local migration)
 
 # ecodia-full MCP proxy architecture
 
+**DEPRECATED 2026-05-29 (status_board 2bf2c734).** ecodia-full is no longer the canonical wide surface. The 10 narrow domain-scoped connectors are canonical; ecodia-full stays mounted on the VPS only to serve live Routines during the sunset soak, then it comes down. Do not route new work here. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]]. The architecture below is kept for the soak window.
+
 `/api/mcp/ecodia-full` is the wide-bearer MCP endpoint that exposes the full
 EcodiaOS operating surface through one HTTPS+SSE MCP server. It does this
 by:

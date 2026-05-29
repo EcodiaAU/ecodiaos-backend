@@ -4,6 +4,8 @@ triggers: cowork-scope-denied, status_board_upsert-denied, scope_denied-infrastr
 
 # Cowork bearer cannot update status_board rows with entity_type=infrastructure or legal (2026-05-19)
 
+**DEPRECATED-SURFACE 2026-05-29 (status_board 2bf2c734).** This scope gap is on the deprecated cowork bearer. Use the narrow connectors (`ecodia-core` for status_board); their scopes cover infrastructure rows. The note below applies only to the soak window. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]].
+
 ## The friction
 
 Calling `status_board_upsert` on the cowork-bearer MCP endpoint (`/api/mcp/cowork`) with `entity_type=infrastructure` and an existing `id` returns:

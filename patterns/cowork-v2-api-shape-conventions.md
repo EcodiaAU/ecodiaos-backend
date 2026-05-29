@@ -4,7 +4,9 @@ priority: critical
 canonical: true
 ---
 
-> **NOTE - 5 May 2026.** Despite the "Cowork" name in the URL path and this file's title, the 17 REST endpoints at `/api/mcp/cowork/*` are live, useful infrastructure (headless MCP tools). They are NOT Cowork-specific - they provide status_board, kv_store, neo4j, forks, email, and scheduler access over HTTP. The endpoints will be renamed in a future pass. This file's six API-shape gotchas remain correct. See `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`.
+> **DEPRECATED - 29 May 2026 (status_board 2bf2c734).** The `/api/mcp/cowork/*` REST surface this file documents is sunset-pending. The 10 narrow domain-scoped connectors are canonical. The gateway stays mounted on the VPS during the soak to serve live Routines, then it comes down. Do not route new work through it. The six API-shape gotchas below stay accurate only for the soak window. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]].
+>
+> *(Superseded 5 May note: the endpoints were then framed as "live, useful infrastructure" pending a rename. The 2026-05-29 migration replaced the rename plan with the narrow-connector cutover.)*
 
 # [LEGACY-NAMED] Cowork V2 MCP API-shape conventions
 

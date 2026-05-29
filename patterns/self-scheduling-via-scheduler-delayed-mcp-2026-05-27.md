@@ -98,7 +98,7 @@ mcp__ecodia-scheduler__schedule_delayed
 
 ## Cancelling / pausing
 
-- `mcp__ecodia-scheduler__schedule_cancel` `{taskId}` - cancel a scheduled task (taskId is the UUID, not the name)
+- `mcp__ecodia-scheduler__schedule_cancel` `{taskId}` - cancel a scheduled task (taskId is the UUID from schedule_list)
 - `mcp__ecodia-scheduler__schedule_pause` `{taskId}` - pause a recurring cron
 - `mcp__ecodia-scheduler__schedule_resume` `{taskId}` - resume
 - `mcp__ecodia-scheduler__schedule_list` `{status, limit}` - inspect

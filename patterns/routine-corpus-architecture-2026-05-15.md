@@ -4,6 +4,8 @@ triggers: routine-corpus, routine-prompt-shape, routine-frontmatter, anthropic-r
 
 # Routine corpus architecture (2026-05-15)
 
+**MCP-surface note 2026-05-29 (status_board 2bf2c734).** Where this describes Routines reaching the substrate via ecodia-full or the cowork gateway, that surface is deprecated and sunset-pending. Routines migrate to the narrow connectors as part of the scheduler repoint. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]].
+
 The 16 Routines that replace the VPS cron pool follow one prompt structure and one distribution rationale. This pattern codifies both so future Routines and future migrations land in the same shape.
 
 ## The prompt structure (mandatory)

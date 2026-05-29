@@ -4,6 +4,8 @@ triggers: vps-anatomy, vps-anatomy-current, vps-architecture, vps-actual-state, 
 
 # VPS anatomy after Tier 1 cleanup (2026-05-19)
 
+**MCP-surface update 2026-05-29 (status_board 2bf2c734).** The `/api/mcp/cowork` and `/api/mcp/ecodia-full` gateways named below are now deprecated and sunset-pending. They stay mounted on the VPS during the soak only to serve live Routines; the 10 narrow domain-scoped connectors are canonical. The per-day hit counts are historical. See [[mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29]].
+
 This is the canonical map of what runs on the VPS now, what was culled, what was kept and why, and what NOT to touch. Grep this before any pm2 / rm / ecosystem.config.js / mcp-shape change on `tate@100.103.227.90`.
 
 ## One-paragraph mental model
