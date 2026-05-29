@@ -24,7 +24,7 @@ const crypto = require('crypto')
 
 const db = require('../../config/db')
 const logger = require('../../config/logger')
-const { isDuplicate, markSeen, appendAudit, fireRoutine, getRoutineFireConfig } = require('./_fireShimHelpers')
+const { isDuplicate, markSeen, appendAudit, dispatchNative } = require('./_fireShimHelpers')
 
 const router = express.Router()
 
@@ -101,34 +101,26 @@ router.post('/', express.raw({ type: '*/*', limit: '10mb' }), async (req, res) =
       return res.status(202).json({ accepted: true, routed: false, reason: 'no_routine_for_event' })
     }
 
-    const cfg = await getRoutineFireConfig({ routineName })
-    if (!cfg || !cfg.fire_url || !cfg.fire_token) {
-      await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'config_missing', routineName, errorMessage: 'routine_registry entry missing - GitHub event may be handled via native trigger instead' })
-      return res.status(202).json({ accepted: true, routed: false, reason: 'routine_not_registered' })
-    }
-
     await markSeen({ source: SOURCE, idempotencyKey })
 
-    const account = cfg._resolved_account || null
-    const result = await fireRoutine({
-      fireUrl: cfg.fire_url,
-      fireToken: cfg.fire_token,
+    const result = await dispatchNative({
       source: SOURCE,
       payload: { event_name: eventName, delivery_id: deliveryId, body: event },
       routineName,
-      account,
+      account: null,
+      idempotencyKey,
     })
 
     await appendAudit({
       source: SOURCE,
       idempotencyKey,
-      fireStatus: result.ok ? `forwarded_${result.status}` : `failed_${result.status}`,
+      fireStatus: result.ok ? `dispatched_native:${result.task_id}` : 'dispatch_failed',
       routineName,
-      account,
+      account: null,
       errorMessage: result.error,
     })
 
-    return res.status(result.ok ? 202 : 502).json({ accepted: result.ok, routine_status: result.status, attempt: result.attempt })
+    return res.status(result.ok ? 202 : 502).json({ accepted: result.ok, task_id: result.task_id || null })
   } catch (err) {
     logger.error('github fire-shim: unhandled error', { error: err.message, stack: err.stack })
     await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'shim_error', routineName, errorMessage: err.message }).catch(() => {})

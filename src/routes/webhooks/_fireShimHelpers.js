@@ -1,20 +1,24 @@
 'use strict'
 
 /**
- * Shared helpers for the per-source /fire webhook shims.
+ * Shared helpers for the per-source webhook shims.
  *
  * Each webhook (resend, stripe, vercel, github, apple-asn) verifies its
- * source-specific signature, then forwards the event to the corresponding
- * Routine's /fire endpoint as `{ text: JSON.stringify({ source, payload }) }`.
+ * source-specific signature, then dispatches the event to a fresh native CC
+ * worker via the scheduler (dispatchNative). The worker reads the matching
+ * routine spec and handles the event on the narrow MCP connectors.
  *
  * This module owns:
  *  - idempotency (kv_store seen-key with TTL)
  *  - audit logging (kv_store webhook_audit, no body)
- *  - retry-with-backoff against the Routine /fire endpoint (5xx only)
- *  - account-router-aware dispatch when the routine is multi-account
+ *  - native dispatch: insert an immediate os_scheduled_tasks row that the
+ *    schedulerPollerService picks up and routes to cowork.dispatch_worker
  *
- * Authored 2026-05-15 as part of Lane D of the VPS-to-local migration.
- * See backend/patterns/webhook-fire-shim-architecture-2026-05-15.md.
+ * Authored 2026-05-15 as Lane D of the VPS-to-local migration. Migrated from the
+ * Anthropic /fire endpoint to native dispatch 2026-05-29 (status_board 2bf2c734,
+ * Tate "everything native, using our scheduler"). The legacy fireRoutine +
+ * getRoutineFireConfig path against api.anthropic.com is retired; the Anthropic
+ * Routines it called are deleted.
  */
 
 const db = require('../../config/db')
@@ -23,8 +27,6 @@ const logger = require('../../config/logger')
 const SEEN_KEY_PREFIX = 'cowork.webhook_seen.'
 const AUDIT_KEY = 'cowork.webhook_audit'
 const SEEN_TTL_HOURS = 24
-const RETRY_MAX = 3
-const RETRY_BACKOFF_MS = [1000, 2000, 4000]
 
 async function isDuplicate({ source, idempotencyKey }) {
   if (!idempotencyKey) return false
@@ -72,59 +74,65 @@ async function appendAudit({ source, idempotencyKey, fireStatus, routineName, ac
   }
 }
 
-async function fireRoutine({ fireUrl, fireToken, source, payload, routineName, account }) {
-  const body = JSON.stringify({
-    text: JSON.stringify({ source, payload }),
-  })
-  const headers = {
-    'Authorization': `Bearer ${fireToken}`,
-    'Content-Type': 'application/json',
-    // Canonical /fire contract per backend/routines/REGISTRY.md (dated 2026-05-16).
-    // Without these two headers the Anthropic routines endpoint returns 4xx.
-    'anthropic-beta': 'experimental-cc-routine-2026-04-01',
-    'anthropic-version': '2023-06-01',
-  }
-  let lastErr = null
-  for (let attempt = 0; attempt < RETRY_MAX; attempt++) {
-    try {
-      const resp = await fetch(fireUrl, { method: 'POST', headers, body })
-      if (resp.status >= 200 && resp.status < 300) {
-        return { ok: true, status: resp.status, attempt: attempt + 1 }
-      }
-      if (resp.status >= 400 && resp.status < 500) {
-        const text = await resp.text().catch(() => '')
-        return { ok: false, status: resp.status, error: `client error: ${text.slice(0, 200)}`, attempt: attempt + 1 }
-      }
-      lastErr = `5xx: ${resp.status}`
-    } catch (err) {
-      lastErr = err.message
-    }
-    if (attempt < RETRY_MAX - 1) {
-      await new Promise(r => setTimeout(r, RETRY_BACKOFF_MS[attempt]))
-    }
-  }
-  return { ok: false, status: 0, error: `retries exhausted: ${lastErr}`, attempt: RETRY_MAX }
+/**
+ * Build the self-contained worker brief a CC tab receives for a webhook event.
+ * The worker has no prior context, so the brief names the routine spec to read,
+ * embeds the verified event payload, and mandates the close-out sequence.
+ */
+function buildWorkerBrief({ source, payload, routineName, account }) {
+  const payloadJson = JSON.stringify(payload, null, 2)
+  // Cap the embedded payload so a giant event does not blow the brief. The
+  // worker can re-fetch full detail from the source API if it needs more.
+  const payloadBlock = payloadJson.length > 12000
+    ? payloadJson.slice(0, 12000) + '\n... [payload truncated; re-fetch from source API if full detail needed]'
+    : payloadJson
+
+  return [
+    'You are EcodiaOS in fork form, no prior context. This brief is your entire context.',
+    '',
+    `WEBHOOK EVENT: a verified "${source}" event arrived on the VPS webhook ingress and was dispatched to you natively (status_board 2bf2c734 - webhook routines run native, not on Anthropic Routines).`,
+    '',
+    `TASK: handle this event per the routine spec at D:/.code/EcodiaOS/backend/routines/${routineName}.md. Read that file in full, then act on the payload below exactly as the spec directs. Account context: ${account}.`,
+    '',
+    'Substrate hands: the narrow MCP connectors (ecodia-core for status_board/kv_store/neo4j, ecodia-money for Stripe/bookkeeping, ecodia-comms for gmail/sms). The deprecated cowork/ecodia-full bearers are gone.',
+    '',
+    'VERIFY-BEFORE-DECLARE-DONE: probe the destination substrate after every write. Em-dashes banned at character level - use " - ". Write a closing Episode via neo4j.write_episode (ecodia-core).',
+    '',
+    'Your final action: coord.close_my_tab after coord.signal_done({terminate:true}).',
+    '',
+    `--- VERIFIED ${source.toUpperCase()} EVENT PAYLOAD ---`,
+    payloadBlock,
+  ].join('\n')
 }
 
-async function getRoutineFireConfig({ routineName, account }) {
-  if (account) {
-    const key = `cowork.routine_registry.${account}.${routineName}`
-    const rows = await db`SELECT value FROM kv_store WHERE key = ${key} LIMIT 1`
-    if (rows.length === 0) return null
-    return rows[0].value
+/**
+ * Native dispatch: insert an immediate os_scheduled_tasks row that
+ * schedulerPollerService (polling every 30s) picks up and routes to
+ * cowork.dispatch_worker on the always-on device, opening a fresh CC chat.
+ *
+ * Replaces the legacy fireRoutine() Anthropic /fire POST. The task name carries
+ * the source + idempotency key so the row is traceable and the worker tab is
+ * identifiable. type='delayed', next_run_at=NOW() => picked up on the next poll.
+ */
+async function dispatchNative({ source, payload, routineName, account, idempotencyKey }) {
+  const brief = buildWorkerBrief({ source, payload, routineName, account })
+  const taskName = `webhook.${source}.${(idempotencyKey || 'noid').toString().slice(0, 80)}`
+  try {
+    const [row] = await db`
+      INSERT INTO os_scheduled_tasks (type, name, prompt, status, run_at, next_run_at, run_count, max_runs)
+      VALUES ('delayed', ${taskName}, ${brief}, 'active', NOW(), NOW(), 0, 1)
+      RETURNING id
+    `
+    return { ok: true, task_id: row.id, task_name: taskName }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
-  const accountRouter = require('../../services/accountRouter')
-  const account2 = await accountRouter.pickAccount({})
-  const key = `cowork.routine_registry.${account2}.${routineName}`
-  const rows = await db`SELECT value FROM kv_store WHERE key = ${key} LIMIT 1`
-  if (rows.length === 0) return null
-  return { ...rows[0].value, _resolved_account: account2 }
 }
 
 module.exports = {
   isDuplicate,
   markSeen,
   appendAudit,
-  fireRoutine,
-  getRoutineFireConfig,
+  dispatchNative,
+  buildWorkerBrief,
 }

@@ -22,7 +22,7 @@ const crypto = require('crypto')
 
 const db = require('../../config/db')
 const logger = require('../../config/logger')
-const { isDuplicate, markSeen, appendAudit, fireRoutine, getRoutineFireConfig } = require('./_fireShimHelpers')
+const { isDuplicate, markSeen, appendAudit, dispatchNative } = require('./_fireShimHelpers')
 
 const router = express.Router()
 
@@ -85,34 +85,26 @@ router.post('/inbound', express.raw({ type: '*/*', limit: '10mb' }), async (req,
       return res.status(202).json({ accepted: true, dedupe: 'duplicate' })
     }
 
-    const cfg = await getRoutineFireConfig({ routineName: ROUTINE_NAME, account: ACCOUNT })
-    if (!cfg || !cfg.fire_url || !cfg.fire_token) {
-      logger.error('resend fire-shim: routine fire config not in registry', { routine: ROUTINE_NAME, account: ACCOUNT })
-      await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'config_missing', routineName: ROUTINE_NAME, account: ACCOUNT, errorMessage: 'kv_store routine_registry entry missing' })
-      return res.status(503).json({ error: 'routine_not_registered' })
-    }
-
     await markSeen({ source: SOURCE, idempotencyKey })
 
-    const result = await fireRoutine({
-      fireUrl: cfg.fire_url,
-      fireToken: cfg.fire_token,
+    const result = await dispatchNative({
       source: SOURCE,
       payload: parsed,
       routineName: ROUTINE_NAME,
       account: ACCOUNT,
+      idempotencyKey,
     })
 
     await appendAudit({
       source: SOURCE,
       idempotencyKey,
-      fireStatus: result.ok ? `forwarded_${result.status}` : `failed_${result.status}`,
+      fireStatus: result.ok ? `dispatched_native:${result.task_id}` : 'dispatch_failed',
       routineName: ROUTINE_NAME,
       account: ACCOUNT,
       errorMessage: result.error,
     })
 
-    return res.status(result.ok ? 202 : 502).json({ accepted: result.ok, routine_status: result.status, attempt: result.attempt })
+    return res.status(result.ok ? 202 : 502).json({ accepted: result.ok, task_id: result.task_id || null })
   } catch (err) {
     logger.error('resend fire-shim: unhandled error', { error: err.message, stack: err.stack })
     await appendAudit({ source: SOURCE, idempotencyKey, fireStatus: 'shim_error', routineName: ROUTINE_NAME, account: ACCOUNT, errorMessage: err.message }).catch(() => {})
