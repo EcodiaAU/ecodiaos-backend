@@ -65,6 +65,31 @@ async function pullSnapshot() {
   const accruedCoTax = Math.max(0, Math.round((pnl?.net_profit_cents ?? 0) * 0.25))
   const liveGstLiability = (gstRow?.gst_collected || 0) - (gstRow?.gst_paid || 0)
 
+  // Silent-post-failure count (pattern 2026-05-29)
+  const [silentRow] = await db`
+    SELECT COUNT(*)::int AS cnt FROM staged_transactions s
+    WHERE s.status='posted' AND s.ledger_tx_id IS NOT NULL
+      AND (SELECT COUNT(*) FROM ledger_lines WHERE tx_id = s.ledger_tx_id) = 0
+  `
+  // Bank-source reconciliation: posted_sum per source vs ledger net DR per matching bank code.
+  // The map source_account -> bank_code mirrors the doctrine setup; drift > $5 = anomaly.
+  const bankReconciliation = []
+  const bankMap = { ba_ecodia: '1000', ba_ecodia_savings: '1005' }
+  for (const [src, code] of Object.entries(bankMap)) {
+    const [r] = await db`
+      SELECT
+        (SELECT COALESCE(SUM(amount_cents), 0)::bigint FROM staged_transactions
+         WHERE source_account = ${src} AND status = 'posted') AS posted_sum_cents,
+        (SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0)::bigint
+         FROM ledger_lines l
+         JOIN staged_transactions s ON s.ledger_tx_id = l.tx_id
+         WHERE s.source_account = ${src} AND l.account_code = ${code}) AS ledger_cents
+    `
+    const posted = Number(r.posted_sum_cents || 0)
+    const ledger = Number(r.ledger_cents || 0)
+    bankReconciliation.push({ source_account: src, bank_code: code, posted_sum_cents: posted, ledger_cents: ledger, drift_cents: posted - ledger })
+  }
+
   return {
     date: today,
     fy_start: fyStart,
@@ -88,6 +113,8 @@ async function pullSnapshot() {
     monthly_net_cents: runway.monthly_net_cents,
     projected_cash_180d_cents: runway.projected_cash_at_horizon_cents,
     drawdown_targets: drawdowns,
+    silent_post_failures: silentRow?.cnt ?? 0,
+    bank_reconciliation: bankReconciliation,
   }
 }
 
@@ -130,6 +157,22 @@ function detectAnomalies(snap, prior) {
   }
   if (snap.accrued_co_tax_at_25pct_cents > 0 && snap.accrued_co_tax_recorded_cents < (snap.accrued_co_tax_at_25pct_cents * 0.7)) {
     anomalies.push(`Co. tax accrual is behind YTD. Computed ${fmt(snap.accrued_co_tax_at_25pct_cents)} at 25%, only ${fmt(snap.accrued_co_tax_recorded_cents)} recorded. Run accrueQuarterlyTax.`)
+  }
+  // Silent-post-failure detector (pattern 2026-05-29):
+  // A row with status='posted' AND ledger_tx_id set AND zero ledger_lines means
+  // the post crashed between db.begin commit and markPosted, leaving a half-state.
+  // Bank balance per ledger silently overstated until this fires.
+  if (snap.silent_post_failures > 0) {
+    anomalies.push(`${snap.silent_post_failures} staged_transactions marked 'posted' have ZERO ledger_lines (silent post failure). Bank balance per ledger is overstated. Run the cleanup recipe in patterns/silent-post-failure-detector-staged-posted-with-zero-ledger-lines-2026-05-29.md.`)
+  }
+  // Bank-source reconciliation invariant (pattern 2026-05-29):
+  // posted_sum of amount_cents per ba_ecodia* source MUST equal the net DR
+  // on the matching gl_accounts bank code. Any drift means the ledger lost
+  // bank-side lines on some posts.
+  for (const r of (snap.bank_reconciliation || [])) {
+    if (Math.abs(r.drift_cents) > 500) {
+      anomalies.push(`Bank reconciliation drift on ${r.source_account}: posted_sum ${fmt(r.posted_sum_cents)} vs ledger ${fmt(r.ledger_cents)} (drift ${fmt(r.drift_cents)}). Probable silent post-failure or zombie ledger_transaction.`)
+    }
   }
   return anomalies
 }

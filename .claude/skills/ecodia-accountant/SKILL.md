@@ -268,7 +268,7 @@ A 12-month Xero/Vercel/Google Workspace plan paid upfront. Strict accrual would 
 
 ### 5. Mixed-use software / device (laptop, phone, internet)
 
-The laptop and phone are ~99% Ecodia per Tate's verbatim 2026-05-28 - book at 100%. The home internet bill (Up Bank, Aussie Broadband) is the only one where Tate's personal Netflix-streaming usage warrants apportionment - we book at 80% Ecodia (5025 Telephone & Internet 80%, drawing 20%). Adjust at EOFY if the split changes.
+The laptop and phone are ~99% Ecodia per Tate's verbatim 2026-05-28 - book at 100%. Home internet (when/if it appears as a recurring debit from a known provider) is the only line where personal-streaming usage warrants apportionment - default 80% Ecodia (6060 Phone & Internet) / 20% drawing, confirm provider and split with Tate before applying. Adjust at EOFY if the split changes.
 
 ### 6. Capital purchases (laptop, camera, equipment >$1k)
 
@@ -389,18 +389,29 @@ The Stripe API + invoice schedule give us the forward 12-month MRR. Currently NO
 | 4200 | Consulting Revenue | income | Hourly + project work |
 | 4300 | Grant Income | income | Wedgetail / VFFF / RDTI |
 | 4400 | Foreign Currency Gain | income | From `convertFx` deltas |
-| 5005 | Advertising & Marketing | expense | Meta, LinkedIn, sponsorship |
-| 5010 | Software & SaaS | expense | All cloud/AI/dev tools |
-| 5015 | Stripe Fees | expense | Payment processing |
-| 5020 | Contractor Services | expense | External devs/designers |
-| 5025 | Legal & Compliance | expense | ASIC, IP Australia, lawyers |
-| 5030 | Office Supplies | expense | Officeworks etc |
-| 5035 | Motor Vehicle | expense | Fuel + Uber for business travel |
-| 5040 | IP Licence Expense | expense | Pay-up to Labs / DAO LLC |
-| 6120 | Entertainment | expense | Conferences, business events |
-| 6150 | Government Fees | expense | Wyoming SoS, IP Australia, etc |
+| 5000 | Hosting & Infrastructure | expense | Vercel, Fly.io, hosting |
+| 5010 | Domain Registrations | expense | GoDaddy, Hostinger domain renewals |
+| 5015 | Stripe Fees | expense | Stripe payment processing only (added 2026-05-29 for EOFY-line visibility). Other payment processors and bank fees go to 6090. |
+| 5020 | Third-Party Software & APIs | expense | Twilio, Resend, external API calls. Also used for Osko contractor pays until a 5021 Contractors code is added. |
+| 5030 | App Store Fees | expense | Apple App Store, Google Play 30% / 15% cut |
+| 6000 | Software Subscriptions | expense | M365, Workspace, Notion |
+| 6010 | Cloud Services | expense | Supabase, AWS, Cloudflare paid tiers |
+| 6020 | Marketing & Advertising | expense | Meta Ads, LinkedIn Premium, sponsorship |
+| 6030 | Design Tools | expense | Canva, Figma |
+| 6040 | AI & Development Tools | expense | Anthropic, OpenAI, Cursor, GitHub Copilot, Replicate |
+| 6050 | Business Insurance | expense | EZI BIZ COVER, QBE |
+| 6060 | Phone & Internet | expense | Aussie Broadband (80% Ecodia / 20% drawing per doctrine) |
+| 6070 | Office Supplies & Equipment | expense | Officeworks, Avery |
+| 6080 | Professional Development | expense | Courses, books, conference tickets |
+| 6090 | Bank Fees | expense | BA monthly fee, Visa intl tran fees, Stripe payment processing |
+| 6100 | Accounting & Legal | expense | Lawyers, accountants (when external engaged - currently zero per Tate verbatim 2026-05-28) |
+| 6110 | Travel - Business | expense | Flights, Uber for business meetings |
+| 6120 | Meals & Entertainment - Business | expense | Conferences, business meeting meals |
+| 6130 | Miscellaneous Expenses | expense | Drawings placeholder + uncategorised business |
+| 6140 | Registered Agent Fees | expense | Corporate Filings LLC (Wyoming DAO LLC registered agent) |
+| 6150 | Government Fees & Registrations | expense | ASIC, IP Australia, Wyoming SoS annual report |
 | 6200 | Depreciation Expense | expense | Monthly cron output |
-| 6300 | Bank Fees | expense | Monthly BA fee |
+| 6300 | Bank Fees | expense | DUPLICATE of 6090; do not use, will be retired |
 | 6400 | Foreign Currency Loss | expense | From `convertFx` deltas |
 | 7000 | Company Tax Expense | expense | From `accrueQuarterlyTax` |
 | 7100 | Bad Debt Written Off | expense | Stripe write-offs |

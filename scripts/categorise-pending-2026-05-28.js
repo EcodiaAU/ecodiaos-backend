@@ -32,17 +32,28 @@ DISCARD (account_code = "DISCARD", is_personal = true) - personal transactions t
 - Health, pharmacy, medical, phone (Felix Mobile)
 - Inter-account transfers between same-owner accounts with no business purpose
 - Centrelink (refs starting 7D1B), Osko from family/friends, Suncorp Transactional
-- "ECODIA PTY LTD" small charges $1-4 (Stripe test charges)
 - Anything from a personal account that's clearly personal lifestyle spend
+(NOTE: "ECODIA PTY LTD" small $1-4 charges are NOT DISCARD; they are Stripe test pings from the Ecodia bank card hitting the Ecodia merchant. Categorise as 5015 Stripe Fees with is_personal=false.)
 
 BUSINESS EXPENSES on PERSONAL account = Director Loan path (account_code = GL code, is_personal = true):
-- ALL Apple.com/Bill → 5010 Software & SaaS
-- ALL Canva, Vercel, GoDaddy, WordPress, Hostinger, Render, MacInCloud, AWS, Hetzner, Google Workspace, Google Cloud → 5010
-- OpenAI/ChatGPT, Anthropic/Claude, Replicate, ElevenLabs, Resend, DeepSeek, Cursor, Twilio → 5010
-- LinkedIn Premium, FACEBK Ads, Meta Ads → 5005 Advertising & Marketing
-- ASIC, Wyoming Secretary of State, Corporate Filings → 5025 Legal & Compliance
-- BizCover, QBE Insurance (business) → 5025
-- Avery, Officeworks (business) → 5030 Office Supplies
+- ALL Apple.com/Bill → 6000 Software Subscriptions
+- Canva, Figma → 6030 Design Tools
+- Vercel, Fly.io → 5000 Hosting & Infrastructure
+- GoDaddy, Hostinger (domain renewals) → 5010 Domain Registrations
+- Supabase, AWS, Cloudflare paid → 6010 Cloud Services
+- OpenAI/ChatGPT, Anthropic/Claude, Replicate, ElevenLabs, DeepSeek, Cursor, GitHub Copilot → 6040 AI & Development Tools
+- Twilio, Resend (external APIs) → 5020 Third-Party Software & APIs
+- MacInCloud, Render, Hetzner, WordPress hosting → 5000
+- Google Workspace, M365, Notion paid → 6000 Software Subscriptions
+- LinkedIn Premium, FACEBK Ads, Meta Ads → 6020 Marketing & Advertising
+- ASIC, IP Australia, Wyoming Secretary of State → 6150 Government Fees & Registrations
+- Corporate Filings LLC (Wyoming registered agent) → 6140 Registered Agent Fees
+- EZI BIZ COVER, QBE Insurance (business) → 6050 Business Insurance
+- Lawyers, accountants → 6100 Accounting & Legal
+- Avery, Officeworks (business) → 6070 Office Supplies & Equipment
+- Apple App Store / Google Play 30% cut on Ecodia app revenue → 5030 App Store Fees
+- Stripe payment processing fees → 5015 Stripe Fees
+- BA monthly account fee, Visa intl tran fees → 6090 Bank Fees
 - Note: Google One personal storage = DISCARD (not business)
 
 BUSINESS EXPENSES on BUSINESS account (account_code = GL code, is_personal = false):
@@ -69,7 +80,14 @@ BUSINESS INCOME (is_personal = false, account_code = GL code):
 
 ═══ RESPONSE FORMAT ═══
 
-Chart: 1000 BA Ecodia | 1005 BA Ecodia Savings | 1010 Up Bank | 1020 BA Personal | 2100 Director Loan | 4000 ECO Local | 4100 Ecodia Software Dev | 5005 Advertising | 5010 Software & SaaS | 5015 Stripe Fees | 5020 Contractor | 5025 Legal & Compliance | 5030 Office | 5035 Motor Vehicle | 5045 Bank Fees
+Chart (REAL gl_accounts codes, validated at post time, anything else = silent failure):
+1000 BA Ecodia | 1005 BA Ecodia Savings | 2100 Director Loan
+4000 Software Development Revenue | 4100 Licensing & Subscription Revenue | 4200 Consulting Revenue | 4300 Other Income
+5000 Hosting & Infrastructure | 5010 Domain Registrations | 5015 Stripe Fees | 5020 Third-Party Software & APIs | 5030 App Store Fees
+6000 Software Subscriptions | 6010 Cloud Services | 6020 Marketing & Advertising | 6030 Design Tools | 6040 AI & Development Tools
+6050 Business Insurance | 6060 Phone & Internet | 6070 Office Supplies & Equipment | 6080 Professional Development
+6090 Bank Fees | 6100 Accounting & Legal | 6110 Travel - Business | 6120 Meals & Entertainment - Business
+6130 Miscellaneous Expenses | 6140 Registered Agent Fees | 6150 Government Fees & Registrations
 
 Supplier rules: {rules}
 
@@ -149,6 +167,16 @@ async function applyResult(tx, result) {
   const confidence = result.confidence || 0
   const tags = result.tags || []
 
+  // Ecodia-bank-personal-defaults-to-drawing rule (pattern 2026-05-29):
+  // A DISCARD verdict on ba_ecodia / ba_ecodia_savings would erase a real bank
+  // outflow from the ledger. Real bank still saw the debit. Must route through
+  // drawings (DR 2100 / CR 1000) instead.
+  if (result.account_code === 'DISCARD' && (tx.source_account === 'ba_ecodia' || tx.source_account === 'ba_ecodia_savings')) {
+    result.account_code = '6130'
+    result.is_personal = true
+    result.reasoning = `[auto-redirected: DISCARD on ${tx.source_account} -> drawings 6130 + is_personal=true per ecodia-bank-personal-defaults-to-drawing doctrine] ${result.reasoning || ''}`
+  }
+
   if (result.account_code === 'DISCARD') {
     await db`UPDATE staged_transactions SET category='DISCARD', is_personal=true, confidence=${confidence}, categorizer_reasoning=${result.reasoning}, status='ignored', reviewed_at=NOW(), reviewed_by='auto-2026-05-28' WHERE id=${tx.id}`
     return 'discarded'
@@ -158,6 +186,16 @@ async function applyResult(tx, result) {
     const status = confidence >= FLAG_CONFIDENCE ? 'categorized' : 'flagged'
     await db`UPDATE staged_transactions SET category=${result.account_code}, is_personal=false, confidence=${confidence}, categorizer_reasoning=${result.reasoning}, status=${status}, reviewed_at=NOW(), reviewed_by='auto-2026-05-28' WHERE id=${tx.id}`
     return status
+  }
+
+  // GL-account validation guard (pattern 2026-05-29):
+  // postStagedTransaction validates against gl_accounts and throws on miss.
+  // Catching here means the row gets flagged for review instead of stuck
+  // forever in status=categorized with a phantom code.
+  const [acctRow] = await db`SELECT code FROM gl_accounts WHERE code = ${result.account_code}`
+  if (!acctRow) {
+    await db`UPDATE staged_transactions SET category=${result.account_code}, subcategory=${tags[0] || null}, is_personal=${result.is_personal || false}, gst_amount_cents=${result.gst_amount_cents || 0}, confidence=${confidence}, categorizer_reasoning=${'[phantom-code-rejected: ' + result.account_code + ' not in gl_accounts] ' + (result.reasoning || '')}, status='flagged', reviewed_at=NOW(), reviewed_by='auto-2026-05-28' WHERE id=${tx.id}`
+    return 'flagged'
   }
 
   const status = confidence >= FLAG_CONFIDENCE ? 'categorized' : 'flagged'
