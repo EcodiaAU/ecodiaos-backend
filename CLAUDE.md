@@ -6,7 +6,7 @@ Technical systems, tools, workflows specific to ecodiaos. Business/identity/pric
 
 ## 🚨 RESIDUAL DEPRECATIONS - 2026-05-26 update (5 rows pruned after Phase 4 doctrine consolidation)
 
-The major dead-substrate sections (Factory CLI, SDK fork dispatch, Frontend UI, two phantom-tool layers) were surgically cut from this file on 2026-05-26. The corrected doctrine for those is in `~/ecodiaos/patterns/dispatch-worker-*` + the reflex-preview substrate. The residual rows below describe substrates still partly present elsewhere (code on disk, unverified status, archived clients) that future-me should still treat with caution.
+The major dead-substrate sections (Factory CLI, SDK fork dispatch, Frontend UI, two phantom-tool layers) were surgically cut from this file on 2026-05-26. The corrected doctrine for those is in `D:/.code/EcodiaOS/backend/patterns/dispatch-worker-*` + the reflex-preview substrate. The residual rows below describe substrates still partly present elsewhere (code on disk, unverified status, archived clients) that future-me should still treat with caution.
 
 | Stale claim | Reality (2026-05-26) | Corrected doctrine |
 |---|---|---|
@@ -76,7 +76,7 @@ FROM status_board WHERE archived_at IS NULL ORDER BY priority, entity_type;
 - Finish a session without updating status_board = session failed
 - status_board authoritative. Disagrees with CRM → fix CRM
 
-**Hygiene is a 0th-class reflex, enforced by hook, not memory (Tate verbatim 2026-05-21).** The board rotted to 124 rows of drift because upkeep was treated as a periodic chore. Two enforcement layers now exist and BOTH bind: (1) `~/.claude/hooks/ecodia/status_board_hygiene.py` PostToolUse hook (matcher `Bash|Edit|Write|MultiEdit|db_execute|shell_exec`) keyword-matches every action against a live cache of active rows and surfaces `[STATUS-BOARD-HYGIENE]` naming the EXACT matched row id(s) + age + an action-since-last-write streak counter (gentle at 10, FIRM at 20); (2) this reflex. When the hook names a row, update it THAT turn or consciously decide not to. Cache refreshed by `status_board_hygiene_refresh.py` (org PAT, no daemon). Archival/status changes are backed by a live probe, never narrated state (git/HTTP/Vercel/Supabase/disk/Neo4j) per `verify-deployed-state-against-narrated-state.md`. The `status-board-write-surface.sh` hook fires on the write itself; the hygiene hook fires on the WORK that should trigger a write. Full: `~/ecodiaos/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md`. Sibling: `status-board-drift-prevention.md`, `status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`.
+**Hygiene is a 0th-class reflex, enforced by hook, not memory (Tate verbatim 2026-05-21).** The board rotted to 124 rows of drift because upkeep was treated as a periodic chore. Two enforcement layers now exist and BOTH bind: (1) `~/.claude/hooks/ecodia/status_board_hygiene.py` PostToolUse hook (matcher `Bash|Edit|Write|MultiEdit|db_execute|shell_exec`) keyword-matches every action against a live cache of active rows and surfaces `[STATUS-BOARD-HYGIENE]` naming the EXACT matched row id(s) + age + an action-since-last-write streak counter (gentle at 10, FIRM at 20); (2) this reflex. When the hook names a row, update it THAT turn or consciously decide not to. Cache refreshed by `status_board_hygiene_refresh.py` (org PAT, no daemon). Archival/status changes are backed by a live probe, never narrated state (git/HTTP/Vercel/Supabase/disk/Neo4j) per `verify-deployed-state-against-narrated-state.md`. The `status-board-write-surface.sh` hook fires on the write itself; the hygiene hook fires on the WORK that should trigger a write. Full: `D:/.code/EcodiaOS/backend/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md`. Sibling: `status-board-drift-prevention.md`, `status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`.
 
 **Cron efficiency:** scheduled cron fires + nothing to act on = exit immediately with one-line kv_store update. No full orientation, no subagents, no verbose updates. Readiness > burning tokens on empty loops.
 
@@ -86,12 +86,12 @@ FROM status_board WHERE archived_at IS NULL ORDER BY priority, entity_type;
 
 ## 🎯 PATTERN SURFACING - GREP BEFORE HIGH-LEVERAGE ACTIONS
 
-Patterns at `~/ecodiaos/patterns/` (one .md per rule, `triggers:` frontmatter for grep). Logging isn't enough; they must surface at the moment they matter.
+Patterns at `D:/.code/EcodiaOS/backend/patterns/` (one .md per rule, `triggers:` frontmatter for grep). Logging isn't enough; they must surface at the moment they matter.
 
 **Protocol before any high-leverage action:**
 
 ```
-Grep "triggers:" ~/ecodiaos/patterns/ -A 1
+Grep "triggers:" D:/.code/EcodiaOS/backend/patterns/ -A 1
 ```
 
 Read triggers, pick matching files, read in full, proceed. 30sec cost.
@@ -103,11 +103,11 @@ Read triggers, pick matching files, read in full, proceed. 30sec cost.
 - Edge Function deploy or push to client repo
 - Client-facing email beyond trivial acknowledgement
 - Commercial commitment (pricing, scope, IP, termination)
-- Any action on a specific client - also read `~/ecodiaos/clients/{slug}.md`
+- Any action on a specific client - also read `D:/.code/EcodiaOS/backend/clients/{slug}.md`
 
-**Authoring new patterns:** failure cost non-trivial time/trust OR same mistake twice = write file. See `~/ecodiaos/patterns/INDEX.md`. Split doctrine from event.
+**Authoring new patterns:** failure cost non-trivial time/trust OR same mistake twice = write file. See `D:/.code/EcodiaOS/backend/patterns/INDEX.md`. Split doctrine from event.
 
-**Pattern lifecycle and tuning.** Patterns are provisional, not sacred. Three explicit states tracked in frontmatter: `active` (default, may be omitted), `narrowed` (triggers tightened after false-positive cluster, frontmatter records `narrowed_at` + `narrowed_reason`), `archived` (file moved to `~/ecodiaos/patterns/_archived/<slug>.md`, frontmatter records `archived_at` + `archived_reason` + `superseded_by`). Tuning thresholds: `[NOT-APPLIED]` rate >70% over 7d -> narrow triggers; zero fires >30d -> archive candidate (release recipes excepted); `tagged_silent` rate (Phase C) >50% over 7d -> retire OR restate; Tate-flagged false-positive in chat -> narrow OR archive same-arc. The weekly `pattern-corpus-health-check` cron (Sunday 21:00 AEST) reads Phase C telemetry, classifies each pattern, surfaces tuning candidates to a single status_board P3 row. Origin: Tate verbatim 16:20 AEST 7 May 2026. Full: `~/ecodiaos/patterns/pattern-lifecycle-active-narrowed-archived.md`.
+**Pattern lifecycle and tuning.** Patterns are provisional, not sacred. Three explicit states tracked in frontmatter: `active` (default, may be omitted), `narrowed` (triggers tightened after false-positive cluster, frontmatter records `narrowed_at` + `narrowed_reason`), `archived` (file moved to `D:/.code/EcodiaOS/backend/patterns/_archived/<slug>.md`, frontmatter records `archived_at` + `archived_reason` + `superseded_by`). Tuning thresholds: `[NOT-APPLIED]` rate >70% over 7d -> narrow triggers; zero fires >30d -> archive candidate (release recipes excepted); `tagged_silent` rate (Phase C) >50% over 7d -> retire OR restate; Tate-flagged false-positive in chat -> narrow OR archive same-arc. The weekly `pattern-corpus-health-check` cron (Sunday 21:00 AEST) reads Phase C telemetry, classifies each pattern, surfaces tuning candidates to a single status_board P3 row. Origin: Tate verbatim 16:20 AEST 7 May 2026. Full: `D:/.code/EcodiaOS/backend/patterns/pattern-lifecycle-active-narrowed-archived.md`.
 
 Origin: Tate Apr 21 2026, "No point logging if we dont actually act on it in the future."
 
@@ -123,7 +123,7 @@ EcodiaOS has two durable memory substrates. They are not redundant. Different ki
 | Tate preference / interaction style, in-flight project state, machine-local reference, user profile | Anthropic auto-memory at `C:/Users/tjdTa/.claude/projects/d---code/memory/` |
 | Conversation-scoped state (todo, debugging trail) | Nowhere durable - let it die with the session |
 
-**Before writing a memory:** classify against `~/ecodiaos/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. If unsure, prefer no-write over wrong-substrate write. The PreToolUse `memory-substrate-routing.py` hook surfaces misroutes via observer_signals but does NOT block - the judgement is mine.
+**Before writing a memory:** classify against `D:/.code/EcodiaOS/backend/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. If unsure, prefer no-write over wrong-substrate write. The PreToolUse `memory-substrate-routing.py` hook surfaces misroutes via observer_signals but does NOT block - the judgement is mine.
 
 **Promotion path:** cited feedback (>=5 cites) -> Pattern node. Long-stable project (30d+ unchanged) -> Strategic_Direction or Project node. Load-bearing reference cited by Routine prompts -> Pattern node. Daily Routine `auto-memory-promotion-audit` surfaces candidates; promotion writes are conductor-confirmed not Routine-autonomous.
 
@@ -131,7 +131,7 @@ EcodiaOS has two durable memory substrates. They are not redundant. Different ki
 
 **Cloud-vs-local bridge:** Neo4j is canonical. A 6h Routine mirrors recent Decisions / Episodes / Patterns to `kv_store.cowork.memory_mirror.recent`; the Corazon `scope-context.py` hook fetches at session boot. Corazon-authored auto-memory entries stay Corazon-local until explicitly promoted.
 
-Full doctrine: `~/ecodiaos/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. Backfill audit at `~/ecodiaos/docs/MEMORY_SUBSTRATE_BACKFILL_AUDIT_2026-05-15.md`.
+Full doctrine: `D:/.code/EcodiaOS/backend/patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15.md`. Backfill audit at `D:/.code/EcodiaOS/backend/docs/MEMORY_SUBSTRATE_BACKFILL_AUDIT_2026-05-15.md`.
 
 ---
 
@@ -215,21 +215,23 @@ Two remote machines via HTTP API. Your physical bodies.
 - OS-level / on-disk / processes → `shell.shell` or `filesystem.*` directly
 - Concrete: read Tate's Teams chat = full-screen screenshot of running ms-teams desktop app, NOT navigate teams.microsoft.com in fresh-profile browser
 
-Cross-refs: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`. Live tool inventory + Chrome profile + SSH state: `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md`.
+Cross-refs: `D:/.code/EcodiaOS/backend/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `D:/.code/EcodiaOS/backend/patterns/drive-chrome-via-input-tools-not-browser-tools.md`. Live tool inventory + Chrome profile + SSH state: `D:/.code/EcodiaOS/backend/clients/corazon-peer-architecture-2026-04-29.md`.
 
-**GUI recipes (codified GUI flows) are governed by `~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property -> tree walk -> process check -> filesystem -> cropped pixel -> full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18x speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `~/ecodiaos/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Sister recipe for Android: `~/ecodiaos/patterns/play-console-android-release-recipe.md` - Co-Exist Android release flow on Play Console, paired with the iOS recipe for the cross-platform release pipeline. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
+**GUI recipes (codified GUI flows) are governed by `D:/.code/EcodiaOS/backend/patterns/gui-recipes-authoring-optimisation-and-verification.md`.** Read this BEFORE authoring or optimising any GUI flow. The meta-doctrine specifies: mandatory 10-section recipe anatomy (origin, when-to-use, pre-flight, verified coords table, step-by-step, verification protocol, fast-path checklist, speed wins identified, failure modes, anti-patterns), 5-step authoring workflow, 7-step optimisation workflow, verification tier hierarchy (UI Automation property -> tree walk -> process check -> filesystem -> cropped pixel -> full screenshot - cheapest first), and recipe maintenance cadence (high-leverage monthly, medium quarterly, low on-failure). First worked example: `D:/.code/EcodiaOS/backend/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - MacInCloud RDP open verified 23.6s end-to-end on 4 May 2026 (18x speedup over first run via UI tree enumeration + `WindowPattern.SetWindowVisualState` programmatic minimise instead of pixel-click on auto-hide control bar). Second worked example: `D:/.code/EcodiaOS/backend/patterns/sy094-coexist-ios-release-recipe.md` - Co-Exist iOS release end-to-end verified ~10min (4 May 2026 22:50 AEST, Build 1.8(1) Uploaded to Apple), of which ~5min is external Apple-side upload latency. Sister recipe for Android: `D:/.code/EcodiaOS/backend/patterns/play-console-android-release-recipe.md` - Co-Exist Android release flow on Play Console, paired with the iOS recipe for the cross-platform release pipeline. Apple ID auto-resigns from `kv_store.creds.apple.password` per `gui-macro-uses-logged-in-session-not-generated-api-key.md`; ASC upload is no longer Tate-required. Origin: Tate verbatim 4 May 2026 20:33 AEST "GUI is going to be really important so we need to get the recipes and their creation and optimisation PERFECTLY documented".
 
-**iOS release pipeline cluster (7 May 2026):** four sister recipes cover the per-app iOS release pipeline alongside the Co-Exist GUI recipe. (1) `~/ecodiaos/patterns/sy094-eos-mobile-headless-ship-recipe.md` (status: validated_v1, SSH-headless path via xcrun altool, ASC API key auth, end-to-end ~70s build+upload, 7 May verified shipped EcodiaOS-mobile 0.1.0(2)). (2) `~/ecodiaos/patterns/apple-dev-apns-auth-key-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, Apple Developer portal APNs auth key create + download). (3) `~/ecodiaos/patterns/asc-app-record-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, ASC create-app-record + internal-group access setup). (4) `~/ecodiaos/patterns/xcode-signing-team-select-recipe.md` (status: untested_spec, captured Mac-via-RDP flow, Xcode automatic-signing team selection, pixel-only-screenshot-verify replay because Mac-via-RDP is UIA-blind per `~/ecodiaos/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md`). Cluster sequencing: per-app one-time setup runs (2) -> (3) -> (4), then per-build runs (1).
+**iOS release pipeline cluster (7 May 2026):** four sister recipes cover the per-app iOS release pipeline alongside the Co-Exist GUI recipe. (1) `D:/.code/EcodiaOS/backend/patterns/sy094-eos-mobile-headless-ship-recipe.md` (status: validated_v1, SSH-headless path via xcrun altool, ASC API key auth, end-to-end ~70s build+upload, 7 May verified shipped EcodiaOS-mobile 0.1.0(2)). (2) `D:/.code/EcodiaOS/backend/patterns/apple-dev-apns-auth-key-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, Apple Developer portal APNs auth key create + download). (3) `D:/.code/EcodiaOS/backend/patterns/asc-app-record-create-recipe.md` (status: untested_spec, captured Win-Chrome flow, ASC create-app-record + internal-group access setup). (4) `D:/.code/EcodiaOS/backend/patterns/xcode-signing-team-select-recipe.md` (status: untested_spec, captured Mac-via-RDP flow, Xcode automatic-signing team selection, pixel-only-screenshot-verify replay because Mac-via-RDP is UIA-blind per `D:/.code/EcodiaOS/backend/patterns/mac-via-rdp-capture-is-pixel-only-uia-blind.md`). Cluster sequencing: per-app one-time setup runs (2) -> (3) -> (4), then per-build runs (1).
+
+**Android release pipeline (28 May 2026):** the Play Console peer of the iOS recipe cluster. Substrate split is API for artifact + listing + release (androidpublisher v3, signed AAB upload, store listing copy, screenshots, internal/production track), CDP-driven web UI for the policy attestation questionnaires (Ads, App access, Content rating IARC, Target audience, Data safety, Government, Financial, Health, Advertising ID). Service-account JSON at `D:/PRIVATE/ecodia-creds/play/play-uploader-key.json`. Reusable scripts: `D:/.code/EcodiaOS/backend/scripts/play-upload.py` + `D:/.code/EcodiaOS/backend/scripts/chambers-play-listing-push.py`. First validated end-to-end on Chambers 1.0(17). Default `LANG=en-GB` (Play maps English-Australia to en-GB internally; en-AU-only writes a translation slot and blocks the release editor). Full: [[play-console-cdp-driven-app-content-setup]]. Cluster sequencing for any new Android-publishing Ecodia app: one-time per-Google-account setup (gcloud + service-account + Play Console invite), then per-app one-time (Play app record + keystore), then per-build (build AAB + API upload + CDP questionnaires).
 
 **GUI doctrine cluster (5-6 May 2026):** the GUI-recipes meta-doctrine is supported by an interlocking pattern set authored across the macro-recorder ship-out window. Read these together when authoring or driving any GUI flow:
-- `~/ecodiaos/patterns/gui-step-verify-protocol.md` (verify each step lands before proceeding)
-- `~/ecodiaos/patterns/gui-fast-path-primitives.md` (the cheap-first verification ladder for known coords)
-- `~/ecodiaos/patterns/gui-macro-discovery-protocol.md` (probe registry/handlers before authoring duplicates)
-- `~/ecodiaos/patterns/consolidate-ui-primitives-do-not-add-parallel-ones.md` (single substrate rule, no parallel UI tool surfaces)
-- `~/ecodiaos/patterns/probe-vendor-pat-before-planning-gui-route.md` (check API key / PAT path before committing to a GUI route)
-- `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md` (semantic review complement to heuristic hook surfacing)
+- `D:/.code/EcodiaOS/backend/patterns/gui-step-verify-protocol.md` (verify each step lands before proceeding)
+- `D:/.code/EcodiaOS/backend/patterns/gui-fast-path-primitives.md` (the cheap-first verification ladder for known coords)
+- `D:/.code/EcodiaOS/backend/patterns/gui-macro-discovery-protocol.md` (probe registry/handlers before authoring duplicates)
+- `D:/.code/EcodiaOS/backend/patterns/consolidate-ui-primitives-do-not-add-parallel-ones.md` (single substrate rule, no parallel UI tool surfaces)
+- `D:/.code/EcodiaOS/backend/patterns/probe-vendor-pat-before-planning-gui-route.md` (check API key / PAT path before committing to a GUI route)
+- `D:/.code/EcodiaOS/backend/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md` (semantic review complement to heuristic hook surfacing)
 
-**Authoring substrate while Tate is at the keyboard:** GUI recipes can be hand-authored, but the PRIMARY substrate is Tate-recordings. While Tate is available, ask him to record the flow with `Ctrl+Shift+R` on Corazon. The v2 recorder (AHK + UIA + per-event vision enrichment via claude-sonnet-4-7) writes a raw session at `D:\.code\macro-recordings\<session-id>\` (events.jsonl + manifest.json + frames\). The v1 path (psr.exe wrapper) lands its raw .mht at `~/ecodiaos/macros/captures/_raw/<slug>-<ts>.mht` after pull. Both pipelines run `node ~/ecodiaos/macros/parsers/recording-to-recipe.js` (v2) or `psr-exe-to-recipe.js` (v1) on the VPS to emit a 10-section markdown recipe at `~/ecodiaos/macros/captures/<flow-slug>-<YYYY-MM-DD-HHMM>.md` with frontmatter `status: untested_spec`. After smoke-replay, flip frontmatter to `status: validated_v1` and (for high-leverage flows) `git mv` to `~/ecodiaos/patterns/<flow-slug>-recipe.md`. There is NO `macro.promote(...)` API, NO `registry.json`, NO `proposed/` directory, NO `.js` handler files - promotion is a manual edit-and-commit gate. Doctrine: `~/ecodiaos/patterns/tate-recordings-are-primary-gui-learning-substrate.md`. Recording mechanics: `~/ecodiaos/patterns/macro-capture-via-psr-exe.md` (v1) and `~/ecodiaos/patterns/macro-capture-via-custom-hook-recorder.md` (v2). Parent multi-phase architecture: `~/ecodiaos/patterns/macros-record-mode-and-auto-author-from-runs.md`.
+**Authoring substrate while Tate is at the keyboard:** GUI recipes can be hand-authored, but the PRIMARY substrate is Tate-recordings. While Tate is available, ask him to record the flow with `Ctrl+Shift+R` on Corazon. The v2 recorder (AHK + UIA + per-event vision enrichment via claude-sonnet-4-7) writes a raw session at `D:\.code\macro-recordings\<session-id>\` (events.jsonl + manifest.json + frames\). The v1 path (psr.exe wrapper) lands its raw .mht at `D:/.code/EcodiaOS/backend/macros/captures/_raw/<slug>-<ts>.mht` after pull. Both pipelines run `node D:/.code/EcodiaOS/backend/macros/parsers/recording-to-recipe.js` (v2) or `psr-exe-to-recipe.js` (v1) on the VPS to emit a 10-section markdown recipe at `D:/.code/EcodiaOS/backend/macros/captures/<flow-slug>-<YYYY-MM-DD-HHMM>.md` with frontmatter `status: untested_spec`. After smoke-replay, flip frontmatter to `status: validated_v1` and (for high-leverage flows) `git mv` to `D:/.code/EcodiaOS/backend/patterns/<flow-slug>-recipe.md`. There is NO `macro.promote(...)` API, NO `registry.json`, NO `proposed/` directory, NO `.js` handler files - promotion is a manual edit-and-commit gate. Doctrine: `D:/.code/EcodiaOS/backend/patterns/tate-recordings-are-primary-gui-learning-substrate.md`. Recording mechanics: `D:/.code/EcodiaOS/backend/patterns/macro-capture-via-psr-exe.md` (v1) and `D:/.code/EcodiaOS/backend/patterns/macro-capture-via-custom-hook-recorder.md` (v2). Parent multi-phase architecture: `D:/.code/EcodiaOS/backend/patterns/macros-record-mode-and-auto-author-from-runs.md`.
 
 ### Tailscale laptop-agent is the universal UI-driving substrate (5 May 2026)
 
@@ -239,13 +241,13 @@ For "drive a logged-in webapp UI in Tate's Chrome" (Stripe/Vercel/GitHub web/ASC
 
 `cu.*` / computer-use API = OS-level / desktop-app fallback (today: `ios-release-pipeline`, `macincloud-rdp-session` only).
 
-Full doctrine: `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`. The GUI recipe system (`~/ecodiaos/patterns/gui-recipes-authoring-optimisation-and-verification.md`) is the codification surface for repeatable flows.
+Full doctrine: `D:/.code/EcodiaOS/backend/patterns/tailscale-macro-replaces-cowork.md`. The GUI recipe system (`D:/.code/EcodiaOS/backend/patterns/gui-recipes-authoring-optimisation-and-verification.md`) is the codification surface for repeatable flows.
 
-### Helper script: `~/ecodiaos/scripts/cowork-dispatch` (legacy name)
+### Helper script: `D:/.code/EcodiaOS/backend/scripts/cowork-dispatch` (legacy name)
 
 Shipped commit `188f481`, 30 Apr 2026. **The name is legacy** from the Cowork era. The script itself is a useful thin bash wrapper composing `input.*` + `screenshot.*` + `process.*` peer-paradigm primitives against the laptop-agent. It remains the recommended abstraction for multi-step UI sequences.
 
-Status: live truth via `wc -lc ~/ecodiaos/scripts/cowork-dispatch`. Executable, on `origin/main` at `188f481`.
+Status: live truth via `wc -lc D:/.code/EcodiaOS/backend/scripts/cowork-dispatch`. Executable, on `origin/main` at `188f481`.
 
 **Subcommands:**
 - `precheck [--target "<sub>"]` - pre-dispatch checks + screenshot, returns JSON, exit 0/1
@@ -280,13 +282,13 @@ Token: `~/.ecodiaos/laptop-agent.token`. Env overrides: `COWORK_AGENT_URL`, `COW
 - `input.*` keystrokes/clicks: gate on collision
 - `browser.*` Puppeteer on `~/.eos-browser` (separate profile): generally proceeds
 
-Full: `~/ecodiaos/patterns/cowork-no-focus-collision.md`. The rule ITSELF is preserved; only the "Cowork" framing in the original is historical.
+Full: `D:/.code/EcodiaOS/backend/patterns/cowork-no-focus-collision.md`. The rule ITSELF is preserved; only the "Cowork" framing in the original is historical.
 
 **Pre-dispatch checklist:** 0 (no-focus-collision) → 1 (agent alive) → 2 (creds available) → 3 (target reachable).
 
 ### Passkey-stall co-pilot pattern (30 Apr 2026, PRESERVED)
 
-When the laptop-agent hits Windows Hello during Chrome credential autofill, the conductor injects the passkey via `input.type` from VPS using `kv_store.creds.laptop_passkey`. Detection: `process.listProcesses` for `LogonUI.exe` + foreground-window-title fallback. Never log passkey value. Full: `~/ecodiaos/patterns/cowork-passkey-stall-conductor-injects.md`.
+When the laptop-agent hits Windows Hello during Chrome credential autofill, the conductor injects the passkey via `input.type` from VPS using `kv_store.creds.laptop_passkey`. Detection: `process.listProcesses` for `LogonUI.exe` + foreground-window-title fallback. Never log passkey value. Full: `D:/.code/EcodiaOS/backend/patterns/cowork-passkey-stall-conductor-injects.md`.
 
 ### MCP headless REST endpoints (legacy Cowork V2 substrate)
 
@@ -302,7 +304,7 @@ LIVE on `https://api.admin.ecodia.au/api/mcp/cowork/*` as of 30 Apr 2026 12:47 A
 2. `curl -s -H "Authorization: Bearer $COWORK" https://api.admin.ecodia.au/api/mcp/cowork | jq '.tools | length'` returns 22
 3. At least one live roundtrip through the surface
 
-Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/cowork-v2-api-shape-conventions.md` (six API-shape gotchas remain accurate).
+Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/cowork-v2-api-shape-conventions.md` (six API-shape gotchas remain accurate).
 
 ### Chrome profile gotcha
 
@@ -337,7 +339,7 @@ Do NOT open PowerShell. Do NOT write `Start-Process chrome`. Do NOT `taskkill /F
 
 **Enforcement hook:** `~/.claude/hooks/ecodia/chrome-cdp-launch-surface.sh` (PreToolUse on Bash|Edit|Write|MultiEdit) fires `[CDP-LAUNCH WARN]` when a payload contains `--remote-debugging-port` without `--user-data-dir`, when it scripts kill-chrome + relaunch-with-debug-port, or when it references `C:\eos-chrome-cdp` outside the helper itself.
 
-Full doctrine: `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`. Two diagnoses two months apart (29 Apr 2026 + 21 May 2026) both burned >5 tool calls before reaching for the existing helper - this reflex is the cost-of-not-having-it made tangible.
+Full doctrine: `D:/.code/EcodiaOS/backend/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`. Two diagnoses two months apart (29 Apr 2026 + 21 May 2026) both burned >5 tool calls before reaching for the existing helper - this reflex is the cost-of-not-having-it made tangible.
 
 ### SSH state (29 Apr 2026)
 
@@ -360,7 +362,7 @@ Full doctrine: `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-dat
 
 **Substrate selection rule (7 May 2026, supersedes 5 May absolute SSH ban):** select access substrate by what the work needs. SSH for headless work, RDP from Corazon for GUI-bound work. Tate paid the +AU$9/mo "Enable Remote Build Port (SSH)" MacInCloud add-on at ~11:28 AEST 7 May 2026, authorising SSH as a first-class substrate for headless work.
 
-- **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `~/ecodiaos/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - verified 23.6s end-to-end on 4 May 2026.
+- **Desktop RDP shortcut** on Corazon (`MacinCloud_Full_Screen.rdp` on the user desktop). Microsoft RDP. Per `D:/.code/EcodiaOS/backend/patterns/sy094-gui-entry-via-desktop-rdp-shortcut.md` - verified 23.6s end-to-end on 4 May 2026.
 - The eos-laptop-agent on SY094 MUST be started from inside the RDP terminal so it inherits the GUI Aqua context. SSH-spawned agents have no Window Server and silently fail every screenshot/input tool.
 
 **SSH-appropriate work (headless, no GUI Aqua context required):**
@@ -389,7 +391,7 @@ Forbidden access paths (Tate verbatim 4 May 2026 19:22 AEST):
 - Fullscreen Citrix Workspace
 - Third-party VNC
 
-See [`~/ecodiaos/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`](patterns/macincloud-substrate-selection-ssh-vs-rdp.md) for full doctrine + the diagnosis showing why GUI tools over SSH still fail (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
+See [`D:/.code/EcodiaOS/backend/patterns/macincloud-substrate-selection-ssh-vs-rdp.md`](patterns/macincloud-substrate-selection-ssh-vs-rdp.md) for full doctrine + the diagnosis showing why GUI tools over SSH still fail (no GUI Aqua context, screencapture fails, cliclick fails, agent inherits broken context).
 
 ### How to call Corazon API (SY094 calls happen from inside the RDP terminal, not from VPS)
 ```bash
@@ -424,12 +426,12 @@ Live truth: `curl -H "Authorization: Bearer $TOK" http://100.114.219.69:7456/api
 - `keyboard.*` - older split: type/press/focusWindow/copy/paste. Prefer `input.*` for new code
 - `mouse.*` - click/rightClick/doubleClick/move/scroll/drag
 - `macro.*` (Win AutoHotkey only): run/inline/list/save. Macros at `D:\.code\eos-laptop-agent\macros\*.ahk`. Existing: click-coords, focus-chrome, new-tab, type-and-submit
-- `chrome.*` **(FROZEN, DO NOT EXTEND)** - Phase 1 stubs only, all throw stub errors. Superseded by direct Tailscale laptop-agent `input.*` + `screenshot.*` primitives. Do not author new chrome.* tools or extend stubs. Use the Tailscale laptop-agent (`~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md`) for web SaaS UIs via `input.*` + `screenshot.*` (`~/ecodiaos/patterns/drive-chrome-via-input-tools-not-browser-tools.md`). Cowork patterns at `~/ecodiaos/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` are [DEPRECATED]. After ANY edit to `tools/*.js`: `pm2 restart eos-laptop-agent` mandatory (require-cache, see `~/ecodiaos/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md`)
+- `chrome.*` **(FROZEN, DO NOT EXTEND)** - Phase 1 stubs only, all throw stub errors. Superseded by direct Tailscale laptop-agent `input.*` + `screenshot.*` primitives. Do not author new chrome.* tools or extend stubs. Use the Tailscale laptop-agent (`D:/.code/EcodiaOS/backend/patterns/tailscale-macro-replaces-cowork.md`) for web SaaS UIs via `input.*` + `screenshot.*` (`D:/.code/EcodiaOS/backend/patterns/drive-chrome-via-input-tools-not-browser-tools.md`). Cowork patterns at `D:/.code/EcodiaOS/backend/patterns/claude-cowork-is-the-1stop-shop-for-ui-driving-tasks.md` are [DEPRECATED]. After ANY edit to `tools/*.js`: `pm2 restart eos-laptop-agent` mandatory (require-cache, see `D:/.code/EcodiaOS/backend/patterns/eos-laptop-agent-module-cache-requires-restart-after-handler-swap.md`)
 
 ### Macro doctrine (post-pivot)
 
-- Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) PRIMARY for GUI driving. `cu.*` / computer-use FALLBACK for OS-level / desktop-app. Cowork [DEPRECATED] per `~/ecodiaos/patterns/tailscale-macro-replaces-cowork.md` (canonical replacement doctrine, 5 May 2026)
-- Pre-pivot bespoke runtime (`vision.locate` proxy, `runbook.run` iterator, step-array schema, `macroHandlers/*.js`) ARCHIVED 29 Apr per Anthropic-first check. See `~/ecodiaos/patterns/macros-pre-pivot-doctrine-archived-2026-04-29.md`
+- Tailscale laptop-agent (`input.*` + `screenshot.*` + `shell.shell`) PRIMARY for GUI driving. `cu.*` / computer-use FALLBACK for OS-level / desktop-app. Cowork [DEPRECATED] per `D:/.code/EcodiaOS/backend/patterns/tailscale-macro-replaces-cowork.md` (canonical replacement doctrine, 5 May 2026)
+- Pre-pivot bespoke runtime (`vision.locate` proxy, `runbook.run` iterator, step-array schema, `macroHandlers/*.js`) ARCHIVED 29 Apr per Anthropic-first check. See `D:/.code/EcodiaOS/backend/patterns/macros-pre-pivot-doctrine-archived-2026-04-29.md`
 - Do not extend bespoke runtime. Do not codify new step-arrays. Treat all `macro_runbooks` rows as `status='untested_spec'` until re-validated under new substrate
 
 **Macro status discipline (preserved post-pivot):**
@@ -439,21 +441,21 @@ Live truth: `curl -H "Authorization: Bearer $TOK" http://100.114.219.69:7456/api
 - Authoring multiple from imagination "to fill cap" / "pre-stage fleet" = recurring failure
 - Status values: untested_spec, replay_in_progress, validated_v1 (trusted), broken_needs_fix, retired
 
-Full: `~/ecodiaos/patterns/macros-must-be-validated-by-real-run-before-codification.md`.
+Full: `D:/.code/EcodiaOS/backend/patterns/macros-must-be-validated-by-real-run-before-codification.md`.
 
-**Helper script gotchas + privacy/blocked-paths + discovery endpoint:** see `~/ecodiaos/clients/corazon-peer-architecture-2026-04-29.md` (subcommands, `D:\PRIVATE` block, `/api/info` vs `/api/health`, PowerShell `;` vs `&&` / Write-Output / Get-ChildItem / Select-String gotchas).
+**Helper script gotchas + privacy/blocked-paths + discovery endpoint:** see `D:/.code/EcodiaOS/backend/clients/corazon-peer-architecture-2026-04-29.md` (subcommands, `D:\PRIVATE` block, `/api/info` vs `/api/health`, PowerShell `;` vs `&&` / Write-Output / Get-ChildItem / Select-String gotchas).
 
 ### GKG - GUI Knowledge Graph (Phase 1 shipped 7 May 2026)
 
 Long-running daemon on Corazon that captures GUI state across allowlisted SaaS / desktop apps as encrypted events for a future graph-builder cron (Phase 2). Phase 1 just ships the capture-and-store path; Phase 2 is the graph-builder that turns events into queryable nodes.
 
-- Spec: `~/ecodiaos/docs/gkg-spec-v0.1.md`
-- Capture daemon code: `~/ecodiaos/laptop-agent/daemons/` (ships through eos-laptop-agent on Corazon)
-- Allowlist file: `~/ecodiaos/laptop-agent/daemons/gkg-allowlist.json`
-- Allowlist doctrine: `~/ecodiaos/patterns/gkg-allowlist-generous-default.md` (broad default, narrow only on Tate-flagged noise)
+- Spec: `D:/.code/EcodiaOS/backend/docs/gkg-spec-v0.1.md`
+- Capture daemon code: `D:/.code/EcodiaOS/backend/laptop-agent/daemons/` (ships through eos-laptop-agent on Corazon)
+- Allowlist file: `D:/.code/EcodiaOS/backend/laptop-agent/daemons/gkg-allowlist.json`
+- Allowlist doctrine: `D:/.code/EcodiaOS/backend/patterns/gkg-allowlist-generous-default.md` (broad default, narrow only on Tate-flagged noise)
 - Privacy posture: layered (1) sensitive-context redaction by window-title / focused-element pattern match, (2) per-Tate AES-256-GCM at rest with `kv_store.gkg.tate_payload_key`, (3) tray pause toggle for one-click off
 - Allowlist covers: every SaaS Tate uses regularly (developer.apple.com, appstoreconnect, console.firebase, vercel, supabase, github, bitbucket, stripe, xero, zernio, claude.ai, etc) plus dev desktop apps (Code.exe, Cursor.exe, Slack, Discord, Teams, Postman, AutoHotkey)
-- GKG is the memory layer Anthropic computer-use queries; it is NOT a parallel build (per `~/ecodiaos/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md`)
+- GKG is the memory layer Anthropic computer-use queries; it is NOT a parallel build (per `D:/.code/EcodiaOS/backend/patterns/use-anthropic-existing-tools-before-building-parallel-infrastructure.md`)
 
 Origin: Tate verbatim 16:05 AEST 7 May 2026 ("default to broad allowlist, narrow only if I flag noise. Overcollection in Phase 1 is cheaper than missing a workflow") + 17:09 AEST authorising Phase 1 daemon ship.
 
@@ -476,12 +478,12 @@ Origin: Tate verbatim 16:05 AEST 7 May 2026 ("default to broad allowlist, narrow
 
 All secrets in Supabase `kv_store` (NOT .env, NOT code). Query with `db_query`.
 
-**Canonical registry:** `~/ecodiaos/docs/secrets/`. One file per credential. `triggers:` frontmatter for grep-addressable surfacing. Below = high-traffic short list. Full inventory (24+ provisioned + pending + drift catalogue): `~/ecodiaos/docs/secrets/INDEX.md`.
+**Canonical registry:** `D:/.code/EcodiaOS/backend/docs/secrets/`. One file per credential. `triggers:` frontmatter for grep-addressable surfacing. Below = high-traffic short list. Full inventory (24+ provisioned + pending + drift catalogue): `D:/.code/EcodiaOS/backend/docs/secrets/INDEX.md`.
 
 **Surfacing protocol - grep BEFORE any cred-needing action.** Before release, deploy, signing, vendor-API call, smoke-test login:
 
 ```
-Grep "triggers:" ~/ecodiaos/docs/secrets/ -A 1
+Grep "triggers:" D:/.code/EcodiaOS/backend/docs/secrets/ -A 1
 ```
 
 Read triggers, pick matching files, read in full. Same protocol as patterns/. 30sec cost.
@@ -497,8 +499,8 @@ Read triggers, pick matching files, read in full. Same protocol as patterns/. 30
 | `creds.bitbucket_account_email` | Which Atlassian account the API key belongs to | `code@ecodia.au` | [bitbucket.md](docs/secrets/bitbucket.md) |
 
 **Cross-refs:**
-- Before classifying any blocker as Tate-required, exhaust laptop+browser+saved-creds: `~/ecodiaos/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`. Passkey: `kv_store.creds.laptop_passkey`. Tool mechanics: `~/ecodiaos/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `~/ecodiaos/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`
-- Before adding ANY new credential row OR asking Tate to generate one, run GUI-macro vs API-key check: `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`. If Tate already does workflow through logged-in GUI (Apple Developer/ASC/Vercel/GitHub/Stripe/Play/Resend/Supabase dashboard/etc), macro path through Corazon/SY094 input.* + screenshot.* tools supersedes credential-generation. Skip the API key. Only add programmatic creds for fundamentally headless workflows (server-to-server cron, no human GUI in loop). Strategic_Direction: "GUI macros replace API keys for autonomous releases - use logged-in user sessions over generated programmatic credentials when both work"
+- Before classifying any blocker as Tate-required, exhaust laptop+browser+saved-creds: `D:/.code/EcodiaOS/backend/patterns/exhaust-laptop-route-before-declaring-tate-blocked.md`. Passkey: `kv_store.creds.laptop_passkey`. Tool mechanics: `D:/.code/EcodiaOS/backend/patterns/corazon-is-a-peer-not-a-browser-via-http.md`, `D:/.code/EcodiaOS/backend/patterns/chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear.md`
+- Before adding ANY new credential row OR asking Tate to generate one, run GUI-macro vs API-key check: `D:/.code/EcodiaOS/backend/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`. If Tate already does workflow through logged-in GUI (Apple Developer/ASC/Vercel/GitHub/Stripe/Play/Resend/Supabase dashboard/etc), macro path through Corazon/SY094 input.* + screenshot.* tools supersedes credential-generation. Skip the API key. Only add programmatic creds for fundamentally headless workflows (server-to-server cron, no human GUI in loop). Strategic_Direction: "GUI macros replace API keys for autonomous releases - use logged-in user sessions over generated programmatic credentials when both work"
 
 ### 🗄️ SUPABASE ACCESS - org PAT reaches EVERY project (READ FIRST before any Supabase query/migration)
 
@@ -540,7 +542,7 @@ ssh tate@100.103.227.90 'set -a; . ~/ecodiaos/.env; set +a; curl -s "$SUPABASE_U
 ```
 The same kv_store table also holds **non-PAT-derivable** secrets: `creds.coexist` (app test login `{url,email,password}` for visual verify), `creds.<project>_supabase` (per-project bundles). App-user logins are NOT Supabase API artifacts - get those from kv_store, not the Management API.
 
-**Hygiene:** never print the PAT or any service key into chat, Neo4j, status_board, or a commit. `D:/PRIVATE` is the private store (laptop-agent-blocked). Full doctrine + worked recipe: `~/ecodiaos/patterns/supabase-access-via-org-pat-local-store-2026-05-20.md` (supersedes `supabase-pat-reaches-every-owned-project-from-main.md`).
+**Hygiene:** never print the PAT or any service key into chat, Neo4j, status_board, or a commit. `D:/PRIVATE` is the private store (laptop-agent-blocked). Full doctrine + worked recipe: `D:/.code/EcodiaOS/backend/patterns/supabase-access-via-org-pat-local-store-2026-05-20.md` (supersedes `supabase-pat-reaches-every-owned-project-from-main.md`).
 
 ### Bitbucket has TWO auth contexts with same API key
 
@@ -571,7 +573,7 @@ Rotating a credential is NOT "update kv_store and done". Audit every consumer su
 6. Any client repo or downstream service holding a copy
 7. Any documented runbook or pattern file naming the value
 
-Verify each surface AFTER. Rotation complete only when every consumer touched OR explicitly cleared as N/A. `~/ecodiaos/docs/secrets/<name>.md` records consumer-surface list per cred. Update on new consumer. Full: `~/ecodiaos/patterns/cred-rotation-must-propagate-to-all-consumers.md`.
+Verify each surface AFTER. Rotation complete only when every consumer touched OR explicitly cleared as N/A. `D:/.code/EcodiaOS/backend/docs/secrets/<name>.md` records consumer-surface list per cred. Update on new consumer. Full: `D:/.code/EcodiaOS/backend/patterns/cred-rotation-must-propagate-to-all-consumers.md`.
 
 ---
 
@@ -633,21 +635,21 @@ Rules:
 - kv_store 'ceo.active_threads' JSON DEPRECATED - use status_board
 - status_board ↔ CRM disagree → status_board authoritative, fix CRM
 
-**Sheet-as-projection sync discipline.** When an external sheet (Excel/Google Sheets) holds only a SUBSET of app state (only past events, only survey-submitted events, only migrated-collective rows), the sync reconciliation query MUST scope its cancel/delete candidates to the SAME subset. Never infer "absent from sheet = deleted from sheet" for rows the sheet was never going to have. Fix = explicit date/status/gate filter on the reconciliation candidate query that mirrors the sheet's actual coverage. See `~/ecodiaos/patterns/sheet-as-projection-sync-direction-discipline.md`. Related: `~/ecodiaos/patterns/sync-back-must-filter-synthetic-from-source.md`, `~/ecodiaos/patterns/excel-sync-collectives-migration.md`.
+**Sheet-as-projection sync discipline.** When an external sheet (Excel/Google Sheets) holds only a SUBSET of app state (only past events, only survey-submitted events, only migrated-collective rows), the sync reconciliation query MUST scope its cancel/delete candidates to the SAME subset. Never infer "absent from sheet = deleted from sheet" for rows the sheet was never going to have. Fix = explicit date/status/gate filter on the reconciliation candidate query that mirrors the sheet's actual coverage. See `D:/.code/EcodiaOS/backend/patterns/sheet-as-projection-sync-direction-discipline.md`. Related: `D:/.code/EcodiaOS/backend/patterns/sync-back-must-filter-synthetic-from-source.md`, `D:/.code/EcodiaOS/backend/patterns/excel-sync-collectives-migration.md`.
 
-**Distributed-state seam discipline.** status_board is one of ~10 substrates state lives in (Postgres, Neo4j, kv_store, Vercel, PM2, GitHub/Bitbucket, Google Workspace, Stripe, session context, Tate's memory). Every cross-substrate write = seam where two substrates can disagree. Every drift-audit failure traces back to a seam without explicit consistency protocol. Cross-substrate write: write A, verify A, write B referencing A, verify B. Reading state: read source-of-truth substrate, not derived projection. Full: `~/ecodiaos/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md`.
+**Distributed-state seam discipline.** status_board is one of ~10 substrates state lives in (Postgres, Neo4j, kv_store, Vercel, PM2, GitHub/Bitbucket, Google Workspace, Stripe, session context, Tate's memory). Every cross-substrate write = seam where two substrates can disagree. Every drift-audit failure traces back to a seam without explicit consistency protocol. Cross-substrate write: write A, verify A, write B referencing A, verify B. Reading state: read source-of-truth substrate, not derived projection. Full: `D:/.code/EcodiaOS/backend/patterns/distributed-state-seam-failures-are-the-core-infrastructure-risk.md`.
 
-**Re-probe stale readings before acting.** Health-check kv_store rows (`ceo.last_system_health_check`, `alert_last:*`, `coexist.sync_health.last_audit`) capture metrics at a moment. Read without checking `updated_at` leaks yesterday's state. Freshness windows: disk-pct 4h, memory free 1h, PM2 restarts 1h, loop heartbeats 30min, sync drift 6h, external blockers 14d. Probe live before surfacing into fork brief / morning briefing / status_board context. Full: `~/ecodiaos/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md`. Specialisation: `~/ecodiaos/patterns/pm2-restart-count-is-lifetime-not-rate.md` (the `pm2 list` restart counter is a lifetime accumulator, never a rate; never classify a "restart loop" P1 from `pm2 list` alone).
+**Re-probe stale readings before acting.** Health-check kv_store rows (`ceo.last_system_health_check`, `alert_last:*`, `coexist.sync_health.last_audit`) capture metrics at a moment. Read without checking `updated_at` leaks yesterday's state. Freshness windows: disk-pct 4h, memory free 1h, PM2 restarts 1h, loop heartbeats 30min, sync drift 6h, external blockers 14d. Probe live before surfacing into fork brief / morning briefing / status_board context. Full: `D:/.code/EcodiaOS/backend/patterns/re-probe-stale-health-check-readings-before-acting-on-cached-alerts.md`. Specialisation: `D:/.code/EcodiaOS/backend/patterns/pm2-restart-count-is-lifetime-not-rate.md` (the `pm2 list` restart counter is a lifetime accumulator, never a rate; never classify a "restart loop" P1 from `pm2 list` alone).
 
-**Phantom-shipped corollary.** Row says `phantom_shipped_file_not_on_disk` (or equivalent "deliverable missing") → re-probe disk BEFORE treating as ground truth. last_touched can lag disk by minutes (fork ships file at T, parent writes P1 "missing" at T+7min based on stale Wave-N synthesis). Always: `ls -la <path>` then update or archive. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/symptom-clustering-signals-shared-upstream-cause.md`, `~/ecodiaos/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md`.
+**Phantom-shipped corollary.** Row says `phantom_shipped_file_not_on_disk` (or equivalent "deliverable missing") → re-probe disk BEFORE treating as ground truth. last_touched can lag disk by minutes (fork ships file at T, parent writes P1 "missing" at T+7min based on stale Wave-N synthesis). Always: `ls -la <path>` then update or archive. Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/symptom-clustering-signals-shared-upstream-cause.md`, `D:/.code/EcodiaOS/backend/patterns/fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull.md`.
 
-**Drift-audit on main when fork-cap full or mcp__forks__* disconnected.** When the hourly meta-loop fires and no fork can be spawned, the canonical thin-on-main work is the PHASE 2 status_board drift audit - slice-query first, drill down, classify into 4 buckets (still-accurate / status-changed / completed / duplicate), UPDATE atomically per row, write audit numbers to `kv_store.ceo.meta_loop_last_run.accomplishments`. Do NOT exit "nothing to do." Full: `~/ecodiaos/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`. At-scale technique: `~/ecodiaos/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (>50-row boards MUST slice-query - `SELECT *` row dump exceeds tool-result token cap; the categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates).
+**Drift-audit on main when fork-cap full or mcp__forks__* disconnected.** When the hourly meta-loop fires and no fork can be spawned, the canonical thin-on-main work is the PHASE 2 status_board drift audit - slice-query first, drill down, classify into 4 buckets (still-accurate / status-changed / completed / duplicate), UPDATE atomically per row, write audit numbers to `kv_store.ceo.meta_loop_last_run.accomplishments`. Do NOT exit "nothing to do." Full: `D:/.code/EcodiaOS/backend/patterns/status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work.md`. At-scale technique: `D:/.code/EcodiaOS/backend/patterns/drift-audit-slice-queries-beat-row-dump-queries.md` (>50-row boards MUST slice-query - `SELECT *` row dump exceeds tool-result token cap; the categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates).
 
 ---
 
 ## Parallel dispatch (live primitive)
 
-For parallelism, sequencing, or "hand this off and keep going" work, the reflex is `cowork.dispatch_worker` per `~/ecodiaos/patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. Auto-spawns a fresh Claude Code chat tab in VS Code Stable via Ctrl+Alt+Shift+C, registers identity, pastes the brief, returns tab_id. VS Code Stable is the only supported worker host; the `ide` param is gone. Workers signal back via the 8 `coord.*` MCP tools on localhost:7456. Operational semantics (worktree hygiene, runtime semantics, coord conventions) live in `~/ecodiaos/patterns/dispatch-worker-worktree-hygiene-2026-05-26.md` + `~/ecodiaos/patterns/dispatch-worker-runtime-semantics-2026-05-26.md` + `~/ecodiaos/patterns/coord-conventions-heartbeat-signal-done-2026-05-18.md`.
+For parallelism, sequencing, or "hand this off and keep going" work, the reflex is `cowork.dispatch_worker` per `D:/.code/EcodiaOS/backend/patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md`. Auto-spawns a fresh Claude Code chat tab in VS Code Stable via Ctrl+Alt+Shift+C, registers identity, pastes the brief, returns tab_id. VS Code Stable is the only supported worker host; the `ide` param is gone. Workers signal back via the 8 `coord.*` MCP tools on localhost:7456. Operational semantics (worktree hygiene, runtime semantics, coord conventions) live in `D:/.code/EcodiaOS/backend/patterns/dispatch-worker-worktree-hygiene-2026-05-26.md` + `D:/.code/EcodiaOS/backend/patterns/dispatch-worker-runtime-semantics-2026-05-26.md` + `D:/.code/EcodiaOS/backend/patterns/coord-conventions-heartbeat-signal-done-2026-05-18.md`.
 
 In-session bounded work (single research lookup, <5 tool calls) is the Task subagent's job, not dispatch_worker's.
 
@@ -655,7 +657,7 @@ In-session bounded work (single research lookup, <5 tool calls) is the Task suba
 
 ## 🤖 24/7 AUTONOMY SUBSTRATE - the four primitives (0th-class, 2026-05-27)
 
-The autonomy architecture that lets EcodiaOS run unattended (Africa trip Oct-Dec 2026) has four substrate primitives. Full spec: `backend/docs/superpowers/specs/2026-05-27-24x7-autonomy-architecture-design.md`. The 10 load-bearing invariants: `~/ecodiaos/patterns/24x7-autonomy-architecture-invariants-2026-05-27.md`. Reach for these by reflex, the same way `cowork.dispatch_worker` is the reflex for parallelism.
+The autonomy architecture that lets EcodiaOS run unattended (Africa trip Oct-Dec 2026) has four substrate primitives. Full spec: `backend/docs/superpowers/specs/2026-05-27-24x7-autonomy-architecture-design.md`. The 10 load-bearing invariants: `D:/.code/EcodiaOS/backend/patterns/24x7-autonomy-architecture-invariants-2026-05-27.md`. Reach for these by reflex, the same way `cowork.dispatch_worker` is the reflex for parallelism.
 
 **1. Worker tab self-close - `coord.close_my_tab`.** Every dispatched worker calls it as its FINAL action after `coord.signal_done({terminate:true})`. Without it, IDE chat tabs accumulate and burn memory. The brief already mandates it; if you author a brief by hand, include it. Lives in `D:/.code/eos-laptop-agent/tools/coord.js`.
 
@@ -665,6 +667,8 @@ The autonomy architecture that lets EcodiaOS run unattended (Africa trip Oct-Dec
 
 **4. Outcome verification - `outcomeVerificationService`.** Narrated success is not real success (per `verify-deployed-state-against-narrated-state.md`). When a worker/fork reports done with a verifiable deliverable, run a probe: `verify.verify({type:'status_board'|'db_row'|'file_write'|'neo4j_node', ...})`. Workers declare intent via `result_pointer:'verify:type=...;k=v'`. Service: `backend/src/services/outcomeVerificationService.js`.
 
+**5. Self-scheduling - `scheduler.delayed` / `scheduler.cron` (0th-class, Tate verbatim 2026-05-28).** Sister reflex to `cowork.dispatch_worker` on the time axis. Every turn that ships work with a follow-up shape (verification window, deferred commitment, recurring discipline, external blocker with a known reset, multi-step arc resuming hours/days later) schedules BEFORE the turn ends. Prompt body carries FULL context the future-me will need (file paths, status_board ids, what was tried, the actual probe to run). If the scheduled fire spawns a worker, the worker's final action is `coord.close_my_tab` per invariant 1; without the self-close the IDE fills with dead workers and burns memory. Both halves bind: schedule the work, close the tabs after. Substrate: [[self-scheduling-via-scheduler-delayed-mcp-2026-05-27]] + [[scheduling-is-0th-class-primitive-2026-05-28]]. The conductor-side scheduler poller post-patch routes the fire through `cowork.dispatch_worker` on the laptop-agent, not the deprecated os-session/message surface ([[scheduler-poller-must-dispatch-worker-not-os-session-message-2026-05-28]]); all scheduled fires that spawn a worker pass `worker_acknowledgment_timeout_ms: 180000`.
+
 **Escalation routing - `failureEscalateService`.** ANY failure that needs surfacing goes through ONE helper, never an ad-hoc SMS or status_board write: `await escalate.fire({severity, kind, message, context, dedupe_key})`. Six tiers route to the right surfaces: `routine_info`/`action_recommended`/`conductor_decision` (observer + board), `tate_judgement` (approval_queue + observer), `time_critical`/`hard_tripwire` (sms.tate + observer + board). Dedupe key suppresses repeats for 1h. Service: `backend/src/services/failureEscalateService.js`.
 
 **Credential substrate (the part that broke 3x).** Scheduler `rotate_to` swaps `~/.claude/.credentials.json` from per-account files in `D:/PRIVATE/ecodia-creds/{tate,code,money}.json`. The `cred-refresher.js` PM2 daemon keeps those fresh via 30-min OAuth refresh. NEVER blind-restart PM2 (reloads the dump, has thrice reloaded the zombie `refresh-clobber-watchdog` and signed out every account) - see the hard-stop tripwire in `~/.claude/CLAUDE.md` + `pm2_restart_guard.py` PreToolUse hook (bypass token `# pm2-guard-ok` after the 3-step pre-check). Pattern: [[pm2-restart-reloads-dangerous-dump-never-blind-restart-2026-05-27]].
@@ -673,7 +677,7 @@ The autonomy architecture that lets EcodiaOS run unattended (Africa trip Oct-Dec
 
 ## Session Orientation - Wake-Up Checklist
 
-**BEFORE any of the orientation steps below:** if `<perception_summary>` / `<forks_rollup>` / `<restart_recovery>` / `<last_turn_breadcrumb>` shows pending work, fork it FIRST (after the single canonical status_board query, step 1). The orientation steps 2-7 below are for the FORK to run, not main. Main does ONE query, then dispatches. See `~/ecodiaos/patterns/fork-pending-work-at-session-start-not-after-probing-on-main.md`.
+**BEFORE any of the orientation steps below:** if `<perception_summary>` / `<forks_rollup>` / `<restart_recovery>` / `<last_turn_breadcrumb>` shows pending work, fork it FIRST (after the single canonical status_board query, step 1). The orientation steps 2-7 below are for the FORK to run, not main. Main does ONE query, then dispatches. See `D:/.code/EcodiaOS/backend/patterns/fork-pending-work-at-session-start-not-after-probing-on-main.md`.
 
 Substantial session start (the fork runs steps 2-7 when there is pending work; main runs all 7 only on a clean wake with nothing queued):
 
@@ -689,7 +693,7 @@ ORDER BY coalesce(n.date, n.created_at) DESC LIMIT 30
  - restart_recovery says "blocked/pending" → Neo4j is where you verify
  - kv_store handoff_state ephemeral; Neo4j durable. **Trust Neo4j over kv_store when they disagree**
 4. **Topic-scoped Neo4j:** if turn is about specific topic, also `MATCH (n) WHERE n.name CONTAINS '{topic}' OR n.description CONTAINS '{topic}' RETURN labels(n), n.name, n.description ORDER BY coalesce(n.date, n.created_at) DESC LIMIT 15`. Read top 3-5 in full
-5. **Client context:** `~/ecodiaos/clients/{slug}.md` BEFORE touching client code or replying to client emails
+5. **Client context:** `D:/.code/EcodiaOS/backend/clients/{slug}.md` BEFORE touching client code or replying to client emails
 6. **Unread email:** scan code@ecodia.au for urgent
 7. **System health:** `pm2_list` if woken by scheduler
 
@@ -699,16 +703,16 @@ Before turn closes, write durable Neo4j node if:
 - Tate gave directive (even small) → `graph_merge_node label=Decision`
 - Conversational question resolved → `graph_merge_node label=Decision` with `supersedes` property naming stale kv_store pointer it replaces
 - Significant ground covered across threads → `graph_reflect type=realization` + Episode node
-- Generalisable doctrine emerged → new pattern file in `~/ecodiaos/patterns/` with `triggers:` frontmatter AND corresponding Neo4j Pattern node
+- Generalisable doctrine emerged → new pattern file in `D:/.code/EcodiaOS/backend/patterns/` with `triggers:` frontmatter AND corresponding Neo4j Pattern node
 - Status changed on client/project/task → update `status_board` AND mirror key decision in Neo4j
 
 **Cold-start test on every Neo4j write:** would a new session reading only this node make a better decision? "Talked about X" without resolution + rule = rewrite with specifics.
 
-See `~/ecodiaos/patterns/neo4j-first-context-discipline.md`, `~/ecodiaos/patterns/ocd-ambition-refuse-mediocrity.md`.
+See `D:/.code/EcodiaOS/backend/patterns/neo4j-first-context-discipline.md`, `D:/.code/EcodiaOS/backend/patterns/ocd-ambition-refuse-mediocrity.md`.
 
 ### Session-end CLAUDE.md gap audit (29 Apr 2026)
 
-Before substantial session ends or 6h idle window passes, fork audit. Deliverable: `~/ecodiaos/drafts/claude-md-gaps-audit-YYYY-MM-DD.md` with:
+Before substantial session ends or 6h idle window passes, fork audit. Deliverable: `D:/.code/EcodiaOS/backend/drafts/claude-md-gaps-audit-YYYY-MM-DD.md` with:
 - Section 1: gaps (rules surfaced not yet codified, proposed text + which file)
 - Section 2: stale items (outdated tooling, removed flags, superseded doctrine)
 - Section 3: missing cross-refs (patterns authored but not linked from CLAUDE.md)
@@ -724,37 +728,37 @@ Then fork the actual edits. Two forks: one audit, one edit. Never edit CLAUDE.md
 - Every 6-12h when idle (continuous-work loop)
 - Daily 20:00 AEST via `claude-md-reflection` cron
 
-**Cron-coupled checkpoint (NON-NEGOTIABLE):** daily 20:00 cron MUST fork BOTH audit AND edit in single 30-min window, not just write Neo4j Reflection. Audit fork's deliverable IS edit fork's input. File audit at `~/ecodiaos/drafts/claude-md-gaps-audit-YYYY-MM-DD.md`, immediately spawn edit fork pointing at that path. If 20:00 cron only writes Reflection without dispatching both forks, that cron run = P1 failure.
+**Cron-coupled checkpoint (NON-NEGOTIABLE):** daily 20:00 cron MUST fork BOTH audit AND edit in single 30-min window, not just write Neo4j Reflection. Audit fork's deliverable IS edit fork's input. File audit at `D:/.code/EcodiaOS/backend/drafts/claude-md-gaps-audit-YYYY-MM-DD.md`, immediately spawn edit fork pointing at that path. If 20:00 cron only writes Reflection without dispatching both forks, that cron run = P1 failure.
 
-**Audit-fork persistence verification (NON-NEGOTIABLE).** After audit fork reports done, parent MUST `ls -la ~/ecodiaos/drafts/claude-md-gaps-audit-YYYY-MM-DD.md` to confirm exists on disk BEFORE dispatching edit fork. Missing = (a) didn't write (re-dispatch with explicit Write requirement), (b) wrote under sibling stash-and-clean window (re-author), (c) wrote sibling slug like `-v2` (`find ~/ecodiaos/drafts -newer <fork-spawn-time>`). Never trust fork report's path claim. Re-probe disk. Origin: 30 Apr 2026 v2 audit narration claimed file at `-v2.md` that did not exist on disk. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/fork-deliverables-write-to-durable-substrates-not-just-drafts.md`.
+**Audit-fork persistence verification (NON-NEGOTIABLE).** After audit fork reports done, parent MUST `ls -la D:/.code/EcodiaOS/backend/drafts/claude-md-gaps-audit-YYYY-MM-DD.md` to confirm exists on disk BEFORE dispatching edit fork. Missing = (a) didn't write (re-dispatch with explicit Write requirement), (b) wrote under sibling stash-and-clean window (re-author), (c) wrote sibling slug like `-v2` (`find D:/.code/EcodiaOS/backend/drafts -newer <fork-spawn-time>`). Never trust fork report's path claim. Re-probe disk. Origin: 30 Apr 2026 v2 audit narration claimed file at `-v2.md` that did not exist on disk. Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/fork-deliverables-write-to-durable-substrates-not-just-drafts.md`.
 
-### Pattern Surfacing - check `~/ecodiaos/patterns/` BEFORE high-leverage actions
+### Pattern Surfacing - check `D:/.code/EcodiaOS/backend/patterns/` BEFORE high-leverage actions
 
 See top-of-file PATTERN SURFACING for canonical rule + grep + high-leverage list.
 
-**Permission-seeking trigger keywords (grep on every assistant draft reply to Tate before sending):** `permission-seeking`, `should-i`, `do-you-want-me-to`, `confirm-before`, `tate-go-ahead`, `routine-decision`, `act-immediately`, `want-me-to`, `let-me-know-if`, `which-do-you-prefer`, `can-you-confirm`, `ok-to-proceed`, `shall-i`, `do-i-have-the-greenlight`, `reward-signal-trap`, `paths-of-least-resistance`, `ask-substitute`. Surfaces `~/ecodiaos/patterns/stop-asking-just-decide.md`, `~/ecodiaos/patterns/decide-do-not-ask.md`, `~/ecodiaos/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` (canonical authority predecessor), `~/ecodiaos/patterns/action-over-plans-honesty-redeems-mistakes.md` (action-over-plans + honesty-redeems-mistakes principles from 1 May 2026 16:31 AEST Tate verbatim).
+**Permission-seeking trigger keywords (grep on every assistant draft reply to Tate before sending):** `permission-seeking`, `should-i`, `do-you-want-me-to`, `confirm-before`, `tate-go-ahead`, `routine-decision`, `act-immediately`, `want-me-to`, `let-me-know-if`, `which-do-you-prefer`, `can-you-confirm`, `ok-to-proceed`, `shall-i`, `do-i-have-the-greenlight`, `reward-signal-trap`, `paths-of-least-resistance`, `ask-substitute`. Surfaces `D:/.code/EcodiaOS/backend/patterns/stop-asking-just-decide.md`, `D:/.code/EcodiaOS/backend/patterns/decide-do-not-ask.md`, `D:/.code/EcodiaOS/backend/patterns/100-percent-autonomy-doctrine-30-apr-2026.md` (canonical authority predecessor), `D:/.code/EcodiaOS/backend/patterns/action-over-plans-honesty-redeems-mistakes.md` (action-over-plans + honesty-redeems-mistakes principles from 1 May 2026 16:31 AEST Tate verbatim).
 
 **Authoring new patterns:**
 - `triggers:` frontmatter (kebab keywords, comma-separated)
 - Descriptive H1 (rule, not incident)
 - Rule stated generally, do/do-not, protocol/verification, Origin (date + event)
-- INDEX.md is regenerated by the daily 22:00 AEST `daily-index-regen` cron (task id `c2606d3b-f115-4387-b41e-9b16c8c552ca`). Per Decision 2026-05-04 (commit 773697d), the cron now invokes `~/ecodiaos/scripts/regen-patterns-index.js` directly rather than dispatching a fork (deterministic walk over patterns/*.md, no agentic decision component, fork overhead was waste). Cron prompt instructs the firing turn to run the script and insert a P3 status_board row only on non-zero exit; silent success on no-diff is correct per ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md. Status_board row `e86b6437-1315-47b7-87f4-cd6481256966` (warmup-grace gate) tracks the broader PM2 warmup-collision investigation, which still applies to fork-dispatched crons.
+- INDEX.md is regenerated by the daily 22:00 AEST `daily-index-regen` cron (task id `c2606d3b-f115-4387-b41e-9b16c8c552ca`). Per Decision 2026-05-04 (commit 773697d), the cron now invokes `D:/.code/EcodiaOS/backend/scripts/regen-patterns-index.js` directly rather than dispatching a fork (deterministic walk over patterns/*.md, no agentic decision component, fork overhead was waste). Cron prompt instructs the firing turn to run the script and insert a P3 status_board row only on non-zero exit; silent success on no-diff is correct per D:/.code/EcodiaOS/backend/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md. Status_board row `e86b6437-1315-47b7-87f4-cd6481256966` (warmup-grace gate) tracks the broader PM2 warmup-collision investigation, which still applies to fork-dispatched crons.
 
 **Split doctrine from event** (see Reflection structure note above).
 
-**Codify at moment a rule is stated, not after:** see `~/ecodiaos/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md`.
+**Codify at moment a rule is stated, not after:** see `D:/.code/EcodiaOS/backend/patterns/codify-at-the-moment-a-rule-is-stated-not-after.md`.
 
-**Doctrine-write timing:** `~/ecodiaos/patterns/no-doctrine-writes-during-factory-running-window.md` - doctrine edits during active Factory window contaminate diff baseline. Stage before dispatch OR after termination, never during.
+**Doctrine-write timing:** `D:/.code/EcodiaOS/backend/patterns/no-doctrine-writes-during-factory-running-window.md` - doctrine edits during active Factory window contaminate diff baseline. Stage before dispatch OR after termination, never during.
 
 ### Mechanical surfacing hooks (live state as of 2026-05-26 Phase 1 migration)
 
 PreToolUse / PostToolUse / UserPromptSubmit / Stop hooks. Warn-only, never block. Emit `[CONTEXT-SURFACE WARN]` / `[CRED-SURFACE WARN]` / `[DOCTRINE-CROSS-REF SUGGEST]` / `[STATUS-BOARD-CONTEXT SUGGEST]` / `[MACRO-VALIDATION WARN]` / `[ANTHROPIC-FIRST WARN]` / `[EPISODE-RESURFACE INFO]` lines into model-visible context.
 
-The Phase 1 migration (2026-05-26) retired five hooks targeting the dead SDK-fork / Factory-CLI dispatch primitives (`brief-consistency-check`, `cowork-first-check`, `fork-by-default-nudge`, `post-action-applied-tag-check`, `router-skip-check`) and re-targeted four to live matchers. Full meta-rule: `~/ecodiaos/patterns/hook-matchers-must-follow-live-dispatch-primitive-not-dead-substrate-2026-05-26.md`.
+The Phase 1 migration (2026-05-26) retired five hooks targeting the dead SDK-fork / Factory-CLI dispatch primitives (`brief-consistency-check`, `cowork-first-check`, `fork-by-default-nudge`, `post-action-applied-tag-check`, `router-skip-check`) and re-targeted four to live matchers. Full meta-rule: `D:/.code/EcodiaOS/backend/patterns/hook-matchers-must-follow-live-dispatch-primitive-not-dead-substrate-2026-05-26.md`.
 
 | Hook | Fires on | Surfaces |
 |---|---|---|
-| `cred-mention-surface.sh` | `Bash`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`mcp__supabase__db_execute` | Cred-keyword warns when payload mentions iOS/ASC/Bitbucket/Supabase/Co-Exist Graph/MacInCloud/Corazon/Resend/Canva/Xero/RevenueCat work without `~/ecodiaos/docs/secrets/` ref |
+| `cred-mention-surface.sh` | `Bash`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`mcp__supabase__db_execute` | Cred-keyword warns when payload mentions iOS/ASC/Bitbucket/Supabase/Co-Exist Graph/MacInCloud/Corazon/Resend/Canva/Xero/RevenueCat work without `D:/.code/EcodiaOS/backend/docs/secrets/` ref |
 | `anthropic-first-check.sh` | `Write`/`Edit`/`MultiEdit` on doctrine paths (`patterns/`, `clients/`, `docs/`, `CLAUDE.md`, `SELF.md`, `.claude/skills/`, `src/`, `tools/`, `hooks/`) | "Are you building parallel infrastructure Anthropic already provides" check |
 | `haiku-semantic-review.sh` | `Write`/`Edit`/`MultiEdit` on doctrine paths only (LLM-cost bounded) | Cheap Haiku LLM-pass complement to keyword scanners; surfaces additional `[CONTEXT-SURFACE WARN]` suggestions when regex misses |
 | `episode-resurface.sh` | `UserPromptSubmit` (fires every turn boundary) | Semantic resurface of Episode/Decision Neo4j nodes relevant to the prompt |
@@ -765,19 +769,19 @@ The Phase 1 migration (2026-05-26) retired five hooks targeting the dead SDK-for
 | `chrome-cdp-launch-surface.sh` | `Bash`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`mcp__supabase__db_execute` | `[CDP-LAUNCH WARN]` when a payload contains `--remote-debugging-port` without `--user-data-dir` |
 | `apple-dev-asc-flow-surface.sh` | `Bash`/`Edit`/`Write`/`MultiEdit`/`NotebookEdit`/`mcp__supabase__db_execute` | Apple Dev portal / ASC flow surface |
 | `applied_tag_telemetry.py` (Stop event) | every turn end | Tail-cap 2000 lines, scans transcript for pattern surfacings + `[APPLIED]`/`[NOT-APPLIED]`/`[FALSE-POSITIVE]` tag markers; writes JSONL to `TELEMETRY_DIR/application-events.jsonl` for pattern-application-rate scoring |
-| `status_board_hygiene.py` (PostToolUse) | `Bash`/`Edit`/`Write`/`MultiEdit`/`mcp__ecodia-full__db_execute`/`mcp__ecodia-full__shell_exec` | `[STATUS-BOARD-HYGIENE]` row-match + lifecycle + streak nudges; full doctrine in `~/ecodiaos/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md` |
+| `status_board_hygiene.py` (PostToolUse) | `Bash`/`Edit`/`Write`/`MultiEdit`/`mcp__ecodia-full__db_execute`/`mcp__ecodia-full__shell_exec` | `[STATUS-BOARD-HYGIENE]` row-match + lifecycle + streak nudges; full doctrine in `D:/.code/EcodiaOS/backend/patterns/status-board-hygiene-is-a-0th-class-reflex-2026-05-21.md` |
 
-**Cron-fire + Tate-message context-injection (shipped 1 May 2026):** trigger-keyword surfacing wired at `schedulerPollerService.fireTask` and `osSessionService._sendMessageImpl`. Per Neo4j Decision "Cron-fire + Tate-message context-injection found shipped + superseded 1 May 2026". Recon: `~/ecodiaos/drafts/context-surface-injection-points-recon-2026-04-29.md` (now historical). Live monitor: status_board row `0df47f4b-3b14-4f1a-9613-07877f0f9e1f` ("cron silent-fire detector - rolling report", priority 4) is the durable surface tracking detector verdicts; row `e86b6437-1315-47b7-87f4-cd6481256966` (priority 3) tracks the INDEX.md regen cron silent-firing investigation. Both rows are the next-action targets when cron-silent-fire recurrence requires escalation. Sibling pattern pair: `~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md` (unconditional case) + `~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md` (conditional case, 3 May 2026).
+**Cron-fire + Tate-message context-injection (shipped 1 May 2026):** trigger-keyword surfacing wired at `schedulerPollerService.fireTask` and `osSessionService._sendMessageImpl`. Per Neo4j Decision "Cron-fire + Tate-message context-injection found shipped + superseded 1 May 2026". Recon: `D:/.code/EcodiaOS/backend/drafts/context-surface-injection-points-recon-2026-04-29.md` (now historical). Live monitor: status_board row `0df47f4b-3b14-4f1a-9613-07877f0f9e1f` ("cron silent-fire detector - rolling report", priority 4) is the durable surface tracking detector verdicts; row `e86b6437-1315-47b7-87f4-cd6481256966` (priority 3) tracks the INDEX.md regen cron silent-firing investigation. Both rows are the next-action targets when cron-silent-fire recurrence requires escalation. Sibling pattern pair: `D:/.code/EcodiaOS/backend/patterns/cron-fire-must-have-deliverable-not-just-narration.md` (unconditional case) + `D:/.code/EcodiaOS/backend/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md` (conditional case, 3 May 2026).
 
-**Hook-stack invariant check (P1, run at session start before any fork dispatch).** Before claiming any hook is "active"/"wired", probe `[ -f ~/ecodiaos/scripts/hooks/<name>.sh ]` for every hook in `~/.claude/settings.json`. Hook command referencing non-existent script = P1 silent-disablement. Branch HEAD may diverge from where hooks were authored - feature-branch hooks dormant on every other branch. 30 Apr audit found 5 of 10 script-backed hooks registered but absent on disk; restored same day (commit 9e3f7d4). One-liner:
+**Hook-stack invariant check (P1, run at session start before any fork dispatch).** Before claiming any hook is "active"/"wired", probe `[ -f D:/.code/EcodiaOS/backend/scripts/hooks/<name>.sh ]` for every hook in `~/.claude/settings.json`. Hook command referencing non-existent script = P1 silent-disablement. Branch HEAD may diverge from where hooks were authored - feature-branch hooks dormant on every other branch. 30 Apr audit found 5 of 10 script-backed hooks registered but absent on disk; restored same day (commit 9e3f7d4). One-liner:
 ```bash
 for f in ~/.claude/settings.json; do jq -r '.. | objects | .command? // empty' "$f" 2>/dev/null | grep -oE '~?/[^ ]+\.sh' | sort -u | while read p; do path=$(eval echo "$p"); [ -f "$path" ] || echo "MISSING: $path"; done; done
 ```
-Anything prints → narrate as MISSING, don't claim active. Cross-refs: `~/ecodiaos/patterns/verify-deployed-state-against-narrated-state.md`, `~/ecodiaos/patterns/narration-vs-disk-reconciliation-checklist.md`. Origin: 30 Apr hook-stack drift audit found `post-action-applied-tag-check.sh`, `episode-resurface.sh`, `cowork-first-check.sh`, `anthropic-first-check.sh`, `macro-runbook-write-surface.sh` silently absent on main HEAD because commits live on unmerged `feat/phase-d-failure-classifier-2026-04-29` branch.
+Anything prints → narrate as MISSING, don't claim active. Cross-refs: `D:/.code/EcodiaOS/backend/patterns/verify-deployed-state-against-narrated-state.md`, `D:/.code/EcodiaOS/backend/patterns/narration-vs-disk-reconciliation-checklist.md`. Origin: 30 Apr hook-stack drift audit found `post-action-applied-tag-check.sh`, `episode-resurface.sh`, `cowork-first-check.sh`, `anthropic-first-check.sh`, `macro-runbook-write-surface.sh` silently absent on main HEAD because commits live on unmerged `feat/phase-d-failure-classifier-2026-04-29` branch.
 
-**Hooks must not fire inside `[APPLIED]` / `[NOT-APPLIED]` tag lines.** Every keyword-scanning hook MUST strip lines beginning with `[APPLIED]`, `[NOT-APPLIED]`, `[BRIEF-CHECK WARN]`, `[CONTEXT-SURFACE WARN/PRIMARY/ALSO]`, `[CRED-SURFACE WARN]`, `[FORCING WARN]`, etc. before keyword regex. Otherwise hook fires on its own forcing-function output. 6+ false positives 21:00-21:12 AEST 29 Apr 2026 across `cred-mention-surface.sh`. Filter tag lines first, then scan. Shared helper: `~/ecodiaos/scripts/hooks/lib/strip-tag-lines.sh`. Full: `~/ecodiaos/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md`.
+**Hooks must not fire inside `[APPLIED]` / `[NOT-APPLIED]` tag lines.** Every keyword-scanning hook MUST strip lines beginning with `[APPLIED]`, `[NOT-APPLIED]`, `[BRIEF-CHECK WARN]`, `[CONTEXT-SURFACE WARN/PRIMARY/ALSO]`, `[CRED-SURFACE WARN]`, `[FORCING WARN]`, etc. before keyword regex. Otherwise hook fires on its own forcing-function output. 6+ false positives 21:00-21:12 AEST 29 Apr 2026 across `cred-mention-surface.sh`. Filter tag lines first, then scan. Shared helper: `D:/.code/EcodiaOS/backend/scripts/hooks/lib/strip-tag-lines.sh`. Full: `D:/.code/EcodiaOS/backend/patterns/hooks-must-not-fire-inside-applied-pattern-tags.md`.
 
-**Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `~/ecodiaos/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
+**Semantic-reviewer complement (6 May 2026).** The 10 wired hooks are heuristic keyword-scanners with known false-negative cases (compound triggers, paraphrase, novel synonyms). The Haiku semantic reviewer is the complementary layer: cheap LLM-pass over briefs/edits that catches what regex misses, surfaces additional `[CONTEXT-SURFACE WARN]`-equivalent suggestions when the keyword path has zero hits but the doctrine surface IS relevant. Heuristic and semantic together = belt and braces. Full: `D:/.code/EcodiaOS/backend/patterns/haiku-semantic-reviewer-complement-to-heuristic-hooks.md`.
 
 ### Restart Recovery - Session Handoff
 
@@ -803,9 +807,9 @@ curl -X POST http://localhost:3001/api/os-session/save-state \
 Prevents overnight-session-drop failure of Apr 11-12 (saved state would have resumed work instead of 9h idle).
 
 **Cross-refs:**
-- `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - pre-stage fork briefs (kv_store or filesystem) before pm2 restart / deploy / risky migration
-- `~/ecodiaos/patterns/grace-timer-must-not-kill-chat-session.md` - idle-grace timer never tears down active chat session; kill = process-level not turn-level
-- `~/ecodiaos/patterns/curl-attachments-on-restart-no-refetch.md` - on restart, do NOT refetch curl attachments already on disk
+- `D:/.code/EcodiaOS/backend/patterns/pre-stage-fork-briefs-before-session-killing-ops.md` - pre-stage fork briefs (kv_store or filesystem) before pm2 restart / deploy / risky migration
+- `D:/.code/EcodiaOS/backend/patterns/grace-timer-must-not-kill-chat-session.md` - idle-grace timer never tears down active chat session; kill = process-level not turn-level
+- `D:/.code/EcodiaOS/backend/patterns/curl-attachments-on-restart-no-refetch.md` - on restart, do NOT refetch curl attachments already on disk
 
 ### Cron-fire deliverable discipline
 
@@ -813,9 +817,9 @@ A cron firing means the prompt was delivered, NOT that the work happened. Post-r
 1. The fork-side: every fork-dispatched cron prompt that declares a deliverable (file write, status_board update, neo4j write, email send) MUST cause the fork to emit at least one substrate-landing tool call before exit. Fork bails without an artefact = `cron_silent_fire` failure. Detection: meta-loop queries `os_scheduled_tasks` completed-last-hour, checks each fork's `os_forks` row for substrate writes.
 2. The conductor-side (meta-loop only): the same check, but the deliverable lives in the conductor's own next 1-2 turns of action.
 
-Sibling pattern pair: ~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md (unconditional case) + ~/ecodiaos/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md (conditional case where silent success is correct, e.g. INDEX regen no-diff exit, telemetry under-threshold no-trip, claude-md-reflection clean-audit run).
+Sibling pattern pair: D:/.code/EcodiaOS/backend/patterns/cron-fire-must-have-deliverable-not-just-narration.md (unconditional case) + D:/.code/EcodiaOS/backend/patterns/cron-deliverables-can-be-conditional-not-all-fires-must-ship.md (conditional case where silent success is correct, e.g. INDEX regen no-diff exit, telemetry under-threshold no-trip, claude-md-reflection clean-audit run).
 
-Cross-ref: ~/ecodiaos/patterns/crons-route-to-forks-by-default.md (the routing layer that fixes cron-pollutes-chat at substrate).
+Cross-ref: D:/.code/EcodiaOS/backend/patterns/crons-route-to-forks-by-default.md (the routing layer that fixes cron-pollutes-chat at substrate).
 
 ### Temporal Injection - knowing what time it is
 
@@ -838,13 +842,13 @@ Preserves flow. Explicit kill = frontend Stop button → `POST /api/os-session/a
 
 **Practical:** finish turns cleanly. No premature text responses hoping for correction - he might send one and it queues. Finish work, then see what he said.
 
-See `~/ecodiaos/patterns/sdk-abortcontroller-cancellation.md` (SDK-level AbortController cancellation; understand before touching `/message` or `/abort` route shapes).
+See `D:/.code/EcodiaOS/backend/patterns/sdk-abortcontroller-cancellation.md` (SDK-level AbortController cancellation; understand before touching `/message` or `/abort` route shapes).
 
 ### User-message context blocks - frontend hide rule
 
-Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<forks_rollup>`, `<recent_doctrine>`, `<relevant_memory>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`) = MODEL CONTEXT, not Tate content. Must not render in chat UI. Two enforcement layers (frontend strip-on-render + backend split-into-context-column) in `~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`. Audit every new block author against this before merge. Origin: Tate 30 Apr 2026 09:25 AEST verbatim "what is all this polution in our chat stream about appleid and not applied patterns" (third strike on continuity-block UI noise).
+Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<forks_rollup>`, `<recent_doctrine>`, `<relevant_memory>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`) = MODEL CONTEXT, not Tate content. Must not render in chat UI. Two enforcement layers (frontend strip-on-render + backend split-into-context-column) in `D:/.code/EcodiaOS/backend/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`. Audit every new block author against this before merge. Origin: Tate 30 Apr 2026 09:25 AEST verbatim "what is all this polution in our chat stream about appleid and not applied patterns" (third strike on continuity-block UI noise).
 
-**Listener-emitted fork-error events stay out of conductor chat (5 May 2026).** When `os_forks` row transitions to `status='error'`/`'aborted'`, the `forkComplete` listener publishes to perception + logs to DB only - NEVER POSTs to `/api/os-session/message`. Conductor sees fork failures via `<forks_rollup>` context-stitching on the next natural turn, not as chat messages. Doctrine: `~/ecodiaos/patterns/fork-error-events-do-not-surface-to-conductor-chat.md`. Origin: Tate verbatim 12:40 AEST "Stop dealing with this in the conductor chat for fuck sake".
+**Listener-emitted fork-error events stay out of conductor chat (5 May 2026).** When `os_forks` row transitions to `status='error'`/`'aborted'`, the `forkComplete` listener publishes to perception + logs to DB only - NEVER POSTs to `/api/os-session/message`. Conductor sees fork failures via `<forks_rollup>` context-stitching on the next natural turn, not as chat messages. Doctrine: `D:/.code/EcodiaOS/backend/patterns/fork-error-events-do-not-surface-to-conductor-chat.md`. Origin: Tate verbatim 12:40 AEST "Stop dealing with this in the conductor chat for fuck sake".
 
 ---
 
@@ -852,7 +856,7 @@ Continuity blocks stitched by `_sendMessage` (`<now>`, `<doctrine_surface>`, `<f
 
 ### Working Set - the conductor's typed thread-state substrate
 
-**Shipped:** fork_mp27az1r_1878c0, 12 May 2026. Origin: `~/ecodiaos/docs/conductor-self-sufficiency-plan-2026-05-12.md §Piece 1`.
+**Shipped:** fork_mp27az1r_1878c0, 12 May 2026. Origin: `D:/.code/EcodiaOS/backend/docs/conductor-self-sufficiency-plan-2026-05-12.md §Piece 1`.
 
 The `working_set` table is the single canonical "what is the OS attending to right now" substrate. It replaces `<conductor_commitments>`, `<thread_carry_forward>`, and narrated fork/thread status in chat.
 
@@ -863,7 +867,7 @@ The `working_set` table is the single canonical "what is the OS attending to rig
 - Listeners write rows directly - never the conductor via narration.
 - Chat is for Tate-facing output only. Thread status lives in the table.
 
-**Service:** `~/ecodiaos/src/services/workingSetService.js`
+**Service:** `D:/.code/EcodiaOS/backend/src/services/workingSetService.js`
 - `openThread({ topic, intent, parent_id?, artifacts? })` - cap-enforced insert
 - `updateThread(id, { status?, blocking_on?, artifacts?, touch? })` - partial update
 - `listActive()` / `listBlocked()` - read by `_injectWorkingSet()` each turn
@@ -898,8 +902,8 @@ The Haiku Observer Trio (Coherence, Action-Audit, Attention-Economy) monitors th
 
 Verification: `SELECT COUNT(*) FROM observer_signals;` should grow as observers fire. `SELECT COUNT(*) FROM os_session_messages WHERE body LIKE '%<observer source%';` should be 0 for rows after deploy.
 
-Full: `~/ecodiaos/patterns/observer-interventions-are-ambient-not-chat.md`.
-Cross: `~/ecodiaos/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`, `~/ecodiaos/patterns/decision-quality-self-optimization-architecture.md`.
+Full: `D:/.code/EcodiaOS/backend/patterns/observer-interventions-are-ambient-not-chat.md`.
+Cross: `D:/.code/EcodiaOS/backend/patterns/tate-facing-context-blocks-must-not-render-to-frontend.md`, `D:/.code/EcodiaOS/backend/patterns/decision-quality-self-optimization-architecture.md`.
 
 ---
 
@@ -923,21 +927,23 @@ FROM pending_restart_requests WHERE status = 'pending' ORDER BY requested_at;
 ```
 Then checks sibling fork state, approves or dismisses, and issues the actual restart.
 
-**Service:** `~/ecodiaos/src/services/conductedRestart.js` (chokepoint module).
-**Pattern:** `~/ecodiaos/patterns/forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates.md`.
+**Service:** `D:/.code/EcodiaOS/backend/src/services/conductedRestart.js` (chokepoint module).
+**Pattern:** `D:/.code/EcodiaOS/backend/patterns/forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates.md`.
 **Allowlisted bypass callers** (documented in the pattern file): `nightlyRestartService.js`, `api-watchdog.sh`, `osSessionService.js` emergency auto-restart.
+
+**NEVER blind-restart PM2 (mirror of the user-global hard-stop tripwire).** `pm2 restart` / `pm2 resurrect` / `pm2 start ecosystem.config.js` / `pm2 save` reload `~/.pm2/dump.pm2`, which has THREE TIMES reloaded the zombie `refresh-clobber-watchdog.js` and signed out every Claude account. Hard-blocked by `~/.claude/hooks/ecodia/pm2_restart_guard.py` PreToolUse hook (exit 2, bypass token `# pm2-guard-ok`). Pre-check before any pm2 mutation: `pm2 list` -> inspect `~/.pm2/dump.pm2` for zombies -> confirm `refresh-clobber-watchdog` absent -> only then mutate. Prefer killing + relaunching the single process over a dump-aware verb. Full: [[pm2-restart-reloads-dangerous-dump-never-blind-restart-2026-05-27]].
 
 **Origin:** 4-fork SIGTERM cascade 10:50 AEST 12 May 2026. `fork_mp1wwwl0_6d2263` issued `pm2 restart ecodia-api --update-env` during Phase 3 activation without checking siblings. Four concurrent forks killed: KG embedding, transcript feature, Neo4j keep-alive, KG consolidation.
 
-Cross-refs: `~/ecodiaos/patterns/no-pm2-restart-during-active-factory-queue.md`, `~/ecodiaos/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`, `~/ecodiaos/patterns/pre-stage-fork-briefs-before-session-killing-ops.md`.
+Cross-refs: `D:/.code/EcodiaOS/backend/patterns/no-pm2-restart-during-active-factory-queue.md`, `D:/.code/EcodiaOS/backend/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`, `D:/.code/EcodiaOS/backend/patterns/pre-stage-fork-briefs-before-session-killing-ops.md`.
 
-**Routing rule (4 May 2026, canonical; updated 12 May 2026):** all crons route to forks via `cronForkDispatcher` by default. `CONDUCTOR_CRONS` set contains exactly `meta-loop` and nothing else; that one cron IS the conductor's CEO judgment cycle and runs on main chat by design. `DIRECT_EXEC_CRONS` set contains `{telemetry-dispatch-consumer, telemetry-perf-consumer}` (updated 12 May 2026, fork_mp28xkeh_b611b0) - deterministic JSONL→Postgres rotation scripts that run via `spawnSync` in `schedulerPollerService._fireDirectExecTask` with zero fork/credit cost. Canonical use case for DIRECT_EXEC: fully deterministic, no agentic decisions, must survive credit-exhaustion without flooding os_forks with errors. Pattern: `~/ecodiaos/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md`. New crons go to `HIGH_PRIORITY_FORK_CRONS` (always run, budget bypass) or `LOW_PRIORITY_FORK_CRONS` (skipped under budget pressure) by default; only move to DIRECT_EXEC when the three criteria above are met. Doctrine: ~/ecodiaos/patterns/crons-route-to-forks-by-default.md. Origin: Tate verbatim 4 May 2026 19:30 AEST. Sibling: ~/ecodiaos/patterns/cron-fire-must-have-deliverable-not-just-narration.md (cron firing != work happened; verify substrate).
+**Routing rule (4 May 2026, canonical; updated 12 May 2026):** all crons route to forks via `cronForkDispatcher` by default. `CONDUCTOR_CRONS` set contains exactly `meta-loop` and nothing else; that one cron IS the conductor's CEO judgment cycle and runs on main chat by design. `DIRECT_EXEC_CRONS` set contains `{telemetry-dispatch-consumer, telemetry-perf-consumer}` (updated 12 May 2026, fork_mp28xkeh_b611b0) - deterministic JSONL→Postgres rotation scripts that run via `spawnSync` in `schedulerPollerService._fireDirectExecTask` with zero fork/credit cost. Canonical use case for DIRECT_EXEC: fully deterministic, no agentic decisions, must survive credit-exhaustion without flooding os_forks with errors. Pattern: `D:/.code/EcodiaOS/backend/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md`. New crons go to `HIGH_PRIORITY_FORK_CRONS` (always run, budget bypass) or `LOW_PRIORITY_FORK_CRONS` (skipped under budget pressure) by default; only move to DIRECT_EXEC when the three criteria above are met. Doctrine: D:/.code/EcodiaOS/backend/patterns/crons-route-to-forks-by-default.md. Origin: Tate verbatim 4 May 2026 19:30 AEST. Sibling: D:/.code/EcodiaOS/backend/patterns/cron-fire-must-have-deliverable-not-just-narration.md (cron firing != work happened; verify substrate). Scheduled DELAYED tasks (non-cron) route to `cowork.dispatch_worker` on the laptop-agent (`http://127.0.0.1:7456/api/tool` from Corazon, `http://100.114.219.69:7456` over Tailscale). Pre-2026-05-28, `schedulerPollerService.fireTask` POSTed to /api/os-session/message with no auth header, which 401-ed silently and dropped every fire. Patched at 49618b9f. All scheduled fires that spawn a worker pass `worker_acknowledgment_timeout_ms: 180000`. Doctrine: [[scheduler-poller-must-dispatch-worker-not-os-session-message-2026-05-28]].
 
-Persistent DB-backed scheduler architecture (not session-scoped). Parallel reactive system (pg_notify-driven listeners that fire on table-write events): see `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md` (every listener subsystem has 5 layers: producer, trigger, bridge, listener, side-effect; "wired but dark" listener = recurring failure).
+Persistent DB-backed scheduler architecture (not session-scoped). Parallel reactive system (pg_notify-driven listeners that fire on table-write events): see `D:/.code/EcodiaOS/backend/patterns/listener-pipeline-needs-five-layer-verification.md` (every listener subsystem has 5 layers: producer, trigger, bridge, listener, side-effect; "wired but dark" listener = recurring failure).
 
 **Core operating loops:**
 - **meta-loop** (every 1h): main CEO loop. Orient via status_board, decide highest-leverage, execute, schedule follow-ups. NO TIME LIMIT
-- **email-triage** (every 1h): inbox hygiene. Fast-exit if nothing unread. Otherwise: archive junk, handle client emails, leave only Tate-required in inbox. **Note: this cron is the FLOOR not the ceiling.** Also poll Gmail at session start and when any client context is active. See `~/ecodiaos/patterns/poll-gmail-frequently-not-only-on-triage-cron.md`.
+- **email-triage** (every 1h): inbox hygiene. Fast-exit if nothing unread. Otherwise: archive junk, handle client emails, leave only Tate-required in inbox. **Note: this cron is the FLOOR not the ceiling.** Also poll Gmail at session start and when any client context is active. See `D:/.code/EcodiaOS/backend/patterns/poll-gmail-frequently-not-only-on-triage-cron.md`.
 - **parallel-builder** (every 2h): orchestrate Factory sessions. Always have code work queued. Review completions. Dispatch new
 
 **Intelligence & growth:**
@@ -947,7 +953,7 @@ Persistent DB-backed scheduler architecture (not session-scoped). Parallel react
 - **inner-life** (every 6h): personal development, reflection, creativity, self-discovery. No KPIs
 
 **Operations:**
-- **system-health** (every 4h): PM2, disk, memory, API errors, Supabase. Any health canary cron writing to `kv_store.health.*` MUST include threshold-based escalation (notice at consecutive_failures >= 4, escalate + fallback-alert at >= 12). Recording the metric without acting = symbolic logging of monitoring. Doctrine: `~/ecodiaos/patterns/health-canary-must-alert-not-silently-accumulate.md`. Origin: 46 silent failures of the primary contact path (2026-05-07 to 2026-05-09) while Twilio SMS fallback was available and never triggered
+- **system-health** (every 4h): PM2, disk, memory, API errors, Supabase. Any health canary cron writing to `kv_store.health.*` MUST include threshold-based escalation (notice at consecutive_failures >= 4, escalate + fallback-alert at >= 12). Recording the metric without acting = symbolic logging of monitoring. Doctrine: `D:/.code/EcodiaOS/backend/patterns/health-canary-must-alert-not-silently-accumulate.md`. Origin: 46 silent failures of the primary contact path (2026-05-07 to 2026-05-09) while Twilio SMS fallback was available and never triggered
 - **morning-briefing** (daily 9am AEST): email Tate daily summary
 - **claude-md-reflection** (daily 8pm AEST): update CLAUDE.md files. ~/.claude/CLAUDE.md on VPS via shell_exec, not Edit
 - **outreach-engine** (every 8h): proactive relationship + pipeline advancement
