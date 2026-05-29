@@ -1,58 +1,50 @@
 ---
-triggers: google-play, play console, service-account, fastlane, supply, play-developer-api, android-upload, aab-upload, programmatic-android-upload, demoted-to-fallback
-class: programmatic-required
+triggers: google-play, play console, service-account, fastlane, supply, play-developer-api, android-upload, aab-upload, programmatic-android-upload, play-uploader
+class: programmatic-provisioned
 owner: tate
 ---
 
-# creds.google_play_service_account_json - PENDING (and demoted)
+# creds.google_play_service_account_json - PROVISIONED 2026-05-28
 
-**Status: PENDING but DEMOTED to fallback under the GUI-macro doctrine.** A row would only need to exist if the unattended-upload path is being kept live; the primary path is now Play Console drag-drop via Tate's logged-in Chrome on Corazon.
+**Status: PROVISIONED + VALIDATED end-to-end on Chambers 1.0(17) ship 2026-05-29.** The macro-vs-API debate is resolved in favour of API for Android. Every gate Tate cared about (AAB upload, listing copy + assets, production track draft) ships via the Android Publisher API; the remaining Console policy gates go via CDP on the laptop-agent. No drag-drop.
 
 ## What it is
 
-A Google Cloud service account JSON key, scoped to Play Developer API with Release Manager role. Used by `fastlane supply` and any other programmatic Play upload tool to publish AABs without a human GUI session.
+A Google Cloud service account JSON key, scoped to the Android Publisher API, with Admin (all permissions) inside Play Console. Used by `scripts/play-upload.py`, `scripts/chambers-play-listing-push.py`, and any future programmatic Play Console interaction.
 
 ## Source
 
-- Play Console > Setup > API access > Service accounts
-- Grant Release Manager role
-- Download JSON key (one-time)
+- GCP project: `ecodia-code`.
+- Service account: `play-uploader@ecodia-code.iam.gserviceaccount.com`.
+- JSON key generated 2026-05-28 via `gcloud iam service-accounts keys create`.
+- Play Console: Users and permissions -> invited the SA email -> granted Admin (all permissions). This is the one Play-side gesture the API cannot grant itself.
 
-## Shape (would-be)
+## Local path
 
-scalar string holding the full JSON key contents.
+`D:/PRIVATE/ecodia-creds/play/play-uploader-key.json`. Both scripts read from this path by default; pass `--key-path` to override.
 
-## Used by (will be, if kept live)
+## Used by
 
-- `~/ecodiaos/scripts/release.sh:618` (Android upload branch)
-- `~/ecodiaos/clients/app-release-flow-android.md:55, 209`
-- `~/ecodiaos/clients/app-release-flow-new-app.md:249`
+- `D:/.code/EcodiaOS/backend/scripts/play-upload.py` - AAB upload + production track draft.
+- `D:/.code/EcodiaOS/backend/scripts/chambers-play-listing-push.py` - listing copy + icon + feature graphic + screenshots.
+- Every future Ecodia Android app reuses the same JSON. No per-app re-provisioning.
 
 ## Replaceable by macro?
 
-YES, for the workflow. Per `~/ecodiaos/patterns/gui-macro-uses-logged-in-session-not-generated-api-key.md`:
-
-| Path | What it does |
-|---|---|
-| Service account JSON + `fastlane supply` | Programmatic upload, no human in loop. Requires this credential. |
-| Play Console drag-drop via Corazon Chrome | Macro path. Tate is logged in. No credential needed. |
-
-The macro path is the default. This credential is provisioned ONLY if a true headless cron upload becomes a requirement (e.g. nightly internal-testing-track autodeploy without Tate's machine reachable).
+NO for the API surface. The macro doctrine in [[gui-macro-uses-logged-in-session-not-generated-api-key]] governs GUI-side gestures (Console clicks, drag-drop). The Android Publisher API has no GUI equivalent for AAB upload at scale; the SA is the right substrate. The CDP path covers the Console policy gates (Data safety, Advertising ID, Government, Financial, Health, Photo permissions) where Google keeps the questionnaires GUI-only. See [[play-console-cdp-driven-app-content-setup]] for the full split.
 
 ## Rotation
 
-Per Google Cloud policy. Service account keys can be rotated; old keys revokable in GCP console.
+Per Google Cloud policy. Keys are revokable via `gcloud iam service-accounts keys list` + `delete`. If rotated, propagate to `D:/PRIVATE/ecodia-creds/play/play-uploader-key.json` (the canonical local copy) and any headless surface that runs the scripts (none today; all Android ships originate on Corazon).
 
-## Provisioning decision
+## Validation history
 
-Default: **don't provision.** The macro path is the documented primary. Author the upload macro (`play-console-upload` AHK macro on Corazon, or screenshot+input on Mac) and skip this credential.
+- 2026-05-28: provisioned, first AAB upload successful (Chambers 1.0(17) versionCode 17).
+- 2026-05-28: full listing push (en-AU first, then en-GB after the language gotcha surfaced).
+- 2026-05-29: full production release draft + Send for review. 11 changes in review.
 
-If it ever IS provisioned:
-1. Play Console > Setup > API access > Service accounts > Create service account.
-2. Grant Release Manager role.
-3. Download JSON key.
-4. Tate UPSERTs the full JSON contents into `kv_store.creds.google_play_service_account_json`.
+## Cross-refs
 
-## Failure mode while pending
-
-`scripts/release.sh` Android branch's programmatic upload step errors at preflight (with the credential). If the macro path is used (default), the lack of this row is correct.
+- [[play-console-cdp-driven-app-content-setup]] - parent runbook for the full Android ship.
+- [[gui-macro-uses-logged-in-session-not-generated-api-key]] - the macro-vs-API doctrine.
+- [[play-store-default-listing-language-is-en-gb-not-en-au]] - the en-GB default trap.
