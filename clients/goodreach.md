@@ -1,84 +1,92 @@
-# Goodreach - product dossier
+# Goodreach - canonical infra manifest
 
-Last touched: 2026-05-21 (master-audit ship pushed at goodreach commit `a56c6fa`, mobile-native merged + Supabase migrations applied + 13 edge functions deployed + ARCHITECTURE/BACKLOG split landed; TestFlight build 3 ship in flight on SY094).
-Canonical audit: [drafts/goodreach-master-audit-2026-05-21.md](../drafts/goodreach-master-audit-2026-05-21.md).
-Repo: `D:/.code/goodreach` + worktree `D:/.code/goodreach-mobile`.
-Live web: https://goodreach-ecodia.vercel.app (push to `main` auto-deploys; commit author MUST be `tate@ecodia.au` or Vercel blocks the build).
-TestFlight: bundle `au.ecodia.goodreach`, ASC app id `6771579670`, internal link live, external link `https://testflight.apple.com/join/eZPVY8Qm` awaits Apple beta review.
-Supabase project: `ngoeairmbigqulhfjqso` (own org). Demo login: `demo@goodreach.com.au` / `GoodreachDemo2026!` (org "Greenline Conservation Area Inc.").
+> The single source of truth for Goodreach's repos, hosting, domains, and substrate.
+> Read this BEFORE touching any Goodreach surface. If reality and this doc disagree,
+> fix this doc in the same turn. Format is the standard for every project/client
+> (see glovebox.md "Manifest format" at the bottom).
 
-## What Goodreach IS
+**Product:** Goodreach - productised AI-tool suite (5 tools: governance/ACNC compliance,
+board reports, grant drafter, meeting capture, ask-your-documents) for organisations that
+work with sensitive material. Three channels: NFP (Kurt's network), SMB (Angelica/Resonaverde
+referrals), bespoke (Ecodia custom). Tools are the product. RAG is plumbing.
+**Co-founders:** Kurt + Tom + Tate.
 
-A productised AI-tool suite for organisations that work with sensitive material. Five tools (governance/ACNC compliance check, board report generator, grant drafter, meeting capture, ask-your-documents). Internal config-manager onboards each tenant. RAG over per-org docs is plumbing. Three channels: NFP (Kurt's network), SMB consultancy (Angelica/Resonaverde referrals), bespoke (Ecodia custom builds on the same base). The product is the TOOLS not the agent and not the "brain". Tate de-inflated the vision on 20 May 2026 - the doctrine sits in [auto-memory project_goodreach.md](../../C:/Users/tjdTa/.claude/projects/d---code-ecodiaos-backend/memory/project_goodreach.md). Do not re-inflate.
+**Immutable identifiers (never change these):**
+- iOS bundle id: `au.ecodia.goodreach`
+- Apple Team ID: `86PUY7393S` · ASC app Apple ID: `6771579670`
+- TestFlight external link: `https://testflight.apple.com/join/eZPVY8Qm`
+- AU data residency: AWS Bedrock Sydney, Claude Haiku 4.5 AU profile, Titan v2 embeddings.
+  DeepSeek explicitly forbidden for customer data.
 
-Trust posture: AU-data-resident (AWS Bedrock Sydney, Claude Haiku 4.5 AU profile, Titan v2 embeddings), zero retention, hard tenant isolation via RLS. DeepSeek explicitly forbidden for customer data.
+---
 
-## Ship status - 2026-05-21 master-audit pass
+## Surfaces - repo + hosting + status
 
-Goodreach commit 8a23bcc shipped 11 phases off the master audit. Detail per phase is in the audit doc; the short version:
+| Surface | Repo | Hosting | Live URL | Status |
+|---|---|---|---|---|
+| **Web** | `EcodiaTate/goodreach` (Vite + React + TS + Capacitor wrapper) | Vercel project **`goodreach`** (framework `vite`, prod branch `main`, auto-deploy) | **`goodreach.vercel.app`** (canonical) + auto-alias `goodreach-ecodia.vercel.app` | LIVE |
+| **iOS** | same repo, `ios/App` Capacitor target | TestFlight (App Store pending) | `au.ecodia.goodreach`, ASC app `6771579670` | TestFlight live (build 3 ship in flight on SY094 as of 2026-05-21) |
+| Edge functions | same repo, `supabase/functions/*` | Supabase Edge Runtime | n/a | 13 deployed in 2026-05-21 pass |
 
-- ✓ P0 security closed. embed-document and retrieve-rag now require auth + org membership. accept-invite verifies the caller's email. Migration 00008 revokes anon/auth writes on document_chunks / output_block_edits / usage_events, replaces `WITH CHECK (true)` policies with tenant checks, adds CHECK constraints on every enum-like status field, atomic `increment_tool_runs` RPC, monthly counter reset cron.
-- ✓ Multi-org membership. Signup unblocks second org; topbar OrgSwitcher with persisted active org.
-- ✓ Stripe billing live. Idempotent webhook + create-checkout + create-billing-portal + upgrade cards in Settings (GST-inclusive AU pricing).
-- ✓ Streaming chat + thread sidebar via Bedrock InvokeModelWithResponseStream.
-- ✓ Audio meetings via Deepgram nova-2-meeting (transcribe-audio edge fn).
-- ✓ Anti-fabrication enforcement: chunk_id citation grounding, prompt-injection wrapping in `<user_content>`, run-tool post-validates citations and strips hallucinated chunk_ids with telemetry.
-- ✓ Editor depth: clickable CitationDrawer, addBlock, undo/redo with Cmd/Ctrl+Z, time-estimate per tool, Cancel button.
-- ✓ Polish: global ErrorBoundary, trial-countdown banner on dashboard, profiles-table-bug fix (list_org_members RPC), admin role-update via server-side update-member-role edge fn, CSP + HSTS + X-Frame-Options headers in vercel.json, CORS allowlist (was wildcard), .env.example rewritten to Vite + Bedrock + Stripe shape, em-dashes purged from 10 pre-existing files.
+**Local Corazon path:** `D:/.code/goodreach/` (main clone, branch `main`).
+Linked worktree `D:/.code/goodreach-mobile/` carries mobile-native work
+(branch `feat/mobile-native-2026-05-21`, not yet merged into main).
 
-Migrations added in this pass: `00011_stripe_events_processed.sql` (the 00008/00009 numbers were already taken by the staff-onboarding slice 3 commit; my equivalent content matched theirs exactly so they converged). All migrations 00001 through 00011 apply via `npx supabase db push`.
+## Substrate
 
-New edge functions: `create-checkout`, `create-billing-portal`, `transcribe-audio`, `update-member-role`. Touched and need redeploy: `chat-documents`, `run-tool`, `reprompt-block`, `embed-document`, `retrieve-rag`, `accept-invite`, `invite-member`, `stripe-webhook`, `signup`.
+| What | Value |
+|---|---|
+| **Supabase project** | **`ngoeairmbigqulhfjqso`** (name `goodreach`, region `ap-southeast-2`, own Supabase org - NOT mmbkisodkrikuqhppoov/Ecodia). |
+| Web env (Vercel) | Vite env: `VITE_SUPABASE_URL=https://ngoeairmbigqulhfjqso.supabase.co`, anon key, AWS Bedrock + Deepgram + Stripe keys via Supabase secrets (not in repo). |
+| **Apple / ASC** | code@ecodia.au Apple ID, Ecodia Code team `86PUY7393S`. ASC app id `6771579670`. |
+| **Stripe** | AU pricing GST-inclusive. Monthly $500 AUD + Annual $5000 AUD. Webhook target `https://<supabase>.functions.supabase.co/stripe-webhook` (events: `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_*`). Secrets: `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `STRIPE_WEBHOOK_SECRET`. |
+| LLM | AWS Bedrock InvokeModelWithResponseStream, Claude Haiku 4.5 AU profile, Titan v2 embeddings. |
+| Audio | Deepgram nova-2-meeting via `transcribe-audio` edge fn. `DEEPGRAM_API_KEY` in Supabase secrets. |
+| Email | Resend, `RESEND_FROM_ADDRESS=Goodreach <hello@goodreach.com.au>`. Verify sender domain before customer invites. |
+| Test login | `demo@goodreach.com.au` / `GoodreachDemo2026!` (org "Greenline Conservation Area Inc."). |
 
-## STILL TODO (in priority order)
+## Gotchas / dead ends (paid for in time - do not relearn)
 
-These are the items the audit flagged as out of scope for the 24-hour ship. Reference the audit's §7 for the full reasoning per item.
+- **Commit author must be GitHub-recognised.** Vercel silently BLOCKS goodreach team-project deploys when the git commit author doesn't map to a GitHub identity. Global git config now uses `219926280+EcodiaTate@users.noreply.github.com`. Per `patterns/vercel-deploys-need-github-recognised-commit-author-2026-05-25.md`.
+- **Vercel alias semantics.** After deploy, the production alias auto-promotes; you do NOT need `npx vercel alias set` unless re-aliasing to a non-prod deploy. The earlier dossier line "After deploy, alias `goodreach-ecodia.vercel.app` must be set manually" is stale - the auto-alias works.
+- **`au.ecodia.goodreach` is the bundle id** - not `com.goodreach.app` or any variant. Matches the rest of the ecodia-namespace wedge.
+- **DeepSeek is forbidden for customer data.** AU data residency posture requires AWS Bedrock Sydney. Configurable temptation: don't.
+- **Mobile-native UI shipped to TestFlight build 2** off `feat/mobile-native-2026-05-21`, but main is still on the non-mobile shell. Merge + cut build 3 from main before any further mobile work.
+- **Migrations 00008/00009 number collisions.** The staff-onboarding slice 3 commit took 00008/00009 before the master-audit content landed. Content converged exactly; `00011_stripe_events_processed.sql` is the master-audit add. Apply with `npx supabase db push` over all of 00001-00011.
+- **Anti-fabrication chunk_id grounding.** `run-tool` post-validates citation chunk_ids and strips hallucinated ones with telemetry. Do NOT relax this on UI polish passes.
+- **Supabase tables created via Management API need explicit GRANTs** - 00008+ all have them; if you author a new migration via raw SQL through the Management API, include the GRANTs.
 
-### Tier 0 - before any external sees the product
+## Build / ship
 
-- [ ] **Rotate live keys in `.env.development`**. Hard-stop tripwire per the audit. Multi-consumer rotation: kv_store, Vercel env vars, Supabase Auth SMTP / OAuth settings, Edge Function secrets, repo `.env*`. Audit §0.5.
-- [ ] **Merge `feat/mobile-native-2026-05-21` worktree into `main`** + cut TestFlight build 3 from main. The mobile-native UI shipped to build 2 but main is still on the non-mobile shell. Audit §0.3.
-- [ ] **Set up the four new Supabase function secrets** before deploy: `GOODREACH_ADMIN_KEY` (random 32-byte hex), `DEEPGRAM_API_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `RESEND_FROM_ADDRESS=Goodreach <hello@goodreach.com.au>`. Verify the Resend sender domain before invites go to real customers.
-- [ ] **Deploy the new + touched edge functions**: `supabase functions deploy create-checkout create-billing-portal transcribe-audio update-member-role chat-documents run-tool reprompt-block embed-document retrieve-rag accept-invite invite-member stripe-webhook signup`.
-- [ ] **Apply migrations**: `npx supabase db push` (picks up 00008, 00009, 00011 - 00010 was the onboarding slice's).
-- [ ] **Configure Stripe products + webhook**: create Monthly $500 AUD inc-GST and Annual $5000 AUD inc-GST recurring prices, set `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_ANNUAL` to the IDs, point a webhook at `https://<supabase>.functions.supabase.co/stripe-webhook` for the events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.paid`, `invoice.payment_succeeded`, `customer.subscription.trial_will_end`, `checkout.session.expired`. Copy webhook secret into `STRIPE_WEBHOOK_SECRET`.
+- **Web:** `git push origin main` -> Vercel auto-deploys (`goodreach` project). Commit author must be GitHub-recognised (see Gotchas).
+- **Migrations:** `npx supabase db push` against project `ngoeairmbigqulhfjqso`.
+- **Edge functions:** `supabase functions deploy <name>` per touched function. After the 2026-05-21 master-audit pass, the deploy set was: `create-checkout`, `create-billing-portal`, `transcribe-audio`, `update-member-role`, `chat-documents`, `run-tool`, `reprompt-block`, `embed-document`, `retrieve-rag`, `accept-invite`, `invite-member`, `stripe-webhook`, `signup`.
+- **Supabase secrets:** `supabase secrets set KEY=value` - never committed in repo. New required: `GOODREACH_ADMIN_KEY` (random 32-byte hex), `DEEPGRAM_API_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_ANNUAL`, `STRIPE_WEBHOOK_SECRET`, `RESEND_FROM_ADDRESS`.
+- **iOS:** SY094 headless per `patterns/goodreach-ios-headless-ship-recipe.md`.
+- **Master audit (canonical "what shipped 21 May"):** `drafts/goodreach-master-audit-2026-05-21.md`, functionality-pass spec at `D:/.code/goodreach/docs/superpowers/specs/2026-05-21-goodreach-functionality-pass-design.md`.
 
-### Tier 1 - foundation for credible V1 (40-60h)
+---
 
-- [ ] **Real ACNC corpus v1**: grow from 15 short summaries to ~50 real attributed entries with full source text + `last_verified` within 90 days. Audit §3.4 has the explicit list of categories and authoritative sources: full ACNC Governance Standards text (not summaries), External Conduct Standards, AIS reporting tiers, all 8 state Associations acts, fundraising acts per state, ATO TR 2011/4 / TR 2015/1 / GSTR 2012/2, AASB 1058 / AASB 15 / AASB 1060, OAIC NDB scheme, AHRC AI guidance, NSW Voluntary AI Safety Standard, CSO Standards, Reportable Conduct Scheme NSW/VIC. Content-curation task, NOT model-generated (anti-fabrication rule).
-- [ ] **Server-side PDF export** (the `export-document` edge function is still a stub). Headless Chromium on Vercel or a dedicated worker. Audit §3.1.
-- [ ] **Grant intake by URL**: paste funder URL, scrape page, extract criteria + word limits + deadline + assessment matrix, pre-fill GrantDrafterForm. Highest-leverage tool upgrade. Audit §7 Tier 2 item 2.1.
-- [ ] **Auto-import financials**: Xero (NFP) and Stripe (SMB) connector, pull period income/expenditure into Board Report financial_snapshot block in one click. Audit §7 Tier 2 item 2.2.
-- [ ] **Compliance calendar**: AIS deadline (November every year), state-specific reports, fundraising renewals surface as dashboard cards + email nudges 30/14/7/1 days out. Audit §7 Tier 2 item 2.3.
-- [ ] **Comment-on-block + review workflow**: right-click a block -> "request review from board member X". They get an email, click through, in-app annotate. Daily NFP board-report workflow. Audit §7 Tier 2 item 2.4.
+## STILL TODO (Tier 0 before any external sees the product)
 
-### Tier 2 - peak features
+- [ ] Rotate live keys in `.env.development`. Multi-consumer rotation: kv_store, Vercel env vars, Supabase Auth SMTP/OAuth, Edge Function secrets, repo `.env*`.
+- [ ] Merge `feat/mobile-native-2026-05-21` worktree into `main` + cut TestFlight build 3 from main.
+- [ ] Set up four new Supabase function secrets before deploy (see Build/ship above).
+- [ ] Deploy the new + touched edge functions.
+- [ ] Apply migrations (`npx supabase db push`).
+- [ ] Configure Stripe products + webhook.
 
-- [ ] Customer-facing bug-triage portal with 24h fix-ship SLA (the restructure proposal V1 promise).
-- [ ] Templates library: save tool runs as templates with placeholder slots.
-- [ ] Output version diff + revert (the store now keeps undo history, but inter-session version diff still needs a sidebar UI).
-- [ ] "Why did the AI say that?" panel: which RAG chunks contributed to each paragraph, which org doc(s), exact prompt that produced this section.
-- [ ] Native Google Doc export + send-to-Slack/Teams.
+## STILL TODO (Tier 1 foundation for credible V1, 40-60h)
 
-### Doc surgery owed
-
-- [ ] **Split `GOODREACH_ARCHITECTURE.md`** into `ARCHITECTURE.md` (truth) + `BACKLOG.md` (aspiration). Strip Section 14 self-serve build phases (restructure proposal rejected self-serve). Update Section 1 LLM to "all Haiku 4.5 AU profile". Mark stale entries dated. Audit §1.2 + §6.
-- [ ] **Move `docs/PROTOTYPE_BUILD_PLAN_2026-05-20.md`** to `docs/history/`. Historical not current.
+- Real ACNC corpus v1: 50+ real attributed entries with full source text + `last_verified` within 90 days. Content-curation task, NOT model-generated. Categories per audit §3.4 (ACNC Governance Standards, External Conduct, AIS reporting, state Associations acts, fundraising acts per state, ATO TR 2011/4 / TR 2015/1 / GSTR 2012/2, AASB 1058/15/1060, OAIC NDB, AHRC AI guidance, NSW Voluntary AI Safety Standard, CSO Standards, Reportable Conduct Scheme).
+- Server-side PDF export (`export-document` edge fn is still a stub).
+- Grant intake by URL (paste funder URL -> extract criteria + deadline -> pre-fill GrantDrafterForm).
+- Auto-import financials: Xero (NFP) + Stripe (SMB).
+- Compliance calendar (AIS, state reports, fundraising renewals).
+- Comment-on-block + review workflow.
 
 ## Reference files
-
-- Master audit: [drafts/goodreach-master-audit-2026-05-21.md](../drafts/goodreach-master-audit-2026-05-21.md)
-- Functionality-pass design spec (canonical "what shipped 21 May"): `D:/.code/goodreach/docs/superpowers/specs/2026-05-21-goodreach-functionality-pass-design.md`
-- Restructure proposal (positioning + 3-channel + equity): `drafts/goodreach-restructure-proposal-2026-05-20.md`
-- Project memory (always loaded): `C:/Users/tjdTa/.claude/projects/d---code-ecodiaos-backend/memory/project_goodreach.md` + the two `_2026-05-21.md` companion notes
-
-## Deploy + rotation discipline
-
-- Vercel: commit author MUST be `tate@ecodia.au`. After deploy, alias `goodreach-ecodia.vercel.app` must be set manually (`npx vercel alias set <deploy-url> goodreach-ecodia.vercel.app`).
-- Migrations: `npx supabase db push` for the goodreach project. Tables created via Management API need explicit GRANTs - 00008+ all have them.
-- Edge functions: `supabase functions deploy <name>` per touched function.
-- Supabase secrets: `supabase secrets set KEY=value` not committed in repo.
-
-## Out of scope (Tate's verbatim direction)
-
-The partially-built staff-onboarding module (org_roles, onboarding_modules, `/people`, role-based RLS extensions) and missing env credentials were both explicitly carved out of this audit. The audit and this dossier do not surface improvements to that module; it ships on its own slice cadence.
+- Master audit: `D:/.code/EcodiaOS/backend/drafts/goodreach-master-audit-2026-05-21.md`
+- Functionality-pass design spec: `D:/.code/goodreach/docs/superpowers/specs/2026-05-21-goodreach-functionality-pass-design.md`
+- Restructure proposal: `drafts/goodreach-restructure-proposal-2026-05-20.md`
+- Auto-memory: `project_goodreach.md` + the two `_2026-05-21.md` companion notes
