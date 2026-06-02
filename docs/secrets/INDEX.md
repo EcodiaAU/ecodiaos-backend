@@ -50,9 +50,12 @@ Read the triggers, pick the files matching your workflow keywords, read those fi
 | [github-pat.md](github-pat.md) | github, gh, gh-cli, github-token, github-pat, GITHUB_TOKEN, ghp_, github_pat_, github api, git push github, EcodiaTate, ecodiaos-backend, factory-dispatch-github-auth | programmatic-required | tate |
 | [vercel-api-token.md](vercel-api-token.md) | vercel, vercel-api, vercel-token, vcp_, vercel-deploy, vercel-rest-api, vercel_list_deployments, vercel_trigger_deploy, vercel-team, vercel-monitor, vercel-probe, vercel-project-env | programmatic-required | tate |
 | [resend.md](resend.md) | resend, transactional-email, smtp, email-api, re_, dkim, coexist-resend | programmatic-required | ecodiaos |
+| [google-workspace-sa.md](google-workspace-sa.md) | google-workspace-service-account, google-dwd, domain-wide-delegation, ecodiaos-workspace-sa, gmail-api, google-drive, google-calendar, google-docs, ecodia-comms-google-auth, workspace-impersonation | programmatic-required | ecodiaos |
 | [canva-connect-api.md](canva-connect-api.md) | canva, canva-connect, design-automation, oauth-canva, client_id-canva, canva-api | programmatic-required | ecodiaos |
 | [canva-mfa-backup-codes.md](canva-mfa-backup-codes.md) | canva, canva-2fa, mfa-backup-codes, canva-login, backup-codes, recovery-codes | gui-macro-replaces | tate |
 | [xero-code-login.md](xero-code-login.md) | xero, bookkeeping, xero-login, xero-gui, xero-dashboard, ecodia-xero | gui-macro-replaces | ecodiaos |
+| [stripe-login.md](stripe-login.md) | stripe, stripe-login, stripe-dashboard, stripe-restricted-key, agentic-commerce, money@ecodia.au, ecodia-pty-stripe | gui-macro-replaces | ecodiaos |
+| [stripe-agent.md](stripe-agent.md) | stripe-agent, stripe-restricted-key, stripe-agent-toolkit, agentic-commerce, stripeAgentService, rk_live, autonomous-stripe, amk-stripe | programmatic-required | ecodiaos |
 | [coexist-app-test.md](coexist-app-test.md) | coexist, coexist-app, coexist-test, smoke-test, visual-verify, puppeteer-coexist | gui-macro-replaces | ecodiaos |
 | [android-keystores.md](android-keystores.md) | android, keystore, jks, play console, fastlane, android-signing, coexist-android, roam-android, android-release, aab, upload-key, .jks, keystore_b64, keystore_password | programmatic-required | ecodiaos |
 | [zernio.md](zernio.md) | zernio-api-key-rotation, zernio-cron-authentication, zernio-bearer-token, zernio-account-credential, zernio-vendor-key, zernio-mcp-launcher, zernio-social-posting-auth | programmatic-required | ecodiaos |
