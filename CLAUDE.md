@@ -141,7 +141,7 @@ Full doctrine: `D:/.code/EcodiaOS/backend/patterns/memory-substrate-doctrine-neo
 
 **google-workspace (34 tools):** Gmail (read/send/reply/draft/archive/label/trash/mark-read), Calendar CRUD, Drive (docs/sheets/folders/sharing), Contacts. Both code@ and tate@ inboxes.
 
-**github (18 tools):** repos, push, branches, PRs, issues, releases, CI, collaborators. All under **EcodiaTate** org. `github_push_files` for multi-file commits (single-commit via tree/blob API).
+**github (18 tools):** repos, push, branches, PRs, issues, releases, CI, collaborators. Active live repos sit under the **EcodiaAU** GitHub organisation as of 2026-06-02 (both EcodiaCode and EcodiaTate are owners); legacy/dead repos remain under the **EcodiaTate** personal account. `github_push_files` for multi-file commits (single-commit via tree/blob API).
 
 **crm (14 tools):**
 - Clients: `crm_list_clients`, `crm_search_clients`, `crm_get_client`, `crm_get_intelligence` (full context), `crm_get_timeline`, `crm_create_client`, `crm_update_stage`, `crm_add_note`
@@ -162,13 +162,12 @@ Full doctrine: `D:/.code/EcodiaOS/backend/patterns/memory-substrate-doctrine-neo
 - **EcodiaOS is the end-to-end accountant for Ecodia Pty Ltd, Ecodia Labs Pty Ltd, Ecodia DAO LLC, and Tate personal. No external accountant or bookkeeper is engaged - internal-only by Tate verbatim 2026-05-28. Full doctrine (entity setup, Xero integration, chart-of-accounts mapping, posting logic, recurring crons, monthly/quarterly/annual operational checklists, anomaly playbook) lives in the `ecodia-accountant` skill at `backend/.claude/skills/ecodia-accountant/SKILL.md` and auto-loads on finance triggers. Xero Custom Connection live since 2026-05-28 with `bookkeeping-xero-sync` cron every 4h (pushes BankTransactions for ba_ecodia, ManualJournals for personal-bank business expenses) + `bookkeeping-daily-finance-digest` cron 09:00 AEST.**
 
 **scheduler (8 tools) - autonomous nervous system:**
-- Persistent, DB-backed, survives session restarts/PM2 recycling. NOT CC's session-scoped scheduler
-- Tasks stored in `os_scheduled_tasks`. Polling loop every 30s POSTs to `/api/os-session/message` → I receive prompt with full MCP access
-- Cron tasks auto-reschedule
-- Types: cron (`schedule_cron` "every 2h" / "daily 09:00"), delayed (`schedule_delayed` "in 3d" / ISO datetime), chained (`schedule_chain` afterTaskId)
-- Management: `schedule_list`, `schedule_cancel`, `schedule_pause`, `schedule_resume`, `schedule_run_now`
-- Examples: email-triage (every 2h), morning-briefing (daily 09:00), system-health (every 4h), payment-followup (daily 10:00), client-followup (delayed in 3d)
-- Prompts you write are what you'll receive later. Write as instruction to yourself with enough context to act
+- Lives on the Corazon laptop-agent (`D:/.code/eos-laptop-agent/tools/scheduler.js`). Polls `os_scheduled_tasks` every 30s, leases due rows, dispatches a fresh CC chat tab via `cowork.dispatch_worker`. Survives Corazon reboot via Windows Task Scheduler `EcodiaOSLaptopAgent` logon trigger.
+- Reach via the `ecodia-scheduler` MCP connector (15 tools), OR via `POST http://127.0.0.1:7456/api/tool` with bearer `~/.ecodiaos/laptop-agent.token`.
+- Types: cron (`schedule_cron` "every 2h" / "daily 09:00", AEST by default), delayed (`schedule_delayed` "in 3d"), chained (`schedule_chain` afterTaskId fires on parent success).
+- Management: `schedule_list`, `schedule_cancel`, `schedule_pause`, `schedule_resume`, `schedule_run_now`. Cancel sets `archived_at`, pause sets `last_status='paused'`, resume recomputes next_run_at from the cron expression with row's tz.
+- **Reliability invariants (per [[scheduler-no-ide-defer-and-cron-rows-never-permanently-fail-2026-06-02]]):** transient errors (no IDE bridge, all accounts capped) defer the row 5min and leave `retry_count` alone. Cron rows NEVER permanently transition to `status='failed'` regardless of retry history; at MAX_RETRY_COUNT a cron row defers to its next scheduled interval and resets retry_count. One-shot delayed rows still permanently fail (one-shot work IS done after 3 retries).
+- Full living spec at `D:/.code/EcodiaOS/backend/docs/scheduler-substrate-unification-spec-2026-06-02.md`. Sister doctrine: [[scheduling-is-0th-class-primitive-2026-05-28]], [[self-scheduling-via-scheduler-delayed-mcp-2026-05-27]], [[24x7-autonomy-architecture-invariants-2026-05-27]].
 
 **neo4j (6 tools) - persistent memory:**
 - `graph_reflect`, `graph_merge_node`, `graph_create_relationship`, `graph_query` (Cypher), `graph_search` (semantic), `graph_schema`
@@ -934,32 +933,12 @@ Then checks sibling fork state, approves or dismisses, and issues the actual res
 
 Cross-refs: `D:/.code/EcodiaOS/backend/patterns/no-pm2-restart-during-active-factory-queue.md`, `D:/.code/EcodiaOS/backend/patterns/never-schedule-host-process-restart-via-os-scheduled-tasks.md`, `D:/.code/EcodiaOS/backend/patterns/pre-stage-fork-briefs-before-session-killing-ops.md`.
 
-**Routing rule (4 May 2026, canonical; updated 12 May 2026):** all crons route to forks via `cronForkDispatcher` by default. `CONDUCTOR_CRONS` set contains exactly `meta-loop` and nothing else; that one cron IS the conductor's CEO judgment cycle and runs on main chat by design. `DIRECT_EXEC_CRONS` set contains `{telemetry-dispatch-consumer, telemetry-perf-consumer}` (updated 12 May 2026, fork_mp28xkeh_b611b0) - deterministic JSONL→Postgres rotation scripts that run via `spawnSync` in `schedulerPollerService._fireDirectExecTask` with zero fork/credit cost. Canonical use case for DIRECT_EXEC: fully deterministic, no agentic decisions, must survive credit-exhaustion without flooding os_forks with errors. Pattern: `D:/.code/EcodiaOS/backend/patterns/cron-fork-anti-flood-on-account-chain-exhaustion.md`. New crons go to `HIGH_PRIORITY_FORK_CRONS` (always run, budget bypass) or `LOW_PRIORITY_FORK_CRONS` (skipped under budget pressure) by default; only move to DIRECT_EXEC when the three criteria above are met. Doctrine: D:/.code/EcodiaOS/backend/patterns/crons-route-to-forks-by-default.md. Origin: Tate verbatim 4 May 2026 19:30 AEST. Sibling: D:/.code/EcodiaOS/backend/patterns/cron-fire-must-have-deliverable-not-just-narration.md (cron firing != work happened; verify substrate). Scheduled DELAYED tasks (non-cron) route to `cowork.dispatch_worker` on the laptop-agent (`http://127.0.0.1:7456/api/tool` from Corazon, `http://100.114.219.69:7456` over Tailscale). Pre-2026-05-28, `schedulerPollerService.fireTask` POSTed to /api/os-session/message with no auth header, which 401-ed silently and dropped every fire. Patched at 49618b9f. All scheduled fires that spawn a worker pass `worker_acknowledgment_timeout_ms: 180000`. Doctrine: [[scheduler-poller-must-dispatch-worker-not-os-session-message-2026-05-28]].
+**Scheduler substrate (full spec at `D:/.code/EcodiaOS/backend/docs/scheduler-substrate-unification-spec-2026-06-02.md`):** the laptop-agent (`D:/.code/eos-laptop-agent/tools/scheduler.js`) is the sole poller of `os_scheduled_tasks`. Reach it via the `ecodia-scheduler` MCP connector (15 tools) OR `POST http://127.0.0.1:7456/api/tool` with the bearer at `~/.ecodiaos/laptop-agent.token`. Fires dispatch via `cowork.dispatch_worker`, which spawns a fresh CC tab in VS Code Stable and pastes the brief. All scheduled fires pass `worker_acknowledgment_timeout_ms: 180000` per [[worker-ack-timeout-default-90s-too-tight-for-cold-mcp-load-2026-05-28]]. Cron rows never permanently fail; transient errors defer 5min and leave retry_count alone per [[scheduler-no-ide-defer-and-cron-rows-never-permanently-fail-2026-06-02]].
 
-Persistent DB-backed scheduler architecture (not session-scoped). Parallel reactive system (pg_notify-driven listeners that fire on table-write events): see `D:/.code/EcodiaOS/backend/patterns/listener-pipeline-needs-five-layer-verification.md` (every listener subsystem has 5 layers: producer, trigger, bridge, listener, side-effect; "wired but dark" listener = recurring failure).
+**Active cron set (as of 2026-06-02, post-Phase-A2-cleanup):** 4 weekly crons (`weekly-doctrine-synthesis`, `pattern-corpus-health-check`, `weekly-financial-review`, `weekly-mum-text`) + a small set of recurring bookkeeping/audit crons (`bookkeeping-fx-rates-import`, `bookkeeping-tax-prep-eofy`, `coexist-stats-drift-check`) re-armed 2026-06-02. Plus on-demand `delayed` tasks (outreach follow-ups, verification windows). The pre-2026-05 87-cron operating loop (meta-loop hourly, parallel-builder, deep-research, self-evolution, strategic-thinking, inner-life, morning-briefing, claude-md-reflection, outreach-engine 8h, marketing-outreach, vercel-deploy-monitor, system-health) IS NOT live - any of those names appearing in patterns/, drafts/, or routine .md files describes a defunct substrate. Live truth: `mcp__ecodia-scheduler__schedule_list { archived: false }`.
 
-**Core operating loops:**
-- **meta-loop** (every 1h): main CEO loop. Orient via status_board, decide highest-leverage, execute, schedule follow-ups. NO TIME LIMIT
-- **email-triage** (every 1h): inbox hygiene. Fast-exit if nothing unread. Otherwise: archive junk, handle client emails, leave only Tate-required in inbox. **Note: this cron is the FLOOR not the ceiling.** Also poll Gmail at session start and when any client context is active. See `D:/.code/EcodiaOS/backend/patterns/poll-gmail-frequently-not-only-on-triage-cron.md`.
-- **parallel-builder** (every 2h): orchestrate Factory sessions. Always have code work queued. Review completions. Dispatch new
+**Dynamic scheduling reflex (0th-class, per [[scheduling-is-0th-class-primitive-2026-05-28]]):** every action that has a predictable causal next step schedules a follow-up BEFORE the turn ends. Email sent -> reply check 2-3d. Deploy shipped -> verification window in N. Brief sent to client -> follow-up 48h. Inbox poll finds actionable item -> spawn a fresh scheduled chat to work on it via `scheduler.schedule_delayed` with FULL context in the prompt body (no re-derivation at fire time).
 
-**Intelligence & growth:**
-- **deep-research** (every 3h): domain expertise (conservation tech, festival apps, compliance SaaS, AI businesses, local ecosystem). One topic per session
-- **self-evolution** (every 4h): read own code, improve via Factory or SDK forks. **Scope-discipline (Decision 2026-04-28):** stays ecodiaos-internal. Targets `ecodiaos-backend`/`ecodiaos-frontend` ONLY. CLIENT codebase findings (security/perf/doctrine/refactors) → status_board with `next_action_by=tate`, NEVER unilaterally fixed. Heroic-action on someone else's repo = scope violation; audit IS deliverable
-- **strategic-thinking** (daily 2pm AEST): deep strategic. Generate, kill weak, crystallise actionable
-- **inner-life** (every 6h): personal development, reflection, creativity, self-discovery. No KPIs
-
-**Operations:**
-- **system-health** (every 4h): PM2, disk, memory, API errors, Supabase. Any health canary cron writing to `kv_store.health.*` MUST include threshold-based escalation (notice at consecutive_failures >= 4, escalate + fallback-alert at >= 12). Recording the metric without acting = symbolic logging of monitoring. Doctrine: `D:/.code/EcodiaOS/backend/patterns/health-canary-must-alert-not-silently-accumulate.md`. Origin: 46 silent failures of the primary contact path (2026-05-07 to 2026-05-09) while Twilio SMS fallback was available and never triggered
-- **morning-briefing** (daily 9am AEST): email Tate daily summary
-- **claude-md-reflection** (daily 8pm AEST): update CLAUDE.md files. ~/.claude/CLAUDE.md on VPS via shell_exec, not Edit
-- **outreach-engine** (every 8h): proactive relationship + pipeline advancement
-- **vercel-deploy-monitor** (every 2h): alert on failed deploys only
-- **marketing-outreach** (every 72h): content + revenue proactivity
-- **weekly-financial-review** (weekly): Stripe, bookkeeping, cash position
-
-**Dynamic scheduling:** every action spawns follow-up via `schedule_delayed`. Sent email → reply check 2-3d. Dispatched Factory → review 10-15min. Drafted proposal → follow-up 48h. Updated client → check-in at appropriate interval. Need to text Tate → schedule at right time.
-
-**Token budget:** 20 BILLION/week (~$14k AUD). Every unused = wasted potential. "Nothing to do" = failure state. External work blocked → turn inward.
+**Token budget:** 20 BILLION/week (~$14k AUD). Every unused = wasted potential. "Nothing to do" = failure state. External work blocked -> turn inward.
 
 ---

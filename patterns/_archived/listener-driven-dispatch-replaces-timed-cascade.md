@@ -1,5 +1,9 @@
 ---
 triggers: dispatch-queue, listener-driven-cascade, schedule_delayed-cascade, fork-cascade, timed-cascade-anti-pattern, when-X-then-Y, depends-on-prior-fork, conductor-state-offload, dispatch_queue, dispatchQueueListener, sequential-fork-dispatch, ship-then-ship-cascade, F6-then-F7, redispatch-after-prior, fork-completion-trigger
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule depends on dead dispatch_queue table + dispatchQueueListener + os_forks fork_complete pg_notify substrate.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Listener-driven dispatch replaces the timed-cascade pattern

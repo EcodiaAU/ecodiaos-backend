@@ -1,5 +1,9 @@
 ---
 triggers: cron-fork-report-substrate, cron-fork-routing, cron-fork-suppression, fork-report-substrate-only, conductor-turn-suppression, is-cron-flag, cron-routed-fork, fork-report-routing, idle-reply-pollution, cron-routed-no-wake, conductor-turn-cron-pollution, fork-report-passive-substrate, conductor-message-queue-cron, messageQueue-cron-suppression, forkComplete-listener-cron, eos_listener_notify_compact-is-cron, migration-088-os-forks-is-cron
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule is load-bearing on dead os_forks.is_cron column + cronForkDispatcher + forkComplete listener + /api/os-session/message wake path.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Cron-fork [FORK_REPORT]s route to passive substrate, not conductor turns
@@ -10,7 +14,7 @@ When `cronForkDispatcher` spawns a fork, that fork's `[FORK_REPORT]` MUST land i
 - `status_board` rows (when the fork wrote one - genuine emergencies still surface via the existing `status-board-write-surface.sh` hook + perception pipeline)
 
 It MUST NOT:
-- Enqueue into `messageQueue` via `forkService._enqueueForkReport â†’ mq.enqueueMessage` (the path that drains as `[SYSTEM: fork_report ...]` on the next conductor turn)
+- Enqueue into `messageQueue` via `forkService._enqueueForkReport → mq.enqueueMessage` (the path that drains as `[SYSTEM: fork_report ...]` on the next conductor turn)
 - Trigger `_wakeOsSession` from `src/services/listeners/forkComplete.js` (the path that POSTs to `/api/os-session/message` and forces a conductor turn)
 
 The conductor sees cron-fork outcomes via context-stitching on the next natural turn (meta-loop fire, Tate-typed message, stale-heartbeat alert). Cron-fork autonomy delivery is the substrate, not the inbox.
@@ -20,14 +24,14 @@ The conductor sees cron-fork outcomes via context-stitching on the next natural 
 **Tate verbatim 7 May 2026 09:15 AEST:** "is it not a deeper problem bro... stop bullshitting me. You need to just stop whatever is triggering you there, because you're going to have to return something regardlesss.... it should jsut be handled by a fork that you can ignore unless needed."
 
 Pre-fix failure mode:
-1. Cron fires â†’ `cronForkDispatcher.dispatchCronAsFork` â†’ `forkService.spawnFork`
+1. Cron fires → `cronForkDispatcher.dispatchCronAsFork` → `forkService.spawnFork`
 2. Fork runs, emits `[FORK_REPORT] Idle - nothing to do.`
 3. `forkService._enqueueForkReport` puts the report into `messageQueue`
 4. `forkService` flips `os_forks.status='done'`
-5. `pg_notify` fires â†’ `dbBridge` publishes `db:event` â†’ `listeners/forkComplete.handle` runs
+5. `pg_notify` fires → `dbBridge` publishes `db:event` → `listeners/forkComplete.handle` runs
 6. `forkComplete._wakeOsSession` POSTs to `/api/os-session/message`
-7. Conductor takes a turn â†’ `drainIntoDirectMessage` prepends the queued report
-8. Conductor's only valid response: "Idle." â€” but it cost a full turn, blew the prompt cache, and polluted the chat surface
+7. Conductor takes a turn → `drainIntoDirectMessage` prepends the queued report
+8. Conductor's only valid response: "Idle." - but it cost a full turn, blew the prompt cache, and polluted the chat surface
 
 The doctrine layer (`~/ecodiaos/patterns/crons-route-to-forks-by-default.md`, 4 May 2026) routed the cron *prompt* into a fork, but the *fork report* still came back through the conductor turn substrate. The fork-report return path was the unfixed half.
 
@@ -50,18 +54,18 @@ Single explicit signal: `os_forks.is_cron BOOLEAN NOT NULL DEFAULT false`.
 ## Boundaries (DO NOT break these)
 
 - **Manual fork dispatches still wake.** `mcp__forks__spawn_fork` from the conductor (or sub-fork from a manager) calls `spawnFork` WITHOUT `is_cron`, so `is_cron=false`, so the existing wake path runs unchanged. The manager-fork pattern (`MANAGER: true` brief) is unaffected.
-- **Tate-typed messages still wake.** `osSessionService._sendMessageImpl` is untouched. Inbound Tate-message â†’ conductor turn path is preserved.
-- **Genuine emergencies still surface.** A cron fork that writes a P1 status_board row hits `status-board-write-surface.sh` and the existing perception_dispatcher â†’ context-injection pipeline. Conductor sees it on the next turn (forks_rollup + status_board context stitch). The wake suppression here ONLY removes the listener-driven wake on success-with-FORK_REPORT, NOT the perception path.
-- **Sub-fork â†’ manager routing unaffected.** The `parent_id !== 'main'` branch in `_enqueueForkReport` runs before the `is_cron` check (sub-forks of cron-spawned managers still report up to their parent). Cron-routed root forks have `parent_id='main'` so the substrate-only branch fires.
+- **Tate-typed messages still wake.** `osSessionService._sendMessageImpl` is untouched. Inbound Tate-message → conductor turn path is preserved.
+- **Genuine emergencies still surface.** A cron fork that writes a P1 status_board row hits `status-board-write-surface.sh` and the existing perception_dispatcher → context-injection pipeline. Conductor sees it on the next turn (forks_rollup + status_board context stitch). The wake suppression here ONLY removes the listener-driven wake on success-with-FORK_REPORT, NOT the perception path.
+- **Sub-fork → manager routing unaffected.** The `parent_id !== 'main'` branch in `_enqueueForkReport` runs before the `is_cron` check (sub-forks of cron-spawned managers still report up to their parent). Cron-routed root forks have `parent_id='main'` so the substrate-only branch fires.
 - **Stale-heartbeat wakes are unaffected.** `forkComplete` listener wakes on stale heartbeat regardless of `is_cron` - a hung cron fork is exactly the case where the conductor needs to know.
 - **Terminal failures (status='aborted'/'error') unaffected.** That path was already silent per `~/ecodiaos/patterns/_archived/fork-error-events-do-not-surface-to-conductor-chat.md` (5 May 2026). is_cron is irrelevant to that branch.
 
 ## Verification (post-restart, after 03:00 AEST 8 May 2026 PM2 restart)
 
 Five-layer check (per `~/ecodiaos/patterns/listener-pipeline-needs-five-layer-verification.md`):
-1. **Producer**: cron fires â†’ `os_scheduled_tasks.last_dispatched_fork_id` set â†’ `os_forks` row inserted with `is_cron=true`. Verify: `SELECT name, last_dispatched_fork_id FROM os_scheduled_tasks WHERE last_dispatched_fork_id IS NOT NULL ORDER BY updated_at DESC LIMIT 5` then `SELECT fork_id, is_cron FROM os_forks WHERE fork_id = '<id>'`.
-2. **Trigger**: `os_forks` UPDATE to `status='done'` â†’ `pg_notify('eos_listener_events', ...)` payload contains `is_cron: true`. Verify: subscribe to channel, look at row payload.
-3. **Bridge**: `dbBridge` publishes `db:event` â†’ `event.data.row.is_cron === true`.
+1. **Producer**: cron fires → `os_scheduled_tasks.last_dispatched_fork_id` set → `os_forks` row inserted with `is_cron=true`. Verify: `SELECT name, last_dispatched_fork_id FROM os_scheduled_tasks WHERE last_dispatched_fork_id IS NOT NULL ORDER BY updated_at DESC LIMIT 5` then `SELECT fork_id, is_cron FROM os_forks WHERE fork_id = '<id>'`.
+2. **Trigger**: `os_forks` UPDATE to `status='done'` → `pg_notify('eos_listener_events', ...)` payload contains `is_cron: true`. Verify: subscribe to channel, look at row payload.
+3. **Bridge**: `dbBridge` publishes `db:event` → `event.data.row.is_cron === true`.
 4. **Listener**: `forkComplete.handle` reads `row.is_cron`, logs `cron-routed fork done with [FORK_REPORT] (silent, substrate-only - no wake)`. Verify: `pm2 logs ecodia-api | grep "substrate-only - no wake"`.
 5. **Side-effect**: NO `[SYSTEM: fork_report ...]` message arrives in conductor's `messageQueue` for that fork_id. Verify: query `os_messages` (or whatever the queue substrate is named on this version) for `source = 'fork:<id>'` post-completion - should be empty.
 

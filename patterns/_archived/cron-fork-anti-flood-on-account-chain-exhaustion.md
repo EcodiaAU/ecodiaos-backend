@@ -1,5 +1,9 @@
 ---
 triggers: anti-flood, cron-anti-flood, cron-flood, fork-flood, exhaustion-flood, credit-exhaustion-flood, redundant-spawns, account-chain-exhausted, cron-pause, dispatcher-pause, flood-prevention, consecutive-credit-errors
+status: archived
+archived_at: 2026-06-02
+archived_reason: SPEC for dead cronForkDispatcher substrate, never implemented. Account-chain exhaustion now handled at cowork.dispatch_worker primitive layer.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Cron-fork anti-flood on account-chain exhaustion - pause dispatcher after N consecutive errors

@@ -1,5 +1,9 @@
 ---
 triggers: cron-fires-during-warmup, pm2-restart-cron-collision, post-restart-cron-window, cron-spawn-error, fork-spawn-error-7s, scheduler-warmup-grace, phase-g-double-fire, scheduler-poll-uptime-gate, warmup-collision, restart-cron-race, pm2-warmup-window, cron-fork-error-on-restart
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule is load-bearing on dead ecodia-api PM2 host + schedulerPollerService fork-spawn substrate. Crons now route via ecodia-scheduler MCP -> dispatch_worker.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Cron fires during PM2 warmup must fail soft, not silently kill the dispatched work

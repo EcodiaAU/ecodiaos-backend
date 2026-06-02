@@ -1,5 +1,9 @@
 ---
 triggers: routine-corpus, routine-prompt-shape, routine-frontmatter, anthropic-routines, claude-code-routines, per-account-distribution, daily-routine-cap, cap-balancing, routine-deliverable, routine-leaf, routine-no-spawn-fork, routine-no-shell, accountRouter, REGISTRY.md, post-cutover-routines, lane-d
+status: archived
+archived_at: 2026-06-02
+archived_reason: Routines status unverified since 2026-05-17 per backend/CLAUDE.md; corpus depends on deprecated cowork bearer + ecodia-full MCP gateway. Many routines depended on VPS substrate now gone.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Routine corpus architecture (2026-05-15)

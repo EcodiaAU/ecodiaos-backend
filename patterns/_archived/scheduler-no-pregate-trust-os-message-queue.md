@@ -1,5 +1,9 @@
 ---
 triggers: schedulerPollerService, isTateActive, scheduler-defer, cron-defer, cron-skip, cron-not-firing, scheduler-active-window, tate-active-gate, scheduler-pre-gate, queue-vs-fire, idle-initialise, cron-initialisation
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule relies on /api/os-session/message delivery path retired by 2026-05-28 scheduler-poller patch. Poller now dispatches via cowork.dispatch_worker on laptop-agent.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Scheduler must not pre-gate on isTateActive - trust /api/os-session/message to queue or initialise

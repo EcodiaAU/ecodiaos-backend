@@ -1,6 +1,9 @@
 ---
 triggers: dispatch_event, metadata-kind, dispatch-kind, routing-key, kind-field, dispatch-event-metadata, outcome-routing, fork_id-heuristic, factory_dispatch, fork_spawn, cron_fire, dispatchEventConsumer
-status: active
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule routes outcomes for dead fork_spawn + factory_dispatch + cron_fire kinds through dead outcomeInference.js + dispatchEventConsumer pipeline.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # dispatch_event.metadata.kind Is the Routing Key for Outcome Inference and Must Be Populated

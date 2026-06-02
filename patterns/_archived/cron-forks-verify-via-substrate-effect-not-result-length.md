@@ -1,6 +1,9 @@
 ---
 triggers: cron-fork-verification, self-unverified, telemetry-cron, outcome-inference, unverified-rate, deterministic-cron, substrate-verification, result-length-heuristic, cron-fork-outcome, cron-self-classify
-status: active
+status: archived
+archived_at: 2026-06-02
+archived_reason: Rule is load-bearing on dead outcomeInference.js cron-fork verification path + dead telemetry-dispatch/inferrer/classifier cron pipeline.
+superseded_by: scheduler-substrate-unification-spec-2026-06-02.md
 ---
 
 # Cron Forks Must Verify Success via Substrate Effect - Not Result Length
