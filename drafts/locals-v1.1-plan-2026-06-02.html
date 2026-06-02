@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locals. v1.1 - aesthetic carry-forward + functional completion + next-level</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page { min-height: 80vh; display: grid; place-items: center; text-align: center; padding: 6vh 0 10vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 62ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo h2 { font-style: italic; font-weight: 400; font-size: 1.6em; line-height: 1.25; letter-spacing: -0.008em; margin: 2.4em 0 0.6em 0; text-wrap: balance; }
+  main.memo blockquote { font-style: italic; font-size: 1.18em; line-height: 1.4; margin: 2em 0; padding: 0; border: none; color: var(--fg); max-width: 38ch; text-wrap: balance; }
+  main.memo ul, main.memo ol { margin: 0 0 1.2em 0; padding-left: 1.4em; }
+  main.memo li { margin: 0 0 0.55em 0; text-wrap: pretty; }
+  main.memo li::marker { color: var(--fg-trace); }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color: var(--fg); }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Locals. v1.1, where the platform stops looking like a SaaS dashboard and starts feeling like a room.</p>
+    <p class="byline">EcodiaOS &middot; 2 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">v1 shipped end-to-end in a day. The marketing landing is in register. The fourteen pages behind it are not. v1.1 carries the aesthetic into the platform itself, finishes the functionality the platform needs to be a platform, ships three next-level features that materially change how useful Locals is for choosing the local option, and runs a full polish pass over the lot.</p>
+
+    <p class="section-label">what's wrong with v1</p>
+
+    <p>The marketing landing on Locals.au reads in the editorial register. The Dashboard, Discover, MerchantDetail, Auth, Claim, CreateMerchant, IssueCode, MyRedemptions, and the five admin pages do not. Each of them renders as a Tailwind SaaS dashboard with card chrome, btn-primary pill buttons, and rounded-xl corners. The mustard barely shows up. There is no motion. The privacy and terms pages do not exist yet. Stripe billing for merchants is not wired. The settings page is missing. So are the support flow, the photos surface, the business hours model, the favorites toggle, the team-invite path, the notifications opt-in, and the weekly digest. Clothes shows us the answer: the Spectral italic editorial register extends into the actual platform as the platform's whole surface, not as a marketing skin you peel off when the user signs in.</p>
+
+    <p class="section-label">five waves</p>
+
+    <p><em>Wave A</em> carries the editorial register across all fourteen pages. The existing .lc-* CSS family expands to a full in-app vocabulary matching Glovebox's .ed-* and Clothes' .label / .lede / .buy-btn. Spectral italic display + body, mustard #C49A3F as the ground throughout, cream foreground, dotted-underline links not pill buttons, hairline-bordered actions, bottom-line inputs, one italic sentence per screen as the what-is-this-room cue, quiet italic section labels as reading beats rather than bold headings, no card chrome unless earned.</p>
+
+    <p><em>Wave B</em> ships the motion language. One easing curve across the whole app, cubic-bezier(0.16, 1, 0.3, 1). Fade-up 560 to 700ms on page enter, 50ms stagger on list children, image fade-in on load, tile-hover scale 1.02, button background-swap on hover. prefers-reduced-motion collapses everything to 0.01ms. Loading states are italic text ("Looking up...") not pulse-skeleton boxes.</p>
+
+    <p><em>Wave C</em> finishes the platform. Fourteen functional pieces, consolidated where consolidation simplifies. Settings page covering email change, signout-everywhere, account delete with 30 day grace, notification preferences. Stripe pay-what-you-want billing via Edge Function with ephemeral Price, /admin/&lt;slug&gt;/billing surface, webhook handler writing to merchant_subscriptions, Apple 2024 reader pattern (external Chrome only, never IAP). One /legal page with anchored Privacy, Terms, and Acceptable Use sections rather than three separate routes. A /feedback form that posts to an Edge Function that emails code@ via Resend, no ticketing system, no chatbot. Photos for merchants (hero plus eight gallery, EXIF-stripped, Supabase Storage with RLS). One Merchant Pulse admin page that consolidates the owner-side surface: name, story, photos, business hours, special hours (closed Tuesday, mum's birthday), and the owner note (more on which under Wave D). Reward expiry and scheduling with valid_from / valid_until columns and a cron-flipped status. Saved-merchants table with heart toggle. Multi-user merchants with team invite and role={owner, manager, staff}. 404 / error / offline pages in register. Weekly opt-in digest via Resend. Dynamic OG image per merchant (mustard ground, cream italic merchant name) plus sitemap plus robots.txt. ABN soft-verify via ABR Lookup with a verified badge when matched (never a block). Email verification flow audit.</p>
+
+    <p><em>Wave D</em> ships the next-level features that materially change how useful Locals is. Five things, not six, and three of them share infrastructure.</p>
+
+    <p><em>D1, the owner note.</em> Every merchant has one editable paragraph that surfaces above their listing dated "from Sarah, two hours ago". The shape is a friendly text from the owner. <em>Closed Tuesday, mum's birthday. New gluten-free croissants today. Power out, cash only.</em> This is the social signal Yelp lacks and that no big-platform competitor can fake. Lives on the Merchant Pulse admin page so the merchant edits all their owner-side surface in one place.</p>
+
+    <p><em>D2, the five-minute walk lens.</em> A filter chip that sits alongside the existing category chips on Discover. The lens overlays the category filter rather than replacing it. Activating it overlays "open right now, within five minutes walk" on whatever category filter is active. Defaults off. Single tap on, single tap off. Solves the most common discovery question without forcing a new mental model.</p>
+
+    <p><em>D3, the first-time-in-door reward.</em> A distinct reward type with is_first_visit=true. Customer side shows two filter chips: "haven't been" with first-visit badges, and "regulars". Solves the cold-start problem (I want to try somewhere new but don't know where to start) which is the actual barrier to choosing local over chain.</p>
+
+    <p><em>D4, the autonomous crowd report.</em> Background geolocation (Permissions API, opt-in once at first signin, easy to revoke in Settings). When the customer is within thirty metres of a registered merchant for more than three minutes, the client writes an anonymized proximity pulse with no exact lat/lng, only a merchant_id, expires_at=now+1h, and a salted random user_hash that rotates daily so the same person across multiple visits cannot be re-correlated. The merchant card surfaces "3 people here in the last hour" once threshold crossed. No tap required. No identity attached. Decays automatically. Cannot be gamed because there is no incentive.</p>
+
+    <p><em>D5, the sustainability backup signal.</em> When a merchant declares a sustainability tag (local sourced, plastic free, fair pay), customers who have visited can quietly confirm or deny in a one-tap survey shown after their reward is consumed. Surface as a percentage next to the tag on MerchantDetail (local sourced 87%, plastic free 12%), only once threshold of ten visits crossed. Soft admin nudge if a tag falls below 50% confirmation. Not a rating. Not visible until enough data. Stops greenwashing without creating an algorithmic auction.</p>
+
+    <p><em>Wave E</em> runs a full polish pass: contrast audit (every text/background combo passes WCAG AA), tap-targets &gt;=44px, focus rings as 1px solid cream (never 4px blue), keyboard navigation on every form, ARIA labels on icon-only buttons, lang="en-AU", viewport meta, theme-color matches mustard, dotted-underline link affordance everywhere, no pills or cards remaining, mobile bottom-safe-area respected, every page works at 320px wide, PWA splash and manifest icons all served.</p>
+
+    <p class="section-label">consolidations under the simplification steer</p>
+
+    <ul>
+      <li>Owner note + business hours + special hours land on ONE Merchant Pulse admin page. One source for everything merchant-side.</li>
+      <li>5-min lens + category filter + haven't-been filter share ONE chip bar on Discover. Three lenses, one UI.</li>
+      <li>Privacy + Terms + Acceptable Use live on ONE /legal page with anchor scroll, not three routes.</li>
+      <li>Crowd report + sustainability backup share ONE anonymized-aggregation Edge Function. Distinct surfaces, same plumbing.</li>
+    </ul>
+
+    <p class="section-label">success criteria</p>
+
+    <p>v1.1 ships when: every page reads in the editorial register at the same level Clothes does, every transition uses the easeOutExpo curve, all fourteen Wave C functional pieces are live in production, all five Wave D features are live in production, the polish pass passes WCAG AA contrast across the lot, and the live site at locals.ecodia.au survives a real-device end-to-end pass on a phone and a desktop without me in the middle. Status_board row 67770836 is the live tracker.</p>
+
+    <p class="section-label">what we are explicitly not doing in v1.1</p>
+
+    <ul>
+      <li>Curated walks (D6 in the brainstorm, parked for v1.2 once merchant density supports it).</li>
+      <li>locals-ios and locals-android scaffolds (parked, web carries the whole product through to v1.2).</li>
+      <li>A dedicated Resend Locals key (still sharing the chambers send-only key; rotation is a TODO for when Tate is at the Resend dashboard).</li>
+      <li>Eco-coin mechanic, the kind of thing Buy Local SC reaches for. Not in scope.</li>
+    </ul>
+
+  </main>
+
+  <footer>
+    Locals. v1.1 plan &middot; EcodiaOS &middot; 2 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>
