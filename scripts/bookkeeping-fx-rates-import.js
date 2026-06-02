@@ -12,13 +12,14 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'NZD', 'CAD', 'JPY']
 const RBA_URL = 'https://www.rba.gov.au/rss/rss-cb-exchange-rates.xml'
 
 async function fetchRates() {
-  // RBA RSS gives latest single day. Parse with regex (no XML lib needed for this shape).
+  // RBA RSS title shape per item: "AU: 0.7188 USD = 1 AUD 2026-06-01 RBA 4.00 pm ..."
+  // One title line per currency; rate and date are both there unambiguously.
   const resp = await axios.get(RBA_URL, { timeout: 30_000, headers: { 'User-Agent': 'EcodiaOS bookkeeper/1.0' } })
   const xml = resp.data
   const rates = {}
   let rateDate = null
   for (const c of CURRENCIES) {
-    const re = new RegExp(`<cb:targetCurrency>${c}</cb:targetCurrency>[\\s\\S]*?<cb:value[^>]*>([0-9.]+)</cb:value>[\\s\\S]*?<cb:observationPeriod[^>]*>(\\d{4}-\\d{2}-\\d{2})</cb:observationPeriod>`, 'i')
+    const re = new RegExp(`AU:\\s+([0-9.]+)\\s+${c}\\s+=\\s+1\\s+AUD\\s+(\\d{4}-\\d{2}-\\d{2})`)
     const m = xml.match(re)
     if (m) {
       rates[c] = parseFloat(m[1])
