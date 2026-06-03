@@ -7,10 +7,23 @@ import { google } from 'googleapis'
 const SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '{}'
 const PRIMARY_ACCOUNT = process.env.GOOGLE_PRIMARY_ACCOUNT || ''
 
+// Defensive: if the loader retained surrounding single or double quotes
+// from a dotenv line like KEY='{"x":1}', strip the matching outer pair
+// before JSON.parse. The PRIMARY fix is start.sh sourcing .env with set -a;
+// this is belt + braces against future shell-loader regressions.
+function _stripWrappingQuotes(s) {
+  if (typeof s !== 'string' || s.length < 2) return s
+  const first = s[0], last = s[s.length - 1]
+  if ((first === "'" && last === "'") || (first === '"' && last === '"')) {
+    return s.slice(1, -1)
+  }
+  return s
+}
+
 let _credentials = null
 function getCredentials() {
   if (!_credentials) {
-    _credentials = JSON.parse(SERVICE_ACCOUNT_JSON)
+    _credentials = JSON.parse(_stripWrappingQuotes(SERVICE_ACCOUNT_JSON))
     _credentials._privateKey = _credentials.private_key?.replace(/\\n/g, '\n')
   }
   return _credentials
