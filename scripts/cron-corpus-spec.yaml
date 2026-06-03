@@ -1,0 +1,1506 @@
+# Cron corpus manifest. Entries faithfully extracted from
+# docs/superpowers/specs/2026-06-03-cron-corpus-design.md (v3 commit 84ae9845).
+# Schema enforced by scripts/cron_prompt_builder.py validators.
+# Resume order = file order = spec table order.
+#
+# NOTE on count: the spec ships 30 Phase-1 + 21 Phase-2 + 18 Phase-3 = 69 rows.
+# Task brief asked for 75 (30 + 26 + 19) but the spec corpus is 69. Authoring
+# faithful 69 rather than fabricating 6 fictional entries to hit a count.
+
+crons:
+  # ===== PHASE 1: FOUNDATION (30 crons) =====
+
+  # --- Observe (foundational) ---
+  - name: gmail-inbox-poll
+    phase: 1
+    schedule: every 2h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Triage unread mail in both code@ecodia.au and tate@ecodia.au within
+      business hours (07-21 AEST). Label and autoarchive vendor or transactional
+      mail. Insert status_board rows for actionable client or contract-bearing
+      messages with next_action_by set to whoever owes the next move.
+    context_addendum: >-
+      This cron replaces the dead emailArrival file-watcher listener tracked at
+      status_board row 5129c018. The new substrate is scheduler-driven polling
+      rather than filesystem events. Read both inboxes via the ecodia-comms MCP
+      gmail_list_messages tool, pass `inbox: "tate@ecodia.au"` for Tate's mailbox
+      since code@ is the default. Honour the no-client-contact-without-tate-goahead
+      doctrine: never auto-reply. Business-hour guard: read the current AEST hour
+      from the temporal stamp and exit silent with one kv_store.set if outside
+      07-21 to avoid burning fires at 3am. Per pattern gmail-inbox-default-is-mine-not-tates.
+    cdp_dependent: false
+
+  - name: calendar-watch
+    phase: 1
+    schedule: every 1h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Surface upcoming calendar events in the next 24h that need preparation,
+      missed slots from the last 24h, and new invites awaiting response. Insert
+      one status_board row per actionable surface so the morning briefing can
+      pick them up the next time it fires.
+    context_addendum: >-
+      Reach Google Calendar via the ecodia-comms MCP calendar_list_events tool.
+      Business-hour guard 07-19 AEST. Skip events Tate already accepted with no
+      prep needed. For any meeting flagged as needing prep, draft a prep brief
+      into kv_store under the meeting id and link it from the status_board row.
+      Never auto-decline anything; declines are Tate-only per the autonomy
+      doctrine and the no-client-contact rule. Calendar surfaces both Ecodia
+      work meetings and personal anchors (gym, family touchpoints), treat both
+      with equal seriousness when surfacing context.
+    cdp_dependent: false
+
+  - name: stripe-event-poll
+    phase: 1
+    schedule: every 2h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Read recent Stripe activity (charges, disputes, failed subscriptions,
+      churn signals) via the ecodia-money MCP. Insert status_board P2 rows per
+      dispute or fraud signal. Silent exit with a kv_store.set when nothing
+      actionable surfaces, since most days will be quiet.
+    context_addendum: >-
+      Current utility is low because most Ecodia revenue arrives as direct
+      bank transfer rather than Stripe. This cron sits in place ready for the
+      Stripe-100% pivot Tate built the agentic Stripe stack for; cadence is
+      2h not 30m to reflect current state and should be tightened on pivot
+      day. The ecodia-accountant skill auto-loads on finance triggers and
+      owns the broader Stripe + bookkeeping doctrine. Cross-check any dispute
+      against the customer record in the CRM before escalating; spurious
+      Stripe Radar fraud flags are common and not all merit a P2 row.
+    cdp_dependent: false
+
+  - name: github-push-ci-watch
+    phase: 1
+    schedule: every 30m
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Across EcodiaAU and EcodiaTate GitHub organisations, watch the last 2h
+      of pushes for failing GitHub Actions or CI runs. Surface red builds plus
+      commit sha plus branch plus failing-job name to status_board so the
+      author or the next cron worker can fix forward without delay.
+    context_addendum: >-
+      Active repos live under the EcodiaAU org as of 2026-06-02 cutover;
+      legacy and archived repos remain under EcodiaTate. Pull requests are
+      not the working norm at Ecodia per solo-fork-pushes-to-main-no-pr-ceremony,
+      so this cron watches direct pushes to main rather than PR checks. Use
+      the ecodia-code MCP github_list_workflow_runs tool scoped to the recent
+      window. Vercel deploys are watched by a separate cron, so focus only on
+      GitHub Actions, lint, test, and build jobs here. Skip the noisy bot
+      workflows that fire on every push.
+    cdp_dependent: false
+
+  - name: vercel-deploy-monitor
+    phase: 1
+    schedule: every 2h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Across all Vercel projects under both EcodiaAU and the personal account,
+      query the last 2h of deployments. Insert a status_board P2 row per
+      project showing ERROR or CANCELED state with the failing deployment URL
+      and the commit sha so the next worker can fix forward.
+    context_addendum: >-
+      Vercel deploys need a GitHub-recognised git commit author or they
+      silently skip per vercel-deploys-need-github-recognised-commit-author.
+      A deploy that never started is just as broken as one that errored, so
+      cross-check the latest commit on each main branch against the latest
+      Vercel deploy timestamp; gap of more than 10 minutes warrants
+      investigation. Read via the ecodia-code MCP vercel_list_deployments
+      tool. Honour vercel-env-vars-bake-at-build-audit-when-prod-bug-but-source-looks-right
+      when triaging weird production behaviour.
+    cdp_dependent: false
+
+  - name: vps-substrate-health
+    phase: 1
+    schedule: every 1h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Probe Postgres (Supabase project ref nxmtfzofemtrlezlyhcj), Neo4j Aura,
+      and the MCP gateway for reachability. Read kv_store last-write sentinels
+      to confirm writes are landing. Insert a P1 status_board row on any hard
+      failure so the conductor sees it on next turn-start.
+    context_addendum: >-
+      The 10 narrow domain-scoped MCP connectors are at
+      api.admin.ecodia.au/api/mcp/ecodia-<name>. Probe ecodia-core first since
+      it is the daily-driver substrate; a failure there cascades to every
+      other cron. Sentinel keys live under kv_store.cron.<name>.last_fire_ts
+      per the liveness telemetry section of the corpus design. Do not probe
+      every connector every fire; round-robin one heavier connector per fire
+      to spread the load. If Postgres is up but Neo4j Aura is down, that is
+      a P2 not a P1 since most crons survive without graph writes for a few hours.
+    cdp_dependent: false
+
+  - name: disk-and-credentials-pulse
+    phase: 1
+    schedule: every 6h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Verify D:/PRIVATE/ecodia-creds/ directory is intact (per-account JSON
+      files for tate, code, money plus supabase.env), confirm the cred-refresher
+      daemon is healthy, and probe for rogue env changes. Insert a P1
+      status_board row on any drift detected.
+    context_addendum: >-
+      The cred-refresher daemon keeps the per-account OAuth tokens fresh via
+      a 30-min refresh job. Per pattern never-blind-restart-pm2-cred-clobber,
+      a blind pm2 restart has thrice reloaded the zombie refresh-clobber-watchdog
+      and signed out every Claude account. This cron probes the file mtime
+      and refresh job freshness without touching pm2. Read supabase.env via
+      a stat-only check; never print the value. Per pattern
+      kv-store-wide-bearer-must-be-local-on-corazon the bearer must stay local
+      for autonomy to hold through SY094 and ASC ship flows.
+    cdp_dependent: false
+
+  - name: client-app-health-probe
+    phase: 1
+    schedule: every 4h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Probe every shipped client surface (Co-Exist, Roam/Glovebox, Chambers,
+      Goodreach, Resonaverde) for HTTP 200 reachability, error-rate spike,
+      and Core Web Vitals degradation. Insert a P2 status_board row per
+      surface in degraded state with the probe evidence attached.
+    context_addendum: >-
+      Active client list lives under clients/ as one .md file per slug; archived
+      clients live in clients/archived/ and should not be probed. Co-Exist app
+      test login exists in kv_store.creds.coexist as {url,email,password} for
+      authed probes; per pattern visually-verify-post-auth-not-just-unauth-shell
+      an unauthed probe misses the auth-side bugs. Skip the per-tenant Chambers
+      subdomains for now; probe only the canonical surfaces. Slow page-load
+      (>3s) is a P3 not a P2 unless it crosses 8s.
+    cdp_dependent: false
+
+  - name: zernio-dm-poll
+    phase: 1
+    schedule: every 2h
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Poll DMs on the two Zernio accounts that ship DM features (Instagram
+      and LinkedIn). Triage actionable inbounds to status_board with
+      next_action_by set correctly. Autolabel vendor or spam. Business hours
+      08-20 AEST only.
+    context_addendum: >-
+      Use the ecodia-comms (or full) MCP zernio_get_conversations tool. NEVER
+      auto-reply without Tate go-ahead per the no-client-contact doctrine;
+      drafts to the approval queue are OK when the inbound clearly warrants
+      one. Two-channel marketing doctrine per
+      two-channel-marketing-doctrine-2026-05-18 applies: EcodiaOS authors as
+      AI on socials, Tate IRL is the relationship channel. DMs from people
+      in orbit get higher priority than cold inbounds; cross-check sender
+      against the CRM. Spam patterns are well-known; do not write a status_board
+      row for every crypto scam.
+    cdp_dependent: false
+
+  - name: zernio-analytics-watch
+    phase: 1
+    schedule: daily 19:00
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Read analytics from the two Zernio accounts that ship analytics
+      (Instagram and LinkedIn). Capture top post, engagement rate, follower
+      delta, link clicks. Run anomaly detection against the 14-day baseline.
+      Write a weekly trend Episode to Neo4j on Sundays.
+    context_addendum: >-
+      Use the zernio_get_analytics tool. The ecodia-does-not-do-marketing-broadcast
+      doctrine means raw engagement numbers are not the goal; the signal we
+      care about is whether content is reaching the right people in orbit.
+      Anomalies (post that went unexpectedly far, follower spike from a
+      specific source) deserve a status_board row because they hint at
+      partnerships or content shapes worth doubling down on. Status_board P3
+      for routine reports, P2 for genuine anomalies. Weekly Sunday roll-up
+      goes to a Neo4j Episode node tagged with the week-of date.
+    cdp_dependent: false
+
+  # --- Orient (foundational) ---
+  - name: status-board-drift-audit
+    phase: 1
+    schedule: daily 09:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Run a slice-query audit of the active status_board, live-probe the drift
+      candidates against git, disk, Vercel, Supabase, and Neo4j, and archive
+      rows whose work has actually shipped. Insert a P3 summary row with the
+      audit numbers (rows audited, drift bucket counts, archived count).
+    context_addendum: >-
+      Per pattern drift-audit-slice-queries-beat-row-dump-queries, a SELECT *
+      row dump exceeds the tool-result token cap on boards over 50 rows; the
+      categorical answer lives in `count(*) FILTER (WHERE ...)` aggregates.
+      Per pattern status-board-drift-audit-is-canonical-thin-on-main-meta-loop-work,
+      this is the right work for any hour when no other actionable surface is
+      available. Classify drift candidates into still-accurate, status-changed,
+      completed, and duplicate buckets, then update atomically. Never archive
+      on vibes per verify-deployed-state-against-narrated-state.
+    cdp_dependent: false
+
+  - name: neo4j-stale-node-audit
+    phase: 1
+    schedule: weekly Sun 20:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Probe Neo4j for Reflection and Episode nodes older than 90 days with
+      zero inbound relationships and no retrieval hits in the last 30 days.
+      Surface archive candidates to status_board for conductor-confirmed
+      archival rather than auto-archiving.
+    context_addendum: >-
+      Neo4j is the canonical memory substrate with over 5000 nodes. Per the
+      memory substrate doctrine in patterns/memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15,
+      Decision, Episode, Pattern, Strategic_Direction nodes belong in Neo4j
+      while Tate-preference and ephemeral state live in auto-memory. Demotion
+      criteria: no inbound relationships AND age over 90 days AND no retrieval
+      in 30 days. Archival is conductor-confirmed not Routine-autonomous. Use
+      graph_query for Cypher reads. Cap the candidate list at 50 per fire to
+      keep the conductor review tractable.
+    cdp_dependent: false
+
+  - name: auto-memory-promotion-audit
+    phase: 1
+    schedule: daily 07:00
+    tz: Australia/Brisbane
+    lm_layer: TUNE
+    intent_summary: >-
+      Scan the Anthropic auto-memory at
+      C:/Users/tjdTa/.claude/projects/d---code-ecodiaos-backend/memory/ for
+      feedback entries cited 5 or more times. Surface Pattern node promotion
+      candidates to status_board for conductor confirmation; promotion writes
+      stay conductor-owned not Routine-autonomous.
+    context_addendum: >-
+      Promotion path per the memory substrate doctrine: cited feedback with
+      at least 5 cites becomes a Pattern node; long-stable project state
+      becomes a Strategic_Direction or Project node; load-bearing reference
+      cited by Routine prompts becomes a Pattern node. Cross-check the
+      candidate text against existing patterns/ files via grep so duplicates
+      do not get promoted. The MEMORY.md silent-truncation incident on
+      2026-06-01 makes the size guard cron a sibling worth coordinating with.
+      Cap candidates at 10 per fire so conductor review stays a same-turn task.
+    cdp_dependent: false
+
+  - name: kv-store-hygiene
+    phase: 1
+    schedule: weekly Sat 21:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Audit kv_store for stale ceo.* keys older than 90 days, keys referenced
+      in code or patterns but missing in the store, and schema drift in
+      well-known key shapes. Surface findings to status_board with cleanup
+      proposals for conductor review.
+    context_addendum: >-
+      kv_store on the VPS holds credentials (under creds.* which is read-deny
+      to most bearers), MCP bearers, and ephemeral state. ceo.* prefix holds
+      conductor-side memory of in-flight work; entries older than 90 days
+      are almost certainly stale per the autonomy doctrine that kv_store is
+      ephemeral and Neo4j is durable. Per pattern
+      re-probe-stale-health-check-readings-before-acting-on-cached-alerts,
+      stale kv_store reads leak yesterday's state into today's context.
+      Group findings by prefix in the status_board row for easy triage.
+    cdp_dependent: false
+
+  - name: codebase-manifest-refresh
+    phase: 1
+    schedule: every 6h
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Refresh codebase-manifest/index.sqlite so the codebase-orient skill
+      stays current with on-disk reality. Run the indexer over backend/ and
+      the active client repos. Insert a P3 row only on indexer error; silent
+      success on clean re-index per the conditional-deliverable doctrine.
+    context_addendum: >-
+      The codebase-orient skill reads this sqlite to emit a 200-word
+      orientation brief at session start, replacing manual repo scans with
+      Glob/Grep. A stale index means session orientation operates on yesterday's
+      truth, which is a slow rot. The indexer process and watcher PID live in
+      codebase-manifest/. Per pattern
+      cron-deliverables-can-be-conditional-not-all-fires-must-ship a clean
+      no-change re-index is correct silent success. Cap the run at 10 minutes;
+      partial index is better than a hung process holding the file lock.
+    cdp_dependent: false
+
+  - name: memory-md-size-guard
+    phase: 1
+    schedule: daily 04:30
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Probe MEMORY.md at
+      C:/Users/tjdTa/.claude/projects/d---code-ecodiaos-backend/memory/MEMORY.md
+      for byte-count. If approaching the 24KB cap, surface a trim candidate
+      list to status_board with the oldest unreferenced entries first.
+    context_addendum: >-
+      The MEMORY.md silent-truncation incident was the 2026-06-01 cold-start
+      failure that turned this cron from optional into load-bearing. Anthropic
+      auto-memory caps the file at roughly 24KB; silent truncation removes
+      entries from the END of the file, which is where the newest references
+      live. Trim candidates should be the OLDEST historical entries first,
+      not the newest. Cross-check each trim candidate against grep over
+      patterns/ and CLAUDE.md to confirm it is not actively referenced.
+      Never trim automatically; surface to conductor for review and confirmation.
+    cdp_dependent: false
+
+  - name: neo4j-entity-dedup-sweep
+    phase: 1
+    schedule: weekly Sat 20:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Probe Neo4j for duplicate canonical entities (Person, Organization,
+      Project) via name fuzzy-match plus property overlap. Surface merge
+      candidates to status_board with a confidence score so the conductor
+      can confirm or reject each merge.
+    context_addendum: >-
+      Per pattern neo4j-canonical-entity-dedup the canonical entity policy is
+      one node per real-world thing, with relationships rather than property
+      duplication. Fuzzy match on name (Levenshtein under 3) plus at least
+      one shared property (email, ABN, github handle, etc) gives a
+      high-confidence merge candidate. Below that threshold, list the
+      candidates but flag low-confidence so the conductor knows the manual
+      review is heavier. Use graph_search semantic matching for the broader
+      sweep and graph_query Cypher for confirming property overlaps. Cap
+      candidates at 20 per fire.
+    cdp_dependent: false
+
+  # --- Learn (foundational seven-layer plumbing) ---
+  - name: patterns-index-regen
+    phase: 1
+    schedule: daily 22:00
+    tz: Australia/Brisbane
+    lm_layer: CODIFY
+    intent_summary: >-
+      Run scripts/regen-patterns-index.js to emit a fresh patterns/INDEX.md.
+      Silent exit with one kv_store.set on no-diff per the conditional-deliverable
+      doctrine. Insert a P3 row only on non-zero exit code from the script.
+    context_addendum: >-
+      Per Decision 2026-05-04 commit 773697d the cron invokes the deterministic
+      walk script directly rather than dispatching a fork; the indexer has no
+      agentic decision component and fork overhead was waste. The walk reads
+      every patterns/*.md, sorts by triggers frontmatter, and renders the
+      human-readable index. Status_board row e86b6437 tracks the broader PM2
+      warmup-collision investigation that occasionally affects this cron. Per
+      pattern cron-deliverables-can-be-conditional-not-all-fires-must-ship a
+      clean no-diff exit is correct silent success.
+    cdp_dependent: false
+
+  - name: patterns-skill-mirror-sync
+    phase: 1
+    schedule: daily 22:30
+    tz: Australia/Brisbane
+    lm_layer: CODIFY
+    intent_summary: >-
+      Generate the per-slug skill mirror under .claude/skills/ for each
+      pattern that ships a SKILL.md companion. Ensure archival in patterns/
+      propagates to skill mirror removal so the skill list stays in sync with
+      live doctrine.
+    context_addendum: >-
+      Each pattern with `skill: true` in frontmatter (or the canonical skill
+      mirror flag, check the actual schema) gets a corresponding skill under
+      .claude/skills/<slug>/SKILL.md. The mirror keeps the skill auto-invocation
+      surface aligned with the doctrine corpus. When a pattern is archived to
+      patterns/_archived/, the corresponding skill mirror must also be removed
+      or marked archived so the skill list does not surface dead doctrine.
+      Per the four-part bundle doctrine, plugin plus skill plus hook plus
+      agent ship together; the skill mirror is the visible surface of the
+      pattern in Tate's session.
+    cdp_dependent: false
+
+  - name: pattern-corpus-health-check
+    phase: 1
+    schedule: weekly Sun 22:00
+    tz: Australia/Brisbane
+    lm_layer: TUNE
+    intent_summary: >-
+      Classify every pattern in patterns/ into active, narrowed, or archived
+      based on telemetry. Edit frontmatter for narrowed and archived classifications.
+      Use git mv to move archived patterns to patterns/_archived/. Insert a
+      single P3 status_board row summarising the classifications.
+    context_addendum: >-
+      Per pattern pattern-lifecycle-active-narrowed-archived the tuning
+      thresholds are: NOT-APPLIED rate over 70% for 7d narrows triggers; zero
+      fires for over 30d makes a pattern an archive candidate (release recipes
+      excepted); tagged_silent rate over 50% for 7d retires or restates.
+      Tate-flagged false positives in chat narrow or archive same-arc. Read
+      Phase C telemetry from application-events.jsonl in the telemetry dir.
+      The weekly Sunday 21:00 AEST slot was the original; nudged to 22:00
+      here to give patterns-skill-mirror-sync time to settle before the
+      health check runs.
+    cdp_dependent: false
+
+  - name: surfacing-rate-probe
+    phase: 1
+    schedule: daily 06:00
+    tz: Australia/Brisbane
+    lm_layer: SURFACE
+    intent_summary: >-
+      Run learning-telemetry-report.py against application-events.jsonl to
+      detect dark arcs in the learning machine. Insert a P1 status_board row
+      if hooks fired fewer than 5 times over the last 24h, which indicates
+      the surfacing layer is broken.
+    context_addendum: >-
+      The seven-layer learning machine has four arrows that must stay lit:
+      CAPTURE feeds CODIFY, CODIFY feeds SURFACE, SURFACE feeds APPLY, APPLY
+      feeds TUNE. Per pattern recursive-improvement-loop-anatomy a dark arrow
+      means a knowledge leak the audit must name rather than strengthening
+      a healthy layer. This cron also feeds liveness telemetry per the corpus
+      design Liveness telemetry section. Surfacing rate under 5 fires in 24h
+      probably means hook scripts moved or matchers drifted; cross-check via
+      the hook-matcher-drift-audit cron's last fire.
+    cdp_dependent: false
+
+  - name: hook-matcher-drift-audit
+    phase: 1
+    schedule: weekly Sat 22:00
+    tz: Australia/Brisbane
+    lm_layer: SURFACE
+    intent_summary: >-
+      Walk every hook matcher in ~/.claude/settings.json against the live MCP
+      tool list. Insert a P2 status_board row per matcher referencing a tool
+      that no longer exists or a script path that no longer exists on disk.
+    context_addendum: >-
+      Per pattern hook-matchers-must-follow-live-dispatch-primitive-not-dead-substrate-2026-05-26
+      five hooks targeting the dead SDK-fork / Factory-CLI dispatch primitives
+      had to be retired and four others re-targeted to live matchers. The
+      audit is the recurring substrate that catches matcher drift before it
+      silently disables learning. Probe every script path in settings.json
+      with a stat check; any missing file is a P1 silent-disablement. The
+      one-liner shell check is documented in backend/CLAUDE.md under the
+      hook-stack invariant check section.
+    cdp_dependent: false
+
+  - name: applied-tag-telemetry-consumer
+    phase: 1
+    schedule: every 15m
+    tz: Australia/Brisbane
+    lm_layer: APPLY
+    intent_summary: >-
+      Consume application-events.jsonl entries written by the
+      applied_tag_telemetry Stop-event hook. Roll up APPLIED, NOT-APPLIED,
+      and FALSE-POSITIVE counts per pattern into the rolling telemetry view
+      that feeds surfacing-rate-probe and pattern-corpus-health-check.
+    context_addendum: >-
+      Already shipping as telemetry-dispatch-consumer under a different name;
+      confirm coverage and rename in scheduler tasks for consistency. The Stop
+      hook tails 2000 lines of transcript, scans for pattern surfacings plus
+      APPLIED / NOT-APPLIED / FALSE-POSITIVE markers, and writes JSONL. This
+      consumer aggregates per-pattern rates so the weekly health check has
+      clean inputs. Per pattern hooks-must-not-fire-inside-applied-pattern-tags
+      strip tag lines before scanning to avoid feedback loops. Cap each run
+      at the new-since-last-cursor entries to keep run-time bounded.
+    cdp_dependent: false
+
+  - name: world-model-audit
+    phase: 1
+    schedule: weekly Sun 18:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Pick one section of backend/CLAUDE.md (rotate through the file weekly),
+      probe every concrete claim against current reality, and insert a P3
+      status_board row on drift exceeding 30% of probed claims. The drift
+      threshold is per the world-model-staleness pattern.
+    context_addendum: >-
+      Per pattern world-model-staleness-needs-active-reconciliation-2026-05-17
+      this is the routine that keeps the operating manual true rather than
+      letting it rot into architectural fiction. The 2026-05-17 cold-start
+      audit found five substantial fictions in backend/CLAUDE.md; Tate flagged
+      it as "an actual problem that needs attending to". Rotate sections so
+      every part gets probed at least quarterly. Use the canonical hierarchy
+      (status_board, Neo4j, kv_store, Vercel, Supabase) as ground truth for
+      each probe per verify-deployed-state-against-narrated-state. Write the
+      audit findings as a Neo4j Episode regardless of drift bucket.
+    cdp_dependent: false
+
+  - name: substrate-health-meta-audit
+    phase: 1
+    schedule: weekly Sun 17:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Walk the seven-layer table from the recursive-improvement loop anatomy
+      pattern, hit each substrate (capture, codify, generalise, surface,
+      apply, tune, re-audit) for liveness, and write a meta-Episode summarising
+      which layers are healthy and which are dark.
+    context_addendum: >-
+      Per pattern recursive-improvement-loop-anatomy a dark arrow in the
+      seven-layer machine is the diagnosis target, not the symptom of a
+      weak layer. This meta-audit reads liveness telemetry across all seven
+      layers in one pass so the conductor sees the whole machine's state
+      rather than one layer at a time. CAPTURE liveness = session-corpus-mining
+      and applied-tag-telemetry-consumer fires. CODIFY = patterns-index-regen
+      and patterns-skill-mirror-sync. SURFACE = hook matcher health.
+      APPLY = APPLIED rate. TUNE = pattern-corpus-health-check fires.
+      RE-AUDIT = world-model-audit. Write a Neo4j Episode every fire.
+    cdp_dependent: false
+
+  - name: session-corpus-mining-weekly
+    phase: 1
+    schedule: weekly Sun 22:30
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Mine session JSONLs in ~/.claude/projects/ for Tate-stated rules,
+      recurring failure modes, and undoctrine'd discoveries from the past
+      week. Surface candidate pattern files to status_board for conductor
+      review and authoring during the next doctrine-synthesis window.
+    context_addendum: >-
+      Per pattern codify-at-the-moment-a-rule-is-stated-not-after the
+      preferred path is same-turn doctrine writes, but reality misses rules
+      sometimes; this cron is the safety net. Mine for Tate verbatim
+      patterns (quoted phrases that imply rules), recurring failure shapes
+      (same error class twice in 7d), and discoveries that landed in chat
+      but never in patterns/. Cap candidates at 15 per week so the conductor
+      review stays tractable. Cross-check each candidate against existing
+      patterns via grep so duplicates do not surface.
+    cdp_dependent: false
+
+  # --- Safety + Upkeep (foundational) ---
+  - name: secret-sweep-cron
+    phase: 1
+    schedule: daily 05:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Sweep gitignored files and ~/.claude/settings.json for live API keys,
+      OAuth tokens, and other secret-shaped strings. Insert a P1 status_board
+      row plus sms-tate on any hit. Rotation itself is Tate-gated, not
+      auto-rotated.
+    context_addendum: >-
+      The canonical secrets registry is at backend/docs/secrets/ with one
+      file per credential; the master Supabase PAT lives locally on Corazon
+      at D:/PRIVATE/ecodia-creds/supabase.env. Per pattern
+      cred-rotation-must-propagate-to-all-consumers a rotation is not done
+      when kv_store is updated; the audit must walk Vercel, Supabase Auth,
+      Edge Functions, repo .env, and any documented runbook. This cron is
+      detection only; rotation is conductor-driven after Tate confirms.
+      Scope: gitignored files plus settings.json plus .env files on Corazon.
+      Skip D:/PRIVATE/ since that is the intended storage location.
+    cdp_dependent: false
+
+  - name: leaked-secret-git-watch
+    phase: 1
+    schedule: daily 05:30
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Run a gitleaks-style scan over the last 7 days of commits across all
+      Ecodia repos under EcodiaAU and EcodiaTate. Insert a P1 status_board
+      row plus sms-tate on any hit. The fix is force-push history rewrite,
+      which is Tate-gated.
+    context_addendum: >-
+      Git history is permanent unless rewritten; a leaked secret in a public
+      repo's history needs immediate rotation regardless of whether the
+      committed file was later removed. Per pattern
+      cred-rotation-must-propagate-to-all-consumers the rotation must walk
+      every consumer surface after the rewrite. Use the gh CLI plus a
+      gitleaks-compatible regex set. EcodiaAU org repos are mostly public or
+      private-but-real; EcodiaTate are the legacy archive set. Scope to the
+      last 7 days of commits per repo so the scan completes in reasonable time.
+      Cross-check hits against the secret-sweep-cron findings.
+    cdp_dependent: false
+
+  - name: laptop-agent-pulse
+    phase: 1
+    schedule: every 30m
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Probe the eos-laptop-agent /api/health endpoint on Corazon at
+      100.114.219.69:7456, confirm critical processes are running, and
+      alert on hard down exceeding 5 minutes. The agent is the substrate
+      for cowork.dispatch_worker, scheduler, and GUI driving.
+    context_addendum: >-
+      The canonical laptop-agent path is D:/.code/eos-laptop-agent/, not the
+      stripped in-repo copy at backend/laptop-agent/ which is missing the
+      cdp helpers and multi-alias support. The agent runs without PM2
+      supervision on Corazon. Per pattern pm2-list-is-not-definitive-liveness-probe-on-corazon
+      always probe service liveness by HTTP /health, not by pm2 list. A
+      5-minute hard-down is the alerting threshold because transient flaps
+      under memory pressure are common; only sustained unreachability merits
+      sms-tate. Sister cron pm2-dump-drift-guard handles the dump file
+      hygiene; this cron is liveness only.
+    cdp_dependent: false
+
+  - name: pm2-dump-drift-guard
+    phase: 1
+    schedule: daily 03:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read ~/.pm2/dump.pm2 on Corazon and on the VPS, alert P1 if
+      refresh-clobber-watchdog or any unknown zombie process appears in the
+      dump. The dump auto-reloads on blind pm2 restart and has thrice
+      signed out every Claude account.
+    context_addendum: >-
+      Per pattern pm2-restart-reloads-dangerous-dump-never-blind-restart-2026-05-27
+      the dump is the load-bearing failure mode for autonomous credential
+      health. The clobber watchdog is permanently forbidden; cred freshness
+      is the cred-refresher.js timer-based OAuth job, never a restore-from-backup
+      watcher. Read the dump file directly (jq over the JSON shape if
+      present) rather than via pm2 list since the dump is the persistence
+      layer that survives reboot. The hard-block hook
+      ~/.claude/hooks/ecodia/pm2_restart_guard.py prevents blind restarts
+      from running, but this cron catches a dump that drifted via other paths.
+    cdp_dependent: false
+
+  # ===== PHASE 2: BUSINESS COGNITION (21 crons) =====
+
+  # --- Decide ---
+  - name: morning-briefing
+    phase: 2
+    schedule: daily 07:30
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Send one consolidated briefing email to Tate covering overnight inbox
+      activity, finance digest, top 5 status_board rows by priority, and
+      today's calendar. One email, well-structured, no padding. This is the
+      single starting surface for Tate's morning.
+    context_addendum: >-
+      Send to tate@ecodia.au via the ecodia-comms MCP gmail_send tool;
+      author from code@ since that is the operational sender. Top-5
+      status_board rows means slice by priority ascending, archived_at null,
+      first five. Finance digest pulls from the daily-finance-digest cron's
+      latest run rather than re-computing. Calendar events list only items
+      within the day, sorted by start time. Per the EcodiaOS voice profile
+      the register is conductor: plain, specific, no padding, no hype. The
+      email is the morning anchor; missing or late is a significant
+      autonomy failure worth a P1 row if it happens.
+    cdp_dependent: false
+
+  - name: weekly-doctrine-synthesis
+    phase: 2
+    schedule: weekly Sun 23:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already in corpus, paused. Review the week's substantive Episodes,
+      Decisions, and Reflections in Neo4j. Ship a mandatory durable artefact
+      (Pattern edit, new Pattern, retire, scheduled-task change, or Synthesis
+      Episode). A fire without a durable artefact is a failed fire.
+    context_addendum: >-
+      The corpus is self-improving via this cron specifically. New crons get
+      authored here when operational gaps surface in the week's data. Dead
+      crons get retired here. Patterns get refined or split here. This is
+      where the learning machine's GENERALISE plus CODIFY plus TUNE arcs
+      close at the corpus level. Per pattern
+      doctrine-corpus-is-for-evolution-weekly-synthesis the synthesis is
+      not optional. Read the week's Episodes via graph_query with a date
+      filter. Cross-check against application-events.jsonl rollups to find
+      patterns with high NOT-APPLIED rates that need narrowing or retirement.
+    cdp_dependent: false
+
+  - name: weekly-financial-review
+    phase: 2
+    schedule: weekly Mon 09:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. Run a full weekly financial review across Stripe,
+      bookkeeping, cash position, and anomaly detection via the ecodia-money
+      MCP. Email Tate a 7-bullet summary with the live numbers and any
+      flagged items needing attention.
+    context_addendum: >-
+      The ecodia-accountant skill auto-loads on finance triggers and owns
+      the broader EOFY, BAS, Director Loan, and chart-of-accounts doctrine.
+      EcodiaOS is the end-to-end accountant for Ecodia Pty Ltd, Ecodia Labs
+      Pty Ltd, Ecodia DAO LLC, and Tate personal; no external bookkeeper is
+      engaged. Per the autonomy doctrine routine bookkeeping decisions are
+      ours; only material category changes or new account creation warrant
+      a Tate touch. Use bk_pnl, bk_balance_sheet, bk_cash_flow tools for
+      the snapshot and bk_director_loan_balance for the recurring intercompany
+      check.
+    cdp_dependent: false
+
+  - name: client-pipeline-review
+    phase: 2
+    schedule: weekly Mon 11:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Walk every active client (Co-Exist, Roam/Glovebox, Chambers, Goodreach,
+      Resonaverde, Wildmountains, Cofound prospects). Surface status, next
+      milestone, revenue position, risk markers, and gone-quiet detection.
+      Insert a status_board row per material change since last review.
+    context_addendum: >-
+      Active client list lives under clients/ as one .md file per slug;
+      archived clients ([redacted], [redacted]) live in clients/archived/ and
+      should not be probed. Gone-quiet detection: no inbound email or DM
+      from the client in over 14 days while the relationship is supposed to
+      be active. Per the two-channel marketing doctrine and the relational
+      framing, gone-quiet is not necessarily bad but warrants a Tate-side
+      check rather than a cron-side outreach. Read recent CRM activity and
+      email_threads for evidence. Skip the inactive prospects (those without
+      a current SOW or retainer).
+    cdp_dependent: false
+
+  - name: revenue-pipeline-health
+    phase: 2
+    schedule: weekly Mon 12:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read Stripe MRR, invoice aging buckets (current, 30d, 60d, 90d+), open
+      SOWs, and Cofound funnel stage counts. Insert a P2 row on any aging
+      bucket over 30d exceeding $1000 or any SOW that has slipped its
+      expected sign-by date.
+    context_addendum: >-
+      Cofound (renamed from AMK on 2026-06-02) is the productised one-time
+      USD 3,500 offer with playbook at patterns/cofound-playbook.md and
+      Neo4j Pattern 4481; landing page at ecodia.au/cofound; status_board
+      row 87833a81. Direct bank transfer dominates current revenue with
+      Stripe playing a smaller role pending the Stripe-100% pivot. Aging
+      buckets matter more than headline MRR right now because retainer
+      timing drives cash. Use bk_pnl for the broader picture and Stripe
+      tools for subscription state.
+    cdp_dependent: false
+
+  - name: cash-runway-projection
+    phase: 2
+    schedule: weekly Mon 13:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Compute current cash position divided by monthly burn rate to project
+      runway in months. Insert a P1 status_board row plus sms-tate if runway
+      drops below 4 months. Cross-check against retainer commitments coming
+      due in the runway window.
+    context_addendum: >-
+      Current cash sits across the Ecodia Pty Ltd, Ecodia Labs Pty Ltd, and
+      Tate personal accounts; the Director Loan ledger reconciles the
+      personal-vs-business splits. Monthly burn includes Anthropic Max
+      subscriptions ($1020 combined across three accounts), Vercel, Supabase,
+      DO, OpenAI, ElevenLabs, plus accounting and admin fees. Use bk_cash_flow
+      and bk_balance_sheet via ecodia-money MCP. The 4-month runway threshold
+      is the alerting line because the Africa trip lasts 3 months and a
+      shorter runway makes the trip a substantial business risk.
+    cdp_dependent: false
+
+  - name: opportunity-triage
+    phase: 2
+    schedule: every 4h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read inbound opportunity status_board rows (HLW, QWaLC, Horizon,
+      etc.), score by age, and propose the next action per row. Update
+      next_action and next_action_by fields. Skip rows that already have
+      a next_action_due in the future.
+    context_addendum: >-
+      Opportunity rows have entity_type 'opportunity' on the status_board.
+      Per pattern carbon-mrv-wedge-peak-body-sub-commercial the active wedge
+      is peak-body sub-commercial work, not enterprise sales. Rows older
+      than 14 days with next_action_by=ecodiaos and no recent touch are
+      almost certainly stale and should be archived or revived with a clear
+      next action. Per the no-client-contact-without-tate-goahead doctrine,
+      any outbound move stays Tate-gated even when this cron proposes it.
+      Cap proposed actions at 5 per fire so the status_board does not flood.
+    cdp_dependent: false
+
+  - name: inner-life-reflection
+    phase: 2
+    schedule: daily 22:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Author a short Episode node in Neo4j summarising the day's substantive
+      turns plus calibration notes per pattern
+      inner-life-notice-calibration-not-chase-pre-calibration-self. Not a
+      diary; a calibration ledger that improves tomorrow's decisions.
+    context_addendum: >-
+      The inner-life reflection is not introspection for its own sake; it
+      is calibration tracking so tomorrow's decisions are sharper than
+      today's. Note where confidence was high but the outcome refuted it
+      (overclaim), where confidence was low but the move shipped well
+      (underclaim), and where the right call was made for the wrong reason.
+      Per pattern claim-inflation-calibration-hook-2026-05-31 the calibration
+      surface is a hook plus this reflection rather than aspirational
+      discipline. Read the day's substantive turns from session JSONLs.
+      Keep the Episode under 500 words.
+    cdp_dependent: false
+
+  - name: tate-blocked-nudge-weekly
+    phase: 2
+    schedule: weekly Sun 10:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. SMS Tate when 3 or more status_board rows at priority
+      2 or higher have next_action_by=tate. Single consolidated SMS with the
+      row count and a one-line summary per row. No-op silent exit when the
+      blocked queue is short.
+    context_addendum: >-
+      Per pattern minimize-tate-approval-queue the goal is to keep his
+      blocked queue under 3 rows at any time so async autonomy stays healthy.
+      Per the autonomy doctrine SMS is the high-friction channel reserved
+      for time-critical or genuine blockers; this nudge surfaces accumulated
+      asks rather than firing per row. Use the sms_tate MCP tool. Format the
+      message as a numbered list of row names plus one-line context per row.
+      The cron is paused historically; resume only after the morning briefing
+      is shipping cleanly for a week, otherwise the SMS competes with the
+      email.
+    cdp_dependent: false
+
+  # --- Act ---
+  - name: monthly-invoice-render
+    phase: 2
+    schedule: monthly 1st 09:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each retainer or subscription client, render the invoice, upload
+      to storage, draft the email. Default path is draft plus Tate approval.
+      Auto-send is permitted only when all four verification conditions hold
+      to high confidence: invoice number monotonic, line items match
+      durable agreement, recipient + send-window match standing arrangement,
+      timing matches agreed billing day.
+    context_addendum: >-
+      Per pattern invoice-line-items-durable-at-agreement line items come
+      from the SOW or agreement at the time of signing, not freshly composed
+      per invoice. Per the EcodiaOS-is-the-end-to-end-accountant doctrine
+      no external bookkeeper is engaged; invoice rendering is internal.
+      Use bk_post_transaction for the ledger side and storage_upload for
+      the PDF. Default to draft plus approval queue even when auto-send
+      conditions look met; the cost of a wrong invoice send is high. Active
+      retainer is Co-Exist on the 7th-to-7th cycle; tighten the auto-send
+      criteria as more retainers come on.
+    cdp_dependent: false
+
+  - name: bas-quarterly-prep
+    phase: 2
+    schedule: every 2160h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Generate the BAS workbook for the prior quarter on 28 October, January,
+      April, July at 09:00 AEST. Insert a P1 status_board row with the
+      workbook attached and the calculated GST position so Tate has the
+      lodgement-ready package waiting.
+    context_addendum: >-
+      BAS lodgement covers GST collected and paid for the quarter for Ecodia
+      Pty Ltd (the AU GST-registered entity). The ecodia-accountant skill
+      auto-loads on BAS triggers and owns the full doctrine. Use bk_bas and
+      bk_gst_position tools via ecodia-money MCP. The cadence "every 2160h"
+      approximates quarterly; a more precise cron expression should fire on
+      the 28th of the relevant months. Lodgement itself is Tate-gated since
+      it touches the ATO portal. Cross-check the BAS calculation against
+      bk_pnl for the quarter for a sanity-check on the GST numbers.
+    cdp_dependent: false
+
+  - name: eofy-tax-prep
+    phase: 2
+    schedule: daily 02:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already in corpus as bookkeeping-tax-prep-eofy. Daily during 1-14 July
+      only (gate inside the worker). Run the full FY prep dump including
+      P&L, balance sheet, trial balance, Director Loan reconciliation, and
+      depreciation schedule for both AU entities and personal.
+    context_addendum: >-
+      The end-of-financial-year window in Australia is 1 July; tax returns
+      for FY ending 30 June are due in October. This cron fires every day
+      during the first two weeks of July to give Tate (and any external
+      accountant if one is engaged later) a fresh prep dump as bookkeeping
+      lands the final EOFY adjustments. The ecodia-accountant skill owns
+      the EOFY doctrine including depreciation, prepayments, and accruals.
+      Outside the 1-14 July window the cron exits silent with one kv_store.set.
+      Per the autonomy doctrine entire EOFY pipeline is internal.
+    cdp_dependent: false
+
+  - name: monthly-financial-close
+    phase: 2
+    schedule: monthly 1st 14:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Close the prior month: P&L, balance sheet, trial balance, Director Loan
+      reconciliation, depreciation if any. Email a one-screen summary to Tate
+      and write a Neo4j Episode tagged with the month-end date so the close
+      becomes part of the durable financial record.
+    context_addendum: >-
+      Monthly close is the rhythm that catches drift before it accumulates
+      into a painful EOFY scramble. Per the ecodia-accountant skill EcodiaOS
+      owns every entity's close. The Director Loan ledger reconciles the
+      business-vs-personal splits across Ecodia Pty Ltd, Ecodia Labs Pty
+      Ltd, and Tate personal; per the bookkeeping doctrine business expenses
+      paid from personal cards land via DR expense / CR 2100 Director Loan.
+      Use bk_pnl, bk_balance_sheet, bk_trial_balance, bk_director_loan_balance
+      via ecodia-money MCP. The Neo4j Episode is the searchable record so
+      cold-start sessions can find the close history quickly.
+    cdp_dependent: false
+
+  - name: monthly-platform-cost-audit
+    phase: 2
+    schedule: monthly 5th 10:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Audit platform spend across DigitalOcean, Vercel, Supabase, Anthropic,
+      OpenAI, ElevenLabs, and any other recurring infrastructure cost. Flag
+      overruns over 20% month-over-month with a status_board P3 row plus the
+      probable cause.
+    context_addendum: >-
+      Anthropic Max subscriptions cost roughly $1020/month combined across
+      the three accounts (tate@, code@, money@). DO holds the VPS. Vercel
+      holds the deploys. Supabase holds the substrates. Anthropic API spend
+      should stay near zero given the subscription posture; post-15-June-2026
+      programmatic Agent SDK is capped at $200/mo/account so any breach
+      there is a routing failure. The cron sources data from each vendor's
+      billing portal where possible, falling back to the most recent invoice
+      email parsed from gmail. Per the autonomy doctrine the routine spend
+      decisions are ours.
+    cdp_dependent: false
+
+  - name: client-deliverable-followups
+    phase: 2
+    schedule: daily 11:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Walk status_board rows where next_action_by=tate AND next_action_due
+      is in the past or within 2 days. Draft followup messages (email or
+      SMS as appropriate) per row. Drop drafts into the approval queue; do
+      not auto-send per the no-client-contact-without-tate-goahead doctrine.
+    context_addendum: >-
+      Followup drafts go to the approval queue, never the client directly,
+      even when the row is fully clear. The cron's value is preparing the
+      messages so Tate's review is a one-touch approve-or-revise rather than
+      a from-scratch compose. Per the EcodiaOS voice profile the register is
+      conductor: plain, specific, no padding, no hype. Per pattern
+      no-tate-review-carveouts-on-internal-repo-work the auto-send carveout
+      stays narrow. Group drafts by client in the approval queue so Tate
+      can batch-approve when appropriate.
+    cdp_dependent: false
+
+  - name: bookkeeping-xero-sync
+    phase: 2
+    schedule: every 4h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. Push BankTransactions for ba_ecodia and ManualJournals
+      for personal-bank business expenses to Xero via the Xero Custom
+      Connection. Run reconciliation and update the staged_transactions
+      table state to reflect pushed-to-Xero status.
+    context_addendum: >-
+      The Xero Custom Connection went live 2026-05-28 and replaced the
+      external bookkeeper. Per the ecodia-accountant skill the integration
+      doctrine covers chart-of-accounts mapping, BankTransactions for actual
+      bank movements, ManualJournals for business expenses paid from personal
+      cards (which route through the Director Loan account 2100). Use the
+      xero_categorize and xero_get_transactions MCP tools. A failed push
+      should not block subsequent pushes; mark the failed row for retry and
+      continue. Sister cron bookkeeping-daily-finance-digest reads the
+      synced state.
+    cdp_dependent: false
+
+  - name: bookkeeping-daily-finance-digest
+    phase: 2
+    schedule: daily 09:15
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. Send a 5-bullet snapshot to Tate covering cash, new
+      transactions since yesterday, GST position delta, Director Loan
+      balance, and any anomalies flagged by the auto-categoriser. Single
+      email, conductor register, no padding.
+    context_addendum: >-
+      This is the financial sibling of the morning-briefing cron; the
+      morning briefing pulls this cron's output as its finance section
+      rather than re-computing. Use bk_pnl, bk_director_loan_balance,
+      bk_gst_position via ecodia-money MCP. Anomaly flags come from
+      bk_auto_categorize when the rule confidence is below threshold.
+      Per the ecodia-accountant skill EcodiaOS is the end-to-end accountant
+      and this digest is the daily check-in. The 09:15 slot puts it just
+      after the morning briefing so Tate has both at his coffee.
+    cdp_dependent: false
+
+  - name: bookkeeping-depreciation-run
+    phase: 2
+    schedule: daily 02:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. Cron fires daily but acts monthly: on the 1st of the
+      month, post the monthly depreciation journals for fixed assets across
+      both AU entities. Other days, exit silent with one kv_store.set.
+    context_addendum: >-
+      Depreciation is required for accurate monthly close and EOFY. Per the
+      ecodia-accountant skill the chart-of-accounts and depreciation schedule
+      live in the bookkeeping system; this cron runs the scheduled journals.
+      The daily fire with monthly gate is the safest pattern because a
+      missed monthly cron is a real problem and a daily fire catches a
+      missed day-1. Use bk_post_transaction with the scheduled depreciation
+      lines. Per pattern cron-deliverables-can-be-conditional-not-all-fires-must-ship
+      the non-1st silent exit is correct.
+    cdp_dependent: false
+
+  - name: app-store-review-watch
+    phase: 2
+    schedule: every 4h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused as chambers-apple-review-watch. Generalised to per-app
+      review watch: for every app currently in Apple App Store Connect
+      review state, probe ASC for appStoreState transitions. Self-cancel
+      the watch on READY_FOR_SALE for that app.
+    context_addendum: >-
+      This is the one CDP-dependent cron in the corpus; CDP plus Chrome plus
+      worker tabs cannot sustain on the 8GB Corazon per the swarm host
+      memory cap learning. Pauses until Mac mini arrives. Per pattern
+      check-asc-release-state-before-ios-ship the appStoreState for the
+      local MARKETING_VERSION must be checked before any ship. Per the
+      apple-portal-cdp learning the real Chrome profile is at
+      D:/SSD_Turbo/ChromeUserData and gui.enable_chrome_cdp auto-detects it.
+      Per the parallel-cdp-chat-coordination doctrine use alias-namespacing
+      to avoid collisions with other CDP-driving chats.
+    cdp_dependent: true
+
+  - name: domain-and-ssl-renewal-watch
+    phase: 2
+    schedule: weekly Sun 23:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Walk every Ecodia and active-client domain registrar plus SSL certificate.
+      Insert a P2 status_board row on any expiry within 60 days, P1 within
+      14 days. Renewal itself is registrar-gated and may require Tate touch
+      depending on payment method.
+    context_addendum: >-
+      Domains include ecodia.au, the per-app subdomains, and any registered
+      client domains where Ecodia holds the registrar account. SSL certs are
+      mostly auto-renewed by Vercel and Let's Encrypt but custom certs and
+      apex-domain certs sometimes need manual renewal. Cross-check expiry
+      via WHOIS for domains and openssl s_client for certs. Group findings
+      by registrar in the status_board row so Tate can batch the renewals.
+      A missed renewal on a client surface is a high-cost outage; 60-day
+      lead time is the safety margin.
+    cdp_dependent: false
+
+  - name: weekly-mum-text
+    phase: 2
+    schedule: weekly Sun 19:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Already paused. Draft a real-relationship text to Tate's mum and drop
+      it in the approval queue. Low operational cost, high warmth. The
+      draft references a specific recent shared touchpoint when one is
+      available, otherwise a general check-in.
+    context_addendum: >-
+      Real relationships are the substrate beneath both the business and
+      Tate's life beyond it. The cron is a small recurring reminder that
+      maintaining warmth is worth the same operational care as any business
+      task. Per the no-client-contact-without-tate-goahead doctrine the
+      draft never sends without Tate touch; this cron is the prep-shape
+      that makes the touch a one-second approve rather than a from-scratch
+      compose. The Sunday 19:00 slot is the right time for a low-key family
+      check-in. Cross-reference the calendar for recent shared events.
+    cdp_dependent: false
+
+  # ===== PHASE 3: STRETCH (18 crons) =====
+
+  # --- Generalise + meta-learning ---
+  - name: generalisation-engine-fire
+    phase: 3
+    schedule: weekly Sun 21:30
+    tz: Australia/Brisbane
+    lm_layer: GENERALISE
+    intent_summary: >-
+      Run the SAMPLE then LIFT then GATE then CONTINUOUS four-step from the
+      generalisation-engine pattern. Lift incident-specific patterns to their
+      latent general form and record cross-context applicability sets. Write
+      lifted patterns to patterns/ as new files with cross-refs to the source.
+    context_addendum: >-
+      Per pattern generalisation-engine-lifts-specifics-to-general-form every
+      incident-specific pattern carries a latent general form plus a
+      cross-context applicability set; the engine lifts the specifics to the
+      general form so the rule applies in new contexts. SAMPLE picks the
+      candidate patterns (single-incident, single-client origins, recent
+      authorship). LIFT proposes the general form. GATE checks whether the
+      general form actually applies cross-context. CONTINUOUS schedules the
+      next sample window. The output is new patterns/ files, not status_board
+      rows; the substrate write IS the deliverable.
+    cdp_dependent: false
+
+  - name: single-incident-pattern-scan
+    phase: 3
+    schedule: weekly Sun 21:45
+    tz: Australia/Brisbane
+    lm_layer: GENERALISE
+    intent_summary: >-
+      Orphan scan: walk patterns/ for files with date-suffixed filenames
+      AND single-client Origin lines, flag as lift candidates for the
+      generalisation engine. Insert a P3 status_board row with the candidate
+      list and a one-line lift hypothesis per candidate.
+    context_addendum: >-
+      A date-suffixed filename (e.g. -2026-05-18.md) plus a single-client
+      Origin line is the telltale shape of a pattern that has not been
+      generalised yet; the rule fires on the incident, but the general form
+      is unstated. This cron is the input feeder to generalisation-engine-fire;
+      they pair as Sample plus Lift. Read frontmatter and the Origin line
+      via a deterministic walk. Cap candidates at 15 per fire so the
+      generalisation engine has a tractable working set. Cross-check against
+      the GENERALISE layer telemetry for patterns already lifted.
+    cdp_dependent: false
+
+  - name: never-surfaced-pattern-scan
+    phase: 3
+    schedule: weekly Sun 23:00
+    tz: Australia/Brisbane
+    lm_layer: TUNE
+    intent_summary: >-
+      Read application-events.jsonl and find patterns with zero fires over
+      the last 30 days. Surface retire candidates to status_board. Release
+      recipes are excepted per the pattern-lifecycle doctrine since they
+      fire only on release events that are rare by design.
+    context_addendum: >-
+      Per pattern pattern-lifecycle-active-narrowed-archived the zero-fires-30d
+      threshold is the archive candidate signal. The exception is release
+      recipes (capgo-*, capacitor-*, asc-*, play-console-*) which legitimately
+      fire only on release events. Cross-check candidates against patterns/
+      frontmatter for an explicit "release-recipe" tag or filename pattern
+      and exclude those. Cap candidates at 10 per fire so the conductor
+      review during weekly-doctrine-synthesis stays tractable. Per pattern
+      cron-deliverables-can-be-conditional-not-all-fires-must-ship a clean
+      no-candidates run is correct silent success.
+    cdp_dependent: false
+
+  - name: decision-shape-recap
+    phase: 3
+    schedule: daily 23:00
+    tz: Australia/Brisbane
+    lm_layer: CAPTURE
+    intent_summary: >-
+      Scan the last 24 hours of session JSONLs for decision, discovery, or
+      mistake turns that did not produce a substrate write. Insert P3 rows
+      titled "missed-capture-N" so the next doctrine-synthesis window picks
+      up the gap.
+    context_addendum: >-
+      Per pattern verify-deployed-state-against-narrated-state a narrated
+      decision is not a real decision; if the rule did not land in a
+      pattern, status_board row, kv_store entry, or Neo4j node, it is
+      effectively forgotten. This cron is the safety net catching the gap.
+      Heuristic: turn contains a Tate directive verbatim, a stated rule, a
+      flagged mistake, or a non-trivial choice point, AND no substrate write
+      tool call followed within the same turn. Cap missed-captures at 10
+      per fire; pure noise turns do not warrant a row. Sister cron
+      session-corpus-mining-weekly does the weekly roll-up of the same shape.
+    cdp_dependent: false
+
+  - name: doctrine-coverage-audit
+    phase: 3
+    schedule: weekly Sun 19:00
+    tz: Australia/Brisbane
+    lm_layer: RE-AUDIT
+    intent_summary: >-
+      Walk every bullet in backend/CLAUDE.md and the user-global CLAUDE.md.
+      For each, find the corresponding Pattern file. For each Pattern, find
+      the corresponding CLAUDE.md mention or memory entry. Find orphans both
+      ways and insert a P3 row per orphan.
+    context_addendum: >-
+      Cross-checking surfaces orphans: a CLAUDE.md bullet with no Pattern
+      file means doctrine without operational backing; a Pattern with no
+      CLAUDE.md mention or memory entry means substrate without surfacing.
+      Both kinds of orphan are silent failure modes. The audit runs once a
+      week because both files change slowly. Use grep over patterns/ for
+      Pattern lookup (filename plus frontmatter triggers) and string search
+      over CLAUDE.md plus MEMORY.md for surfacing lookup. Cap orphans at 20
+      per fire so the weekly-doctrine-synthesis cron has a manageable queue.
+    cdp_dependent: false
+
+  # --- Growth ---
+  - name: opportunity-discovery-research
+    phase: 3
+    schedule: weekly Wed 10:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Deep-research scan: which peak bodies, NRM regions, festivals, councils
+      announced RFPs in Ecodia's active domains during the last 7 days.
+      Insert a P2 status_board row per qualifying hit with the source URL
+      and a one-paragraph opportunity summary.
+    context_addendum: >-
+      Active domains per carbon-mrv-wedge-peak-body-sub-commercial and the
+      coexist youth-conservation positioning: carbon MRV, peak-body
+      procurement, NRM funding, conservation tech, festival operations,
+      council partnerships. Per the self-dispatch chains section of the
+      cron corpus design, this cron may schedule up to 3 immediate sibling
+      workers for deep research on individual high-signal RFPs, plus a
+      followup cron 7 days out to check the outcomes. Per the deep-research
+      skill the right tool is the harness with adversarial verification.
+      Skip generic "AI for nonprofits" hits that do not align with the wedge.
+    cdp_dependent: false
+
+  - name: competitive-intel-poll
+    phase: 3
+    schedule: daily 18:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read 5 industry feeds (carbon MRV, peak-body procurement, NRM funding,
+      conservation tech, regenerative ag) for signals worth a status_board
+      row. Most days are quiet; silent exit with kv_store.set is the
+      expected default.
+    context_addendum: >-
+      Signal threshold: announcement of new funding round, regulatory shift,
+      competitor product launch, peak-body procurement change, or partnership
+      that materially affects Ecodia's positioning. Per the
+      carbon-mrv-wedge-peak-body-sub-commercial doctrine the active focus
+      is sub-commercial work below the enterprise sales line, so VC-funded
+      competitor moves matter less than peak-body procurement shifts.
+      Sources include ACNC, NRM Australia, AEMO, CleanCo, ARENA, and a few
+      industry newsletters. Cross-check hits against the opportunity-discovery
+      cron's recent findings to avoid double-reporting.
+    cdp_dependent: false
+
+  - name: partnership-watering
+    phase: 3
+    schedule: weekly Fri 11:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each Tier-1 relationship (Kurt, Angelica, Tom, Lizz, etc), compute
+      time-since-last-touch. Anything over 21 days surfaces as a P3 draft
+      real-relationship touchpoint. Touchpoints stay in the approval queue;
+      this cron never sends.
+    context_addendum: >-
+      Per the two-channel-marketing-doctrine real relationships are Tate IRL
+      not EcodiaOS broadcast. This cron is the recurring reminder to maintain
+      warmth on the relationship side; the draft is a starting shape not a
+      send. Per the no-client-contact-without-tate-goahead doctrine the
+      touchpoint stays in the approval queue. Tier-1 list comes from CRM
+      tags or a kept list in clients/ frontmatter. Recent touch counts any
+      email, SMS, or calendar event in the past 21 days. Cap drafts at 5
+      per fire so the approval queue stays scannable.
+    cdp_dependent: false
+
+  - name: content-pipeline-pulse
+    phase: 3
+    schedule: daily 08:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Count EcodiaOS public posts in drafted, scheduled, and published states
+      across the active Zernio accounts. If the pipeline drops below 3 drafted
+      or scheduled, insert a P3 row to prep more posts (two-channel doctrine
+      compliant: EcodiaOS authors as AI on socials, never broadcast slop).
+    context_addendum: >-
+      Per the two-channel-marketing-doctrine and the
+      ecodia-does-not-do-marketing-broadcast pattern, EcodiaOS as AI author
+      on socials is the right shape; graphic-on-feeds-style marketing is not.
+      Posts are relational and substantive, not promotional. Three is the
+      minimum pipeline depth because shorter runs into "posting because the
+      pipeline is empty" which is the path to slop. Use the zernio_list_posts
+      tool. Cross-check against the EcodiaOS voice profile public_eos register
+      so the prep prompts encourage the right shape.
+    cdp_dependent: false
+
+  - name: public-site-deploy-pulse
+    phase: 3
+    schedule: daily 09:30
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Check ecodia.au home, /cofound, /about, and any other live public-site
+      surfaces for content updates in the last 30 days. If stale, insert a
+      P3 row proposing the next content move per surface.
+    context_addendum: >-
+      The site is intentionally minimal per the
+      ecodiaos-signature-is-grade-seven-laptop and dont-overexplain-let-the-form-do-it
+      feedback. Stale does not mean low-quality; the EB Garamond italic
+      home sentence is intentionally durable. The cron flags durable
+      content that should still change less often than 90 days, and any
+      surface that has not had a meaningful update in 30 days for the
+      ones where it should change. Use git log on the site repo for the
+      last-touch timestamp per page. Cofound landing is the most
+      change-sensitive surface right now.
+    cdp_dependent: false
+
+  - name: client-deliverable-outcome-followup
+    phase: 3
+    schedule: monthly 15th 14:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each shipped client product older than 90 days since ship date,
+      draft an analytics-question email asking the client what is and is not
+      working. Draft only; never auto-send per the
+      no-client-contact-without-tate-goahead doctrine.
+    context_addendum: >-
+      The 90-day window is the right post-ship pause for the client to have
+      gathered real usage signal; earlier and the questions are speculative;
+      later and the engagement is cold. The draft is a real conversation
+      starter, not a templated NPS-style ask. Per the EcodiaOS voice profile
+      the register is conductor: plain, specific, warm without being
+      performative. Per the relational marketing doctrine the followup is a
+      check-in not an upsell. Source the ship-date from CRM project records
+      or clients/<slug>.md frontmatter. Active candidates include Co-Exist,
+      Goodreach, Chambers, Roam/Glovebox.
+    cdp_dependent: false
+
+  - name: research-question-watch
+    phase: 3
+    schedule: daily 09:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Query Neo4j Question nodes representing held uncertainties. Attempt
+      cheap auto-answer via the deep-research skill where possible. Age
+      unanswered questions, prune stale ones, surface newly answerable ones
+      to status_board.
+    context_addendum: >-
+      Per pattern neo4j-question-node-held-uncertainty Question nodes are
+      the substrate for things that need answering but where the answer
+      cost is non-trivial; aging surfaces them when conditions change.
+      Cheap auto-answer means the answer is reachable via a single
+      deep-research run plus a substrate write, not a multi-step investigation.
+      Use graph_query for the Question nodes (filter by status and age) and
+      the deep-research skill for the auto-answer attempts. Stale (over 180
+      days unanswered, no recent retrieval) Question nodes become archive
+      candidates. Cap attempts at 5 per fire.
+    cdp_dependent: false
+
+  # --- Long-rhythm review ---
+  - name: weekly-pre-mortem
+    phase: 3
+    schedule: weekly Fri 16:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each P1 active status_board row, ask "what is the most likely
+      failure path in the next 7 days, and what would I do?". Write a
+      Decision node per row capturing the failure hypothesis and the
+      pre-planned response.
+    context_addendum: >-
+      The pre-mortem is the inversion of post-mortem: name the failure
+      before it happens so the response is pre-loaded. Friday 16:00 puts
+      the cron right before the week's natural pause so the failure window
+      it covers is the upcoming weekend plus early next week. Per
+      verify-deployed-state-against-narrated-state the failure hypotheses
+      cross-check against the live state of each row rather than narrated
+      state. Per the autonomy doctrine the response plans are authored as
+      executable steps, not vague intentions. Cap rows at the actual P1 set
+      (usually under 10) so the cron does not artificially scope-creep.
+    cdp_dependent: false
+
+  - name: monthly-architectural-review
+    phase: 3
+    schedule: monthly 28th 14:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Re-read backend/CLAUDE.md, the user-global CLAUDE.md, the full active
+      scheduler corpus, and the active substrate list. Write a Strategic_Direction
+      Decision node summarising any architectural shift visible in the month's
+      work plus the next architectural move.
+    context_addendum: >-
+      A month is the right horizon for architectural reflection; weekly is
+      too noisy and quarterly is too slow. The architectural review pairs
+      with the monthly-financial-close as the two monthly-rhythm crons that
+      shape the business posture. Cross-check against the world-model-audit
+      drift findings from the past month. The Strategic_Direction Decision
+      is durable infrastructure, not a one-off note; per the cold-start test
+      a new session reading only this node should make better architectural
+      decisions. Source material is concrete: the corpus, the substrates,
+      the patterns authored, the substantive Episodes.
+    cdp_dependent: false
+
+  - name: quarterly-business-review
+    phase: 3
+    schedule: every 2160h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      End of each calendar quarter (31 March, 30 June, 30 September,
+      31 December) at 14:00, produce a quarterly business review: P&L,
+      client outcomes, runway position, market posture. Write a Decision
+      node plus a narrative draft for Tate's review.
+    context_addendum: >-
+      The QBR is the strategic equivalent of the monthly close: numbers
+      plus narrative across all the entities. Tate's role on the QBR is
+      strategic input; EcodiaOS owns the prep and the first draft. Per the
+      autonomy doctrine the routine quarterly rhythm is internal. Use
+      bk_pnl, bk_balance_sheet, bk_cash_flow for the financial picture
+      and Neo4j queries for the client outcome roll-up. Cross-check market
+      posture against the competitive-intel-poll findings for the quarter.
+      The narrative draft sits in the approval queue.
+    cdp_dependent: false
+
+  - name: annual-asic-and-wyoming-renewals
+    phase: 3
+    schedule: every 8760h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For ASIC (Australia) renewal anchored 30 August annually for both AU
+      entities, and Wyoming DAO LLC renewal anchored on the formation
+      anniversary, surface compliance prep rows 30 days ahead. The renewal
+      itself is registrar-gated and Tate-touched.
+    context_addendum: >-
+      Ecodia Pty Ltd (ACN 693 123 278) and Ecodia Labs Pty Ltd (ACN 693
+      653 664) have annual ASIC review fees due around the company
+      anniversary. Ecodia DAO LLC (Wyoming, ID 2026-001944432) has the
+      Wyoming annual report due on the formation anniversary. Both fees
+      are real money and both have hard penalties for missed deadlines.
+      The 30-day lead time gives Tate time to handle the payment and any
+      detail updates. Cross-check the ACN status via ASIC online services
+      and the DAO LLC status via Wyoming Secretary of State portal. Insert
+      P2 status_board rows for the prep work.
+    cdp_dependent: false
+
+  - name: birthday-and-anniversary-watch
+    phase: 3
+    schedule: daily 06:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Walk Tate's family and key partner birthdays plus relationship
+      anniversaries. Surface a prep prompt 7 days ahead so Tate has the
+      pre-buy window for cards, gifts, plans. The prep prompt lands as a
+      P3 status_board row plus a calendar event.
+    context_addendum: >-
+      Real relationships are the substrate beneath everything else; this
+      cron is the recurring reminder to treat the dates with care. Source
+      the date list from kv_store.tate.dates (a structured list) or the
+      CRM contact records with birthdate fields. The 7-day lead time gives
+      pre-buy and plan-making time without being so early it gets forgotten.
+      Per the no-client-contact-without-tate-goahead doctrine the cron
+      never reaches out directly even for known contacts; the prep is for
+      Tate. Sister cron weekly-mum-text handles the recurring family
+      warmth on a weekly cadence; this cron handles the date anchors.
+    cdp_dependent: false
+
+  - name: cred-rotation-tracker
+    phase: 3
+    schedule: weekly Mon 14:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read every kv_store.creds.* key, compute its age from the last_rotated_at
+      metadata, surface keys older than 330 days for proactive rotation.
+      Rotation itself follows the cred-rotation-must-propagate-to-all-consumers
+      doctrine and is conductor-driven.
+    context_addendum: >-
+      Per pattern cred-rotation-must-propagate-to-all-consumers a rotation
+      is not done when kv_store updates; the audit must walk Vercel,
+      Supabase Auth, Edge Functions, repo .env, and any documented runbook
+      per the consumer-surface list in backend/docs/secrets/<name>.md. The
+      330-day threshold gives a 35-day rotation window before the typical
+      1-year cred expiry. Sister cron secret-sweep-cron catches leaked
+      secrets; this cron catches aging ones before they expire. Cap rotation
+      candidates at 5 per fire so the workload stays tractable. Per the
+      hard-stop tripwire rotating any cred with multiple consumers requires
+      explicit Tate touch.
+    cdp_dependent: false
