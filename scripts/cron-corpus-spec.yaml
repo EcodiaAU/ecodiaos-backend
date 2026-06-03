@@ -1,11 +1,9 @@
-# Cron corpus manifest. Entries faithfully extracted from
-# docs/superpowers/specs/2026-06-03-cron-corpus-design.md (v3 commit 84ae9845).
+# Cron corpus manifest. 75 entries faithfully extracted from
+# docs/superpowers/specs/2026-06-03-cron-corpus-design.md (v3.1 commit 9f023e55).
 # Schema enforced by scripts/cron_prompt_builder.py validators.
 # Resume order = file order = spec table order.
-#
-# NOTE on count: the spec ships 30 Phase-1 + 21 Phase-2 + 18 Phase-3 = 69 rows.
-# Task brief asked for 75 (30 + 26 + 19) but the spec corpus is 69. Authoring
-# faithful 69 rather than fabricating 6 fictional entries to hit a count.
+# Counts: 30 Phase-1 (foundation) + 26 Phase-2 (business cognition) + 19 Phase-3 (stretch).
+# Exactly 1 cdp_dependent entry (app-store-review-watch), deferred until Mac mini.
 
 crons:
   # ===== PHASE 1: FOUNDATION (30 crons) =====
