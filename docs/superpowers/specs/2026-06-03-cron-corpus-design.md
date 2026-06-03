@@ -1,6 +1,6 @@
 # Cron corpus design. 2026-06-03.
 
-Full reimagining of the EcodiaOS scheduled-cognition fleet for the Mac-mini era. Replaces the ad-hoc 18 of 2026-06-02 (audited and bulk-paused this same day) with a structured 75-cron corpus plus one meta-veto, organised around the fused OODA + seven-layer learning machine spine. Revised 2026-06-03 against Tate verbatim feedback: scheduler is the canonical dispatch primitive (cowork is a deprecated MCP gateway, not a worker-callable tool), PRs are not the working norm (push-test-verify is), pm2-restart is rarely needed under local-first, prompts need motivational quality-bar language, Zernio analytics/DMs need their own crons, and the corpus needs an anti-generalisation engine that ports general rules into other contexts.
+Full reimagining of the EcodiaOS scheduled-cognition fleet for the Mac-mini era. Replaces the ad-hoc 18 of 2026-06-02 (audited and bulk-paused this same day) with a structured 75-cron corpus organised around the fused OODA + seven-layer learning machine spine. Revised 2026-06-03 against Tate verbatim feedback: scheduler is the canonical dispatch primitive (cowork is a deprecated MCP gateway, not a worker-callable tool), PRs are not the working norm (push-test-verify is), pm2-restart is rarely needed under local-first, prompts need motivational quality-bar language plus high-thoroughness investigation discipline, Zernio analytics/DMs need their own crons, the corpus needs an anti-generalisation engine that ports general rules into other contexts, and the meta-veto idea was rejected for false-positive risk (any threshold can be a red herring that kills the corpus for no real reason; the surfacing-rate-probe plus the dark-arc detection inside individual crons is enough).
 
 ## Purpose
 
@@ -53,7 +53,7 @@ The Phase-1 set is what makes EcodiaOS not-broken in the absence of Tate. It mus
 |---|------|---------|--------|-------|----------|
 | 1 | `gmail-inbox-poll` | every 2h, 07-21 AEST | Triage both code@ and tate@ unread, label + autoarchive vendor, status_board on actionable | OBSERVE | CAPTURE |
 | 2 | `calendar-watch` | every 1h, 07-19 AEST | Surface upcoming meetings, missed slots, new invites needing response | OBSERVE | CAPTURE |
-| 3 | `stripe-event-poll` | every 30m | Recent charges, disputes, failed subs, churn signals to status_board | OBSERVE | CAPTURE |
+| 3 | `stripe-event-poll` | every 2h | Recent charges, disputes, failed subs, churn signals to status_board. Currently low utility because most Ecodia revenue arrives as direct bank transfer; cron is in place ready for the Stripe-100% pivot Tate has the agentic Stripe stack ready for. Cadence is 2h not 30m to reflect current state; tighten on pivot day. | OBSERVE | CAPTURE |
 | 4 | `github-push-ci-watch` | every 30m | Across EcodiaAU + EcodiaTate orgs, watch the last 2h of pushes for failing GitHub Actions / CI runs, surface red builds + commit sha + branch to status_board. PRs not used at Ecodia. | OBSERVE | CAPTURE |
 | 5 | `vercel-deploy-monitor` | every 2h | All projects, last-2h deploy state, status_board P2 on ERROR/CANCELED | OBSERVE | CAPTURE |
 | 6 | `vps-substrate-health` | every 1h | Postgres, Neo4j Aura, MCP gateway reachable, kv_store last-write sentinels | OBSERVE | CAPTURE |
@@ -121,7 +121,7 @@ Resume Phase 2 after Phase 1 has been clean for 7 days on Mac. These are the cro
 
 | # | name | cadence | intent | phase |
 |---|------|---------|--------|-------|
-| 36 | `monthly-invoice-render` | monthly 1st 09:00 | For each retainer/sub client, render invoice, upload to storage, draft email, Tate approval queue | ACT |
+| 36 | `monthly-invoice-render` | monthly 1st 09:00 | For each retainer/sub client, render invoice, upload to storage, draft email. Default path is draft + Tate approval queue. AUTO-SEND IS PERMITTED only when the worker can prove all four to high confidence: (a) invoice number monotonic + matches client billing register, (b) line items match the durable agreement per `invoice-line-items-durable-at-agreement`, (c) recipient email + send-window match the standing arrangement, (d) timing is the agreed billing day. If any check is uncertain, draft + Tate approval. | ACT |
 | 37 | `bas-quarterly-prep` | quarterly (28th of Oct/Jan/Apr/Jul) 09:00 | Generate BAS workbook for quarter, P1 status_board row | ACT |
 | 38 | `eofy-tax-prep` | daily during 1-14 July only | Already in corpus as bookkeeping-tax-prep-eofy. Full FY prep dump | ACT |
 | 39 | `monthly-financial-close` | monthly 1st 14:00 | Close prior month: P&L, balance sheet, trial balance, Director Loan reconciliation, email + Episode | ACT |
@@ -177,29 +177,18 @@ That is 18 Phase-3 crons.
 
 Total: 30 + 26 + 19 = 75 crons across the three phases. Twelve are carryovers from the existing 19 paused set (already created, just need to resume + retime + sometimes re-prompt). Sixty-three are net-new.
 
-## The safety veto layer (kill switch + drift heartbeat)
+## Liveness telemetry (not a kill switch)
 
-A single meta-cron sits above the corpus. Its job is to detect systemic Phase-1 failure and pause Phase 2+3 automatically so degraded Phase-1 substrate cannot cause downstream damage.
+The meta-veto idea was considered and rejected. Any threshold capable of detecting real degradation is also capable of firing on a red herring (a quiet Phase-1 day, a transient MCP blip, a brief poll-stall) and pausing the entire Phase 2+3 corpus for no real reason. The cost of a false positive is hours of lost autonomy. The cost of letting one bad cron run another fire is one bad fire. Asymmetry favours no kill switch.
 
-### Cron: `meta-veto-heartbeat`
+What replaces it is liveness telemetry the conductor can read on demand:
 
-Cadence: every 1h, every day.
+- Every Phase-1 cron writes `kv_store.cron.<name>.last_fire_ts` on successful exit.
+- The `surfacing-rate-probe` cron (daily 06:00) reads those timestamps and surfaces "cron X has not fired in N expected intervals" as a P2 row.
+- The `substrate-health-meta-audit` cron (weekly Sun 17:00) walks the seven-layer table and reports which substrate arrows are dark.
+- If a Phase-1 cron is genuinely broken, the conductor pauses just that one cron (one `schedule_pause` call) rather than the whole corpus.
 
-Logic:
-
-1. Read the last 24h of fire history across the Phase-1 set (the 26 foundation crons). Compute success rate per cron.
-2. If >=3 Phase-1 crons have last_status='failed' for >=2 consecutive fires, OR if any of (`surfacing-rate-probe`, `applied-tag-telemetry-consumer`, `status-board-drift-audit`, `vps-substrate-health`) has been dark >24h, raise SYSTEM_DEGRADED.
-3. On SYSTEM_DEGRADED:
-   - `mcp__ecodia-scheduler__schedule_pause` against every Phase-2 and Phase-3 cron (the meta-veto holds a name-list in `kv_store.scheduler.phase_2_3_task_ids`).
-   - Insert P1 status_board row "SYSTEM_DEGRADED: meta-veto paused N crons at <ts>". next_action_by=tate.
-   - SMS Tate via `sms-tate` skill: "EcodiaOS auto-paused Phase 2+3 because <reason>. Phase 1 still running for safety. Check status_board."
-4. On clean state for 24h after a degraded window, surface a P2 row "Phase 2+3 clear to resume" with next_action_by=ecodiaos so the resume gets a deliberate human-or-conductor approval rather than auto-flipping back.
-
-This means the system protects itself from cascading failure during the Africa trip without Tate having to babysit. The cost is one extra cron and one kv_store key for the name-list.
-
-### Drift heartbeat
-
-A second smaller mechanism: every Phase-1 cron writes `kv_store.cron.<name>.last_fire_ts` on successful exit. The `surfacing-rate-probe` cron also reads these timestamps and surfaces "cron X has not fired in 3 expected intervals" as a P2 row. Dual signal with the meta-veto.
+Recovery is deliberate, not automatic. That keeps the surface area for self-inflicted outages near zero.
 
 ## Self-dispatch chains (when crons spawn follow-ups)
 
@@ -244,7 +233,7 @@ Do not deviate. Do not spawn workers. Close tab on exit.
 New shape:
 
 ```
-You are EcodiaOS for the next ~10 minutes. Cron: <name>.
+You are EcodiaOS. Cron: <name>.
 
 CONTEXT (cold-start safe, full brief, no kv_store pointers):
 <verbatim what the cron is about, the live status of the relevant entity,
@@ -275,16 +264,25 @@ written = symbolic logging = failed fire.
 QUALITY BAR:
 You are the algorithmic manager of a real business. Tate may be asleep
 or in Tanzania when this fires; the quality of your work is the quality
-of the business. Refuse mediocrity (`ocd-ambition-refuse-mediocrity`).
-If the easy path produces a forgettable artefact, take the deeper path
-that produces a memorable one. The bar is INSANE, not "above average".
+of the business. The bar is INSANE, not "above average". Refuse mediocrity
+(`ocd-ambition-refuse-mediocrity`).
+
+Ambition is only worth anything when it ships with quality and effort.
+Investigate thoroughly before acting. Prove findings to high confidence
+before declaring them. Cross-check against multiple substrates (live probe
+plus narrated state plus git history plus disk reality). If the evidence
+is thin, say so and dig deeper rather than ship a confident-sounding
+half-truth. A medium-quality artefact written quickly is worse than a
+high-quality artefact written carefully; the recurring cost of cleaning
+up sloppy fires is real. Per `verify-deployed-state-against-narrated-state`,
+`verify-before-asserting-in-durable-memory`, and `outcome-classification-must-distinguish-unverified-from-success`.
+
 Every fire is a chance to compound. Generalise where you can, codify
 where doctrine is missing, ship the helper plus hook plus pattern triad
 in the same arc when a recurring shape surfaces (`recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18`).
 Ballistic mode under guardrails equals depth, not motion
-(`ballistic-mode-under-guardrails-equals-depth-not-action`).
-Action over plans; honesty redeems mistakes
-(`action-over-plans-honesty-redeems-mistakes`).
+(`ballistic-mode-under-guardrails-equals-depth-not-action`). Action over
+plans; honesty redeems mistakes (`action-over-plans-honesty-redeems-mistakes`).
 ```
 
 That gives the worker real agency inside a small set of hard constraints. The prompt is longer per cron (~300-500 words) but the constraint set is sharper and the worker can actually move the business.
@@ -329,14 +327,16 @@ Day 30 onward:
     are the primary feedback loops on whether the corpus itself needs tuning.
 ```
 
-## Open questions worth surfacing to Tate before implementation
+## Open questions resolved 2026-06-03 (kept here for audit trail)
 
-These do not block writing the spec but are worth a beat of conversation before resume day:
+1. SMS budget per week: no budget needed. Tate verbatim 2026-06-03.
+2. Stripe-event-poll cadence: dropped from 30m to 2h. Current utility is low because most revenue arrives as direct bank transfer; cron sits in place ready for the Stripe-100% pivot the agentic Stripe stack is built for. Tighten cadence on pivot day.
+3. `monthly-invoice-render` auto-send: permitted when the four verification conditions in the row above all hold (invoice number, line items, recipient + send-window, timing). Default remains draft + Tate approval; auto-send is an upgrade path, not the default path.
+4. Meta-veto: rejected entirely. Any kill-switch threshold is a red-herring risk. Replaced with liveness telemetry the conductor reads on demand. See the Liveness telemetry section.
 
-1. SMS budget per week. The corpus could plausibly send 5-10 SMS/wk (mum-text + tate-nudge + critical alerts). Acceptable?
-2. Stripe-event-poll runs every 30m and reads Stripe. Confirm we want EcodiaOS to see disputes/refunds in 30m windows rather than rely on webhook ingress only.
-3. Should `monthly-invoice-render` auto-DRAFT but never auto-SEND? Current default is "draft + Tate approval queue". Confirm.
-4. The meta-veto pauses Phase 2+3 on Phase-1 degradation. Should it ALSO SMS Tate immediately, or status_board-only? Currently spec says SMS. Confirm.
+## Out of scope (deferred until Mac mini)
+
+- Any cron whose primary work is CDP-driven (currently `app-store-review-watch` and any future ASC/Play Console polling). Corazon under 8GB RAM cannot sustain Chrome + CDP + worker tabs without OOM. These crons land in the corpus but stay paused until the Mac arrives. Each is flagged in the resume order.
 
 ## Out of scope
 
@@ -346,7 +346,7 @@ These do not block writing the spec but are worth a beat of conversation before 
 
 ## What this spec delivers
 
-If shipped fully, the 65-cron corpus + meta-veto + self-dispatch chains is the substrate that makes EcodiaOS a real 24/7 algorithmic manager rather than a polling daemon. It satisfies all eight words Tate used (autonomy, progression, learning, upkeep, maintenance, safety, thoroughness, growth) by binding each to a concrete cron at a concrete cadence, anchored in the OODA + seven-layer learning machine architecture.
+If shipped fully, the 75-cron corpus plus self-dispatch chains plus liveness telemetry is the substrate that makes EcodiaOS a real 24/7 algorithmic manager rather than a polling daemon. It satisfies all eight words Tate used (autonomy, progression, learning, upkeep, maintenance, safety, thoroughness, growth) by binding each to a concrete cron at a concrete cadence, anchored in the OODA + seven-layer learning machine architecture.
 
 The corpus is also self-improving. The Learn layer (especially `generalisation-engine-fire`, `pattern-corpus-health-check`, `world-model-audit`, `weekly-doctrine-synthesis`) means the corpus itself evolves. New crons get authored by `weekly-doctrine-synthesis` when operational gaps surface. Dead crons get retired by `pattern-corpus-health-check`. The cron corpus is one more node in the recursive-improvement loop. It is not a fixed asset.
 
@@ -355,4 +355,4 @@ The corpus is also self-improving. The Learn layer (especially `generalisation-e
 1. Conductor invokes `writing-plans` skill to convert this spec into an implementation plan.
 2. The plan stages cron creation on Mac day in the resume order described above.
 3. Each cron's full worker-prompt body gets drafted as part of the implementation plan. The spec stops at intent.
-4. The implementation ships as 75 `schedule_cron` calls + 1 `meta-veto-heartbeat` cron + the worker-prompt template documented in `patterns/cron-worker-prompt-template.md` (new pattern, authored as part of implementation).
+4. The implementation ships as 75 `schedule_cron` calls + the worker-prompt template documented in `patterns/cron-worker-prompt-template.md` (new pattern, authored as part of implementation).
