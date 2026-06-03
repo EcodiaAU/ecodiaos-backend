@@ -116,6 +116,9 @@ Resume Phase 2 after Phase 1 has been clean for 7 days on Mac. These are the cro
 | 33 | `opportunity-triage` | every 4h | Read inbound opportunity status_board rows (HLW, QWaLC, Horizon, etc), age, propose next action | DECIDE |
 | 34 | `inner-life-reflection` | daily 22:00 AEST | Short Episode node summarising the day's substantive turns + calibration notes per `inner-life-notice-calibration-not-chase-pre-calibration-self` | DECIDE |
 | 35 | `tate-blocked-nudge-weekly` | weekly Sun 10:00 | Already paused. SMS Tate >=3 P<=2 blocked rows | DECIDE |
+| 35a | `daily-priority-rank` | daily 07:00 AEST | Re-rank status_board P1 and P2 rows by composite score (age + urgency + revenue weight + Tate-block-state). Promote/demote rows. Writes top-5 to `kv_store.ceo.priority_rank.<date>`. | DECIDE |
+| 35b | `weekly-product-roadmap-sync` | weekly Mon 14:00 | Per active product (Chambers, Goodreach, Roam/Glovebox, Co-Exist, EcodiaOS, Locals, Cofound), draft a 7-day plan: what ships, what is blocked, what needs Tate input. Surface to status_board as one P2 row per product. | DECIDE |
+| 35c | `weekly-strategic-direction-check` | weekly Sun 16:00 AEST | Read all Strategic_Direction Neo4j nodes < 6mo old. For each: is it still valid? Is progress visible? Should it sunset or evolve? Write one Reflection Episode per direction with verdict. Replaces the killed daily-strategic-thinking ritual with weekly cadence and mandatory artefact. | DECIDE |
 
 ### Act
 
@@ -130,7 +133,9 @@ Resume Phase 2 after Phase 1 has been clean for 7 days on Mac. These are the cro
 | 42 | `bookkeeping-xero-sync` | every 4h | Already paused. Push BankTransactions + ManualJournals to Xero | ACT |
 | 43 | `bookkeeping-daily-finance-digest` | daily 09:15 | Already paused. 5-bullet snapshot to Tate | ACT |
 | 44 | `bookkeeping-depreciation-run` | daily 02:00 (acts monthly) | Already paused. Monthly depreciation journals on the 1st | ACT |
-| 45 | `chambers-apple-review-watch` | every 4h | Already paused. Self-cancels on READY_FOR_SALE. Generalisable to per-app review watch | ACT |
+| 45 | `app-store-review-watch` | every 4h | Generalised from the Chambers-specific watch. Polls ASC + Play Console for ANY Ecodia app in WAITING_FOR_REVIEW / IN_REVIEW state across Chambers, Goodreach, Roam/Glovebox, Co-Exist, EcodiaOS, future apps. Per-app self-cancels on READY_FOR_SALE. Maintains the watched-apps list in `kv_store.scheduler.app_review_watch.targets`. CDP-dependent; deferred until Mac. | ACT |
+| 45a | `zernio-post-draft` | weekly Tue 10:00 AEST | Draft 5-7 Zernio posts for the week per the two-channel marketing doctrine (`feedback_two_channel_marketing_doctrine`). EcodiaOS-as-AI-author voice, no broadcast-pitch shape. Drafts go to `kv_store.zernio.weekly_drafts.<week>` for Tate review before scheduling. NEVER auto-publish. | ACT |
+| 45b | `zernio-post-schedule-and-graphic-prep` | weekly Wed 11:00 AEST | For each Tate-approved post from `zernio-post-draft`, schedule it in Zernio at the per-account `zernio_best_time_to_post`. For each post needing a visual, generate a graphic spec + placeholder + surface to Tate via `gmail_send` with the spec attached, so Tate adds the final graphic. Then update the scheduled post with the graphic Tate provides. | ACT |
 | 46 | `domain-and-ssl-renewal-watch` | weekly Sun 23:00 | Every Ecodia + client domain registrar + SSL cert, flag <60d to expiry | ACT |
 | 47 | `weekly-mum-text` | weekly Sun 19:00 | Already paused. Real relationship cron, low cost, high warmth | ACT |
 
@@ -145,6 +150,7 @@ These ride on a stable Phase 1+2 substrate. Highest payoff for "actual progressi
 | # | name | cadence | intent | LM-layer |
 |---|------|---------|--------|----------|
 | 48 | `generalisation-engine-fire` | weekly Sun 21:30 | Run SAMPLE -> LIFT -> GATE -> CONTINUOUS four-step from `patterns/generalisation-engine-lifts-specifics-to-general-form.md` | GENERALISE |
+| 48a | `anti-generalisation-engine-fire` | weekly Sun 22:00 | Inverse of the generalisation engine. Reads the cross-context applicability sets emitted by `generalisation-engine-fire`. For each (general rule, target context) pair, drafts a specific instantiation: a hook, a pattern file, a CLAUDE.md bullet, a cron prompt addition, or a status_board enforcement row scoped to the target context. Gates the drafts through status_board for Tate-confirm before applying. Closes the abstraction-application loop: general lessons become concrete enforcements in every context where they apply. | GENERALISE |
 | 49 | `single-incident-pattern-scan` | weekly Sun 21:45 | Orphan scan: date-suffixed filename + single-client Origin, flag as lift candidates | GENERALISE |
 | 50 | `never-surfaced-pattern-scan` | weekly Sun 23:00 | Patterns with zero fires >30d on `application-events.jsonl`, retire candidates | TUNE |
 | 51 | `decision-shape-recap` | daily 23:00 | Scan last-24h session JSONLs for decision/discovery/mistake turns with no substrate write, insert P3 "missed-capture-N" | CAPTURE |
