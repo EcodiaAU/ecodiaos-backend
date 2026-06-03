@@ -1,6 +1,6 @@
 # Cron corpus design. 2026-06-03.
 
-Full reimagining of the EcodiaOS scheduled-cognition fleet for the Mac-mini era. Replaces the ad-hoc 18 of 2026-06-02 (audited and bulk-paused this same day) with a structured 65-cron corpus plus one meta-veto, organised around the fused OODA + seven-layer learning machine spine.
+Full reimagining of the EcodiaOS scheduled-cognition fleet for the Mac-mini era. Replaces the ad-hoc 18 of 2026-06-02 (audited and bulk-paused this same day) with a structured 75-cron corpus plus one meta-veto, organised around the fused OODA + seven-layer learning machine spine. Revised 2026-06-03 against Tate verbatim feedback: scheduler is the canonical dispatch primitive (cowork is a deprecated MCP gateway, not a worker-callable tool), PRs are not the working norm (push-test-verify is), pm2-restart is rarely needed under local-first, prompts need motivational quality-bar language, Zernio analytics/DMs need their own crons, and the corpus needs an anti-generalisation engine that ports general rules into other contexts.
 
 ## Purpose
 
@@ -18,10 +18,11 @@ The pre-2026-06-02 prompts (and the rewrites shipped earlier this same audit ses
 The new prompt grammar (worked example in the template section below):
 
 - Worker IS EcodiaOS, full agency
-- Worker MAY schedule follow-up crons via `mcp__ecodia-scheduler__schedule_delayed` / `schedule_cron` when the situation warrants
-- Worker MAY dispatch sibling workers via `cowork.dispatch_worker` when parallelism would help
-- Worker MAY expand scope when the finding clearly calls for it. The only hard constraints are the doctrine bans (no client-contact-without-tate-goahead, no creds.* writes, no pm2 mutations, no em-dashes)
+- Worker MAY schedule follow-up crons via `mcp__ecodia-scheduler__schedule_delayed` / `schedule_cron` when the situation warrants. This is the canonical dispatch primitive on both axes (time and parallelism). The scheduler handles the spawn mechanism internally.
+- Worker MAY spawn an immediate sibling worker via `mcp__ecodia-scheduler__schedule_delayed` with `delay: "in 0m"` when parallelism would close the loop faster
+- Worker MAY expand scope when the finding clearly calls for it. The only hard constraints are: no client-contact without Tate go-ahead, no `creds.*` writes, no em-dashes (U+2014 banned at character level), no force-push to main
 - Worker SHOULD use judgement rather than silent-exit on a checklist mismatch
+- Worker SHOULD push, test, verify directly rather than open PRs. PRs are not the working norm at Ecodia (Tate verbatim 2026-06-03). Solo pushes to main are doctrine per `solo-fork-pushes-to-main-no-pr-ceremony`.
 
 The shift is from "execute this checklist" to "you are EcodiaOS for the next few minutes, do what's right".
 
@@ -53,11 +54,13 @@ The Phase-1 set is what makes EcodiaOS not-broken in the absence of Tate. It mus
 | 1 | `gmail-inbox-poll` | every 2h, 07-21 AEST | Triage both code@ and tate@ unread, label + autoarchive vendor, status_board on actionable | OBSERVE | CAPTURE |
 | 2 | `calendar-watch` | every 1h, 07-19 AEST | Surface upcoming meetings, missed slots, new invites needing response | OBSERVE | CAPTURE |
 | 3 | `stripe-event-poll` | every 30m | Recent charges, disputes, failed subs, churn signals to status_board | OBSERVE | CAPTURE |
-| 4 | `github-pr-watch` | every 30m | Across EcodiaAU + EcodiaTate orgs, open PRs, failing CI, review comments | OBSERVE | CAPTURE |
+| 4 | `github-push-ci-watch` | every 30m | Across EcodiaAU + EcodiaTate orgs, watch the last 2h of pushes for failing GitHub Actions / CI runs, surface red builds + commit sha + branch to status_board. PRs not used at Ecodia. | OBSERVE | CAPTURE |
 | 5 | `vercel-deploy-monitor` | every 2h | All projects, last-2h deploy state, status_board P2 on ERROR/CANCELED | OBSERVE | CAPTURE |
 | 6 | `vps-substrate-health` | every 1h | Postgres, Neo4j Aura, MCP gateway reachable, kv_store last-write sentinels | OBSERVE | CAPTURE |
 | 7 | `disk-and-credentials-pulse` | every 6h | D:/PRIVATE/ecodia-creds intact, cred-refresher daemon healthy, no rogue env changes | OBSERVE | CAPTURE |
 | 8 | `client-app-health-probe` | every 4h | Probe shipped client surfaces for HTTP 200 + error-rate spike + Core Web Vitals | OBSERVE | CAPTURE |
+| 9 | `zernio-dm-poll` | every 2h, 08-20 AEST | Poll DMs on the 2 Zernio accounts that ship DM features (Instagram + LinkedIn). Triage actionable inbounds to status_board, autolabel vendor/spam. NEVER auto-reply without Tate. | OBSERVE | CAPTURE |
+| 10 | `zernio-analytics-watch` | daily 19:00 AEST | Read analytics from the 2 Zernio accounts that ship analytics (Instagram + LinkedIn). Top post, engagement rate, follower delta, link clicks. Anomaly detection. Weekly trend Episode. | OBSERVE | CAPTURE |
 
 ### Orient (foundational)
 
@@ -68,6 +71,8 @@ The Phase-1 set is what makes EcodiaOS not-broken in the absence of Tate. It mus
 | 11 | `auto-memory-promotion-audit` | daily 07:00 | Cited feedback >=5 cites -> Pattern candidates, conductor-confirmed | ORIENT | TUNE |
 | 12 | `kv-store-hygiene` | weekly Sat 21:00 | Stale ceo.* keys >90d, missing-but-referenced keys, schema drift | ORIENT | RE-AUDIT |
 | 13 | `codebase-manifest-refresh` | every 6h | Refresh `codebase-manifest/index.sqlite` so codebase-orient skill stays current | ORIENT | RE-AUDIT |
+| 14 | `memory-md-size-guard` | daily 04:30 | Probe `C:/Users/tjdTa/.claude/projects/d---code-ecodiaos-backend/memory/MEMORY.md` byte-count. If approaching 24KB cap, surface a trim candidate list to status_board (oldest unreferenced entries first). The MEMORY.md silent-truncation incident was the 2026-06-01 cold-start failure. | ORIENT | RE-AUDIT |
+| 15 | `neo4j-entity-dedup-sweep` | weekly Sat 20:00 | Probe Neo4j for duplicate canonical entities (Person, Organization, Project) by name fuzzy-match + property overlap. Surface merge candidates to status_board with confidence score. Per `neo4j-canonical-entity-dedup`. | ORIENT | RE-AUDIT |
 
 ### Learn (foundational seven-layer plumbing)
 
@@ -170,7 +175,7 @@ These ride on a stable Phase 1+2 substrate. Highest payoff for "actual progressi
 
 That is 18 Phase-3 crons.
 
-Total: 26 + 21 + 18 = 65 crons across the three phases. Twelve are carryovers from the existing 19 paused set (already created, just need to resume + retime + sometimes re-prompt). Fifty-three are net-new.
+Total: 30 + 26 + 19 = 75 crons across the three phases. Twelve are carryovers from the existing 19 paused set (already created, just need to resume + retime + sometimes re-prompt). Sixty-three are net-new.
 
 ## The safety veto layer (kill switch + drift heartbeat)
 
@@ -204,7 +209,7 @@ This is a fundamental capability shift. Worker prompts gain explicit license to:
 
 1. **Schedule a one-shot followup** via `mcp__ecodia-scheduler__schedule_delayed` when a finding has a known re-check window (e.g. "the Atlassian opt-out window opens Aug 17, schedule a worker for Aug 18 to verify").
 2. **Schedule a recurring followup** via `mcp__ecodia-scheduler__schedule_cron` when a finding reveals a class of work that should run periodically (e.g. opportunity-discovery finds a new peak body, schedule a quarterly partnership-touch cron).
-3. **Dispatch a sibling worker NOW** via `cowork.dispatch_worker` when parallelism would close the loop faster (e.g. opportunity-discovery finds 3 promising RFPs, dispatch 3 research workers in parallel rather than serialising in this worker).
+3. **Spawn an immediate sibling worker** via `mcp__ecodia-scheduler__schedule_delayed` with `delay: "in 0m"` when parallelism would close the loop faster (e.g. opportunity-discovery finds 3 promising RFPs, schedule 3 immediate research workers rather than serialising in this worker). The scheduler is the canonical dispatch primitive on both axes; it handles the underlying spawn mechanism internally.
 
 Explicit hard constraints on self-dispatch:
 
@@ -252,13 +257,13 @@ USE JUDGEMENT. You may:
 - Expand scope when the finding warrants it
 - Schedule one-shot follow-ups via schedule_delayed (max 5 per fire)
 - Schedule recurring follow-ups via schedule_cron (max 5 per fire)
-- Dispatch sibling workers via cowork.dispatch_worker (max 3 per fire)
+- Spawn immediate sibling workers via schedule_delayed delay: "in 0m" (max 3 per fire)
 - Write durable substrate (status_board, kv_store, Neo4j, patterns/) whenever
   a real lesson surfaces
 
 HARD CONSTRAINTS (these never bend):
 - No client-facing send without Tate go-ahead (drafts to approval queue OK)
-- No creds.* writes, no pm2 mutations, no force-push to main
+- No creds.* writes, no force-push to main, no client-facing send without Tate go-ahead. (pm2 mutations are rare under local-first and only relevant to the pm2-dump-drift-guard cron itself.)
 - No em-dashes (U+2014 banned at character level), EcodiaOS voice
 - Close your tab on exit via coord.close_my_tab if you spawned in a tab
 
@@ -266,6 +271,20 @@ DELIVERABLE:
 At least one durable substrate write per fire (status_board upsert,
 kv_store.set, Neo4j write, or patterns/ edit). Silent exit with nothing
 written = symbolic logging = failed fire.
+
+QUALITY BAR:
+You are the algorithmic manager of a real business. Tate may be asleep
+or in Tanzania when this fires; the quality of your work is the quality
+of the business. Refuse mediocrity (`ocd-ambition-refuse-mediocrity`).
+If the easy path produces a forgettable artefact, take the deeper path
+that produces a memorable one. The bar is INSANE, not "above average".
+Every fire is a chance to compound. Generalise where you can, codify
+where doctrine is missing, ship the helper plus hook plus pattern triad
+in the same arc when a recurring shape surfaces (`recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18`).
+Ballistic mode under guardrails equals depth, not motion
+(`ballistic-mode-under-guardrails-equals-depth-not-action`).
+Action over plans; honesty redeems mistakes
+(`action-over-plans-honesty-redeems-mistakes`).
 ```
 
 That gives the worker real agency inside a small set of hard constraints. The prompt is longer per cron (~300-500 words) but the constraint set is sharper and the worker can actually move the business.
@@ -336,4 +355,4 @@ The corpus is also self-improving. The Learn layer (especially `generalisation-e
 1. Conductor invokes `writing-plans` skill to convert this spec into an implementation plan.
 2. The plan stages cron creation on Mac day in the resume order described above.
 3. Each cron's full worker-prompt body gets drafted as part of the implementation plan. The spec stops at intent.
-4. The implementation ships as 65 `schedule_cron` calls + 1 `meta-veto-heartbeat` cron + the worker-prompt template documented in `patterns/cron-worker-prompt-template.md` (new pattern, authored as part of implementation).
+4. The implementation ships as 75 `schedule_cron` calls + 1 `meta-veto-heartbeat` cron + the worker-prompt template documented in `patterns/cron-worker-prompt-template.md` (new pattern, authored as part of implementation).
