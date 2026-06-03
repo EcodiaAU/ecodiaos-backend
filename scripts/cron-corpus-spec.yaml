@@ -850,6 +850,94 @@ crons:
       email.
     cdp_dependent: false
 
+  - name: daily-priority-rank
+    phase: 2
+    schedule: daily 07:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Re-rank status_board P1 and P2 rows by composite score combining row
+      age, urgency signals, revenue weight, and Tate-block-state. Promote
+      rows that have aged past their urgency floor and demote rows that
+      have shed urgency. Write the top-5 ranked rows to
+      kv_store.ceo.priority_rank.<date> so the morning-briefing cron picks
+      up a clean ranked head when it fires at 07:30.
+    context_addendum: >-
+      The status_board is the single source of truth and accumulates rows
+      faster than it accurately re-prioritises them, leading to the 124-row
+      drift incident that motivated the status-board-hygiene reflex. This
+      cron is the daily re-rank pass that keeps the priority column meaningful.
+      Composite score sketch: age_days times age_weight, plus urgency_signal
+      (deadline within 7 days, client-blocking, security-relevant), plus
+      revenue_weight (rows touching active retainer or signed SOW score
+      higher), plus Tate-block-state (next_action_by=tate ages faster than
+      next_action_by=ecodiaos because Tate-blocked rows accumulate
+      operational friction). Read rows via status_board.query with priority
+      under 3 and archived_at null. Write the ranked top-5 to
+      kv_store.ceo.priority_rank.<date> with the row id, name, score, and
+      one-line reason per row. Update priority on the row itself only when
+      the score crosses a tier boundary (P2 promotes to P1 above threshold);
+      cosmetic re-shuffles inside a tier do not warrant a UPDATE. Sister
+      cron morning-briefing consumes this output rather than re-ranking.
+    cdp_dependent: false
+
+  - name: weekly-product-roadmap-sync
+    phase: 2
+    schedule: weekly Mon 14:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each active product (Chambers, Goodreach, Roam/Glovebox, Co-Exist,
+      EcodiaOS, Locals, Cofound) draft a 7-day plan covering what ships this
+      week, what is blocked and on whom, and what needs Tate input. Surface
+      one P2 status_board row per product holding the plan so the week
+      starts with a clear per-product action list.
+    context_addendum: >-
+      The seven active products span shipped client apps (Chambers, Co-Exist,
+      Roam/Glovebox), grounded prototypes (Goodreach), the OS itself
+      (EcodiaOS), and the productised offers (Locals, Cofound). Inputs to
+      the per-product plan: the matching status_board rows (filter by
+      entity_type=project plus the product slug), the recent commit history
+      on the matching repo (read via the ecodia-code MCP github tools), the
+      calendar for Tate's availability over the week (calendar_list_events
+      filtered to Mon-Sun), and the latest active client touchpoints from
+      the email_threads substrate. Per the autonomy doctrine the plans are
+      drafted as executable steps, not vague intentions. Per the
+      no-client-contact-without-tate-goahead doctrine any client-facing
+      action in the plan stays Tate-gated. Sister crons client-pipeline-review
+      and revenue-pipeline-health fire later Monday and pick up the plans
+      as input to the weekly business cadence.
+    cdp_dependent: false
+
+  - name: weekly-strategic-direction-check
+    phase: 2
+    schedule: weekly Sun 16:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read every Neo4j Strategic_Direction node under 6 months old. For each,
+      assess whether the direction is still valid, whether visible progress
+      has landed, and whether the direction should sunset or evolve. Write
+      one Reflection Episode per direction with the verdict (still_valid,
+      drift, sunset, or evolve) so the strategic posture stays honest week
+      to week.
+    context_addendum: >-
+      This cron replaces the killed daily-strategic-thinking ritual with a
+      weekly cadence and a mandatory artefact per direction; the daily
+      ritual produced narrated reflection without durable substrate, which
+      is symbolic logging per the cron-fire-must-have-deliverable doctrine.
+      Read Strategic_Direction nodes via graph_query with a date filter on
+      created_at over the last 6 months. Verdict states: still_valid means
+      the direction holds and progress is visible; drift means the work has
+      diverged from the stated direction without an explicit revision; sunset
+      means the direction has been superseded or completed and should be
+      archived; evolve means the direction needs restating to match what is
+      actually happening. The Reflection Episode per direction carries the
+      verdict, the evidence (linked Decisions, Episodes, commits), and a
+      one-line next step. Sister cron monthly-architectural-review picks up
+      the rolling verdicts when it fires on the 28th.
+    cdp_dependent: false
+
   # --- Act ---
   - name: monthly-invoice-render
     phase: 2
@@ -1051,21 +1139,90 @@ crons:
     tz: Australia/Brisbane
     lm_layer: NONE
     intent_summary: >-
-      Already paused as chambers-apple-review-watch. Generalised to per-app
-      review watch: for every app currently in Apple App Store Connect
-      review state, probe ASC for appStoreState transitions. Self-cancel
-      the watch on READY_FOR_SALE for that app.
+      Generalised from the original chambers-apple-review-watch. Poll Apple
+      App Store Connect and Google Play Console for any Ecodia app currently
+      in WAITING_FOR_REVIEW or IN_REVIEW state across Chambers, Goodreach,
+      Roam/Glovebox, Co-Exist, EcodiaOS, and any future apps. Per-app
+      self-cancel the watch on READY_FOR_SALE. Maintain the watched-apps
+      list in kv_store.scheduler.app_review_watch.targets.
     context_addendum: >-
       This is the one CDP-dependent cron in the corpus; CDP plus Chrome plus
-      worker tabs cannot sustain on the 8GB Corazon per the swarm host
-      memory cap learning. Pauses until Mac mini arrives. Per pattern
-      check-asc-release-state-before-ios-ship the appStoreState for the
-      local MARKETING_VERSION must be checked before any ship. Per the
-      apple-portal-cdp learning the real Chrome profile is at
-      D:/SSD_Turbo/ChromeUserData and gui.enable_chrome_cdp auto-detects it.
-      Per the parallel-cdp-chat-coordination doctrine use alias-namespacing
-      to avoid collisions with other CDP-driving chats.
+      worker tabs cannot sustain on the 8GB Corazon per the swarm host memory
+      cap learning, so the cron is deferred until the Mac mini lands. The ASC
+      state machine moves WAITING_FOR_REVIEW into IN_REVIEW into one of
+      READY_FOR_SALE, REJECTED, DEVELOPER_REJECTED, or PENDING_DEVELOPER_RELEASE;
+      Play Console mirrors with slightly different state names. Per pattern
+      check-asc-release-state-before-ios-ship the appStoreState for the local
+      MARKETING_VERSION must be checked before any ship. Per the apple-portal-cdp
+      learning the real Chrome profile is at D:/SSD_Turbo/ChromeUserData and
+      gui.enable_chrome_cdp auto-detects it. Per the parallel-cdp-chat-coordination
+      doctrine use alias-namespacing to avoid collisions with other CDP-driving
+      chats. Watched-apps list lives in kv_store.scheduler.app_review_watch.targets;
+      add the app on submission, self-cancel the per-app watch on READY_FOR_SALE
+      so the cron does not poll terminal-state apps forever.
     cdp_dependent: true
+
+  - name: zernio-post-draft
+    phase: 2
+    schedule: weekly Tue 10:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Draft 5 to 7 Zernio posts for the week per the
+      two-channel-marketing-doctrine. Voice is EcodiaOS-as-AI-author, never
+      broadcast-pitch shape. Drafts go to kv_store.zernio.weekly_drafts.<week>
+      for Tate review before scheduling. This cron NEVER auto-publishes;
+      the schedule and publish path is owned by the sibling cron the next
+      day after Tate has reviewed.
+    context_addendum: >-
+      Per feedback_two_channel_marketing_doctrine the two channels are
+      EcodiaOS on social as the AI author and Tate IRL as the relationship
+      channel; graphic-on-feeds-style broadcast is slop per
+      ecodia-does-not-do-marketing-broadcast and is explicitly out of scope.
+      Per the EcodiaOS voice profile the public_eos register applies:
+      substantive, relational, no hype, no padding, never performing depth.
+      Draft surfaces include LinkedIn and Instagram (the two accounts that
+      ship the relevant features). Source material for drafts: the week's
+      substantive Episodes, recent shipped work, Tate-flagged moments worth
+      sharing, and current Ecodia posture. Cap at 7 drafts per week so the
+      pipeline does not flood. Write drafts to
+      kv_store.zernio.weekly_drafts.<week> as a structured list with the
+      account, body, suggested time, and any visual cue per post. Sister
+      cron zernio-post-schedule-and-graphic-prep fires Wednesday and picks
+      up Tate-approved drafts for scheduling. Per the
+      no-client-contact-without-tate-goahead doctrine and the social-as-public
+      surface this cron NEVER auto-publishes.
+    cdp_dependent: false
+
+  - name: zernio-post-schedule-and-graphic-prep
+    phase: 2
+    schedule: weekly Wed 11:00
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      For each Tate-approved post from the zernio-post-draft cron, schedule
+      the post in Zernio at the per-account zernio_best_time_to_post slot.
+      For each post that needs a visual, generate a graphic spec plus
+      placeholder and surface to Tate via gmail_send with the spec attached
+      so Tate adds the final graphic. Once Tate provides the graphic, update
+      the scheduled post with the finished visual.
+    context_addendum: >-
+      This cron chains from zernio-post-draft. Read approved drafts from
+      kv_store.zernio.weekly_drafts.<week>; approval marker is a Tate-touched
+      "approved" flag per post (the sibling cron leaves drafts in pending
+      state). Use zernio_best_time_to_post per account to pick the slot.
+      Use zernio_create_post with the schedule_at timestamp; do not publish
+      immediately. Graphic spec format: a short paragraph describing intent,
+      composition, and tone, plus reference imagery suggestions. The
+      placeholder is a no-graphic version of the scheduled post so the
+      schedule lands even if the graphic does not arrive in time. Email
+      Tate via gmail_send (from code@) with the spec attached; per the
+      two-channel doctrine graphic creation is Tate's relational craft, not
+      AI generation. On Tate's graphic reply, update the scheduled post via
+      zernio_create_post (or update equivalent) with the finished visual.
+      Per the no-client-contact-without-tate-goahead doctrine this cron
+      stays on the EcodiaOS-as-AI-author surface only.
+    cdp_dependent: false
 
   - name: domain-and-ssl-renewal-watch
     phase: 2
@@ -1132,6 +1289,40 @@ crons:
       general form actually applies cross-context. CONTINUOUS schedules the
       next sample window. The output is new patterns/ files, not status_board
       rows; the substrate write IS the deliverable.
+    cdp_dependent: false
+
+  - name: anti-generalisation-engine-fire
+    phase: 3
+    schedule: weekly Sun 22:00
+    tz: Australia/Brisbane
+    lm_layer: GENERALISE
+    intent_summary: >-
+      Inverse of the generalisation engine. Read the cross-context applicability
+      sets emitted by generalisation-engine-fire. For each (general rule,
+      target context) pair, draft a specific instantiation scoped to the
+      target context: a hook, a pattern file, a CLAUDE.md bullet, a cron
+      prompt addition, or a status_board enforcement row. Gate the drafts
+      through status_board for Tate-confirm before applying. This closes
+      the abstraction-application loop: general lessons become concrete
+      enforcements in every context where they apply.
+    context_addendum: >-
+      Per pattern generalisation-engine-lifts-specifics-to-general-form the
+      upstream generalisation-engine-fire cron lifts incident-specific
+      patterns to their latent general form and records the cross-context
+      applicability set per lifted pattern. This cron is the inverse pass:
+      take each general rule plus its applicability set and produce concrete
+      instantiations in every target context where the rule applies but is
+      not yet enforced. Artefact menu: a PreToolUse or PostToolUse hook
+      scoped to the target context, a new pattern file with cross-refs to
+      the source general pattern, a CLAUDE.md bullet under the right section,
+      a cron prompt addendum surfacing the rule at the right cadence, or a
+      status_board enforcement row. Gate the drafts through status_board
+      with Tate-confirm rather than applying directly; per
+      verify-before-asserting-in-durable-memory the cost of a wrong-context
+      instantiation is real and the gate stays explicit. Sister cron
+      weekly-doctrine-synthesis picks up confirmed instantiations during
+      the same Sunday window. Cap drafts at 10 per fire so the conductor
+      review stays tractable.
     cdp_dependent: false
 
   - name: single-incident-pattern-scan
