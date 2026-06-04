@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -30,9 +31,119 @@ AGENT_TOKEN_PATH = Path(
     )
 )
 
+SUPABASE_CREDS_PATH = Path(
+    os.environ.get(
+        "SUPABASE_CREDS_PATH",
+        "D:/PRIVATE/ecodia-creds/supabase.env",
+    )
+)
+SUPABASE_PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "nxmtfzofemtrlezlyhcj")
+
+_DAY_NAME_TO_DOW = {
+    "Sun": 0,
+    "Mon": 1,
+    "Tue": 2,
+    "Wed": 3,
+    "Thu": 4,
+    "Fri": 5,
+    "Sat": 6,
+}
+
+_MONTH_NAME_TO_NUM = {
+    "Jan": 1,
+    "Feb": 2,
+    "Mar": 3,
+    "Apr": 4,
+    "May": 5,
+    "Jun": 6,
+    "Jul": 7,
+    "Aug": 8,
+    "Sep": 9,
+    "Oct": 10,
+    "Nov": 11,
+    "Dec": 12,
+}
+
 
 class InstallerError(RuntimeError):
     """Anything that prevented a clean install."""
+
+
+def _normalize_schedule(raw: str) -> str:
+    """Translate YAML natural-language schedules to forms the laptop-agent
+    scheduler accepts: 5-field cron, `every Nh|Nm|Nd`, or `daily HH:MM`.
+
+    Rules apply in order, first match wins. Unrecognised grammar raises
+    InstallerError to surface future surprises early.
+    """
+    s = raw.strip()
+
+    # Already a 5-field cron (tokens of digits/*/,/-/// only).
+    tokens = s.split()
+    if len(tokens) == 5 and all(re.fullmatch(r"[0-9*,\-/]+", t) for t in tokens):
+        return s
+
+    # Already `every Nh|Nm|Nd`.
+    if re.fullmatch(r"every\s+\d+\s*[hmd]", s):
+        return s
+
+    # Already `daily HH:MM`.
+    if re.fullmatch(r"daily\s+\d{1,2}:\d{2}", s):
+        return s
+
+    # `weekly <Day> HH:MM`.
+    m = re.fullmatch(r"weekly\s+(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+(\d{1,2}):(\d{2})", s)
+    if m:
+        day_name, hh, mm = m.group(1), int(m.group(2)), int(m.group(3))
+        dow = _DAY_NAME_TO_DOW[day_name]
+        return f"{mm} {hh} * * {dow}"
+
+    # `monthly <N>(st|nd|rd|th) HH:MM`.
+    m = re.fullmatch(r"monthly\s+(\d{1,2})(?:st|nd|rd|th)\s+(\d{1,2}):(\d{2})", s)
+    if m:
+        dom, hh, mm = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f"{mm} {hh} {dom} * *"
+
+    # `quarterly <Months-list> <Day-of-month>(st|nd|rd|th) HH:MM`.
+    # e.g. `quarterly Oct/Jan/Apr/Jul 28th 09:00`
+    m = re.fullmatch(
+        r"quarterly\s+([A-Za-z/]+)\s+(\d{1,2})(?:st|nd|rd|th)\s+(\d{1,2}):(\d{2})",
+        s,
+    )
+    if m:
+        months_part, dom, hh, mm = (
+            m.group(1),
+            int(m.group(2)),
+            int(m.group(3)),
+            int(m.group(4)),
+        )
+        month_nums = []
+        for piece in months_part.split("/"):
+            piece = piece.strip()
+            if piece not in _MONTH_NAME_TO_NUM:
+                raise InstallerError(
+                    f"unrecognised month token {piece!r} in schedule {raw!r}"
+                )
+            month_nums.append(_MONTH_NAME_TO_NUM[piece])
+        month_field = ",".join(str(n) for n in sorted(month_nums))
+        return f"{mm} {hh} {dom} {month_field} *"
+
+    # `annually <Mon> <Day> HH:MM`. e.g. `annually Aug 30 12:00`
+    m = re.fullmatch(r"annually\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{1,2}):(\d{2})", s)
+    if m:
+        mon, dom, hh, mm = (
+            m.group(1),
+            int(m.group(2)),
+            int(m.group(3)),
+            int(m.group(4)),
+        )
+        if mon not in _MONTH_NAME_TO_NUM:
+            raise InstallerError(
+                f"unrecognised month token {mon!r} in schedule {raw!r}"
+            )
+        return f"{mm} {hh} {dom} {_MONTH_NAME_TO_NUM[mon]} *"
+
+    raise InstallerError(f"unrecognised schedule grammar: {raw!r}")
 
 
 def install_corpus(
@@ -47,7 +158,12 @@ def install_corpus(
     if expected_count is not None and len(entries) != expected_count:
         raise InstallerError(f"expected {expected_count} entries, found {len(entries)}")
 
-    existing = {} if dry_run else {t["name"]: t for t in _list_existing()}
+    # Map name -> list of existing rows (handles pre-existing duplicates so we
+    # cancel ALL rows under that name, not just one).
+    existing: dict[str, list[dict[str, Any]]] = {}
+    if not dry_run:
+        for row in _list_existing():
+            existing.setdefault(row["name"], []).append(row)
 
     summary = {
         "would_create": 0,
@@ -76,11 +192,8 @@ def install_corpus(
             print(f"[dry-run] would create {entry['name']} ({len(body)} chars)")
             continue
 
-        if entry["name"] in existing:
-            _post_tool(
-                "scheduler.schedule_cancel",
-                {"id": existing[entry["name"]]["id"]},
-            )
+        for stale in existing.get(entry["name"], []):
+            _post_tool("scheduler.schedule_cancel", {"id": stale["id"]})
             summary["cancelled_for_recreate"] += 1
             if sleep_between_calls_s:
                 time.sleep(sleep_between_calls_s)
@@ -89,7 +202,7 @@ def install_corpus(
             "scheduler.schedule_cron",
             {
                 "name": entry["name"],
-                "schedule": entry["schedule"],
+                "schedule": _normalize_schedule(entry["schedule"]),
                 "tz": entry["tz"],
                 "prompt": body,
             },
@@ -118,29 +231,57 @@ def install_corpus(
 
 
 def _list_existing() -> list[dict[str, Any]]:
-    """Read every active task on the scheduler."""
-    result = _post_tool("scheduler.schedule_list", {})
-    # Unwrap the laptop-agent envelope: {"ok": true, "result": {...}}
-    if (
-        isinstance(result, dict)
-        and "result" in result
-        and isinstance(result["result"], dict)
-    ):
-        inner = result["result"]
-        if "rows" in inner:
-            return inner["rows"]
-        if "tasks" in inner:
-            return inner["tasks"]
-    if isinstance(result, list):
-        return result
-    if isinstance(result, dict) and "rows" in result:
-        return result["rows"]
-    if isinstance(result, dict) and "tasks" in result:
-        return result["tasks"]
-    if isinstance(result, dict) and "content" in result:
-        # MCP envelope shape
-        return json.loads(result["content"][0]["text"])
-    return []
+    """Read every active task on the scheduler.
+
+    The laptop-agent's `scheduler.schedule_list` filters paused rows. We bypass
+    that by querying Postgres directly via the Supabase Management API, which
+    runs as superuser and returns ground truth.
+    """
+    return _list_existing_from_postgres()
+
+
+def _list_existing_from_postgres() -> list[dict[str, Any]]:
+    """Query Postgres directly via the Supabase Management API to enumerate
+    every active (archived_at IS NULL) row in os_scheduled_tasks, regardless of
+    last_status (paused/active/failed/...)."""
+    token = _read_supabase_access_token()
+    url = f"https://api.supabase.com/v1/projects/{SUPABASE_PROJECT_REF}/database/query"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    query = (
+        "SELECT id, name, last_status, archived_at "
+        "FROM os_scheduled_tasks "
+        "WHERE archived_at IS NULL ORDER BY name"
+    )
+    response = requests.post(url, headers=headers, json={"query": query}, timeout=30)
+    if response.status_code >= 400:
+        raise InstallerError(
+            f"supabase query returned HTTP {response.status_code}: "
+            f"{response.text[:500]}"
+        )
+    data = response.json()
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict) and "result" in data:
+        return data["result"]
+    raise InstallerError(f"unexpected supabase query response shape: {str(data)[:300]}")
+
+
+def _read_supabase_access_token() -> str:
+    if not SUPABASE_CREDS_PATH.exists():
+        raise InstallerError(f"supabase creds file not found at {SUPABASE_CREDS_PATH}")
+    for line in SUPABASE_CREDS_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "SUPABASE_ACCESS_TOKEN":
+            return value.strip().strip('"').strip("'")
+    raise InstallerError(f"SUPABASE_ACCESS_TOKEN not found in {SUPABASE_CREDS_PATH}")
 
 
 def _post_tool(tool: str, params: dict[str, Any]) -> Any:
@@ -156,7 +297,7 @@ def _post_tool(tool: str, params: dict[str, Any]) -> Any:
         f"{AGENT_URL}/api/tool",
         headers=headers,
         json={"tool": tool, "params": params},
-        timeout=30,
+        timeout=120,
     )
     if response.status_code >= 400:
         raise InstallerError(
