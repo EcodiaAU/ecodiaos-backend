@@ -84,7 +84,39 @@ def _normalize_schedule(raw: str) -> str:
         return s
 
     # Already `every Nh|Nm|Nd`.
-    if re.fullmatch(r"every\s+\d+\s*[hmd]", s):
+    m = re.fullmatch(r"every\s+(\d+)\s*([hmd])", s)
+    if m:
+        n, unit = int(m.group(1)), m.group(2)
+        # Guard: the laptop-agent scheduler.parseSchedule translates `every Nh`
+        # to `0 */N * * *` and `every Nm` to `*/N * * * *`. When N exceeds the
+        # cron field range (hours 0-23, minutes 0-59), cron-parser silently
+        # interprets `*/N` as "step 0 only" -> fires DAILY at 00:00, not every
+        # N units. This was the 2026-06-03 bas-quarterly-prep / annual-renewals
+        # bug where `every 2160h` and `every 8760h` would have emailed Tate a
+        # BAS workbook every morning. Reject early; use quarterly/annually
+        # grammar (or a 5-field cron) for >=daily cadences.
+        if unit == "h" and n >= 24:
+            raise InstallerError(
+                f"every {n}h is not a valid scheduler cron expression "
+                f"(max N=23 for hours field); use quarterly/annually grammar "
+                f"or a 5-field cron for daily-or-longer cadences: {raw!r}"
+            )
+        if unit == "m" and n >= 60:
+            raise InstallerError(
+                f"every {n}m is not a valid scheduler cron expression "
+                f"(max N=59 for minutes field); use `every Nh` or longer "
+                f"grammar for hourly-or-longer cadences: {raw!r}"
+            )
+        if unit == "d":
+            # The laptop-agent's parseSchedule only accepts [mh]; `d` falls
+            # through to the cron-parser branch and fails. Surface here with
+            # actionable guidance rather than a confusing downstream error.
+            raise InstallerError(
+                f"every Nd is not supported by the laptop-agent scheduler "
+                f"(parseSchedule accepts only [mh] units); use `daily HH:MM`, "
+                f"`weekly <Day> HH:MM`, `monthly <N>th HH:MM`, or a 5-field "
+                f"cron expression: {raw!r}"
+            )
         return s
 
     # Already `daily HH:MM`.

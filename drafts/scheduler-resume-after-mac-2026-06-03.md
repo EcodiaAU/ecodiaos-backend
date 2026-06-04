@@ -3,7 +3,11 @@
 **Created:** 2026-06-03, updated 2026-06-04 post-install
 **Reason:** Corazon 8GB RAM cannot host the live cron fleet alongside Tate's IDE + Chrome + worker tabs. All scheduled work paused until the Mac mini is set up and the laptop-agent + scheduler are running there.
 
-**On resume day:** for EACH cron below call `mcp__ecodia-scheduler__schedule_resume taskId=<id>` (look up taskId via `schedule_list` since ids are assigned at install). Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) once Phase 1 is healthy; Phase 3 (stretch) last.
+**On resume day:** for EACH cron below call `mcp__ecodia-scheduler__schedule_resume taskId=<id>` (look up taskId via `schedule_list` since ids are assigned at install).
+
+The 75 paused rows live in Supabase project `nxmtfzofemtrlezlyhcj` (table `os_scheduled_tasks`). Any laptop-agent pointed at this Postgres will see them. Mac-day procedure is UNPAUSE EXISTING (call `mcp__ecodia-scheduler__schedule_resume` per row), NOT re-install-fresh. Re-install would create duplicates under the same names (the installer is idempotent on name only when it can see existing rows; if the Mac's `_list_existing` reads a different Postgres, duplicates land).
+
+Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) once Phase 1 is healthy; Phase 3 (stretch) last.
 
 ---
 
@@ -127,5 +131,6 @@
 5. `worker_acknowledgment_timeout_ms` default is `180000` in any new dispatch wrapper, per `worker-ack-timeout-default-90s-too-tight-for-cold-mcp-load-2026-05-28`.
 6. cron-corpus-installer.py runs `--dry-run` successfully against the laptop-agent on the Mac (`python scripts/cron_corpus_installer.py --dry-run` returns `would_create: 75`).
 7. `app-store-review-watch` (the cdp-dependent cron deferred from this install) gets created on Mac day via a separate single-entry install or manually. Confirm `gui.enable_chrome_cdp` is alive on the Mac before unpausing.
+8. Postgres link probe. Run `python scripts/cron_corpus_installer.py --dry-run` on the Mac. It should report `would_create: 75` (dry-run does not call `_list_existing`). Then query Postgres directly: `SELECT count(*) FROM os_scheduled_tasks WHERE archived_at IS NULL AND last_status = 'paused'` should return at least 74 (the 74 corpus rows plus possibly some non-corpus rows; the cdp-dependent `app-store-review-watch` will not be in the set if it was installed elsewhere). If the count is under 74, abort. The Postgres link is wrong, the rows were inadvertently archived, or the Mac is pointing at a different Supabase project.
 
 Only then bulk-resume Phase 1. Watch first 24h for orphan-spawn rate via `coord.list_workers`. If clean, bulk-resume Phase 2, then Phase 3.

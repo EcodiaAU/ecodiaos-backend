@@ -963,7 +963,7 @@ crons:
 
   - name: bas-quarterly-prep
     phase: 2
-    schedule: every 2160h
+    schedule: quarterly Oct/Jan/Apr/Jul 28th 09:00
     tz: Australia/Brisbane
     lm_layer: NONE
     intent_summary: >-
@@ -1608,7 +1608,7 @@ crons:
 
   - name: quarterly-business-review
     phase: 3
-    schedule: every 2160h
+    schedule: quarterly Mar/Jun/Sep/Dec 28th 14:00
     tz: Australia/Brisbane
     lm_layer: NONE
     intent_summary: >-
@@ -1629,7 +1629,7 @@ crons:
 
   - name: annual-asic-and-wyoming-renewals
     phase: 3
-    schedule: every 8760h
+    schedule: annually Aug 30 09:00
     tz: Australia/Brisbane
     lm_layer: NONE
     intent_summary: >-

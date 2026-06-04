@@ -26,17 +26,56 @@ def test_five_field_cron_passes_through():
 def test_every_nh_passes_through():
     assert _normalize_schedule("every 2h") == "every 2h"
     assert _normalize_schedule("every 6h") == "every 6h"
-    assert _normalize_schedule("every 2160h") == "every 2160h"
-    assert _normalize_schedule("every 8760h") == "every 8760h"
+    # Largest in-range value: 23 (hours field is 0-23).
+    assert _normalize_schedule("every 23h") == "every 23h"
 
 
 def test_every_nm_passes_through():
     assert _normalize_schedule("every 30m") == "every 30m"
     assert _normalize_schedule("every 15m") == "every 15m"
+    # Largest in-range value: 59 (minutes field is 0-59).
+    assert _normalize_schedule("every 59m") == "every 59m"
 
 
-def test_every_nd_passes_through():
-    assert _normalize_schedule("every 3d") == "every 3d"
+# --- guard: out-of-range `every Nh|Nm` and unsupported `every Nd` --------
+
+
+def test_every_24h_raises_validation_error():
+    # N=24 in the hours field crosses the cron range boundary; cron-parser
+    # silently re-interprets `*/24` as "hour 0 only" -> fires DAILY at 00:00
+    # instead of every 24 hours. This was the 2026-06-03 bug shape.
+    with pytest.raises(InstallerError, match="not a valid scheduler cron expression"):
+        _normalize_schedule("every 24h")
+
+
+def test_every_2160h_raises_validation_error():
+    # bas-quarterly-prep / quarterly-business-review used `every 2160h` and
+    # would have fired daily at 00:00 UTC (10:00 AEST). Guard surfaces the
+    # quarterly grammar as the right path.
+    with pytest.raises(InstallerError, match="quarterly/annually grammar"):
+        _normalize_schedule("every 2160h")
+
+
+def test_every_8760h_raises_validation_error():
+    # annual-asic-and-wyoming-renewals used `every 8760h`. Same daily-fire
+    # bug. Guard surfaces the annually grammar as the right path.
+    with pytest.raises(InstallerError, match="quarterly/annually grammar"):
+        _normalize_schedule("every 8760h")
+
+
+def test_every_60m_raises_validation_error():
+    # N=60 in the minutes field has the same silent-reinterpret failure as
+    # the hours case.
+    with pytest.raises(InstallerError, match="not a valid scheduler cron expression"):
+        _normalize_schedule("every 60m")
+
+
+def test_every_nd_raises_unsupported_error():
+    # The laptop-agent's parseSchedule accepts only [mh]; `every Nd` would
+    # fall through to the cron-parser branch and fail with a confusing
+    # downstream error. Surface here with actionable guidance.
+    with pytest.raises(InstallerError, match="not supported"):
+        _normalize_schedule("every 3d")
 
 
 def test_daily_hh_mm_passes_through():
@@ -107,6 +146,21 @@ def test_quarterly_unknown_month_raises():
 
 def test_annually_translates_to_yearly_cron():
     assert _normalize_schedule("annually Aug 30 12:00") == "0 12 30 8 *"
+
+
+def test_yaml_corpus_fixed_grammars_translate_correctly():
+    # Confirms the three rows fixed in the 2026-06-04 cron-corpus repair land
+    # on explicit-multi-month / explicit-yearly cron expressions, not the
+    # buggy `0 */N * * *` shape that fires daily.
+    assert (
+        _normalize_schedule("quarterly Oct/Jan/Apr/Jul 28th 09:00")
+        == "0 9 28 1,4,7,10 *"
+    )
+    assert (
+        _normalize_schedule("quarterly Mar/Jun/Sep/Dec 28th 14:00")
+        == "0 14 28 3,6,9,12 *"
+    )
+    assert _normalize_schedule("annually Aug 30 09:00") == "0 9 30 8 *"
 
 
 def test_annually_unknown_month_raises():
