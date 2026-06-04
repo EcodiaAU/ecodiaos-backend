@@ -78,15 +78,15 @@ def install_corpus(
 
         if entry["name"] in existing:
             _post_tool(
-                "schedule_cancel",
-                {"taskId": existing[entry["name"]]["id"]},
+                "scheduler.schedule_cancel",
+                {"id": existing[entry["name"]]["id"]},
             )
             summary["cancelled_for_recreate"] += 1
             if sleep_between_calls_s:
                 time.sleep(sleep_between_calls_s)
 
         result = _post_tool(
-            "schedule_cron",
+            "scheduler.schedule_cron",
             {
                 "name": entry["name"],
                 "schedule": entry["schedule"],
@@ -94,7 +94,13 @@ def install_corpus(
                 "prompt": body,
             },
         )
-        new_id = result.get("id") or result.get("taskId")
+        # Unwrap the laptop-agent envelope: {"ok": true, "result": {...}}
+        inner = (
+            result["result"]
+            if isinstance(result, dict) and isinstance(result.get("result"), dict)
+            else result
+        )
+        new_id = inner.get("id") or inner.get("taskId")
         if not new_id:
             raise InstallerError(
                 f"schedule_cron returned no id for {entry['name']}: {result}"
@@ -103,7 +109,7 @@ def install_corpus(
         if sleep_between_calls_s:
             time.sleep(sleep_between_calls_s)
 
-        _post_tool("schedule_pause", {"taskId": new_id})
+        _post_tool("scheduler.schedule_pause", {"id": new_id})
         summary["paused"] += 1
         if sleep_between_calls_s:
             time.sleep(sleep_between_calls_s)
@@ -113,9 +119,22 @@ def install_corpus(
 
 def _list_existing() -> list[dict[str, Any]]:
     """Read every active task on the scheduler."""
-    result = _post_tool("schedule_list", {})
+    result = _post_tool("scheduler.schedule_list", {})
+    # Unwrap the laptop-agent envelope: {"ok": true, "result": {...}}
+    if (
+        isinstance(result, dict)
+        and "result" in result
+        and isinstance(result["result"], dict)
+    ):
+        inner = result["result"]
+        if "rows" in inner:
+            return inner["rows"]
+        if "tasks" in inner:
+            return inner["tasks"]
     if isinstance(result, list):
         return result
+    if isinstance(result, dict) and "rows" in result:
+        return result["rows"]
     if isinstance(result, dict) and "tasks" in result:
         return result["tasks"]
     if isinstance(result, dict) and "content" in result:
