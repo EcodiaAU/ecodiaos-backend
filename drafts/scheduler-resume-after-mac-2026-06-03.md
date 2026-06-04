@@ -120,7 +120,7 @@ Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) on
 | (old) weekly-financial-review | Replaced. References `ecodia-money` MCP. Not VPS shell. |
 | (old) tate-blocked-nudge-weekly | Replaced. True weekly cadence. Daily-with-Sunday-gate retired. |
 
-**Note:** 16 non-corpus active rows in `os_scheduled_tasks` (e.g. `bookkeeping-fx-rates-import`, ad-hoc test/checkpoint rows) are out of scope for this audit. A separate reconciliation pass tracks them. Per `verify-deployed-state-against-narrated-state`, treat the corpus install state and the non-corpus row population as orthogonal.
+**Note:** 28 non-corpus active rows remain in `os_scheduled_tasks` after the 2026-06-04 reconciliation pass (status_board `b6899142`, commit `a4910726`). Original estimate was 16; the true count was 66, of which 38 were killed (dead test rows, dormant outreach-engine remnants, the superseded `daily-index-regen`) and 28 kept (24 active recurring + 4 paused intentional one-shots). Documented at `drafts/reconcile-non-corpus-rows-2026-06-04.md`. Per `verify-deployed-state-against-narrated-state`, treat the corpus install state and the non-corpus row population as orthogonal.
 
 ---
 
