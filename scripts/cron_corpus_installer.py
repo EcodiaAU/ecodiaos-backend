@@ -165,11 +165,21 @@ def main():
     )
     args = parser.parse_args()
 
-    summary = install_corpus(
-        args.spec,
-        dry_run=args.dry_run,
-        skip_cdp_dependent=args.skip_cdp_dependent,
-    )
+    try:
+        summary = install_corpus(
+            args.spec,
+            dry_run=args.dry_run,
+            skip_cdp_dependent=args.skip_cdp_dependent,
+        )
+    except FileNotFoundError as exc:
+        print(f"install failed: spec file not found: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except yaml.YAMLError as exc:
+        print(f"install failed: spec YAML malformed: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except InstallerError as exc:
+        print(f"install failed: {exc}", file=sys.stderr)
+        sys.exit(1)
     print(json.dumps(summary, indent=2))
 
 

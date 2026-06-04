@@ -147,9 +147,12 @@ def test_skip_cdp_dependent_when_skip_cdp_true(mock_list, mock_post, tmp_path):
 
 @patch("cron_corpus_installer._post_tool")
 @patch("cron_corpus_installer._list_existing")
-def test_post_failure_aborts_installer_with_partial_summary(
+def test_post_failure_aborts_installer_after_first_entry_succeeds(
     mock_list, mock_post, tmp_path
 ):
+    """First entry creates+pauses (2 calls), second entry's schedule_cron raises;
+    installer aborts mid-loop. Confirms first entry actually completed before
+    the abort, by asserting mock_post.call_count == 3."""
     mock_list.return_value = []
     mock_post.side_effect = [
         {"id": "new-task-id-1"},
@@ -185,3 +188,5 @@ def test_post_failure_aborts_installer_with_partial_summary(
         install_corpus(
             spec_path, dry_run=False, expected_count=None, sleep_between_calls_s=0
         )
+    # First entry's create + pause (2 calls) then second entry's create attempt (1 call) = 3
+    assert mock_post.call_count == 3
