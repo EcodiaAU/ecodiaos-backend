@@ -103,3 +103,35 @@ def test_word_count_below_200_raises_validation_error():
             context_addendum="b",
             _skip_static_sections=True,  # test hook to elide static QUALITY BAR
         )
+
+
+def test_quality_bar_carries_load_bearing_strings():
+    """The runtime canonical QUALITY BAR is in cron_prompt_builder._QUALITY_BAR.
+    The pattern file at patterns/cron-worker-prompt-template.md only excerpts the
+    first two sentences and points here. If anyone narrows the QUALITY BAR text
+    in the builder and drops a load-bearing reference, this test fires loudly.
+    """
+    import cron_prompt_builder
+
+    bar = cron_prompt_builder._QUALITY_BAR
+    assert "refuse mediocrity" in bar.lower()
+    assert "Investigate thoroughly" in bar
+    assert "recursive-improvement-is-substrate-driven" in bar
+    assert "ocd-ambition-refuse-mediocrity" in bar
+    assert "verify-deployed-state-against-narrated-state" in bar
+    assert "ballistic-mode-under-guardrails-equals-depth-not-action" in bar
+    assert "action-over-plans-honesty-redeems-mistakes" in bar
+
+
+def test_quality_bar_appears_in_rendered_body():
+    """And the bar must actually reach the rendered prompt body, not be dead code."""
+    body = build_prompt(
+        name="x",
+        intent_summary="ok " * 30,
+        phase=1,
+        lm_layer="CAPTURE",
+        schedule="every 1h",
+        context_addendum="ok " * 100,
+    )
+    assert "refuse mediocrity" in body.lower()
+    assert "Investigate thoroughly" in body

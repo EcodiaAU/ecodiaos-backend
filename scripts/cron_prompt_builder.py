@@ -151,8 +151,11 @@ Per `verify-deployed-state-against-narrated-state`,
 `outcome-classification-must-distinguish-unverified-from-success`.
 
 Every fire is a chance to compound. Generalise where you can, codify
-where doctrine is missing. Ballistic mode under guardrails equals depth,
-not motion per `ballistic-mode-under-guardrails-equals-depth-not-action`.
-Action over plans; honesty redeems mistakes per
+where doctrine is missing. When a real lesson surfaces, ship the
+helper-plus-hook-plus-doctrine triad same-arc per
+`recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18`.
+Ballistic mode under guardrails equals depth, not motion per
+`ballistic-mode-under-guardrails-equals-depth-not-action`. Action over
+plans; honesty redeems mistakes per
 `action-over-plans-honesty-redeems-mistakes`.
 """

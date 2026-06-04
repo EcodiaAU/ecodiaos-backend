@@ -396,20 +396,27 @@ crons:
     tz: Australia/Brisbane
     lm_layer: CODIFY
     intent_summary: >-
-      Generate the per-slug skill mirror under .claude/skills/ for each
-      pattern that ships a SKILL.md companion. Ensure archival in patterns/
-      propagates to skill mirror removal so the skill list stays in sync with
-      live doctrine.
+      Generate the per-slug skill mirror under .claude/skills/ for every
+      active pattern in patterns/. Ensure archival in patterns/ propagates
+      to skill mirror removal so the skill list stays in sync with live
+      doctrine.
     context_addendum: >-
-      Each pattern with `skill: true` in frontmatter (or the canonical skill
-      mirror flag, check the actual schema) gets a corresponding skill under
-      .claude/skills/<slug>/SKILL.md. The mirror keeps the skill auto-invocation
-      surface aligned with the doctrine corpus. When a pattern is archived to
-      patterns/_archived/, the corresponding skill mirror must also be removed
-      or marked archived so the skill list does not surface dead doctrine.
-      Per the four-part bundle doctrine, plugin plus skill plus hook plus
-      agent ship together; the skill mirror is the visible surface of the
-      pattern in Tate's session.
+      Selection criterion is concrete and grep-checkable. The pattern
+      frontmatter schema actually has these fields: triggers (mandatory,
+      kebab-case keyword list), status (optional, defaults to active when
+      omitted; explicit values are active, narrowed, archived per the
+      pattern-lifecycle doctrine), name, description, priority, canonical,
+      mined_from. There is no `skill` field. Mirror every pattern in
+      patterns/ whose status is active (explicit or omitted). Skip
+      patterns/_archived/ entirely. Skip patterns where status is
+      narrowed or archived in the frontmatter even if the file still
+      lives at the top level. Output path is .claude/skills/<slug>/SKILL.md
+      where slug is the file stem. When a pattern transitions to archived
+      (status flipped or file moved to patterns/_archived/), remove the
+      corresponding .claude/skills/<slug>/SKILL.md mirror so the skill
+      list does not surface dead doctrine. Per the four-part bundle
+      doctrine, plugin plus skill plus hook plus agent ship together; the
+      skill mirror is the visible surface of the pattern in Tate's session.
     cdp_dependent: false
 
   - name: pattern-corpus-health-check

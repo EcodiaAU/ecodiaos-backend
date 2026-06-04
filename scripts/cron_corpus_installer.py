@@ -259,6 +259,20 @@ def install_corpus(
         if sleep_between_calls_s:
             time.sleep(sleep_between_calls_s)
 
+    # Post-loop sanity: distinguish spec-drift from legitimate cdp-skip. The
+    # initial `len(entries) != expected_count` check fires before the loop on
+    # raw spec count; this fires after the loop on created+skipped to catch the
+    # case where the YAML drifted to expected_count-1 entries and the installer
+    # would otherwise report a misleading "created: expected-1, skipped: 0" as
+    # success. Dry-run is exempt (created stays 0 by design).
+    if not dry_run and expected_count is not None:
+        accounted = summary["created"] + summary["skipped_cdp"]
+        if accounted != expected_count:
+            raise InstallerError(
+                f"install incomplete: created+skipped = {accounted}, "
+                f"expected {expected_count}. YAML may have drifted from spec count."
+            )
+
     return summary
 
 

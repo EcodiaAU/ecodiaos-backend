@@ -190,3 +190,41 @@ def test_post_failure_aborts_installer_after_first_entry_succeeds(
         )
     # First entry's create + pause (2 calls) then second entry's create attempt (1 call) = 3
     assert mock_post.call_count == 3
+
+
+@patch("cron_corpus_installer._post_tool")
+@patch("cron_corpus_installer._list_existing")
+def test_spec_drift_raises_when_yaml_short_of_expected_count(
+    mock_list, mock_post, tmp_path
+):
+    """Spec-drift detector: a YAML with 74 entries against expected_count=75
+    (with skip_cdp_dependent=True or False) must raise InstallerError, not
+    quietly succeed. Catches the case where the YAML lost a row but the
+    installer's created+skipped accidentally matches the (now-wrong) count."""
+    mock_list.return_value = []
+    mock_post.side_effect = [
+        {"id": f"new-task-id-{i}"} if i % 2 == 0 else {"ok": True} for i in range(200)
+    ]
+    # 74 entries, none cdp_dependent, expected_count=75 -> drift must fire.
+    entries = [
+        {
+            "name": f"cron-{i}",
+            "phase": 1,
+            "schedule": "every 2h",
+            "tz": "Australia/Brisbane",
+            "lm_layer": "CAPTURE",
+            "intent_summary": "x" * 50,
+            "context_addendum": "y" * 200,
+            "cdp_dependent": False,
+        }
+        for i in range(74)
+    ]
+    spec_path = _fake_spec_path(tmp_path, entries)
+    with pytest.raises(InstallerError):
+        install_corpus(
+            spec_path,
+            dry_run=False,
+            skip_cdp_dependent=True,
+            expected_count=75,
+            sleep_between_calls_s=0,
+        )

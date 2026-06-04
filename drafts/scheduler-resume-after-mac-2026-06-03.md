@@ -120,6 +120,8 @@ Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) on
 | (old) weekly-financial-review | Replaced. References `ecodia-money` MCP. Not VPS shell. |
 | (old) tate-blocked-nudge-weekly | Replaced. True weekly cadence. Daily-with-Sunday-gate retired. |
 
+**Note:** 16 non-corpus active rows in `os_scheduled_tasks` (e.g. `bookkeeping-fx-rates-import`, ad-hoc test/checkpoint rows) are out of scope for this audit. A separate reconciliation pass tracks them. Per `verify-deployed-state-against-narrated-state`, treat the corpus install state and the non-corpus row population as orthogonal.
+
 ---
 
 ## Pre-resume checks (Mac day)
