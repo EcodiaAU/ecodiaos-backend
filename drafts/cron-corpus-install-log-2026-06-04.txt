@@ -1,0 +1,1 @@
+install failed: laptop-agent scheduler.schedule_cron returned HTTP 500: {"error":"invalid cron expression \"weekly Sun 20:00\": Constraint error, got value 0 expected range 1-12","tool":"scheduler.schedule_cron"}
