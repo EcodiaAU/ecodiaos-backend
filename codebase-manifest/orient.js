@@ -6,7 +6,10 @@ const { spawnSync } = require("child_process");
 const { open } = require("./db");
 
 function shortPath(p) {
-  return p.replace(/\\/g, "/").replace(/^D:\/\.code\//, "");
+  return p
+    .replace(/\\/g, "/")
+    .replace(/^\/Users\/[^/]+\/\.code\//, "")
+    .replace(/^D:\/\.code\//, "");
 }
 
 function fmtTs(ms) {

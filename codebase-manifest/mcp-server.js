@@ -6,13 +6,13 @@ const { context, stats } = require("./codebase-context");
 const TOOLS = [
   {
     name: "codebase.context",
-    description: "Continuous codebase awareness. Query the local SQLite index of D:/.code/* across ecodiaos-backend, ecodiaos-frontend, coexist, roam-backend, roam-frontend, patterns-corpus. Use this BEFORE grepping the filesystem live. Query types: find_symbol (find a function/class/component by name), find_callers (which files import a module), find_pattern_users (which files reference a pattern slug), file_summary (50-word summary of a file path), recently_changed (files mtime newer than threshold), find_imports_of (what does this file import).",
+    description: "Continuous codebase awareness. Query the local SQLite index of /Users/ecodia/.code/* across ecodiaos-backend, ecodiaos-frontend, coexist, patterns-corpus (Mac canonical host since 2026-06-08; legacy D:/.code paths from Corazon-era). Use this BEFORE grepping the filesystem live. Query types: find_symbol (find a function/class/component by name), find_callers (which files import a module), find_pattern_users (which files reference a pattern slug), file_summary (50-word summary of a file path), recently_changed (files mtime newer than threshold), find_imports_of (what does this file import).",
     inputSchema: {
       type: "object",
       properties: {
         codebase_id: {
           type: "string",
-          description: "Codebase id (ecodiaos-backend|ecodiaos-frontend|coexist|roam-backend|roam-frontend|patterns-corpus) or * for cross-repo.",
+          description: "Codebase id (ecodiaos-backend|ecodiaos-frontend|coexist|patterns-corpus) or * for cross-repo.",
           default: "*",
         },
         query_type: {
