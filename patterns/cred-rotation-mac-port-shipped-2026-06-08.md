@@ -150,7 +150,58 @@ account's tokens forces Tate to re-login.
 - Do NOT depend on `ecosystem.config.js` env on Mac. The agent runs under launchd.
  Mirror any env change into the plist or it has no effect.
 
-## Follow-up surface
+## Real-world testing surfaced two more layers (all now shipped 2026-06-08)
+
+### Layer 4: ccusage hard-coded Windows path
+
+`tools/usage.js::CCUSAGE_CLI_JS` and `COORD_ROOT` were Windows-only paths.
+`usage.poll_now` returned a 500 with "Cannot find module" on Mac, so
+`accounts.json` was empty, every account looked like infinity headroom, and
+`pick_healthiest_account` deterministically returned tate (alphabetic first).
+Fix in commit `8b2cf9f`: platform-aware defaults plus `npm install -g ccusage`.
+
+### Layer 5: dual COORD_ROOT seam between the agent and the daemons
+
+The agent's `.env` overrides `COORD_ROOT=/Users/ecodia/.ecodiaos/coordination`
+via dotenv at startup. The cred-rotation pattern's first daemon plists set
+`COORD_ROOT=/Users/ecodia/.code/ecodiaos/coordination` (the in-code default).
+Result: agent and daemons wrote to two different `accounts.json` files. The
+agent's `pick_healthiest_account` read the agent-written one (stale), while
+the daemon refreshed the OTHER one (fresh). pick_healthiest then returned
+"tate" with full-headroom defaults because it never saw the daemon's real
+poll results.
+
+The canonical Mac path is `~/.ecodiaos/coordination` (per the agent's `.env`
+line 9). Both daemon plists now set `COORD_ROOT=/Users/ecodia/.ecodiaos/coordination`
+explicitly to match.
+
+### Layer 6: cred-refresher live-session detection
+
+The daemon at `daemons/cred-refresher.js` correctly skips the account hosting
+the live interactive Claude Code session ("[cred-refresher] skipped tate -
+active interactive session owns its refresh") to avoid the 2026-05-28
+single-use refresh_token collision. Verified live on the first daemon tick.
+
+### Layer 7: per-account refresh_token hygiene
+
+`code.json`'s refresh_token was invalid at first run ("HTTP 400 invalid_grant").
+That account was used in another CC session that already burned the
+single-use refresh_token. Operational fix: have Tate re-login Claude Code as
+code@ to re-seed `code.json` with a fresh refresh_token. Not a substrate
+bug; a per-account hygiene step.
+
+## Substrate that landed under launchd
+
+| Service | Plist | Reads/Writes |
+|---|---|---|
+| `eos-laptop-agent` | `~/Library/LaunchAgents/au.ecodia.laptop-agent.plist` | rotates `.credentials.json`; reads `~/.ecodiaos/coordination/usage/accounts.json` |
+| `eos-cred-refresher` | `~/Library/LaunchAgents/au.ecodia.cred-refresher.plist` | refreshes OAuth tokens in `~/PRIVATE/ecodia-creds/{tate,code,money}.json` every 30 min; skips live session |
+| `eos-usage-poller` | `~/Library/LaunchAgents/au.ecodia.usage-poller.plist` | polls `ccusage session --json` every 5 min; writes `~/.ecodiaos/coordination/usage/accounts.json` |
+
+All three under launchd, NOT pm2 (per [[pm2-restart-reloads-dangerous-dump-never-blind-restart-2026-05-27]]).
+`ecosystem.config.js` is preserved for hygiene + reference, but is dead substrate on Mac.
+
+## Operational follow-up
 
 - The `cred-refresher.js` daemon is NOT currently running on the Mac. The plist
  launches the agent (`index.js`) only; pm2 is absent. Access tokens will expire on
