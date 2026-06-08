@@ -226,3 +226,54 @@ shipped in the same tab arc. Commit hash to follow.
 - [[laptop-agent-helper-not-inline-token-load]]
 - [[eos-laptop-agent-module-cache-requires-restart-after-handler-swap]]
 - [[supabase-access-via-org-pat-local-store-2026-05-20]]
+
+## Layer 8 (the real one): Mac Claude Code reads Keychain, not .credentials.json
+
+Layers 1-7 were the credential-rotation substrate as designed for the
+Windows model: ~/.claude/.credentials.json IS the file Claude Code reads,
+so file-swap rotation changes the authenticated account. That model is
+wrong on Mac.
+
+The empirical proof (2026-06-08 12:30 AEST): Tate logged into code@ then
+money@ via the Claude Code UI. Both logins changed the macOS Keychain
+entry (security find-generic-password mdat moved each time) and left
+~/.claude/.credentials.json completely unchanged (mtime stuck at 11:42).
+The Mac binary used the Keychain token regardless of what the file said.
+
+Fix in commit fd3ce3c: rotate_to and current_account now use the macOS
+Keychain on darwin via the `security` CLI. Per-account files at
+/Users/ecodia/PRIVATE/ecodia-creds/{tate,code,money}.json remain the
+canonical backup store; the rotation reads them and writes the content
+to Keychain instead of to .credentials.json.
+
+### One subtle pitfall worth knowing
+
+`security -w` silently hex-encodes the stored blob if the input contains
+embedded newlines or non-printable bytes. A hex-encoded blob breaks
+Claude Code's read (it does not parse as JSON). The fix: minify the JSON
+via JSON.stringify(JSON.parse(...)) before passing to security. Verified:
+pretty-printed tate.json (with internal `\n`'s) round-tripped as hex
+junk; minified content round-trips byte-clean.
+
+### What the new state model looks like
+
+  Anthropic auth source: macOS Keychain (service "Claude Code-credentials",
+    account "ecodia")
+  Backup store: /Users/ecodia/PRIVATE/ecodia-creds/{tate,code,money}.json
+  Live mirror (vestigial): ~/.claude/.credentials.json (best-effort mirror
+    so cred-refresher's live-session detection still works)
+  Rotation: rotate_to(account) reads per-account file, writes to Keychain,
+    mirrors to .credentials.json. Returns {previous, current, target: 'keychain'}.
+  Identity: current_account() reads Keychain blob, hash-matches accessToken
+    against per-account files, returns short name or "unknown".
+
+### What still needs Tate's hands
+
+- code@ refresh_token is invalid (single-use was burnt before transfer).
+  Tate's UI re-login to code@ regenerates it. After re-login, sync the
+  Keychain blob back to code.json with
+    security find-generic-password -s "Claude Code-credentials" -a "ecodia" -w > code.json
+- cred-refresher writes refreshed access tokens back to the per-account
+  file only. When the refreshed account IS the live Keychain identity,
+  the refresher should ALSO update the Keychain so the live session
+  picks up the fresh token. Not yet implemented; next ship.
