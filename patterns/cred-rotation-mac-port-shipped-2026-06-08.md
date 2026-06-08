@@ -277,3 +277,50 @@ junk; minified content round-trips byte-clean.
   file only. When the refreshed account IS the live Keychain identity,
   the refresher should ALSO update the Keychain so the live session
   picks up the fresh token. Not yet implemented; next ship.
+
+## Layer 9: rotation safety gate (only switch when no chats are working)
+
+Tate verbatim 2026-06-08 after the first Keychain rotation kicked his
+running chats out with 401s: "I never wanted multi account parallelism.
+It was always just to switch when a usage cap was approaching. So what
+we really need to do is just make sure we switch when no chats are
+open/working. Then all ones after that will use the new creds."
+
+On Mac the macOS Keychain entry `Claude Code-credentials/ecodia` is a
+single shared resource across every Claude Code process on the machine.
+Any rotation forcibly affects every other running session.
+
+Fix (commit 4cf476a + scheduler patch ff7b1e8):
+- `creds._countActiveWorkers(excludeTabId)` reads
+  `~/.ecodiaos/coordination/workers/` and counts files lacking
+  `terminated_at`.
+- `creds.rotate_to` now accepts `{account, force?, caller_tab_id?}` and
+  refuses with `{deferred: true, reason: 'active_workers_present',
+  active_count, active_tabs}` when other workers are present. Same-account
+  rotation bypasses the gate (it's a no-op).
+- `scheduler.dispatchOne` detects the deferred result, logs it, and
+  dispatches the cron fire on the currently-authenticated account. The
+  next cron fire retries rotation when the registry is idle.
+
+This gives Tate exactly what he asked for: rotation only fires when no
+other chats are working, all subsequent chats use the new creds.
+
+### What to do when you actually want to rotate
+
+The safety gate's `force: true` is meant for the deliberate human-driven
+switch, never for autonomous dispatch. To rotate when capping out:
+1. Wait for the registry to drain (close active worker tabs).
+2. Call `creds.rotate_to({account: '<name>'})` without force; gate passes.
+3. Or pass `force: true` if you're knowingly accepting the 401 fan-out.
+
+### What to do when you want to capture a fresh Keychain blob
+
+Each time Tate logs into an account via the Claude Code UI, the Keychain
+gets a fresh refresh_token and access_token. To save them back into the
+per-account file (so the cred-refresher can keep them alive):
+
+```bash
+security find-generic-password -s "Claude Code-credentials" -a "ecodia" -w > ~/PRIVATE/ecodia-creds/<account>.json
+```
+
+The blob is already minified JSON; no transformation needed.
