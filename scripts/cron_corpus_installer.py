@@ -34,7 +34,7 @@ AGENT_TOKEN_PATH = Path(
 SUPABASE_CREDS_PATH = Path(
     os.environ.get(
         "SUPABASE_CREDS_PATH",
-        "D:/PRIVATE/ecodia-creds/supabase.env",
+        "/Users/ecodia/PRIVATE/ecodia-creds/supabase.env",
     )
 )
 SUPABASE_PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "nxmtfzofemtrlezlyhcj")
@@ -183,7 +183,7 @@ def install_corpus(
     dry_run: bool = False,
     skip_cdp_dependent: bool = False,
     sleep_between_calls_s: float = 0.5,
-    expected_count: int | None = 75,
+    expected_count: int | None = 76,
 ) -> dict[str, int]:
     spec = yaml.safe_load(Path(spec_path).read_text(encoding="utf-8"))
     entries = spec["crons"]

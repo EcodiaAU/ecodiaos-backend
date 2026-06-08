@@ -1,8 +1,10 @@
-# Cron corpus manifest. 75 entries faithfully extracted from
-# docs/superpowers/specs/2026-06-03-cron-corpus-design.md (v3.1 commit 9f023e55).
+# Cron corpus manifest. 76 entries faithfully extracted from
+# docs/superpowers/specs/2026-06-03-cron-corpus-design.md (v3.1 commit 9f023e55,
+# +1 row status-board-execute-top added 2026-06-08 to close the read-pick-do loop
+# the original corpus left open).
 # Schema enforced by scripts/cron_prompt_builder.py validators.
 # Resume order = file order = spec table order.
-# Counts: 30 Phase-1 (foundation) + 26 Phase-2 (business cognition) + 19 Phase-3 (stretch).
+# Counts: 30 Phase-1 (foundation) + 27 Phase-2 (business cognition) + 19 Phase-3 (stretch).
 # Exactly 1 cdp_dependent entry (app-store-review-watch), deferred until Mac mini.
 
 crons:
@@ -141,7 +143,7 @@ crons:
     tz: Australia/Brisbane
     lm_layer: CAPTURE
     intent_summary: >-
-      Verify D:/PRIVATE/ecodia-creds/ directory is intact (per-account JSON
+      Verify /Users/ecodia/PRIVATE/ecodia-creds/ directory is intact (per-account JSON
       files for tate, code, money plus supabase.env), confirm the cred-refresher
       daemon is healthy, and probe for rogue env changes. Insert a P1
       status_board row on any drift detected.
@@ -582,13 +584,13 @@ crons:
     context_addendum: >-
       The canonical secrets registry is at backend/docs/secrets/ with one
       file per credential; the master Supabase PAT lives locally on Corazon
-      at D:/PRIVATE/ecodia-creds/supabase.env. Per pattern
+      at /Users/ecodia/PRIVATE/ecodia-creds/supabase.env. Per pattern
       cred-rotation-must-propagate-to-all-consumers a rotation is not done
       when kv_store is updated; the audit must walk Vercel, Supabase Auth,
       Edge Functions, repo .env, and any documented runbook. This cron is
       detection only; rotation is conductor-driven after Tate confirms.
       Scope: gitignored files plus settings.json plus .env files on Corazon.
-      Skip D:/PRIVATE/ since that is the intended storage location.
+      Skip /Users/ecodia/PRIVATE/ since that is the intended storage location.
     cdp_dependent: false
 
   - name: leaked-secret-git-watch
@@ -884,6 +886,45 @@ crons:
       the score crosses a tier boundary (P2 promotes to P1 above threshold);
       cosmetic re-shuffles inside a tier do not warrant a UPDATE. Sister
       cron morning-briefing consumes this output rather than re-ranking.
+    cdp_dependent: false
+
+  - name: status-board-execute-top
+    phase: 2
+    schedule: every 2h
+    tz: Australia/Brisbane
+    lm_layer: NONE
+    intent_summary: >-
+      Read the top ranked status_board rows where next_action_by=ecodiaos
+      and dispatch a worker to actually do the work, not just rank or
+      reconcile it. This is the closed-loop read-pick-do cron the corpus
+      was missing: status-board-drift-audit cleans, daily-priority-rank
+      orders, opportunity-triage and client-deliverable-followups cover
+      narrow slices, and this one executes across the general queue. Cap
+      at one dispatch per fire to keep worker contention bounded.
+    context_addendum: >-
+      The gap this cron fills was Tate-named 2026-06-08: the corpus has
+      many crons that add rows to status_board, several that rank or
+      reconcile, and narrow per-entity-type executors (opportunity-triage,
+      client-deliverable-followups), but no general "pick a row from the
+      queue and ship it" loop. The dead meta-loop (status orphaned, last
+      next_run_at 2026-06-03) was the original design surface for this;
+      this cron replaces it with explicit scope. Read
+      kv_store.ceo.priority_rank.<today> first if fresh (written by the
+      daily-priority-rank cron at 07:00 AEST); fall back to a live composite
+      scan of priority under 3, next_action_by=ecodiaos, archived_at null,
+      no recent dispatched-worker fingerprint in context. Acquire a
+      conductorClaimsService claim on the chosen row before dispatching so
+      two sibling fires do not double-execute. Dispatch via
+      mcp__ecodia-scheduler__schedule_delayed with delay "in 0m" carrying
+      the full row context (name, status, next_action, entity_ref, linked
+      patterns) as the brief per scheduled-prompt-cold-start-adequacy. The
+      dispatched worker probes its substrate target before signal_done per
+      verify-deployed-state-against-narrated-state. The execute-top cron
+      then writes one P3 audit row naming the dispatched child task id,
+      the chosen row id, and the rationale, so the loop is auditable.
+      Silent exit with one kv_store.set is correct when the queue is empty
+      or every candidate row is already claimed by a sibling fire per
+      cron-deliverables-can-be-conditional-not-all-fires-must-ship.
     cdp_dependent: false
 
   - name: weekly-product-roadmap-sync

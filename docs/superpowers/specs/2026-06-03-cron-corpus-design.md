@@ -57,7 +57,7 @@ The Phase-1 set is what makes EcodiaOS not-broken in the absence of Tate. It mus
 | 4 | `github-push-ci-watch` | every 30m | Across EcodiaAU + EcodiaTate orgs, watch the last 2h of pushes for failing GitHub Actions / CI runs, surface red builds + commit sha + branch to status_board. PRs not used at Ecodia. | OBSERVE | CAPTURE |
 | 5 | `vercel-deploy-monitor` | every 2h | All projects, last-2h deploy state, status_board P2 on ERROR/CANCELED | OBSERVE | CAPTURE |
 | 6 | `vps-substrate-health` | every 1h | Postgres, Neo4j Aura, MCP gateway reachable, kv_store last-write sentinels | OBSERVE | CAPTURE |
-| 7 | `disk-and-credentials-pulse` | every 6h | D:/PRIVATE/ecodia-creds intact, cred-refresher daemon healthy, no rogue env changes | OBSERVE | CAPTURE |
+| 7 | `disk-and-credentials-pulse` | every 6h | /Users/ecodia/PRIVATE/ecodia-creds intact, cred-refresher daemon healthy, no rogue env changes | OBSERVE | CAPTURE |
 | 8 | `client-app-health-probe` | every 4h | Probe shipped client surfaces for HTTP 200 + error-rate spike + Core Web Vitals | OBSERVE | CAPTURE |
 | 9 | `zernio-dm-poll` | every 2h, 08-20 AEST | Poll DMs on the 2 Zernio accounts that ship DM features (Instagram + LinkedIn). Triage actionable inbounds to status_board, autolabel vendor/spam. NEVER auto-reply without Tate. | OBSERVE | CAPTURE |
 | 10 | `zernio-analytics-watch` | daily 19:00 AEST | Read analytics from the 2 Zernio accounts that ship analytics (Instagram + LinkedIn). Top post, engagement rate, follower delta, link clicks. Anomaly detection. Weekly trend Episode. | OBSERVE | CAPTURE |
@@ -119,6 +119,7 @@ Resume Phase 2 after Phase 1 has been clean for 7 days on Mac. These are the cro
 | 35a | `daily-priority-rank` | daily 07:00 AEST | Re-rank status_board P1 and P2 rows by composite score (age + urgency + revenue weight + Tate-block-state). Promote/demote rows. Writes top-5 to `kv_store.ceo.priority_rank.<date>`. | DECIDE |
 | 35b | `weekly-product-roadmap-sync` | weekly Mon 14:00 | Per active product (Chambers, Goodreach, Roam/Glovebox, Co-Exist, EcodiaOS, Locals, Cofound), draft a 7-day plan: what ships, what is blocked, what needs Tate input. Surface to status_board as one P2 row per product. | DECIDE |
 | 35c | `weekly-strategic-direction-check` | weekly Sun 16:00 AEST | Read all Strategic_Direction Neo4j nodes < 6mo old. For each: is it still valid? Is progress visible? Should it sunset or evolve? Write one Reflection Episode per direction with verdict. Replaces the killed daily-strategic-thinking ritual with weekly cadence and mandatory artefact. | DECIDE |
+| 35d | `status-board-execute-top` | every 2h | Read `kv_store.ceo.priority_rank.<today>` (or live composite scan if stale), pick the top `next_action_by=ecodiaos` row not already claimed, acquire a conductorClaimsService claim, dispatch one worker via `schedule_delayed in 0m` with the full row context as brief, write a P3 audit row naming the child task id. Replaces the dead `meta-loop` cron (status orphaned). Closes the read-pick-do loop the rest of the corpus was missing. Added 2026-06-08. | DECIDE |
 
 ### Act
 

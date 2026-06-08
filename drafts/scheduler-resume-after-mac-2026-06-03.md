@@ -1,9 +1,10 @@
 # Scheduler resume manifest. Post-Mac-mini setup.
 
-**Created:** 2026-06-03, updated 2026-06-04 post-install
-**Reason:** Corazon 8GB RAM cannot host the live cron fleet alongside Tate's IDE + Chrome + worker tabs. All scheduled work paused until the Mac mini is set up and the laptop-agent + scheduler are running there.
+> **SUPERSEDED 2026-06-08.** The Mac mini is live, the corpus is unpaused, and the hygiene pass on 2026-06-08 resolved the remaining drift: 4 superseded orphans archived (`meta-loop`, `email-triage`, `inner-life`, `status-board-reconciliation`), 17 surviving orphan rows had their prose cron expressions normalized to proper cron, 27 failed rows reset to active per [[scheduler-no-ide-defer-and-cron-rows-never-permanently-fail-2026-06-02]] doctrine. Live state distribution: 4 paused (legit future fires), 68 active, 14 dispatching, 12 running, 0 orphaned, 0 failed of 101 archived-null rows. **The real open blocker** is the dispatch path itself — workers spawn but never `coord.signal_bound` back, tracked at status_board row `b22cc8dd` (P1). This resume-order list is now a phase-ordering historical reference for future re-bootstraps only; for live state query Postgres `os_scheduled_tasks` directly.
 
-**On resume day:** for EACH cron below call `mcp__ecodia-scheduler__schedule_resume taskId=<id>` (look up taskId via `schedule_list` since ids are assigned at install).
+**Original (2026-06-03) reason for pause:** Corazon 8GB RAM cannot host the live cron fleet alongside Tate's IDE + Chrome + worker tabs. All scheduled work paused until the Mac mini is set up and the laptop-agent + scheduler are running there.
+
+**Original resume-day procedure:** for EACH cron below call `mcp__ecodia-scheduler__schedule_resume taskId=<id>` (look up taskId via `schedule_list` since ids are assigned at install).
 
 The 75 paused rows live in Supabase project `nxmtfzofemtrlezlyhcj` (table `os_scheduled_tasks`). Any laptop-agent pointed at this Postgres will see them. Mac-day procedure is UNPAUSE EXISTING (call `mcp__ecodia-scheduler__schedule_resume` per row), NOT re-install-fresh. Re-install would create duplicates under the same names (the installer is idempotent on name only when it can see existing rows; if the Mac's `_list_existing` reads a different Postgres, duplicates land).
 
@@ -11,7 +12,9 @@ Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) on
 
 ---
 
-## 75-cron paused corpus (resume order)
+## 76-cron paused corpus (resume order)
+
+> Note 2026-06-08: row 35d `status-board-execute-top` (Phase 2, DECIDE) added post-cutover. id `f0c904df-5eae-4f0e-a424-d40bf90eaa48`. Closes the read-pick-do loop; replaces the dead `meta-loop` cron. NOT paused, resumed directly: live probe 2026-06-08 09:56 AEST showed the broader corpus already broadly active (4 paused, 44 dispatching, 12 running, 15 active, 21 orphaned, 6 failed of 105 archived-null rows), so this row goes straight to active alongside its siblings. The header framing of this doc as a "paused corpus" is itself drift now; the resume-order list remains useful as a phase-ordering reference for any future re-bootstrap, but the live scheduler state is the source of truth.
 
 ### Phase 1. Foundation (30 crons)
 
@@ -48,7 +51,7 @@ Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) on
 | `laptop-agent-pulse` | every 30m | NONE | no |
 | `pm2-dump-drift-guard` | daily 03:00 | NONE | no |
 
-### Phase 2. Business cognition (26 crons)
+### Phase 2. Business cognition (27 crons)
 
 | name | schedule | LM-layer | cdp-deferred |
 |---|---|---|---|
@@ -62,6 +65,7 @@ Three-pass by phase. Phase 1 (foundation) first; Phase 2 (business cognition) on
 | `inner-life-reflection` | daily 22:00 | NONE | no |
 | `tate-blocked-nudge-weekly` | weekly Sun 10:00 | NONE | no |
 | `daily-priority-rank` | daily 07:00 | NONE | no |
+| `status-board-execute-top` | every 2h | NONE | no |
 | `weekly-product-roadmap-sync` | weekly Mon 14:00 | NONE | no |
 | `weekly-strategic-direction-check` | weekly Sun 16:00 | NONE | no |
 | `monthly-invoice-render` | monthly 1st 09:00 | NONE | no |
