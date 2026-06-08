@@ -78,25 +78,31 @@ async function callDeepSeek(messages, {
     logger.debug(`KG context injected for ${module} (${kgContext.length} chars)`)
   }
 
-  // ─── 3. EXECUTE: Dispatch to ecodia-factory over Redis ────────────
-  // Chat stays in ecodia-api with its own credentials dir (~/.claude).
-  // Background LLM work runs on ecodia-factory with a dedicated credentials
-  // dir (~/.claude-bg). Two dirs = zero chance of OAuth refresh-token
-  // rotation races killing user chat. model/temperature/maxTokens args
-  // accepted for signature compatibility but not used by the factory CLI
-  // path (fixed to sonnet, max-turns 1).
-  const factoryBridge = require('./factoryBridge')
+  // ─── 3. EXECUTE: Direct /v1/messages via anthropicMessagesClient ─
+  // The factoryBridge -> ecodia-factory subprocess path is dead since the
+  // factory was decommissioned 2026-06-08. anthropicMessagesClient is the
+  // canonical OS provider chain (claude_max tate -> code -> money ->
+  // deepseek fallback) and uses long-lived OAuth bearers loaded from the
+  // same .credentials.json files cred-refresher.js keeps fresh, so no
+  // chat OAuth race. model/temperature/maxTokens are now honoured.
+  const anthropicMessagesClient = require('./anthropicMessagesClient')
 
-  const systemParts = enrichedMessages.filter(m => m.role === 'system').map(m => m.content).filter(Boolean)
-  const dialogue = enrichedMessages
+  const sysParts = enrichedMessages.filter(m => m.role === 'system').map(m => m.content).filter(Boolean)
+  const convo = enrichedMessages
     .filter(m => m.role !== 'system')
-    .map(m => (m.role === 'assistant' ? `[Previous response]\n${m.content}` : m.content))
-    .join('\n\n')
-  const prompt = systemParts.length
-    ? `${systemParts.join('\n\n')}\n\n---\n\n${dialogue}`
-    : dialogue
+    .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
+  if (convo.length === 0) convo.push({ role: 'user', content: 'continue' })
 
-  const content = await factoryBridge.runBackgroundJob(prompt, { module })
+  const result = await anthropicMessagesClient.createMessage({
+    messages: convo,
+    system: sysParts.length ? sysParts.join('\n\n') : null,
+    model: model || 'claude-sonnet-4-6',
+    max_tokens: maxTokens || 4096,
+  })
+  const content = ((result && result.json && result.json.content) || [])
+    .filter(b => b && b.type === 'text')
+    .map(b => b.text)
+    .join('')
 
   // ─── 4. LOG: Ingest exchange back into KG ─────────────────────────
   if (!skipLogging && kg && env.NEO4J_URI) {

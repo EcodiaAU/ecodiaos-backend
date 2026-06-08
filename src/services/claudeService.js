@@ -1,49 +1,81 @@
 const logger = require('../config/logger')
 const db = require('../config/db')
-const factoryBridge = require('./factoryBridge')
+const anthropicMessagesClient = require('./anthropicMessagesClient')
 
 // ═══════════════════════════════════════════════════════════════════════
-// CLAUDE SERVICE - dispatches background LLM calls to the factory process.
+// CLAUDE SERVICE - background LLM calls for non-agent-loop work.
 //
-// Chat stays in ecodia-api with its own credentials (~/.claude).
-// Everything else (KG consolidation, goal scoring, gmail triage, etc.) goes
-// here. We publish a dispatch to ecodia-factory over Redis; the factory
-// spawns a short-lived `claude --print` subprocess with its own
-// credentials dir (~/.claude-bg / CLAUDE_CONFIG_DIR_BG) and returns the
-// result. Zero chance of racing chat OAuth.
+// Routes through anthropicMessagesClient (the canonical OS provider chain:
+// claude_max tate -> code -> money -> deepseek fallback) via long-lived
+// OAuth bearers. The old factoryBridge -> ecodia-factory subprocess path
+// is dead since the factory was decommissioned 2026-06-08; this service
+// now goes direct via /v1/messages with the OAuth credentials ecodia-api
+// already manages for the user chat surface (no cred-rotation races
+// because the bearers loaded by anthropicMessagesClient are read once
+// per request from the same .credentials.json files cred-refresher.js
+// keeps fresh).
 //
-// Signature kept identical so old callers don't change: callClaude returns
-// a string; callClaudeJSON returns a parsed object.
+// Signature kept identical: callClaude returns a string; callClaudeJSON
+// returns a parsed object; cacheKeepalivePing unchanged.
 // ═══════════════════════════════════════════════════════════════════════
+
+const DEFAULT_MAX_TOKENS = 4096
+
+function _splitSystemAndConversation(messages, systemArg) {
+  const systemParts = []
+  if (systemArg) systemParts.push(systemArg)
+  const conversation = []
+  for (const m of messages) {
+    if (!m) continue
+    if (m.role === 'system') systemParts.push(m.content)
+    else if (m.role === 'user') conversation.push({ role: 'user', content: m.content })
+    else if (m.role === 'assistant') conversation.push({ role: 'assistant', content: m.content })
+  }
+  if (conversation.length === 0) {
+    // anthropicMessagesClient requires non-empty messages. Old factoryBridge
+    // path accepted a system-only flat prompt; synthesize a minimal user
+    // turn so callers that only pass system content keep working.
+    conversation.push({ role: 'user', content: 'continue' })
+  }
+  return { systemParts, conversation }
+}
+
+function _extractText(json) {
+  const blocks = (json && json.content) || []
+  return blocks.filter(b => b && b.type === 'text').map(b => b.text).join('')
+}
 
 async function callClaude(messages, { module: mod = 'general', system = null } = {}) {
   const start = Date.now()
+  const { systemParts, conversation } = _splitSystemAndConversation(messages, system)
 
-  // Flatten messages into a single prompt. Preserves the old behaviour:
-  // system content goes first, then user/assistant turns in order.
-  const systemParts = []
-  const conversationParts = []
-  for (const m of messages) {
-    if (m.role === 'system') systemParts.push(m.content)
-    else if (m.role === 'user') conversationParts.push(m.content)
-    else if (m.role === 'assistant') conversationParts.push(`[Previous response]: ${m.content}`)
-  }
-  if (system) systemParts.unshift(system)
+  const result = await anthropicMessagesClient.createMessage({
+    messages: conversation,
+    system: systemParts.length ? systemParts.join('\n\n') : null,
+    model: 'claude-sonnet-4-6',
+    max_tokens: DEFAULT_MAX_TOKENS,
+  })
 
-  const prompt = [
-    ...(systemParts.length ? [`<system>\n${systemParts.join('\n\n')}\n</system>\n`] : []),
-    ...conversationParts,
-  ].join('\n\n')
-
-  const content = await factoryBridge.runBackgroundJob(prompt, { module: mod })
-
+  const content = _extractText(result && result.json)
   const durationMs = Date.now() - start
-  logger.debug(`callClaude via factory bridge (${mod})`, { durationMs, contentLength: content.length })
+  logger.debug(`callClaude via anthropicMessagesClient (${mod})`, {
+    durationMs,
+    contentLength: content.length,
+    providerUsed: result && result.providerUsed,
+  })
 
+  const usage = (result && result.json && result.json.usage) || {}
+  const inputApprox = systemParts.join('').length + conversation.map(m => m.content || '').join('').length
   db`
     INSERT INTO claude_usage (source, provider, model, input_tokens, output_tokens, week_start)
-    VALUES (${mod}, 'factory-bg', 'sonnet', ${Math.ceil(prompt.length / 4)}, ${Math.ceil(content.length / 4)},
-            date_trunc('week', now()))
+    VALUES (
+      ${mod},
+      ${(result && result.providerUsed) || 'unknown'},
+      ${(result && result.json && result.json.model) || 'claude-sonnet-4-6'},
+      ${usage.input_tokens || Math.ceil(inputApprox / 4)},
+      ${usage.output_tokens || Math.ceil(content.length / 4)},
+      date_trunc('week', now())
+    )
     ON CONFLICT DO NOTHING
   `.catch(() => {})
 
@@ -82,34 +114,29 @@ async function callClaudeJSON(messages, opts = {}) {
 // "health=?" user message via the existing callClaude path so the upstream
 // cache (whether factory-bg-subprocess or direct SDK) sees the same content
 // and extends its 1h TTL. Returns { usage: { input_tokens, cache_read_input_tokens } }
-// or the best approximation factoryBridge can provide.
+// or the best approximation the underlying transport returns.
 async function cacheKeepalivePing({ stablePrefix, userMessage = 'health=?' } = {}) {
   const start = Date.now()
   const messages = [
     { role: 'user', content: userMessage },
   ]
-  try {
-    const content = await callClaude(messages, {
-      module: 'cache_keepalive',
-      system: stablePrefix,
-    })
-    const durationMs = Date.now() - start
-    // factoryBridge doesn't pass through token accounting; we estimate from
-    // char length so the keepalive metric has a plausible number. Real-SDK
-    // wire-in would return actual cache_read_input_tokens - that's a follow-up.
-    const inputTokens = Math.ceil((stablePrefix.length + userMessage.length) / 4)
-    const outputTokens = Math.ceil((content || '').length / 4)
-    return {
-      usage: {
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cache_read_input_tokens: 0,  // unknown via factoryBridge; SDK wire-in would populate
-      },
-      duration_ms: durationMs,
-    }
-  } catch (err) {
-    // Bubble up - worker's fireRefresh catches and logs.
-    throw err
+  const { conversation } = _splitSystemAndConversation(messages, null)
+  const result = await anthropicMessagesClient.createMessage({
+    messages: conversation,
+    system: stablePrefix,
+    model: 'claude-sonnet-4-6',
+    max_tokens: 32,
+  })
+  const content = _extractText(result && result.json)
+  const durationMs = Date.now() - start
+  const usage = (result && result.json && result.json.usage) || {}
+  return {
+    usage: {
+      input_tokens: usage.input_tokens || Math.ceil((stablePrefix.length + userMessage.length) / 4),
+      output_tokens: usage.output_tokens || Math.ceil((content || '').length / 4),
+      cache_read_input_tokens: usage.cache_read_input_tokens || 0,
+    },
+    duration_ms: durationMs,
   }
 }
 
