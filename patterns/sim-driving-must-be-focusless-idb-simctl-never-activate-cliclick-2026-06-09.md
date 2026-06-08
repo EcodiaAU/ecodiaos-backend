@@ -32,10 +32,18 @@ both modes.
   daemon runs without the viewer window; the window is only for human watching).
 - Install / launch / terminate: `xcrun simctl install|launch|terminate <udid> <bundle>`.
 - Tap / type / swipe / press: **`idb ui tap X Y --udid <udid>`**,
-  `idb ui text "..."`, `idb ui swipe`, `idb ui button`. idb injects into the sim
-  via its companion - no focus, no cursor, device-point coordinates (no
-  window-geometry mapping). Install once: `brew install idb-companion` +
-  `python3 -m pip install --user fb-idb`.
+  `idb ui text "..."`, `idb ui swipe x1 y1 x2 y2`, `idb ui button`. idb injects
+  into the sim via its companion - no focus, no cursor, **device-POINT**
+  coordinates (e.g. 402x874 for iPhone 17 Pro, from `idb ui describe-all`), NOT
+  screenshot pixels. Install (VERIFIED working on Xcode 26, 2026-06-09):
+  `brew tap facebook/fb && brew install idb-companion` (the bare
+  `brew install idb-companion` matches the wrong formula and fails - the tap is
+  required) + `python3 -m pip install --user fb-idb`. The `idb` client lands at
+  `~/Library/Python/3.9/bin/idb` (add to PATH); `idb_companion` at
+  `/opt/homebrew/bin`. Confirm with `idb list-targets` + `idb ui describe-all`.
+  NOTE: `simctl launch` can raise the Simulator window once; idb taps themselves
+  never do. For truly windowless runs, drive headless (no `open -a Simulator`)
+  and screenshot via `simctl io ... screenshot`.
 - Screenshot: `xcrun simctl io <udid> screenshot <path>` (focusless).
 - Read logs: `xcrun simctl spawn <udid> log show --predicate ...` (focusless).
 
