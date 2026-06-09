@@ -5,7 +5,7 @@
   "mac_ported": "2026-06-08",
   "mac_ported_by": "codebase-manifest-refresh cron (first Mac-day fire)",
   "root": "/Users/ecodia/.code",
-  "port_notes": "Original substrate authored on Corazon (Windows). Paths were D:/.code/... Mac mini is now the canonical conductor host per drafts/scheduler-resume-after-mac-2026-06-03.md. Paths rewritten to /Users/ecodia/.code form. roam-backend + roam-frontend dropped (no on-disk source on Mac). Future cross-platform resurrection should add a paths_by_platform resolver in indexer.js/orient.js/mcp-server.js rather than rewrite again. Additional Mac-side client repos (chambers-frontend, glovebox-*, goodreach, locals-*, ecodia-site, context, lendy, esps) are NOT in this manifest yet - that scope-expansion is a separate follow-up task.",
+  "port_notes": "Original substrate authored on Corazon (Windows). Paths were D:/.code/... Mac mini is now the canonical conductor host per drafts/scheduler-resume-after-mac-2026-06-03.md. Paths rewritten to /Users/ecodia/.code form. roam-backend + roam-frontend dropped (no on-disk source on Mac). Future cross-platform resurrection should add a paths_by_platform resolver in indexer.js/orient.js/mcp-server.js rather than rewrite again. Scope expanded 2026-06-09 to cover active commercial client surfaces: chambers-frontend (capacitor), glovebox-ios/android/web (native trio), locals-ios/android/web (native trio), resonaverde (Next.js, standing arrangement). Codebases were picked by commit-recency-in-last-14d + clients/<slug>.md doctrine presence + status_board P1/P2 presence. Skipped (dormant or no doctrine): goodreach (19d quiet, free-tier supabase paused), context (12d quiet), ecodia-native (15d quiet), glovebox-design (design-only deliverable), esps, lendy, ecodia-site, organism, wattleos. Re-evaluate next turn the cron-fire wakes if any move into active ship.",
   "codebases": [
     {
       "id": "patterns-corpus",
@@ -82,6 +82,179 @@
         "android/.gradle/**",
         "android/build/**",
         "data/**",
+        "public/**"
+      ]
+    },
+    {
+      "id": "chambers-frontend",
+      "path": "/Users/ecodia/.code/chambers-frontend",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": "npm test",
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vercel-chambers-frontend", "ios-asc-chambers", "android-play-chambers"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.css", "**/*.html"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "build/**",
+        ".next/**",
+        "ios/App/Pods/**",
+        "ios/App/build/**",
+        "android/app/build/**",
+        "android/.gradle/**",
+        "android/build/**",
+        "public/**",
+        "e2e/test-results/**",
+        "drafts/**"
+      ]
+    },
+    {
+      "id": "glovebox-ios",
+      "path": "/Users/ecodia/.code/glovebox-ios",
+      "language": "swift",
+      "primary_lockfile": "project.yml",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": ["ios-asc-glovebox"],
+      "watcher_glob": ["**/*.swift", "**/*.md", "**/*.json", "**/*.yml", "**/*.plist", "**/*.entitlements"],
+      "watcher_ignore": [
+        ".git/**",
+        "build/**",
+        "DerivedData/**",
+        "Pods/**",
+        "*.xcodeproj/xcuserdata/**",
+        "*.xcworkspace/xcuserdata/**",
+        "_parity-audit/**",
+        "BasemapGlyphs/**",
+        "*.log"
+      ]
+    },
+    {
+      "id": "glovebox-android",
+      "path": "/Users/ecodia/.code/glovebox-android",
+      "language": "kotlin",
+      "primary_lockfile": "build.gradle.kts",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": ["android-play-glovebox"],
+      "watcher_glob": ["**/*.kt", "**/*.kts", "**/*.xml", "**/*.md", "**/*.properties", "**/*.toml"],
+      "watcher_ignore": [
+        ".git/**",
+        "build/**",
+        ".gradle/**",
+        "app/build/**",
+        "_parity-audit/**",
+        "*.log",
+        "local.properties"
+      ]
+    },
+    {
+      "id": "glovebox-web",
+      "path": "/Users/ecodia/.code/glovebox-web",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": null,
+      "lint_command": "npm run lint",
+      "deploy_targets": ["vercel-glovebox-web"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.css", "**/*.html"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "build/**",
+        ".next/**",
+        "public/**"
+      ]
+    },
+    {
+      "id": "locals-ios",
+      "path": "/Users/ecodia/.code/locals-ios",
+      "language": "swift",
+      "primary_lockfile": "project.yml",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": ["ios-asc-locals"],
+      "watcher_glob": ["**/*.swift", "**/*.md", "**/*.json", "**/*.yml", "**/*.plist", "**/*.entitlements"],
+      "watcher_ignore": [
+        ".git/**",
+        "build/**",
+        "DerivedData/**",
+        "Pods/**",
+        "*.xcodeproj/xcuserdata/**",
+        "*.xcworkspace/xcuserdata/**",
+        "*.log"
+      ]
+    },
+    {
+      "id": "locals-android",
+      "path": "/Users/ecodia/.code/locals-android",
+      "language": "kotlin",
+      "primary_lockfile": "build.gradle.kts",
+      "patterns_subdir": null,
+      "docs_subdir": "docs/",
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": ["android-play-locals"],
+      "watcher_glob": ["**/*.kt", "**/*.kts", "**/*.xml", "**/*.md", "**/*.properties", "**/*.toml"],
+      "watcher_ignore": [
+        ".git/**",
+        "build/**",
+        ".gradle/**",
+        "app/build/**",
+        "screenshots/**",
+        "*.log",
+        "local.properties"
+      ]
+    },
+    {
+      "id": "locals-web",
+      "path": "/Users/ecodia/.code/locals-web",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": "npm test",
+      "lint_command": null,
+      "deploy_targets": ["vercel-locals-web"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.css", "**/*.html"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "build/**",
+        ".next/**",
+        "public/**"
+      ]
+    },
+    {
+      "id": "resonaverde",
+      "path": "/Users/ecodia/.code/resonaverde",
+      "language": "node",
+      "primary_lockfile": "package.json",
+      "patterns_subdir": null,
+      "docs_subdir": null,
+      "test_command": null,
+      "lint_command": null,
+      "deploy_targets": ["vercel-resonaverde"],
+      "watcher_glob": ["**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx", "**/*.md", "**/*.json", "**/*.mjs", "**/*.css"],
+      "watcher_ignore": [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "build/**",
+        ".next/**",
         "public/**"
       ]
     }
