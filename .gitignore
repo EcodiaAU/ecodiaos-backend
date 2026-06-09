@@ -18,11 +18,11 @@ id
 ARCHITECTURE.md
 .claude/worktrees/
 
-# macros/ runtime output — recordings + emitted recipes are runtime artefacts,
+# macros/ runtime output - recordings + emitted recipes are runtime artefacts,
 # not source. Source-of-truth Corazon scripts live in macros/_corazon/ (committed).
 macros/captures/
 
-# Telemetry buffers — produced by hook telemetry sink, not source.
+# Telemetry buffers - produced by hook telemetry sink, not source.
 logs/telemetry/
 
 # Supabase CLI tooling cache.
@@ -38,3 +38,9 @@ supabase/.temp/
 # Tmp/scratch dumps from one-shot test responses, screenshots, etc.
 tmp*
 *-shot-response.json
+
+# SQLite runtime journals (codebase-manifest, anything else using WAL mode).
+# index.sqlite itself stays tracked; -shm + -wal are per-process journal files
+# that get cleaned up on clean DB close and leak runtime PIDs/positions otherwise.
+*.sqlite-shm
+*.sqlite-wal
