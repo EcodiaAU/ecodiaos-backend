@@ -380,11 +380,9 @@ app.use('/api/ops/stuck', require('./routes/ops/stuck'))
 // /api/ops/mcp-discovery - snapshot of MCP servers available to forks (AUTONOMY_AUDIT_2026-05-13)
 app.use('/api/ops/mcp-discovery', require('./routes/ops/mcpDiscovery'))
 // /api/approval-queue - unified Tate-approval queue (spec 2026-05-26-tate-approval-queue-design.md)
-// TEMP 2026-06-09: route + service files exist locally but were never committed.
-// Commented out to unblock prod (ecodia-api crash-loop). Ship the full queue
-// subsystem files in a follow-up commit then re-enable.
-// app.use('/api/approval-queue', require('./routes/approvalQueue'))
-// app.use('/api/ops/approval-queue', require('./routes/ops/approvalQueueEnqueue'))
+app.use('/api/approval-queue', require('./routes/approvalQueue'))
+// /api/ops/approval-queue - producer-side HTTP wrappers (ship-ios.py + stripe webhooks)
+app.use('/api/ops/approval-queue', require('./routes/ops/approvalQueueEnqueue'))
 // /api/web-search - Brave-Search-backed web search w/ 24h cache (AUTONOMY_AUDIT_2026-05-13)
 app.use('/api/web-search', require('./routes/webSearch'))
 // /api/documents-extract - PDF + OCR extraction (AUTONOMY_AUDIT_2026-05-13)
