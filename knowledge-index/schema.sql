@@ -37,6 +37,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(
   tokenize = 'porter unicode61'
 );
 
+-- Dense embeddings (bge-small-en-v1.5, 384-dim float32 BLOB) - the L3 dense leg.
+-- Cosine is brute-forced in JS over these (~1150 rows, sub-ms), so no sqlite-vec
+-- native extension is needed. sha256 lets the embed pass skip unchanged docs.
+CREATE TABLE IF NOT EXISTS vectors (
+  path TEXT PRIMARY KEY,
+  sha256 TEXT NOT NULL,
+  dim INTEGER NOT NULL,
+  embedding BLOB NOT NULL,
+  embedded_at INTEGER NOT NULL,
+  FOREIGN KEY (path) REFERENCES docs(path) ON DELETE CASCADE
+);
+
 -- Index-run bookkeeping + freshness signal.
 CREATE TABLE IF NOT EXISTS index_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

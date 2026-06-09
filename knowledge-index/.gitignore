@@ -1,3 +1,5 @@
 index.sqlite*
 node_modules/
 C:/
+.models/
+.embed.lock
