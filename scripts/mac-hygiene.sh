@@ -6,6 +6,9 @@
 # build up silently. Heartbeat-first so absence-of-run is itself detectable.
 # Per mac-organisation v2 plan sections 4-6. Runs via launchd, not the scheduler.
 set -uo pipefail
+# launchd hands jobs a minimal PATH; node lives in homebrew. Without this the
+# index rebuild below silently no-ops (node: command not found).
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 ENV_FILE="$HOME/.ecodiaos/env"; [ -f "$ENV_FILE" ] && source "$ENV_FILE"
 CODE_ROOT="${CODE_ROOT:-$HOME/.code}"

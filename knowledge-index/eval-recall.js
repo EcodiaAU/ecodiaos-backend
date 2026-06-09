@@ -35,4 +35,5 @@ const CASES = [
     if (!ok) console.log(`        top: ${paths.slice(0, 5).map((p) => p.split("/").pop()).join(" | ")}`);
   }
   console.log(`\nrecall: ${pass}/${CASES.length} passed`);
+  process.exit(pass === CASES.length ? 0 : 1);
 })();
