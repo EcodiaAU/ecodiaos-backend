@@ -176,7 +176,7 @@ export function registerGmailTools(server) {
   )
 
   server.tool('gmail_send',
-    'Send a new email.',
+    'Send a new email. Optional attachments: array of { filename, content_type, content_base64 }. Per-file cap 8MB, total cap 20MB, max 10 files.',
     {
       to: z.string().describe('Recipient email'),
       subject: z.string().describe('Email subject'),
@@ -185,8 +185,13 @@ export function registerGmailTools(server) {
       inbox: z.string().optional().describe('Send-as email account'),
       allowExternal: z.boolean().optional().describe('Must be true to send to any non-ecodia.au recipient'),
       tateGoaheadRef: z.string().optional().describe('Required when allowExternal=true. Pointer to Tate authorisation: SMS id, kv_store key, status_board row id, or free-text explanation.'),
+      attachments: z.array(z.object({
+        filename: z.string().describe('Filename shown in the email (e.g. "stats.pdf")'),
+        content_type: z.string().optional().describe('MIME type. Defaults to application/octet-stream.'),
+        content_base64: z.string().describe('File bytes encoded as standard base64.'),
+      })).max(10).optional().describe('Optional file attachments. Per-file cap 8MB, total cap 20MB, max 10 files.'),
     },
-    async ({ to, subject, body, cc, inbox, allowExternal, tateGoaheadRef }) => {
+    async ({ to, subject, body, cc, inbox, allowExternal, tateGoaheadRef, attachments }) => {
       const external = externalRecipients({ to, cc })
       if (external.length > 0) {
         if (allowExternal !== true) {
@@ -198,8 +203,55 @@ export function registerGmailTools(server) {
       }
       const gmail = getGmailClient(inbox || primaryAccount)
       const from = inbox || primaryAccount
-      const headers = [`From: ${from}`, `To: ${to}`, cc ? `Cc: ${cc}` : '', `Subject: ${encodeHeaderValue(subject)}`, 'Content-Type: text/plain; charset=utf-8', '', body].filter(Boolean).join('\r\n')
-      const raw = Buffer.from(headers).toString('base64url')
+
+      // Validate attachments + decode bytes for size accounting
+      const ATTACH_MAX = 8 * 1024 * 1024
+      const ATTACH_TOTAL_MAX = 20 * 1024 * 1024
+      let decodedAttachments = null
+      if (Array.isArray(attachments) && attachments.length > 0) {
+        decodedAttachments = []
+        let total = 0
+        for (let i = 0; i < attachments.length; i++) {
+          const a = attachments[i]
+          const filename = String(a.filename || '').trim()
+          const ct = String(a.content_type || 'application/octet-stream').trim()
+          const b64 = String(a.content_base64 || '').replace(/\s+/g, '')
+          if (!filename) throw new Error(`attachment[${i}].filename required`)
+          if (!b64) throw new Error(`attachment[${i}].content_base64 required`)
+          const buf = Buffer.from(b64, 'base64')
+          if (buf.length > ATTACH_MAX) throw new Error(`attachment[${i}] (${filename}) exceeds 8MB`)
+          total += buf.length
+          if (total > ATTACH_TOTAL_MAX) throw new Error(`attachments total exceeds 20MB`)
+          decodedAttachments.push({ filename, content_type: ct, b64 })
+        }
+      }
+
+      let raw
+      if (!decodedAttachments) {
+        const headers = [`From: ${from}`, `To: ${to}`, cc ? `Cc: ${cc}` : '', `Subject: ${encodeHeaderValue(subject)}`, 'Content-Type: text/plain; charset=utf-8', '', body].filter(Boolean).join('\r\n')
+        raw = Buffer.from(headers).toString('base64url')
+      } else {
+        const boundary = `=_eos_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+        const headerLines = [`From: ${from}`, `To: ${to}`, cc ? `Cc: ${cc}` : '', `Subject: ${encodeHeaderValue(subject)}`, 'MIME-Version: 1.0', `Content-Type: multipart/mixed; boundary="${boundary}"`].filter(Boolean)
+        const parts = []
+        parts.push(`--${boundary}`)
+        parts.push('Content-Type: text/plain; charset=utf-8')
+        parts.push('Content-Transfer-Encoding: 7bit')
+        parts.push('')
+        parts.push(body)
+        for (const a of decodedAttachments) {
+          const safeName = a.filename.replace(/"/g, '')
+          parts.push(`--${boundary}`)
+          parts.push(`Content-Type: ${a.content_type}; name="${safeName}"`)
+          parts.push(`Content-Disposition: attachment; filename="${safeName}"`)
+          parts.push('Content-Transfer-Encoding: base64')
+          parts.push('')
+          parts.push(a.b64.replace(/(.{76})/g, '$1\r\n').trim())
+        }
+        parts.push(`--${boundary}--`)
+        raw = Buffer.from(headerLines.join('\r\n') + '\r\n\r\n' + parts.join('\r\n')).toString('base64url')
+      }
+
       const res = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
       if (external.length > 0) {
         await auditExternalSend({ inbox, to, cc, bcc: undefined, external, subject, tateGoaheadRef, messageId: res.data.id })
