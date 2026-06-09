@@ -56,6 +56,13 @@ const COWORK_TOOLS = Object.freeze({
   stripe_agent_create_price:          'stripe_agent.create_price',
   stripe_agent_create_payment_link:   'stripe_agent.create_payment_link',
   stripe_agent_create_checkout_session:'stripe_agent.create_checkout_session',
+  stripe_agent_list_charges:          'stripe_agent.list_charges',
+  stripe_agent_list_disputes:         'stripe_agent.list_disputes',
+  stripe_agent_list_payment_intents:  'stripe_agent.list_payment_intents',
+  stripe_agent_list_refunds:          'stripe_agent.list_refunds',
+  stripe_agent_list_subscriptions:    'stripe_agent.list_subscriptions',
+  stripe_agent_list_payouts:          'stripe_agent.list_payouts',
+  stripe_agent_balance:               'stripe_agent.balance',
 })
 
 // Stdio-server tool inventories (from ECODIA_FULL_MCP_INVENTORY_2026-05-15.md).
@@ -189,7 +196,7 @@ const CONNECTORS = Object.freeze({
       'read.bookkeeping','write.bookkeeping.post','write.bookkeeping.rules',
       'write.bookkeeping.staged','read.bookkeeping.reports',
       'read.business_tools.xero',
-      'write.stripe_agent',
+      'write.stripe_agent','read.stripe_agent',
     ],
     tools: [
       ...STDIO_BK, ...STDIO_XERO,
@@ -199,6 +206,13 @@ const CONNECTORS = Object.freeze({
       COWORK_TOOLS.stripe_agent_create_price,
       COWORK_TOOLS.stripe_agent_create_payment_link,
       COWORK_TOOLS.stripe_agent_create_checkout_session,
+      COWORK_TOOLS.stripe_agent_list_charges,
+      COWORK_TOOLS.stripe_agent_list_disputes,
+      COWORK_TOOLS.stripe_agent_list_payment_intents,
+      COWORK_TOOLS.stripe_agent_list_refunds,
+      COWORK_TOOLS.stripe_agent_list_subscriptions,
+      COWORK_TOOLS.stripe_agent_list_payouts,
+      COWORK_TOOLS.stripe_agent_balance,
     ],
   },
 

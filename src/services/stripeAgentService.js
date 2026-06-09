@@ -211,6 +211,67 @@ async function probe({ entity = 'pty_ltd' }) {
   }
 }
 
+// Readonly surface. The Restricted Key has READ on charges,
+// payment_intents, refunds, balance, payouts and READ on subscriptions
+// (via the customers.write+subscriptions.write grant - list is implicit).
+// since_unix bounds Stripe `created.gte` server-side so each fire is a
+// bounded window. Used by the stripe-event-poll cron and any downstream
+// MCP-driven probe; no bookkeeping mirror because nothing is created.
+
+async function listCharges({ entity = 'pty_ltd', limit = 100, since_unix, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit }
+  if (Number.isFinite(since_unix)) params.created = { gte: since_unix }
+  if (starting_after) params.starting_after = starting_after
+  return stripe.charges.list(params)
+}
+
+async function listDisputes({ entity = 'pty_ltd', limit = 100, since_unix, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit }
+  if (Number.isFinite(since_unix)) params.created = { gte: since_unix }
+  if (starting_after) params.starting_after = starting_after
+  return stripe.disputes.list(params)
+}
+
+async function listPaymentIntents({ entity = 'pty_ltd', limit = 100, since_unix, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit }
+  if (Number.isFinite(since_unix)) params.created = { gte: since_unix }
+  if (starting_after) params.starting_after = starting_after
+  return stripe.paymentIntents.list(params)
+}
+
+async function listRefunds({ entity = 'pty_ltd', limit = 100, since_unix, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit }
+  if (Number.isFinite(since_unix)) params.created = { gte: since_unix }
+  if (starting_after) params.starting_after = starting_after
+  return stripe.refunds.list(params)
+}
+
+async function listSubscriptions({ entity = 'pty_ltd', limit = 100, status = 'all', customer, price, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit, status }
+  if (customer) params.customer = customer
+  if (price) params.price = price
+  if (starting_after) params.starting_after = starting_after
+  return stripe.subscriptions.list(params)
+}
+
+async function listPayouts({ entity = 'pty_ltd', limit = 100, since_unix, starting_after }) {
+  const stripe = await _stripeFor(entity)
+  const params = { limit }
+  if (Number.isFinite(since_unix)) params.created = { gte: since_unix }
+  if (starting_after) params.starting_after = starting_after
+  return stripe.payouts.list(params)
+}
+
+async function balance({ entity = 'pty_ltd' }) {
+  const stripe = await _stripeFor(entity)
+  return stripe.balance.retrieve()
+}
+
 module.exports = {
   createCustomer,
   createProduct,
@@ -225,6 +286,13 @@ module.exports = {
   listCustomers,
   retrievePrice,
   probe,
+  listCharges,
+  listDisputes,
+  listPaymentIntents,
+  listRefunds,
+  listSubscriptions,
+  listPayouts,
+  balance,
   ENTITY_TO_KV_KEY,
   _resetCache,
 }

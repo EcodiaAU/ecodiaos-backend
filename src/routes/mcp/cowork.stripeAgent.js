@@ -379,6 +379,236 @@ function mount(router, deps) {
     })
   })
 
+  // ── stripe_agent.list_charges ──────────────────────────────────────────
+  // Readonly. The Restricted Key has READ on charges. Used by the
+  // stripe-event-poll cron and downstream cross-checks; no bookkeeping
+  // mirror (nothing is created). since_unix bounds Stripe `created.gte`.
+  router.post('/stripe_agent.list_charges', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listCharges({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        since_unix: Number.isFinite(b.since_unix) ? b.since_unix : undefined,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(c => ({
+          id: c.id, amount: c.amount, currency: c.currency,
+          status: c.status, paid: c.paid, captured: c.captured,
+          customer: c.customer, description: c.description,
+          payment_intent: c.payment_intent,
+          failure_code: c.failure_code, failure_message: c.failure_message,
+          created: c.created, livemode: c.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.list_disputes ─────────────────────────────────────────
+  router.post('/stripe_agent.list_disputes', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listDisputes({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        since_unix: Number.isFinite(b.since_unix) ? b.since_unix : undefined,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(d => ({
+          id: d.id, amount: d.amount, currency: d.currency,
+          reason: d.reason, status: d.status, charge: d.charge,
+          payment_intent: d.payment_intent,
+          evidence_due_by: d.evidence_details?.due_by,
+          submission_count: d.evidence_details?.submission_count,
+          has_evidence: d.evidence_details?.has_evidence,
+          created: d.created, livemode: d.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.list_payment_intents ──────────────────────────────────
+  router.post('/stripe_agent.list_payment_intents', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listPaymentIntents({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        since_unix: Number.isFinite(b.since_unix) ? b.since_unix : undefined,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(p => ({
+          id: p.id, amount: p.amount, currency: p.currency,
+          status: p.status, customer: p.customer,
+          payment_method: p.payment_method,
+          last_payment_error: p.last_payment_error
+            ? { code: p.last_payment_error.code, message: p.last_payment_error.message }
+            : null,
+          created: p.created, livemode: p.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.list_refunds ──────────────────────────────────────────
+  router.post('/stripe_agent.list_refunds', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listRefunds({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        since_unix: Number.isFinite(b.since_unix) ? b.since_unix : undefined,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(r => ({
+          id: r.id, amount: r.amount, currency: r.currency,
+          status: r.status, reason: r.reason,
+          charge: r.charge, payment_intent: r.payment_intent,
+          created: r.created, livemode: r.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.list_subscriptions ────────────────────────────────────
+  router.post('/stripe_agent.list_subscriptions', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listSubscriptions({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        status: b.status || 'all',
+        customer: b.customer,
+        price: b.price,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(s => ({
+          id: s.id, status: s.status,
+          customer: s.customer,
+          current_period_start: s.current_period_start,
+          current_period_end: s.current_period_end,
+          cancel_at_period_end: s.cancel_at_period_end,
+          canceled_at: s.canceled_at,
+          cancellation_reason: s.cancellation_details?.reason || null,
+          items: (s.items?.data || []).map(it => ({
+            id: it.id,
+            price_id: it.price?.id,
+            price_nickname: it.price?.nickname,
+            unit_amount: it.price?.unit_amount,
+            currency: it.price?.currency,
+            recurring: it.price?.recurring
+              ? { interval: it.price.recurring.interval, interval_count: it.price.recurring.interval_count }
+              : null,
+            quantity: it.quantity,
+          })),
+          created: s.created, livemode: s.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.list_payouts ──────────────────────────────────────────
+  router.post('/stripe_agent.list_payouts', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const result = await stripeAgent.listPayouts({
+        entity,
+        limit: Number.isFinite(b.limit) ? b.limit : 100,
+        since_unix: Number.isFinite(b.since_unix) ? b.since_unix : undefined,
+        starting_after: b.starting_after,
+      })
+      return res.json({
+        ok: true, entity,
+        has_more: result.has_more,
+        data: result.data.map(p => ({
+          id: p.id, amount: p.amount, currency: p.currency,
+          status: p.status, type: p.type, method: p.method,
+          arrival_date: p.arrival_date,
+          failure_code: p.failure_code, failure_message: p.failure_message,
+          created: p.created, livemode: p.livemode,
+        })),
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
+  // ── stripe_agent.balance ───────────────────────────────────────────────
+  router.post('/stripe_agent.balance', scope.requireScope('read.stripe_agent'), async (req, res) => {
+    try {
+      const b = req.body || {}
+      const entity = b.entity || 'pty_ltd'
+      if (!_validEntity(entity)) {
+        return res.status(422).json({
+          error: 'invalid_entity',
+          message: `entity must be one of ${Object.keys(ENTITY_TO_SOURCE_ACCOUNT).join(', ')}`,
+        })
+      }
+      const bal = await stripeAgent.balance({ entity })
+      return res.json({
+        ok: true, entity,
+        available: (bal.available || []).map(x => ({ amount: x.amount, currency: x.currency })),
+        pending: (bal.pending || []).map(x => ({ amount: x.amount, currency: x.currency })),
+        livemode: bal.livemode,
+      })
+    } catch (err) { return _serverError(res, err) }
+  })
+
   // ── stripe_agent.create_checkout_session ───────────────────────────────
   // Chargeable artefact: mirrors to staged_transactions row.
   router.post('/stripe_agent.create_checkout_session', scope.requireScope('write.stripe_agent'), async (req, res) => {
