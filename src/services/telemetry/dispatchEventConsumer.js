@@ -218,6 +218,17 @@ async function consumeFile(filePath, client) {
       // join key for outcome inference (~/ecodiaos/src/services/telemetry/
       // outcomeInference.js inferForkSpawnOutcome).
       let metadata = { ...ctx, kind }
+      // Plumb session_id if the JSONL line carries it at top level. This is
+      // what enables the Stop-event applied-tag telemetry rewire to resolve
+      // FKs by session_id+ts (the stop hook fires once per turn and emits a
+      // session_id on every row, but the underlying dispatch happened earlier
+      // in the same session, so we need session_id queryable on dispatch_event
+      // for the application_event FK lookup to bind). Producers that do not
+      // emit session_id leave metadata unchanged.
+      // Origin: fix-stop-event-applied-tag-fk-orphan-skip, 2026-06-09.
+      if (line.session_id && typeof line.session_id === 'string') {
+        metadata.session_id = line.session_id
+      }
       if (actionType === 'fork_spawn') {
         try {
           const forkLookup = await client.query(
@@ -434,6 +445,9 @@ async function consumeApplicationEventFile(filePath, client) {
       const inferredFrom = line.hook_name || 'post-action-applied-tag-check'
       const applied = (line.applied === true || line.applied === false) ? line.applied : null
       const taggedSilent = line.tagged_silent === true
+      const sessionId = (typeof line.session_id === 'string' && line.session_id.length > 0)
+        ? line.session_id
+        : null
 
       if (!patternPath || !matchedDispatchTs || !toolName) {
         lineErrors += 1
@@ -441,35 +455,101 @@ async function consumeApplicationEventFile(filePath, client) {
         continue
       }
 
-      // Resolve dispatch_event_id. Exact ts+tool match first, then fuzzy +/-5min.
+      // Resolve dispatch_event_id.
+      //
+      // Stop-event rewire (Layer 3, 2026-06-09):
+      //   applied_tag_telemetry.py emits one row per surfaced pattern at the
+      //   end of each conductor turn with tool_name=stop_event and a
+      //   session_id. No PreToolUse hook writes tool_name=stop_event rows
+      //   into dispatch_event, so the legacy tool_name+ts FK lookup always
+      //   orphan-skipped every Stop-event row and application_event flatlined
+      //   on 2026-05-12. The new path: when tool_name=stop_event and
+      //   session_id is present, resolve via session_id stored on
+      //   dispatch_event.metadata. Exact ts match first, then fuzzy +/-5min,
+      //   then most-recent dispatch in the same session before the Stop ts.
+      //   When still unresolved, allow NULL dispatch_event_id so the row lands
+      //   (the application_event surface is a turn-level observation; losing
+      //   the FK to a single dispatch is acceptable, losing the row is not).
+      //
+      // Legacy path (PreToolUse-fired rows):
+      //   post-action-applied-tag-check.sh emits without session_id and the
+      //   tool_name+ts lookup remains correct. Falls through to the original
+      //   exact + fuzzy +/-5min match.
+      //
+      // Doctrine: backend/patterns/stop-event-applied-tag-rewire-needs-dispatch-event-row-for-fk-resolution-2026-06-09.md
       let dispatchId = null
-      const exact = await client.query(
-        `SELECT id FROM dispatch_event
-         WHERE ts = $1::timestamptz AND tool_name = $2
-         ORDER BY id LIMIT 1`,
-        [matchedDispatchTs, toolName]
-      )
-      if (exact.rows.length > 0) {
-        dispatchId = exact.rows[0].id
-      } else {
-        const fuzzy = await client.query(
+      if (toolName === 'stop_event' && sessionId) {
+        const exact = await client.query(
           `SELECT id FROM dispatch_event
-           WHERE tool_name = $2
-             AND ts BETWEEN ($1::timestamptz - INTERVAL '5 minutes')
-                       AND ($1::timestamptz + INTERVAL '5 minutes')
-           ORDER BY ABS(EXTRACT(EPOCH FROM (ts - $1::timestamptz)))
-           LIMIT 1`,
+           WHERE metadata->>'session_id' = $2
+             AND ts = $1::timestamptz
+           ORDER BY id LIMIT 1`,
+          [matchedDispatchTs, sessionId]
+        )
+        if (exact.rows.length > 0) {
+          dispatchId = exact.rows[0].id
+        } else {
+          const fuzzy = await client.query(
+            `SELECT id FROM dispatch_event
+             WHERE metadata->>'session_id' = $2
+               AND ts BETWEEN ($1::timestamptz - INTERVAL '5 minutes')
+                         AND ($1::timestamptz + INTERVAL '5 minutes')
+             ORDER BY ABS(EXTRACT(EPOCH FROM (ts - $1::timestamptz)))
+             LIMIT 1`,
+            [matchedDispatchTs, sessionId]
+          )
+          if (fuzzy.rows.length > 0) {
+            dispatchId = fuzzy.rows[0].id
+          } else {
+            // Most-recent dispatch in the same session before the Stop ts.
+            // Covers the common case where the conductor's last meaningful
+            // dispatch in a session preceded the Stop hook by more than 5min.
+            const sessionTail = await client.query(
+              `SELECT id FROM dispatch_event
+               WHERE metadata->>'session_id' = $2
+                 AND ts <= $1::timestamptz
+               ORDER BY ts DESC LIMIT 1`,
+              [matchedDispatchTs, sessionId]
+            )
+            if (sessionTail.rows.length > 0) {
+              dispatchId = sessionTail.rows[0].id
+            }
+          }
+        }
+        // Intentional: do NOT orphan-skip Stop-event rows. Fall through with
+        // dispatchId possibly NULL. application_event.dispatch_event_id is
+        // nullable; the row still encodes pattern_path + tagged_silent +
+        // was_false_positive which is what the Phase D classifier reads.
+      } else {
+        const exact = await client.query(
+          `SELECT id FROM dispatch_event
+           WHERE ts = $1::timestamptz AND tool_name = $2
+           ORDER BY id LIMIT 1`,
           [matchedDispatchTs, toolName]
         )
-        if (fuzzy.rows.length > 0) {
-          dispatchId = fuzzy.rows[0].id
+        if (exact.rows.length > 0) {
+          dispatchId = exact.rows[0].id
+        } else {
+          const fuzzy = await client.query(
+            `SELECT id FROM dispatch_event
+             WHERE tool_name = $2
+               AND ts BETWEEN ($1::timestamptz - INTERVAL '5 minutes')
+                         AND ($1::timestamptz + INTERVAL '5 minutes')
+             ORDER BY ABS(EXTRACT(EPOCH FROM (ts - $1::timestamptz)))
+             LIMIT 1`,
+            [matchedDispatchTs, toolName]
+          )
+          if (fuzzy.rows.length > 0) {
+            dispatchId = fuzzy.rows[0].id
+          }
         }
-      }
 
-      if (!dispatchId) {
-        // Orphan: dispatch_event for this hook fire was never ingested. Skip.
-        orphanSkips += 1
-        continue
+        if (!dispatchId) {
+          // Legacy path: PreToolUse-emitted application-event with no matching
+          // dispatch_event. Skip as before.
+          orphanSkips += 1
+          continue
+        }
       }
 
       // was_false_positive resolution priority (Phase C Gap 2, 8 May 2026):
@@ -538,13 +618,18 @@ async function rotateAndConsume() {
     return { ok: true, processed: 0, dispatchInserts: 0, surfaceInserts: 0, lineErrors: 0, note: 'source file empty' }
   }
 
+  // Validate env BEFORE rotation. A missing DATABASE_URL/JWT_SECRET/etc. used
+  // to throw after the rename, orphaning the rotated file in processed/ with
+  // no rows inserted (2026-06-09 fire lost 1927 events that way until manual
+  // recovery). Fail fast while the live file is still in place.
+  const env = getEnv()
+
   // Rename source -> processed/<timestamp>-dispatch-events.jsonl atomically.
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const processedPath = path.join(PROCESSED_DIR, `${stamp}-dispatch-events.jsonl`)
   await fs.promises.rename(TELEMETRY_FILE, processedPath)
 
   // Connect to Postgres.
-  const env = getEnv()
   const client = new Client({ connectionString: env.DATABASE_URL })
   try {
     await client.connect()
@@ -585,11 +670,13 @@ async function rotateAndConsumeApplicationEvents() {
     return { ok: true, processed: 0, applicationInserts: 0, orphanSkips: 0, lineErrors: 0, note: 'source file empty' }
   }
 
+  // Validate env BEFORE rotation; see rotateAndConsume() for context.
+  const env = getEnv()
+
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const processedPath = path.join(PROCESSED_DIR, `${stamp}-application-events.jsonl`)
   await fs.promises.rename(APPLICATION_EVENT_FILE, processedPath)
 
-  const env = getEnv()
   const client = new Client({ connectionString: env.DATABASE_URL })
   try {
     await client.connect()
