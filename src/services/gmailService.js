@@ -658,6 +658,41 @@ async function autoAct(thread, triage) {
     // ── AUTONOMOUS PATH: AI is confident, just do it ──
 
     if (action === 'send_reply' && triage.draftReply) {
+      // Route through the approval-queue producer first. For external client-
+      // facing replies that contain commitments (price, date, contractual
+      // language) the producer queues for Tate Y/N/edit and we DO NOT auto-send.
+      // For internal recipients and low-risk bodies the producer returns
+      // queued:false and we fall through to the original direct-send path.
+      // Spec: backend/docs/superpowers/specs/2026-05-26-tate-approval-queue-design.md
+      try {
+        const draftReview = require('./gmailDraftForReview')
+        const proposal = await draftReview.draftForReview({
+          thread_id: thread.id,
+          recipient: thread.from_email,
+          subject: thread.subject,
+          draft_body: triage.draftReply,
+        })
+        if (proposal?.ok && proposal.queued) {
+          // Save the draft to Gmail too so Tate can view/edit it in the Gmail UI
+          // as an alternative surface to the iOS Queue view.
+          await saveDraftToGmail(thread, triage.draftReply).catch(err =>
+            logger.warn(`Failed to save Gmail draft for ${thread.id}`, { error: err.message })
+          )
+          logger.info('autoAct: routed to approval_queue for Tate review', {
+            thread_id: thread.id,
+            queue_id: proposal.id,
+            urgency: proposal.urgency,
+            reason: proposal.reason,
+          })
+          return
+        }
+      } catch (err) {
+        // Producer is best-effort - never block the existing autoAct path
+        logger.warn('autoAct: approval-queue producer threw, falling through to direct send', {
+          thread_id: thread.id, error: err.message,
+        })
+      }
+
       // Actually send the reply - the AI is confident, act on it
       await sendReplyToThread(thread, triage.draftReply)
       await silentArchive(thread)
@@ -1008,25 +1043,88 @@ function encodeHeaderValue(str) {
   return `=?UTF-8?B?${Buffer.from(str, 'utf-8').toString('base64')}?=`
 }
 
-function createRawEmail({ to, from, subject, body, inReplyTo, cc, bcc }) {
-  const lines = [
+// Attachments: array of { filename, content_type, content_base64 }.
+// Each attachment ≤8mb, max 10 per message, total raw size ≤20mb (Gmail API
+// hard cap is 25mb after base64; we leave headroom).
+const ATTACHMENT_MAX_SIZE_BYTES = 8 * 1024 * 1024
+const ATTACHMENT_MAX_COUNT = 10
+const ATTACHMENTS_TOTAL_MAX_BYTES = 20 * 1024 * 1024
+
+function _validateAttachments(attachments) {
+  if (!attachments) return null
+  if (!Array.isArray(attachments)) {
+    throw Object.assign(new Error('attachments must be an array'), { code: 'invalid_attachments' })
+  }
+  if (attachments.length > ATTACHMENT_MAX_COUNT) {
+    throw Object.assign(new Error(`max ${ATTACHMENT_MAX_COUNT} attachments per message`), { code: 'too_many_attachments' })
+  }
+  let total = 0
+  const decoded = []
+  for (let i = 0; i < attachments.length; i++) {
+    const a = attachments[i]
+    if (!a || typeof a !== 'object') {
+      throw Object.assign(new Error(`attachment[${i}] must be an object`), { code: 'invalid_attachment' })
+    }
+    const filename = String(a.filename || '').trim()
+    const ct = String(a.content_type || 'application/octet-stream').trim()
+    const b64 = String(a.content_base64 || '').replace(/\s+/g, '')
+    if (!filename) throw Object.assign(new Error(`attachment[${i}].filename required`), { code: 'missing_filename' })
+    if (!b64) throw Object.assign(new Error(`attachment[${i}].content_base64 required`), { code: 'missing_content' })
+    let buf
+    try { buf = Buffer.from(b64, 'base64') }
+    catch (e) { throw Object.assign(new Error(`attachment[${i}] content_base64 decode failed`), { code: 'bad_base64' }) }
+    if (buf.length > ATTACHMENT_MAX_SIZE_BYTES) {
+      throw Object.assign(new Error(`attachment[${i}] (${filename}) exceeds ${ATTACHMENT_MAX_SIZE_BYTES} bytes`), { code: 'attachment_too_large' })
+    }
+    total += buf.length
+    if (total > ATTACHMENTS_TOTAL_MAX_BYTES) {
+      throw Object.assign(new Error(`attachments total exceeds ${ATTACHMENTS_TOTAL_MAX_BYTES} bytes`), { code: 'attachments_total_too_large' })
+    }
+    decoded.push({ filename, content_type: ct, b64 })
+  }
+  return decoded
+}
+
+function createRawEmail({ to, from, subject, body, inReplyTo, cc, bcc, attachments }) {
+  const decoded = _validateAttachments(attachments)
+  const headers = [
     `To: ${Array.isArray(to) ? to.join(', ') : to}`,
     `From: ${from}`,
     `Subject: ${encodeHeaderValue(subject)}`,
-    'Content-Type: text/plain; charset=utf-8',
   ]
-  if (cc) {
-    lines.splice(1, 0, `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
-  }
-  if (bcc) {
-    lines.splice(1, 0, `Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
-  }
+  if (cc) headers.splice(1, 0, `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}`)
+  if (bcc) headers.splice(1, 0, `Bcc: ${Array.isArray(bcc) ? bcc.join(', ') : bcc}`)
   if (inReplyTo) {
-    lines.push(`In-Reply-To: ${inReplyTo}`)
-    lines.push(`References: ${inReplyTo}`)
+    headers.push(`In-Reply-To: ${inReplyTo}`)
+    headers.push(`References: ${inReplyTo}`)
   }
-  lines.push('', body)
-  return Buffer.from(lines.join('\r\n')).toString('base64url')
+  headers.push('MIME-Version: 1.0')
+
+  if (!decoded || decoded.length === 0) {
+    headers.push('Content-Type: text/plain; charset=utf-8')
+    headers.push('', body)
+    return Buffer.from(headers.join('\r\n')).toString('base64url')
+  }
+
+  const boundary = `=_eos_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+  headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`)
+  const parts = []
+  parts.push(`--${boundary}`)
+  parts.push('Content-Type: text/plain; charset=utf-8')
+  parts.push('Content-Transfer-Encoding: 7bit')
+  parts.push('')
+  parts.push(body)
+  for (const a of decoded) {
+    parts.push(`--${boundary}`)
+    parts.push(`Content-Type: ${a.content_type}; name="${a.filename.replace(/"/g, '')}"`)
+    parts.push(`Content-Disposition: attachment; filename="${a.filename.replace(/"/g, '')}"`)
+    parts.push('Content-Transfer-Encoding: base64')
+    parts.push('')
+    // Wrap base64 at 76 chars per RFC 2045
+    parts.push(a.b64.replace(/(.{76})/g, '$1\r\n').trim())
+  }
+  parts.push(`--${boundary}--`)
+  return Buffer.from(headers.join('\r\n') + '\r\n\r\n' + parts.join('\r\n')).toString('base64url')
 }
 
 // ─── Extended Actions ────────────────────────────────────────────────────────
@@ -1211,7 +1309,7 @@ async function sendNewEmail(inbox, to, subject, body, opts = {}) {
  * sendEmail - extended sender supporting cc, bcc, and threadId.
  * Used by Cowork V2 MCP gmail.send endpoint.
  */
-async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
+async function sendEmail({ from, to, cc, bcc, subject, body, threadId, attachments }) {
   if (!GMAIL_ENABLED) throw new Error('Gmail disabled')
   const fromInbox = from || (await getInboxes())[0]
   const gmail = getGmailClient(fromInbox)
@@ -1220,7 +1318,7 @@ async function sendEmail({ from, to, cc, bcc, subject, body, threadId }) {
   // Protects against runaway loops re-sending to the same address.
   await _checkEmailRateLimit(Array.isArray(to) ? to : [to])
 
-  const raw = createRawEmail({ to, from: fromInbox, cc, bcc, subject, body })
+  const raw = createRawEmail({ to, from: fromInbox, cc, bcc, subject, body, attachments })
   const requestBody = { raw }
   if (threadId) requestBody.threadId = threadId
 
@@ -1386,7 +1484,7 @@ function _buildSendTarget({ to, subject, body, threadId, context }) {
   }
 }
 
-async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency, context }) {
+async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sessionId, gate_token, urgency, context, attachments }) {
   if (!to) throw new Error('sendEmailGated: `to` is required')
   if (!sessionId) throw new Error('sendEmailGated: `sessionId` is required (for audit log)')
   if (!gate_token) {
@@ -1455,7 +1553,7 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
 
   // 4. Internal dispatch (unchanged sender). Called via module.exports so
   //    test suites can stub it without exercising googleapis.
-  const result = await module.exports.sendEmail({ from, to, cc, bcc, subject, body, threadId })
+  const result = await module.exports.sendEmail({ from, to, cc, bcc, subject, body, threadId, attachments })
 
   // 5. Audit log - best-effort, non-blocking. If HMAC signing or the
   //    INSERT throws, we log but don't reverse the send (email already
@@ -1496,7 +1594,7 @@ async function sendEmailGated({ from, to, cc, bcc, subject, body, threadId, sess
  * sendEmailGated builds internally. HMAC verification depends on that.
  * If you change the target shape in one place, change _buildSendTarget.
  */
-async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessionId, urgency, context }) {
+async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessionId, urgency, context, attachments }) {
   if (!to) throw new Error('sendEmailAuto: `to` is required')
   const effectiveSessionId = sessionId || `autonomous-${context?.source || 'gmail'}-${Date.now()}`
 
@@ -1582,6 +1680,7 @@ async function sendEmailAuto({ from, to, cc, bcc, subject, body, threadId, sessi
     gate_token: issue.token,
     urgency,
     context,
+    attachments,
   })
 }
 
@@ -1693,4 +1792,6 @@ module.exports = {
   labelThread, removeLabel, starThread, unstarThread,
   forwardThread, sendNewEmail, sendEmail, sendEmailGated, sendEmailAuto, sendReplyToThread, createFollowUpTask, unsubscribe,
   getThreadsByClient, getInboxStats, listLabels, saveDraftToGmail,
+  // Exposed for unit tests covering attachments path.
+  _createRawEmail: createRawEmail,
 }

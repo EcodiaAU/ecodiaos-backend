@@ -957,6 +957,9 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
     if (!b.body || typeof b.body !== 'string') {
       throw Object.assign(new Error('body (string) required'), { httpStatus: 422, code: 'missing_body' })
     }
+    if (b.attachments !== undefined && b.attachments !== null && !Array.isArray(b.attachments)) {
+      throw Object.assign(new Error('attachments (array) when provided'), { httpStatus: 422, code: 'invalid_attachments' })
+    }
 
     const since = new Date(Date.now() - 86400_000).toISOString()
     const count = await _auditCountSince('gmail.send', since)
@@ -985,6 +988,7 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
           threadId: b.thread_id,
           sessionId,
           gate_token: b.gate_token,
+          attachments: b.attachments,
         })
         // Queued-by-delay-queue path: surface to caller; no message_id yet.
         if (result && result.queued) {
@@ -1046,6 +1050,7 @@ router.post('/gmail.send', scope.requireScope('write.gmail.send'), async (req, r
         threadId: b.thread_id,
         sessionId: sessionForAuto,
         context: { source: 'cowork_mcp_shadow' },
+        attachments: b.attachments,
       })
       if (result && result.queued) {
         audit.logWrite(req, 'gmail.send', {

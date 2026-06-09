@@ -341,7 +341,7 @@ const TOOLS = Object.freeze([
   {
     name: 'gmail.send',
     description:
-      "Send an email from code@ecodia.au or tate@ecodia.au. Subject + body + optional cc/bcc/thread_id. Audit logs to/subject/length only - body excluded. Rate cap 50/day.",
+      "Send an email from code@ecodia.au or tate@ecodia.au. Subject + body + optional cc/bcc/thread_id/attachments. Audit logs to/subject/length only - body excluded. Rate cap 50/day.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -368,6 +368,21 @@ const TOOLS = Object.freeze([
         subject: { type: 'string' },
         body: { type: 'string', description: 'Plain text email body.' },
         thread_id: { type: 'string', description: 'Gmail thread id to thread the reply into.' },
+        attachments: {
+          type: 'array',
+          maxItems: 10,
+          description: 'Optional file attachments. Each: { filename, content_type, content_base64 }. Per-file cap 8MB, total cap 20MB, max 10 files.',
+          items: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string', description: 'Filename shown in the email (e.g. "stats.pdf")' },
+              content_type: { type: 'string', description: 'MIME type, e.g. "application/pdf", "image/png". Defaults to application/octet-stream.' },
+              content_base64: { type: 'string', description: 'File bytes encoded as standard base64.' },
+            },
+            required: ['filename', 'content_base64'],
+            additionalProperties: false,
+          },
+        },
         cowork_session_id: { type: 'string' },
         idempotency_key: { type: 'string' },
       },

@@ -32,7 +32,10 @@ const makeConnectorShim = require('./connectorMcpShim')
 function mountConnector(connector) {
   if (!connector || !connector.name) throw new Error('mountConnector: connector required')
   const router = express.Router()
-  router.use(express.json({ limit: '4mb' }))
+  // 32mb so base64-encoded attachments (~33% overhead on raw bytes) can fit
+  // up to the gmail.send 20mb attachments total cap. Smaller payloads pay
+  // no penalty - express.json only reads what's sent.
+  router.use(express.json({ limit: '32mb' }))
 
   const auth = makeConnectorAuth(connector)
   const shim = makeConnectorShim(connector)
