@@ -31,8 +31,15 @@ const COWORK_TOOLS = Object.freeze({
   neo4j_search:          'neo4j.search',
   neo4j_write_episode:   'neo4j.write_episode',
   neo4j_write_decision:  'neo4j.write_decision',
-  forks_spawn:           'forks.spawn',
-  forks_list:            'forks.list',
+  // forks_spawn + forks_list removed from conductor MCP surface 2026-06-09.
+  // SDK forks are dead post-laptop-agent migration; the canonical conductor entry
+  // for spawning a worker is scheduler.delayed (ecodia-scheduler connector). The
+  // scheduler poller dispatches via cowork.dispatch_worker on the laptop-agent
+  // under the hood. The forks.spawn / forks.list route handlers in
+  // src/routes/mcp/cowork.js + the rate caps in coworkScope.js / ecodiaFullScope.js
+  // stay in place for now (any in-flight legacy Routine that still calls them
+  // continues to work) but neither is surfaced through any narrow connector,
+  // so a conductor opening tools/list will not see them.
   patterns_search:       'patterns.semantic_search',
   email_threads_read:    'email_threads.read',
   crm_intelligence:      'crm.get_intelligence',
@@ -169,12 +176,14 @@ const CONNECTORS = Object.freeze({
     mountPath: 'ecodia-code',
     bearerKey: 'creds.ecodia_code_mcp_bearer',
     clientId: 'ecodia_code_connector',
+    // forks.{spawn,list} scopes + tools dropped 2026-06-09 - dead post-laptop-agent migration.
+    // Conductor's parallelism entry is scheduler.delayed on ecodia-scheduler. The Vercel
+    // surface is the only live thing on this connector now; the connector itself stays
+    // because there are GitHub + Vercel tools to add as that work matures.
     scopes: [
-      'read.forks','write.forks.cowork_pool',
       'read.business_tools.vercel','write.business_tools.vercel',
     ],
     tools: [
-      COWORK_TOOLS.forks_spawn, COWORK_TOOLS.forks_list,
       ...STDIO_VERCEL,
     ],
   },
