@@ -43,6 +43,7 @@ const COWORK_SCOPES = [
   'write.gmail.send',
   'write.sms.tate',
   'write.scheduler.cron',
+  'write.stripe_agent',
 ]
 
 const ECODIA_FULL_NEW_SCOPES = [

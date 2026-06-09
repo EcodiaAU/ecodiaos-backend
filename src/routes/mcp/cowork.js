@@ -1419,6 +1419,13 @@ router.post('/scheduler.list', scope.requireScope('read.scheduler.list'), async 
 const checkpointMcp = require('./cowork.checkpoint')
 checkpointMcp.mount(router, { db, scope, audit, withIdempotency, _serverError })
 
+// ── stripe_agent.* (Step 4 Stripe Agentic Commerce stack, 9 Jun 2026) ────
+// Autonomous merchant ops on any Ecodia entity's Stripe account, with a
+// bookkeeping mirror to staged_transactions for every chargeable artefact.
+// Spec: status_board row d2cad335-3d62-4916-9e67-6b775cfd3a31.
+const stripeAgentMcp = require('./cowork.stripeAgent')
+stripeAgentMcp.mount(router, { db, scope, audit, withIdempotency, _serverError })
+
 // ── stream.* (Phase 2 Lane 06, 2026-05-15) ───────────────────────────────
 // Streaming substrate complement to MCP. Channel registry at
 // backend/streaming/channels.json. See backend/patterns/streaming-substrate-complement-to-mcp-2026-05-15.md.

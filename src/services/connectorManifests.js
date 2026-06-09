@@ -50,6 +50,12 @@ const COWORK_TOOLS = Object.freeze({
   checkpoint_status:     'checkpoint.status',
   checkpoint_list:       'checkpoint.list',
   checkpoint_stop:       'checkpoint.stop',
+  stripe_agent_probe:                 'stripe_agent.probe',
+  stripe_agent_create_customer:       'stripe_agent.create_customer',
+  stripe_agent_create_product:        'stripe_agent.create_product',
+  stripe_agent_create_price:          'stripe_agent.create_price',
+  stripe_agent_create_payment_link:   'stripe_agent.create_payment_link',
+  stripe_agent_create_checkout_session:'stripe_agent.create_checkout_session',
 })
 
 // Stdio-server tool inventories (from ECODIA_FULL_MCP_INVENTORY_2026-05-15.md).
@@ -183,9 +189,16 @@ const CONNECTORS = Object.freeze({
       'read.bookkeeping','write.bookkeeping.post','write.bookkeeping.rules',
       'write.bookkeeping.staged','read.bookkeeping.reports',
       'read.business_tools.xero',
+      'write.stripe_agent',
     ],
     tools: [
       ...STDIO_BK, ...STDIO_XERO,
+      COWORK_TOOLS.stripe_agent_probe,
+      COWORK_TOOLS.stripe_agent_create_customer,
+      COWORK_TOOLS.stripe_agent_create_product,
+      COWORK_TOOLS.stripe_agent_create_price,
+      COWORK_TOOLS.stripe_agent_create_payment_link,
+      COWORK_TOOLS.stripe_agent_create_checkout_session,
     ],
   },
 

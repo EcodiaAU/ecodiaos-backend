@@ -32,6 +32,7 @@ const SCOPES = Object.freeze([
   'write.gmail.send',
   'write.sms.tate',
   'write.scheduler.cron',
+  'write.stripe_agent',
 ])
 
 const KV_WRITE_NAMESPACES = Object.freeze([

@@ -11,11 +11,22 @@ const deepseek = require('./deepseekService')
 // Maps staged_transactions.source_account values (source names) to GL account codes.
 // Verified current values in production: ba_ecodia, ba_ecodia_savings, ba_personal, up_personal.
 // Fallback handles legacy rows that already stored a GL code directly (e.g. '1000', '2100').
+//
+// 9 Jun 2026: ba_ecodia_labs + ba_dao_llc + ba_tate_personal added as staging
+// labels for the stripe_agent MCP bookkeeping mirror. They share an asset GL
+// code (1000) with ba_ecodia until each entity gets its own bank-account GL
+// row in gl_accounts; bk_categorize + bk_post_transaction still route on
+// source_account, so the per-entity tag survives. Allocate dedicated GL codes
+// (e.g. 1030 Ecodia Labs, 1040 DAO LLC, 1050 Tate Personal Stripe-side) before
+// posting volume gets large enough to need its own ledger column.
 const SOURCE_ACCOUNT_TO_GL = {
   ba_ecodia:         '1000', // Business Bank Account (Bank Australia - Ecodia Everyday)
   ba_ecodia_savings: '1005', // Bank Australia Savings (Ecodia)
   up_personal:       '1010', // Up Bank (Personal)
   ba_personal:       '1020', // Bank Australia (Personal)
+  ba_ecodia_labs:    '1000', // Stripe-agent staging label, pending dedicated GL
+  ba_dao_llc:        '1000', // Stripe-agent staging label, pending dedicated GL
+  ba_tate_personal:  '1010', // Stripe-agent staging label, pending dedicated GL
 }
 
 function resolveBankAccount(sourceAccount) {

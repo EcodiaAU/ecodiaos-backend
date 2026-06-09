@@ -577,6 +577,146 @@ const TOOLS = Object.freeze([
       additionalProperties: true,
     },
   },
+  {
+    name: 'stripe_agent.probe',
+    description:
+      'Retrieve the Stripe account record for an Ecodia entity. Confirms charges_enabled, payouts_enabled, business_profile.name. No side effects. entity defaults to pty_ltd.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stripe_agent.create_customer',
+    description:
+      'Create a Stripe customer on an Ecodia entity. Per-entity routing via entity (pty_ltd=Ecodia Pty Ltd default, labs=Ecodia Labs, dao=Ecodia DAO LLC). No bookkeeping mirror (no money moves).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+        email: { type: 'string' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        metadata: { type: 'object', additionalProperties: true },
+        idempotency_key: { type: 'string' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['email'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stripe_agent.create_product',
+    description:
+      'Create a Stripe product on an Ecodia entity. Free artefact - no bookkeeping mirror. Returns product_id usable in stripe_agent.create_price.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        metadata: { type: 'object', additionalProperties: true },
+        images: { type: 'array', items: { type: 'string' } },
+        idempotency_key: { type: 'string' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['name'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stripe_agent.create_price',
+    description:
+      'Create a Stripe price under a product on an Ecodia entity. Free artefact - no bookkeeping mirror. unit_amount is integer cents. currency defaults to aud.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+        product: { type: 'string', description: 'Stripe product id from stripe_agent.create_product.' },
+        unit_amount: { type: 'integer', minimum: 1, description: 'Integer cents.' },
+        currency: { type: 'string', default: 'aud' },
+        recurring: { type: 'object', description: 'Optional Stripe recurring config: { interval: month|year, interval_count? }.', additionalProperties: true },
+        nickname: { type: 'string' },
+        metadata: { type: 'object', additionalProperties: true },
+        idempotency_key: { type: 'string' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['product', 'unit_amount'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stripe_agent.create_payment_link',
+    description:
+      'Create a Stripe payment_link on an Ecodia entity. CHARGEABLE artefact: mirrors to staged_transactions row (source=stripe_agent, source_ref=link_id, source_account derived from entity). Amount auto-resolved from the line_items prices.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+        line_items: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            type: 'object',
+            properties: {
+              price: { type: 'string', description: 'Stripe price id.' },
+              quantity: { type: 'integer', minimum: 1, default: 1 },
+            },
+            required: ['price'],
+            additionalProperties: true,
+          },
+        },
+        after_completion: { type: 'object', additionalProperties: true },
+        metadata: { type: 'object', additionalProperties: true },
+        allow_promotion_codes: { type: 'boolean' },
+        mirror_description: { type: 'string', description: 'Optional override for the staged_transactions description.' },
+        idempotency_key: { type: 'string' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['line_items'],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: 'stripe_agent.create_checkout_session',
+    description:
+      'Create a Stripe checkout_session on an Ecodia entity. CHARGEABLE artefact: mirrors to staged_transactions row (source=stripe_agent, source_ref=session_id, source_account derived from entity). mode defaults to payment. success_url required.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: { type: 'string', enum: ['pty_ltd', 'labs', 'dao'], default: 'pty_ltd' },
+        line_items: {
+          type: 'array',
+          minItems: 1,
+          items: {
+            type: 'object',
+            properties: {
+              price: { type: 'string', description: 'Stripe price id.' },
+              quantity: { type: 'integer', minimum: 1, default: 1 },
+            },
+            required: ['price'],
+            additionalProperties: true,
+          },
+        },
+        mode: { type: 'string', enum: ['payment', 'subscription', 'setup'], default: 'payment' },
+        success_url: { type: 'string' },
+        cancel_url: { type: 'string' },
+        customer: { type: 'string', description: 'Stripe customer id (mutually exclusive with customer_email).' },
+        customer_email: { type: 'string' },
+        metadata: { type: 'object', additionalProperties: true },
+        allow_promotion_codes: { type: 'boolean' },
+        expires_at: { type: 'integer', description: 'Unix epoch seconds. Defaults to 24h.' },
+        mirror_description: { type: 'string', description: 'Optional override for the staged_transactions description.' },
+        idempotency_key: { type: 'string' },
+        cowork_session_id: { type: 'string' },
+      },
+      required: ['line_items', 'success_url'],
+      additionalProperties: true,
+    },
+  },
 ])
 
 const TOOL_NAMES = new Set(TOOLS.map(t => t.name))

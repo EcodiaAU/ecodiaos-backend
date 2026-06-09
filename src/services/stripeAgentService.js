@@ -52,9 +52,17 @@ async function _loadRestrictedKey(entity) {
   if (!rows || rows.length === 0) {
     throw new Error(`stripeAgentService: kv_store row "${kvKey}" not found - generate Restricted Key per the Agentic Commerce enablement brief`)
   }
-  const raw = rows[0].value
-  const key = typeof raw === 'string' ? raw : (raw?.key || raw?.value)
-  if (!key || !key.startsWith('rk_')) {
+  let raw = rows[0].value
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"')) {
+      try { raw = JSON.parse(trimmed) } catch { /* leave as string */ }
+    }
+  }
+  let key = null
+  if (typeof raw === 'string') key = raw
+  else if (raw && typeof raw === 'object') key = raw.key || raw.value || raw.token || null
+  if (!key || typeof key !== 'string' || !key.startsWith('rk_')) {
     throw new Error(`stripeAgentService: kv_store row "${kvKey}" value is not a Restricted Key (expected rk_*)`)
   }
   _credCache.set(entity, { key, at: now })
@@ -118,6 +126,36 @@ async function createPaymentLink({ entity = 'pty_ltd', line_items, after_complet
   return link
 }
 
+async function createCheckoutSession({
+  entity = 'pty_ltd', line_items, mode = 'payment',
+  success_url, cancel_url, customer, customer_email,
+  metadata, allow_promotion_codes, expires_at,
+}) {
+  const stripe = await _stripeFor(entity)
+  const params = {
+    line_items,
+    mode,
+    success_url,
+    cancel_url,
+    metadata,
+    allow_promotion_codes: !!allow_promotion_codes,
+  }
+  if (customer) params.customer = customer
+  if (customer_email && !customer) params.customer_email = customer_email
+  if (expires_at) params.expires_at = expires_at
+  const session = await stripe.checkout.sessions.create(params)
+  logger.info({
+    event: 'stripe_agent.checkout_session_created',
+    entity, session_id: session.id, url: session.url, mode,
+  })
+  return session
+}
+
+async function retrievePrice({ entity = 'pty_ltd', price_id }) {
+  const stripe = await _stripeFor(entity)
+  return stripe.prices.retrieve(price_id)
+}
+
 async function createInvoice({ entity = 'pty_ltd', customer, days_until_due, description, metadata, auto_advance = false }) {
   const stripe = await _stripeFor(entity)
   const invoice = await stripe.invoices.create({ customer, days_until_due, description, metadata, auto_advance })
@@ -178,12 +216,15 @@ module.exports = {
   createProduct,
   createPrice,
   createPaymentLink,
+  createCheckoutSession,
   createInvoice,
   addInvoiceItem,
   finalizeInvoice,
   sendInvoice,
   listProducts,
   listCustomers,
+  retrievePrice,
   probe,
+  ENTITY_TO_KV_KEY,
   _resetCache,
 }
