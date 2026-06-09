@@ -1,0 +1,14 @@
+{
+  "name": "@ecodiaos/knowledge-index",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local knowledge front door - SQLite FTS5 + trigger + facet index over the doctrine/reference/memory corpus. The single retrieval entrypoint (knowledge.lookup).",
+  "type": "commonjs",
+  "main": "lookup.js",
+  "scripts": {
+    "index:full": "node indexer.js --full",
+    "index": "node indexer.js",
+    "mcp:serve": "node mcp-server.js",
+    "lookup": "node lookup.js"
+  }
+}
