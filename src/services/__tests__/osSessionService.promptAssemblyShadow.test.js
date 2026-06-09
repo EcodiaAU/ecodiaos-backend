@@ -34,6 +34,13 @@ jest.mock('../../config/logger', () => ({
   debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn(),
 }))
 
+// Mock env.js so process.exit(1) doesn't fire in sandboxed dev envs.
+jest.mock('../../config/env', () => ({
+  USE_SKILLS_SURFACE: '0',
+  OS_SESSION_CWD: '/tmp/test',
+  PROMPT_ASSEMBLY_V2: 'shadow',
+}))
+
 jest.mock('../doctrineSurface', () => ({
   surfaceDoctrineBlock: jest.fn().mockReturnValue(''),
 }))

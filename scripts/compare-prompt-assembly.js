@@ -39,6 +39,15 @@
 const fs = require('fs')
 const path = require('path')
 
+// Stub out the env vars that src/config/env.js requires BEFORE the assembler
+// is loaded. This lets the compare script run in dev sandboxes without a
+// real .env — the script never talks to DB/JWT/etc, so these values are
+// irrelevant. Preserves any values already set so CI can override.
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgres://stub:stub@localhost:5432/stub'
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'x'.repeat(32)
+process.env.DASHBOARD_PASSWORD_HASH = process.env.DASHBOARD_PASSWORD_HASH || '$stub$'
+process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'x'.repeat(64)
+
 // Arg parsing
 const args = Object.fromEntries(
   process.argv.slice(2)
@@ -97,7 +106,20 @@ const v2Out = assembler.assemble({
   turn_context: fixture.turn_context,
 })
 
-const v2Flat = v2Out.contentBlocks.map(b => b.text).join('')
+// Reconstruct v2 into the text shape the audit compares against v1.
+// Mirrors promptAssemblyAudit.buildAuditRow exactly:
+//   BP1+BP2 joined by '\n\n---\n\n' (matches v1 buildCustomSystemPrompt stitch)
+//   BP3+BP4 joined by '\n\n' (matches v1 continuityParts.join)
+//   system and user halves joined by '\n\n' between them
+const bp12 = v2Out.contentBlocks
+  .filter(b => b.tier === 1 || b.tier === 2)
+  .map(b => b.text)
+  .join('\n\n---\n\n')
+const bp34 = v2Out.contentBlocks
+  .filter(b => b.tier === 3 || b.tier === 4)
+  .map(b => b.text)
+  .join('\n\n')
+const v2Flat = bp34 ? `${bp12}\n\n${bp34}` : bp12
 
 // If no real v1Text supplied, synthesise it the way PR 2's shadow wire-in does:
 //   v1Text = systemPrompt + '\n\n' + userMessage (blocks joined with '\n\n')
