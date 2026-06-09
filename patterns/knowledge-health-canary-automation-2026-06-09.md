@@ -23,6 +23,10 @@ Every load-bearing property of the retrieval system is checked by a single daily
 4. **Doctrine trigger coverage** - every `patterns/*.md` must carry a `triggers:` line, or it is unfindable on the keyword leg.
 5. **Enforcement gates wired** - the M1/M2/M3 + placement + index-refresh hooks must still be referenced in `settings.json`. A hook silently dropped from settings is enforcement that died quietly.
 
+## Two layers: local REPORT, conductor ACT
+
+The canary is the REPORT layer (daily, launchd, reliable, conductor-down). The ACT layer is the existing weekly `doctrine-coverage-audit` scheduler cron (Sun 19:00), which on each fire reads the canary heartbeat, runs `dedup-scan.js` + `eval-recall.js`, and consolidates or cross-links what they surface (OBJECTIVE 2, added 2026-06-09). The split is deliberate: a new conductor cron was NOT created, the responsibility was folded into the live doctrine cron so the cron fleet does not sprawl. And because the daily canary does not depend on the scheduler, a cron that defers on an account cap never leaves retrieval blind. Do not duplicate this into a fresh cron.
+
 ## How to apply
 
 - Read the heartbeat at `~/.local/state/ecodiaos/knowledge-health-heartbeat.json` for current state. `status: alert` plus the `alerts` string names every failing check.
