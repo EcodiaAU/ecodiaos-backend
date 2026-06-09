@@ -25,7 +25,10 @@ alerts=""
 # match REAL path usage (C:/Users/tjdTa/<path>), not a detection regex; exclude
 # the placement hook which legitimately carries the literal to detect it.
 cjunk_hooks=$(grep -rIl "C:/Users/tjdTa/" "$HOME/.claude/hooks" --include="*.py" --include="*.sh" --exclude="placement_surface.py" 2>/dev/null | grep -v "/C:/" | wc -l | tr -d ' ')
-cjunk_dirs=$(find "$CODE_ROOT" -maxdepth 3 -name "C:" -type d 2>/dev/null | wc -l | tr -d ' ')
+# prune the heavy dirs but go deep enough to catch C: junk nested inside a repo
+# subdir (e.g. ecodiaos/backend/knowledge-index/C: sits at depth 4, the old
+# -maxdepth 3 missed it - that is exactly how one hid on 2026-06-09).
+cjunk_dirs=$(find "$CODE_ROOT" \( -name node_modules -o -name .git \) -prune -o -name "C:" -type d -print 2>/dev/null | wc -l | tr -d ' ')
 [ "$cjunk_hooks" != "0" ] && alerts="${alerts}C:-junk regression: $cjunk_hooks hook(s) re-introduced a Windows path. "
 [ "$cjunk_dirs" != "0" ] && alerts="${alerts}$cjunk_dirs literal C: junk dir(s) manufactured under .code. "
 
