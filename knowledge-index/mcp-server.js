@@ -7,7 +7,7 @@
 //   knowledge.stats  - index health + freshness.
 
 const readline = require("readline");
-const { lookup, stats } = require("./lookup");
+const { lookup, lookupHybrid, stats } = require("./lookup");
 
 const TOOLS = [
   {
@@ -66,7 +66,9 @@ function handle(msg) {
       const name = params.name;
       const args = params.arguments || {};
       if (name === "knowledge.lookup") {
-        ok(id, asText(lookup(args.need, { facet: args.facet, category: args.category, limit: args.limit })));
+        lookupHybrid(args.need, { facet: args.facet, category: args.category, limit: args.limit })
+          .then((r) => ok(id, asText(r)))
+          .catch(() => ok(id, asText(lookup(args.need, { facet: args.facet, category: args.category, limit: args.limit }))));
         return;
       }
       if (name === "knowledge.stats") {
