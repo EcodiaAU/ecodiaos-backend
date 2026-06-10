@@ -10,7 +10,9 @@ resolve_spec_path() {
   case "$app" in
     locals)    path=/Users/ecodia/.code/locals-shared/.release-walker/spec.yml ;;
     coexist)   path=/Users/ecodia/.code/coexist/.release-walker/spec.yml ;;
-    glovebox)  path=/Users/ecodia/.code/glovebox/.release-walker/spec.yml ;;
+    # glovebox/ (old Capacitor monorepo dir) is not a git repository; the
+    # spec lives in the version-controlled Android-first native repo.
+    glovebox)  path=/Users/ecodia/.code/glovebox-android/.release-walker/spec.yml ;;
     goodreach) path=/Users/ecodia/.code/goodreach/.release-walker/spec.yml ;;
     *) echo "FATAL: no spec registered for app '$app'" >&2; return 1 ;;
   esac
@@ -21,7 +23,7 @@ resolve_spec_path() {
 list_apps() {
   cat <<'LIST'
 coexist    -> /Users/ecodia/.code/coexist/.release-walker/spec.yml
-glovebox   -> /Users/ecodia/.code/glovebox/.release-walker/spec.yml
+glovebox   -> /Users/ecodia/.code/glovebox-android/.release-walker/spec.yml
 goodreach  -> /Users/ecodia/.code/goodreach/.release-walker/spec.yml
 locals     -> /Users/ecodia/.code/locals-shared/.release-walker/spec.yml
 LIST
