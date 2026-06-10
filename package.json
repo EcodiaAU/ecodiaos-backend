@@ -12,7 +12,11 @@
     "test:dispatch-kind": "npx jest tests/dispatchEventKindContract.test.js"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/fixtures/"
+    ]
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.121",
