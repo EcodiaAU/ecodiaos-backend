@@ -41,11 +41,53 @@ load_creds() {
       export MAESTRO_GR_EMAIL="demo@goodreach.com.au"
       export MAESTRO_GR_PASSWORD=$(jq -r '.password // empty' "$KV/goodreach.json" 2>/dev/null || true)
       ;;
-    *) : ;;  # locals/glovebox flows are anon-first today
+    locals)
+      export MAESTRO_LC_EMAIL=$(jq -r '.email' "$KV/locals.json")
+      export MAESTRO_LC_PASSWORD=$(jq -r '.password' "$KV/locals.json")
+      ;;
+    glovebox)
+      export MAESTRO_GB_EMAIL=$(jq -r '.email' "$KV/glovebox.json")
+      export MAESTRO_GB_PASSWORD=$(jq -r '.password' "$KV/glovebox.json")
+      ;;
+    *) : ;;
   esac
 }
 
+# Device orchestration (environment glue, not test logic): boot the
+# app's AVD when no matching emulator is up. Refuses a mismatched one.
+avd_for() {
+  case "$1" in
+    coexist) echo coexist_aosp ;;
+    locals) echo locals_pixel ;;
+    glovebox) echo glovebox_pixel ;;
+    *) echo "" ;;
+  esac
+}
+
+ensure_android_device() {
+  WANT=$(avd_for "$APP"); [ -z "$WANT" ] && return 0
+  SERIAL=$(adb devices | awk "/emulator-[0-9]+\tdevice/{print \$1; exit}")
+  if [ -n "$SERIAL" ]; then
+    HAVE=$(adb -s "$SERIAL" emu avd name 2>/dev/null | head -1 | tr -d "\r")
+    if [ "$HAVE" = "$WANT" ]; then return 0; fi
+    echo "[app-tests] FATAL: emulator $SERIAL runs avd $HAVE, need $WANT; kill it first" >&2
+    return 2
+  fi
+  echo "[app-tests] booting $WANT (headless)"
+  EMU=/opt/homebrew/share/android-commandlinetools/emulator/emulator
+  nohup "$EMU" -avd "$WANT" -no-window -no-audio -no-snapshot-save -gpu swiftshader_indirect >/tmp/app-tests-emu.log 2>&1 &
+  i=0
+  while [ "$i" -lt 60 ]; do
+    i=$((i + 1)); sleep 3
+    SERIAL=$(adb devices | awk "/emulator-[0-9]+\tdevice/{print \$1; exit}")
+    [ -n "$SERIAL" ] && BC=$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") && [ "$BC" = "1" ] && return 0
+  done
+  echo "[app-tests] FATAL: $WANT did not boot" >&2
+  return 2
+}
+
 load_creds "$APP"
+ensure_android_device
 
 TOTAL=0
 FAILED=0
