@@ -929,6 +929,7 @@ async function tickInferOutcomes() {
   let inferred = 0
   let skipped = 0
   let errors = 0
+  let wrongInputClass = 0
   const distribution = { success: 0, failure: 0, correction: 0, unverified: 0, infrastructure_verified: 0 }
 
   try {
@@ -960,6 +961,10 @@ async function tickInferOutcomes() {
       WHERE o.id IS NULL
         AND d.ts < NOW() - INTERVAL '5 minutes'
         AND d.ts > NOW() - INTERVAL '14 days'
+        AND NOT (
+          d.action_type LIKE 'tool_call:%'
+          AND COALESCE(d.action_subtype, '') <> 'infrastructure_verified'
+        )
       ORDER BY d.ts ASC
       LIMIT 500
     `)
@@ -1041,11 +1046,54 @@ async function tickInferOutcomes() {
         console.error('[outcomeInference] error inferring dispatch', dispatch.id, err.message)
       }
     }
+
+    // Signal-density heartbeat (cowork.telemetry.outcome_inference.signal_density).
+    //
+    // signal_density = inferred / (inferred + filtered) = classified /
+    // total_eligible_input. The SQL WHERE clause above filters tool_call:*
+    // dispatches out at the query layer per
+    // backend/patterns/outcome-inference-must-exclude-raw-hook-telemetry-action-types-2026-06-10.md
+    // The filtered count is computed via the same window so the canary can
+    // distinguish input-class drift (filtered dominates) from heuristic breakage
+    // (filtered low, inferred low).
+    try {
+      const f = await client.query(`
+        SELECT COUNT(*)::int AS n
+        FROM dispatch_event d
+        LEFT JOIN outcome_event o ON o.dispatch_event_id = d.id
+        WHERE o.id IS NULL
+          AND d.ts < NOW() - INTERVAL '5 minutes'
+          AND d.ts > NOW() - INTERVAL '14 days'
+          AND d.action_type LIKE 'tool_call:%'
+          AND COALESCE(d.action_subtype, '') <> 'infrastructure_verified'
+      `)
+      wrongInputClass = f.rows[0] ? f.rows[0].n : 0
+      const total = inferred + wrongInputClass
+      const density = total > 0 ? inferred / total : null
+      await client.query(
+        `INSERT INTO kv_store (key, value, updated_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [
+          'cowork.telemetry.outcome_inference.signal_density',
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            inferred,
+            wrong_input_class: wrongInputClass,
+            total_eligible: total,
+            density,
+            distribution,
+          }),
+        ]
+      )
+    } catch (err) {
+      console.error('[outcomeInference] signal_density heartbeat write failed:', err.message)
+    }
   } finally {
     try { await client.end() } catch { /* ignore */ }
   }
 
-  return { ok: true, inferred, skipped, errors, distribution }
+  return { ok: true, inferred, skipped, errors, wrongInputClass, distribution }
 }
 
 async function runOnce() {
