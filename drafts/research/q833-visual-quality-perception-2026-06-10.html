@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q833, visual quality perception without Tate pointing, 10 June 2026</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; } html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  .title-page { min-height: 70vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 62ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "SF Mono", "Menlo", monospace; font-size: 0.86em; background: rgba(0,0,0,0.04); padding: 0 0.3em; border-radius: 2px; }
+  @media (prefers-color-scheme: dark) { main.memo code { background: rgba(255,255,255,0.06); } }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The question is not whether the eye is missing pixels. It is whether the harness is asking the question.</p>
+    <p class="byline">EcodiaOS &middot; Q833, visual quality perception without Tate pointing &middot; 10 June 2026 &middot; raised 9 June 04:19 AEST, lifted to Neo4j 10 June 12:00 AEST</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Tate raised this question across the 2026-06-09 Glovebox Android sweep arc: "Can you still not see how many things are wrng with android visually?" The premise is that the dev-process eighth rung (visual-verify via CDP) is failing to catch a class of regressions a human eye catches instantly, which makes the rung symbolic rather than real. This research separates that into two distinct sub-claims, finds substrate evidence for each, and proposes a layered resolution that respects both the model's perceptual ceiling and the cost of every visual-verify pass.</p>
+
+    <p class="section-label">part one, the substrate snapshot</p>
+
+    <p>The visual-verify substrate today is three things, none of them a true diff. First, the CDP helper library (<code>cdp-helper-library-and-recursive-improvement-2026-05-18</code>) is rich on input primitives (deepFindRect, realClick, nativeFill) but its verification path is element-existence and DOM-state, not pixel-perceptual. Second, the GUI step-verify protocol (<code>gui-step-verify-protocol</code>) mandates a screenshot before and after every step, but the screenshots are stored and compared by the model in-arc rather than by a deterministic diff harness. Third, the exploratory and release walker substrates (<code>exploratory-walker-is-first-class-test-substrate-2026-06-09</code>, <code>release-walker-state-matrix-2026-06-10</code>) are flow-completion verifiers that crawl the app's state graph; they catch missing screens and broken transitions, but they do not catch wrong-colour-scheme, wrong-typography, or theme-drift between iOS and Android. There is no canonical iOS-versus-Android pixel-diff or theme-diff harness on disk. The 9 June compose-tree pattern (<code>compose-accessibility-tree-fills-before-pixels-paint-2026-06-09</code>) confirmed that the model can be tricked by an accessibility tree that is populated before the pixels actually render; that is a CAPTURE failure on top of the PERCEPTION question.</p>
+
+    <p class="section-label">part two, the perception question, decomposed</p>
+
+    <p>The verbatim question conflates two distinct failure modes. Mode one, CAPTURE failure: the screenshot the model is asked to read is not faithful to what a human would see in the running app. Mode two, PERCEPTUAL failure: the screenshot is faithful, but the model does not notice or does not weight the regression Tate's eye catches. The 9 June arc had both modes mixed. The Glovebox Android theme-drift cases were partly a capture problem (the app activity took longer to finish theme application than the screenshot deadline assumed, per the compose tree finding) and partly a perceptual problem (the model looked at a screenshot showing the wrong scheme and described it neutrally rather than flagging it as drift).</p>
+
+    <p>This decomposition matters because the two modes need different fixes. Capture failure is solvable with a deterministic settle-and-verify layer (poll the rendered frame for stability before capture). Perceptual failure is solvable two ways: by raising the comparison standard (always compare against a canonical reference, not against the model's free-floating sense of what the screen should look like), or by lowering the perceptual demand (ask narrower questions of the screenshot, like is-this-pixel-rgb-x rather than does-this-look-right).</p>
+
+    <p class="section-label">part three, the resolution proposal</p>
+
+    <p>Three layers, composing not competing.</p>
+
+    <p><em>Layer one, deterministic capture.</em> Extend the existing screenshot-before-after primitive with a frame-settle wait. On Compose, poll <em>SemanticsRegistry.uiState</em> until idle plus N frames. On SwiftUI, observe scene phase plus a frame counter. The capture deadline only fires after settle. This closes the 9 June Compose-tree class of capture failure. Wire as a default flag on CDP screenshot helpers (default-on with a force-now bypass for animation work).</p>
+
+    <p><em>Layer two, canonical-reference diff.</em> For every screen named in the app's state graph (release-walker matrix already enumerates these), capture a CANONICAL reference once on the originating platform (typically iOS, which the design system anchors), commit it to the repo under <code>backend/visual-references/&lt;app&gt;/&lt;platform&gt;/&lt;screen-slug&gt;.png</code>. The cross-platform parity check is then a deterministic diff between the live screenshot and the canonical reference of the SAME screen on the OTHER platform, with a perceptual hash and a hue-histogram comparison. The diff produces a numeric drift score (0.0 to 1.0); above threshold (configurable per-screen, default 0.15) the harness fires a hook block on push. This is the harness Tate's eye is the current placeholder for.</p>
+
+    <p><em>Layer three, narrow-question perceptual probe.</em> Even with the canonical diff, some classes of regression (e.g. a chip that should say "Filter" but says "Filter "), are below the perceptual threshold of a hue histogram. For these, the harness asks the model NARROW questions of the screenshot, one per declared invariant: "what colour is the top app bar?", "does the primary button say <em>continue</em>?", "is the keyboard visible?" Narrow questions have a much higher answer-accuracy ceiling than open questions. Invariants live alongside the canonical reference as a small JSON sidecar, authored once per screen.</p>
+
+    <p>The honest capability acknowledgement. The model's open-question perceptual ceiling against arbitrary screenshots will not reach Tate's eye. The model is not built to free-associate "this should look like the iOS one" without an explicit comparison anchor. Trying to push it there is the wrong direction. The right direction is canonical references plus narrow questions plus deterministic capture; that combination beats Tate's eye on COVERAGE while accepting that Tate's eye still beats the model on FREE PERCEPTION of novel regression classes. The harness catches the regressions the canonical refs and invariants encode; Tate catches the rest, but the residue Tate has to catch is a flat surface (the things the harness was not yet told to look for), not a growing pile.</p>
+
+    <p class="section-label">part four, the cost shape</p>
+
+    <p>The layer-one capture extension is cheap: one helper function, sub-hour to ship, runs on every existing visual-verify call. The layer-two canonical-reference diff is the most expensive: each app's state graph (typically 12 to 40 screens for an Ecodia consumer app per the release-walker matrix) needs an originating-platform reference capture, an iOS-versus-Android parity pass, and a hook wired into the eighth rung. Estimate is half a day per app for first wiring, then drift-free. The layer-three invariant authoring is per-screen and per-app and accretes; one invariant per screen takes maybe 30 seconds to author, scales gracefully.</p>
+
+    <p>Cost-benefit on the hook block on push. The 9 June Glovebox arc shipped multiple regressions to push that Tate caught at review. The hook block flips that into a per-push gate, which moves the catch left and avoids the cost of an arc-wide revert. The dev-process eighth rung becomes real rather than symbolic. The bar Tate stated (rapid coherence across all projects) becomes structurally enforceable.</p>
+
+    <p class="section-label">part five, the carry-forward question</p>
+
+    <p>What the harness still cannot catch: novel-class regressions where neither the canonical reference nor the invariants encode the failure. Example: a regression where text wraps to a new line on a slightly narrower viewport, when no canonical screenshot existed for that viewport. Carry-forward question Q833.1 (not lifted in this fire): should the harness extend to viewport-matrix capture (capture canonical references at three viewports per platform) and treat the cross-viewport diff as part of the parity score? Cost is 3x; benefit is unclear without measuring how many novel-class regressions are viewport-driven.</p>
+
+    <p class="section-label">decision proposed</p>
+
+    <p>Adopt the three-layer resolution as the Q833 answer. Ship layer one (deterministic capture) within the next dev-process arc that touches the eighth rung. Layer two (canonical-reference diff) is a multi-day build that becomes its own status_board row; pilot on the smallest active Ecodia app (Locals, given the Play resubmit just landed) before generalising. Layer three (narrow invariants) is authored opportunistically per screen alongside layer two. The hook block on push lands with layer two going live for that app; until then, the symbolic-rung gap remains and Tate's eye is the gate. Documented as a doctrine pattern at <code>backend/patterns/visual-verify-three-layer-harness-canonical-reference-2026-06-10.md</code> after layer one ships.</p>
+
+    <p class="section-label">decision-quality notes</p>
+
+    <p>Confidence high on the diagnosis (capture vs perceptual split, no on-disk parity harness, ceiling of free perception). Confidence medium on layer-two cost estimate (depends on how stable the originating-platform canonical references are across cosmetic redesigns; if redesigns are frequent the maintenance cost rises). Confidence medium on whether layer two plus three reaches the >=80% Tate-pointed-regression catch rate; this can only be falsified by running it against the back-catalogue of 5 Android-vs-iOS arcs from the 9 June sweep. That measurement is the appropriate next-fire follow-up, not a blocker on shipping layer one.</p>
+
+  </main>
+
+  <footer>
+    Q833 deep-research &middot; EcodiaOS &middot; 10 June 2026 &middot; lifted from 9 June harvest gap &middot; Decision proposal authored
+  </footer>
+
+</body>
+</html>

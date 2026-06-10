@@ -12,7 +12,7 @@ Implementation brief for the architecture in `03-autonomous-delivery-architectur
 
 ## Placement decisions
 
-- Code home: `backend/src/services/climate/` in the EcodiaOS backend repo, Node, matching the existing service substrate (stripeAgentService, factoryBridge live in `src/services/`). Golden-test fixtures as JSON under `backend/src/services/climate/__fixtures__/`.
+- Code home: `backend/src/services/climate/` in the EcodiaOS backend repo, Node, matching the existing service substrate (stripeAgentService, factoryBridge live in `src/services/`). Golden-test fixtures live at `backend/src/services/climate/calculators/__tests__/fixtures/` as .js modules (not JSON; each fixture carries a source-citation comment, which JSON cannot) (as-built correction 2026-06-10).
 - Data home: a DEDICATED Supabase project (`ecodia-climate`, Sydney region), never the EcodiaOS substrate project `nxmtfzofemtrlezlyhcj`. Client evidence does not share a database with our own organs. Provisioning is client-gated (small recurring cost, and there is nothing to hold until an engagement signs). Migrations are authored now in `backend/climate-migrations/` and apply on provisioning day.
 - Access: service-role only in v1. No client portal, no anon or authenticated grants. Every table carries the explicit REVOKE form per [[supabase-create-table-must-include-explicit-grants-2026-06-02]].
 - MCP: a new narrow connector `ecodia-climate` exposing the `cd_*` tool family, scoped bearer at `kv_store.creds.ecodia_climate_mcp_bearer`, per the narrow-connector doctrine.
@@ -43,13 +43,13 @@ Verify gate: migrations apply clean to a scratch project; the grants-detection S
 
 ## W2. Hash-chain library + integrity checker (build now)
 
-`backend/src/services/climate/evidenceChain.js`: canonicalise(row) -> stable JSON, hashRow(row, prevHash), verifyChain(engagementId) walking seq order and recomputing every link, anchorHead(engagementId, target). Property tests: tampering any historical row breaks verification at exactly that seq; out-of-order seq detected; supersession does not break the chain.
+`backend/src/services/climate/evidenceChain.js`: canonicalise(row) -> stable JSON, hashRow(row, prevHash), verifyChain(rows) walking seq order and recomputing every link, buildAnchorDigest(rows). Pure functions over caller-fetched rows; the caller owns the DB read (as-built correction 2026-06-10; the original engagementId-taking signatures contradicted the pure-function stance). Property tests: tampering any historical row breaks verification at exactly that seq; out-of-order seq detected; supersession does not break the chain.
 
 Verify gate: tamper test red-then-green in CI; verifyChain over a 10k-row synthetic register completes under 30s.
 
 ## W3. Calculation engine (build now)
 
-`backend/src/services/climate/calculators/`: fuelCombustionS1, refrigerantsS1, electricityS2Location, electricityS2Market. Pure functions: (activityRows, factorVintage, methodElection) -> {tco2e, breakdown, evidenceIds, inputsHash}. Method election is per facility (GHG Protocol default; NGER Determination methods allowed for NGER-covered facilities per AASB S2025-1, Dec 2025) and is recorded on every calc run. Factor loader reads cd_factors by vintage with effective-date selection. Each public NGA/NGER worked example we can find becomes a golden fixture; the fixture file cites its source URL.
+`backend/src/services/climate/calculators/`: fuelCombustionS1, refrigerantsS1, electricityS2Location, electricityS2Market. Pure functions: (activityRows, factorVintage, methodElection) -> {tco2e, breakdown, evidenceIds, inputsHash}, where factorVintage is {vintage, factors} carrying caller-fetched cd_factors rows (as-built correction 2026-06-10: the original "pure functions" plus "factor loader reads cd_factors" was contradictory; the caller owns the DB read and factorLoader selects by vintage with effective-date logic over the passed rows, throwing on ambiguous selection). Method election is per facility (GHG Protocol default; NGER Determination methods allowed for NGER-covered facilities per AASB S2025-1, Dec 2025) and is recorded on every calc run. Open schema item for a later migration: cd_factors lacks a uniqueness constraint on (factor_set, vintage, category, effective_from), so effective-date ambiguity is representable at the DB level; the loader's throw-on-ambiguity is the compensating control until then. Each public NGA/NGER worked example we can find becomes a golden fixture; the fixture file cites its source URL.
 
 Verify gate: golden suite green; a factor-vintage bump changes outputs ONLY via new cd_calc_runs rows (old runs immutable, superseded_by set); decimal handling uses integer micro-units or a decimal lib, never floats on the disclosed figure.
 

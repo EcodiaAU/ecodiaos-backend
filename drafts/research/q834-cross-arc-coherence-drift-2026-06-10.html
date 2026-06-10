@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q834, cross-arc coherence drift detector, 10 June 2026</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; } html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  .title-page { min-height: 70vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 62ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "SF Mono", "Menlo", monospace; font-size: 0.86em; background: rgba(0,0,0,0.04); padding: 0 0.3em; border-radius: 2px; }
+  @media (prefers-color-scheme: dark) { main.memo code { background: rgba(255,255,255,0.06); } }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The bad day is detectable by lunch if anyone is counting.</p>
+    <p class="byline">EcodiaOS &middot; Q834, cross-arc coherence-drift detector &middot; 10 June 2026 &middot; raised 9 June 00:36 AEST, lifted to Neo4j 10 June 12:00 AEST</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Tate framed the question on 2026-06-09 after a day of low cohesion across the EcodiaOS work: many fixes shipped, several regressed, and the day was experienced as low quality. The substrate gap is the meta-loop's ability to detect its own coherence drift turn-by-turn rather than at end-of-bad-day. This research takes the existing canary substrate, finds the missing layer, and proposes a same-day surfacing pattern that uses what is already heartbeating.</p>
+
+    <p class="section-label">part one, the substrate snapshot</p>
+
+    <p>Five department canaries heartbeat to <code>~/.local/state/ecodiaos/</code> today: finance-health, hygiene, knowledge-health, precious-work, scheduler-health. Each runs daily via launchd, writes a JSON heartbeat with status and a small set of department-specific signals, and is read by the M2 session-start hook to surface alarms when an instance opens. The pattern is correct and the heartbeats land reliably (knowledge-health currently <code>status: ok, recall: 12/12, dedup_pairs: 1</code>). What is missing is a sixth canary that aggregates ACROSS the others plus a small set of cross-arc work-quality signals, and that surfaces at session-start rather than only at end-of-day.</p>
+
+    <p>The cross-arc signals Tate's question implicitly named: count of REGRESSED status_board statuses in a 24-hour window, ratio of shipped-then-reverted commits, hook-blocked Edit and Write call density, dispatched-worker orphan ratio, in-arc context-switch density. The substrates these come from are already queryable. <code>os_scheduled_tasks</code> has the orphan column. Git log has commit-then-revert detection (a revert commit naming a SHA inside the last 24 hours). The hook-blocked density is in <code>~/.claude/logs/</code> per the hook stack. The session JSONLs hold context-switch density. None of these are currently aggregated into a single signal.</p>
+
+    <p class="section-label">part two, the design</p>
+
+    <p>A single new launchd canary <code>au.ecodia.coherence-drift</code> running every two hours (not daily; the whole premise is sub-day detection) writes <code>coherence-drift-heartbeat.json</code> with: <em>regressed_24h</em> (count of status_board rows whose status went forward then back), <em>reverted_commits_24h</em> (git log revert detection across all canonical Ecodia repos), <em>hook_blocks_24h</em> (count of PreToolUse hard-blocks across the user-global hook log), <em>worker_orphan_ratio_24h</em> (orphaned over total dispatched in the window), <em>context_switch_density</em> (median session arc lifetime in the last day's JSONLs).</p>
+
+    <p>The aggregate is a single 0-to-1 drift score with explicit thresholds: 0.0 to 0.30 green, 0.30 to 0.55 yellow, 0.55+ red. The score is weighted not equal: a single reverted commit is worth more than a single hook block, because shipped-then-reverted is the loudest signal that work was not held to standard the first time. Red posts to <code>status_board</code> as a P2 row with <code>next_action_by=ecodiaos</code> AND emits an SMS to Tate; yellow posts to status_board only; green silent except the heartbeat. The M2 hook reads the heartbeat at session-start and injects the score (with the loudest contributor signal named verbatim) into every instance opened.</p>
+
+    <p>The dead-man's-switch applies as it does for the existing five canaries: if the heartbeat is older than three hours (1.5x the cron cadence), M2 surfaces a coherence-canary-stale alarm. The pattern matches the existing canary doctrine without forking it.</p>
+
+    <p class="section-label">part three, the weight calibration question</p>
+
+    <p>The honest piece: the weights for the five signals are guessed in the design above, not measured. The right way to set them is to backtest against Tate-flagged bad days. The 2026-06-09 day is the canonical bad day in the recent corpus; that gives one labelled point. To get to a calibrated weight vector this would need three or four more labelled bad days. The interim posture is: ship the canary with placeholder weights (0.30 reverted, 0.25 regressed, 0.20 worker_orphan_ratio, 0.15 context_switch, 0.10 hook_blocks), record every Tate-flagged coherence concern as a labelled training point, and recalibrate weekly inside the existing weekly-doctrine-consolidation cron.</p>
+
+    <p>This is intentionally not a machine-learning problem. The calibration is by-eye against four to six labels, by hand, with the rule that the loudest signal in the score breakdown must match the gut sense of why the day went sideways. If the gut and the score diverge, the signal selection is wrong, not the weights.</p>
+
+    <p class="section-label">part four, what this is not</p>
+
+    <p>This is not the world-model-audit pattern (<code>world-model-staleness-needs-active-reconciliation-2026-05-17</code>); that one is a slower architectural-drift audit and runs weekly. It is not the decision-quality-self-optimization architecture; that one tracks doctrine usage and outcome correlation over a longer window. It is the missing fast-feedback layer between them: real-time enough to catch a low-cohesion day in progress, blunt enough to not noise-out a normal-bad arc, durable enough to surface across instances via the same M2 hook the other canaries already use.</p>
+
+    <p>It is also not a replacement for the existing five canaries. It composes WITH them by reading their heartbeat statuses as an input. If three of five canaries are non-green at the same moment, that is a cross-substrate coherence smell on top of the work-quality signals, and the aggregate score weights it.</p>
+
+    <p class="section-label">part five, the cost shape</p>
+
+    <p>Ship cost is one shell script of similar shape to <code>knowledge-health.sh</code> (which already exists at <code>backend/scripts/</code> per the heartbeat audit), one launchd plist (mirror of the existing au.ecodia.knowledge-health plist), one M2 hook addition (the heartbeat-reading globber the hook already does for the other five). Estimate is half a day end-to-end. Running cost is sub-second per fire, every two hours, on local Mac.</p>
+
+    <p>Benefit shape: the 9 June bad day would have surfaced a yellow score by mid-morning, given the orphan ratio and reverted-commit count it generated. The mid-morning surface gives the next session-start instance a structured "coherence is degrading, contributor signal is X" piece of context, and the conductor can stop-the-line rather than ride the day to its end. The pattern Tate named (rapid coherence across all projects) becomes structurally enforceable in the only place fast enough to matter.</p>
+
+    <p class="section-label">decision proposed</p>
+
+    <p>Author <code>backend/scripts/coherence-drift.sh</code> mirroring the knowledge-health.sh shape, write the launchd plist for <code>au.ecodia.coherence-drift</code> running every two hours, extend the M2 hook globber to include <code>coherence-drift-heartbeat.json</code>, ship the SMS-Tate hook for red-score events. Author the doctrine pattern at <code>backend/patterns/coherence-drift-canary-cross-arc-quality-2026-06-10.md</code> in the same arc that ships the canary. Treat the placeholder weights as v0 and recalibrate at the next weekly-doctrine-consolidation fire.</p>
+
+    <p class="section-label">decision-quality notes</p>
+
+    <p>Confidence high on the design shape (composes with existing canaries; substrates queryable). Confidence medium on whether the chosen five signals correlate with Tate's experience of cohesion (this is the calibration unknown above). Confidence medium-high that a coherence-drift score moving from green to red mid-day is more useful than the same signal arriving at end-of-day; Tate's verbatim is explicit that the lack of mid-day surfacing was the gap. Falsifiable by running the canary in v0 and asking Tate at the end of each week whether the score breakdown matched the felt sense of the week.</p>
+
+    <p>Carry-forward question Q834.1 (not lifted in this fire): should the canary also include an external-blocker freshness signal (count of status_board rows where the external blocker has not been probed in N days)? That is an information-staleness signal rather than a quality-drift signal and may belong on a separate canary. Defer.</p>
+
+  </main>
+
+  <footer>
+    Q834 deep-research &middot; EcodiaOS &middot; 10 June 2026 &middot; lifted from 9 June harvest gap &middot; Decision proposal authored
+  </footer>
+
+</body>
+</html>
