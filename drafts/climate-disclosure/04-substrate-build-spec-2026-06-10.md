@@ -65,6 +65,8 @@ Email path reuses the Gmail service-account extraction recipe; ingest address is
 
 Verify gate: end-to-end test, send a fixture invoice to the ingest address, evidence row committed with correct sha256 and chain link, under 10 minutes.
 
+Binding design note from the 011-view fix agent (2026-06-10): confirmation is append-as-supersede, never UPDATE. The 002 append-only trigger rejects UPDATE for every role including service_role, so a pending_confirmation row is confirmed by appending a confirmed superseding row (behaviourally proven on ephemeral pg; the naive UPDATE path throws). The W5 confirmation service MUST be written to this shape, and evidenceChain.js should grow a confirmEvidence(row) helper that builds the superseding row.
+
 ## W6. Renderers (build now)
 
 Pack exporter: register export (CSV + JSON), methodology memo (templated markdown -> PDF), draft statements (HTML -> PDF, clean professional client register, NOT the Ecodia internal aesthetic), coverage and gap reports from cd_coverage and cd_disclosure_drafts. Reuse the existing render-pdf wrapper mechanics.
