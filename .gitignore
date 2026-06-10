@@ -50,3 +50,5 @@ tmp*
 *.sqlite-shm
 *.sqlite-wal
 scripts/release-walker/runs/
+drafts/_shots/
+climate-testing/zoo/raw/

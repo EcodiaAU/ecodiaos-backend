@@ -1,0 +1,485 @@
+{
+  "collected_at_note": "real documents from our own mailboxes; engagement-zero seeds",
+  "items": [
+    {
+      "file": "bd4c3423be5a_Ecodia-SeedTree-Earth-INV-2026-007.pdf",
+      "sha256": "bd4c3423be5a962ab2b00e8193b0ca71bc90400fc4b3e0b597f20f227b137e2b",
+      "bytes": 207209,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19eaf254761eab7b",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Tax invoice INV-2026-007 - Yourcelium Phase 1 deposit (paid)",
+      "date": "Tue, 9 Jun 2026 18:28:35 -0700"
+    },
+    {
+      "file": "36875436a0cb_Ecodia-SeedTree-Earth-Yourcelium-Phase1-SOW-2026-06-10.pdf",
+      "sha256": "36875436a0cb5d30bb7472ba27715e190c9855b1d1855ed788b2680151f358b2",
+      "bytes": 323709,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19eaf156cf3274b6",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Yourcelium Phase 1 SOW (SOW-2026-06-10)",
+      "date": "Tue, 9 Jun 2026 21:11:17 -0400"
+    },
+    {
+      "file": "c26230f32f34_ordit-lod-craige-hills-2026-05-26.pdf",
+      "sha256": "c26230f32f346725edd3f8cf8480a90af601513219fca1f5fe7e0e4e1f262d5e",
+      "bytes": 163800,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19eabe811ee89800",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Final notice before QCAT filing - INV-2026-002 - Ecodia Pty Ltd v Spatial & Compliance Pty Ltd",
+      "date": "Tue, 9 Jun 2026 03:22:52 -0700"
+    },
+    {
+      "file": "62fc2c7dc527_INV-2026-002.pdf",
+      "sha256": "62fc2c7dc52721e20aa0ebe15d7ca0128f1e6ac2356020d6c8de1cf885a503e3",
+      "bytes": 55978,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19eabe811ee89800",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Final notice before QCAT filing - INV-2026-002 - Ecodia Pty Ltd v Spatial & Compliance Pty Ltd",
+      "date": "Tue, 9 Jun 2026 03:22:52 -0700"
+    },
+    {
+      "file": "bcf1e39f85ea_INV-2026-005-Ecodia.pdf",
+      "sha256": "bcf1e39f85eaa124a655a4fc6a915f4ea191147b0b1c665912c77f66399bd3f4",
+      "bytes": 127690,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19eaac3b11a834b9",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Invoice INV-2026-005 - Ecodia",
+      "date": "Mon, 8 Jun 2026 22:03:31 -0700"
+    },
+    {
+      "file": "31a868d73492_INV-2026-004-Ecodia.pdf",
+      "sha256": "31a868d73492af396a43c9df2f1fea722acdbc0619fa480e47ed65f789cdc9d2",
+      "bytes": 129328,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19ea473c33430b4b",
+      "from": "Ecodia <code@ecodia.au>",
+      "subject": "Invoice INV-2026-004 - Ecodia - June 2026",
+      "date": "Sun, 7 Jun 2026 23:38:30 +0000"
+    },
+    {
+      "file": "01f2aeb8d2d0_154618054.pdf",
+      "sha256": "01f2aeb8d2d09020c174ed7180e871d0b0544c80d8b90a356cfd7acfd9943b65",
+      "bytes": 28911,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19e8280d59f3fb8e",
+      "from": "DigitalOcean Support <support@digitalocean.com>",
+      "subject": "DigitalOcean - Received $43.37 payment",
+      "date": "Mon, 01 Jun 2026 09:25:41 +0000 (UTC)"
+    },
+    {
+      "file": "b9411a049d88_DigitalOcean_Invoice_2026_May_35312601-546123278_.pdf",
+      "sha256": "b9411a049d886b9028be84b69fa1f527f0cea70219f104ab5ea1275de2742507",
+      "bytes": 40468,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19e8280d59666aea",
+      "from": "DigitalOcean Support <support@digitalocean.com>",
+      "subject": "[DigitalOcean] Your 2026-05 invoice is available",
+      "date": "Mon, 01 Jun 2026 09:25:41 +0000 (UTC)"
+    },
+    {
+      "file": "eff0c5b169a0_INV-2026-003.pdf",
+      "sha256": "eff0c5b169a03f9f359f92be6be9aec718bd8d002a57b9938e1b06a371c4b879",
+      "bytes": 62804,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19dffa931a0f2cfd",
+      "from": "code@ecodia.au",
+      "subject": "Ecodia x Co-Exist - May invoice INV-2026-003",
+      "date": "Wed, 6 May 2026 16:39:31 -0700"
+    },
+    {
+      "file": "7c0da10675c5_inv-coexist-2026-003-FINAL.pdf",
+      "sha256": "7c0da10675c562ed244be79da8f2bfe0cb3f709fe15b434e68b25b0839b9f833",
+      "bytes": 64020,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19dff9aa78dccdf3",
+      "from": "code@ecodia.au",
+      "subject": "[TEST v2] INV-2026-003 - ABN + footer fix + GST",
+      "date": "Wed, 6 May 2026 16:23:38 -0700"
+    },
+    {
+      "file": "1811bfc69aba_ce-tax-invoice-001.pdf",
+      "sha256": "1811bfc69aba7b4d5b5462911f73c40f6bdbe2c638f110178303f0e1191bf159",
+      "bytes": 47581,
+      "source_mailbox": "code@ecodia.au",
+      "source_message_id": "19da943ceb55ba5a",
+      "from": "code@ecodia.au",
+      "subject": "[TEST] Attachment delivery test",
+      "date": "Sun, 19 Apr 2026 22:01:26 -0700"
+    },
+    {
+      "file": "aa46a67724f1_yourcelium-build-context-for-tate.md.pdf",
+      "sha256": "aa46a67724f123690859e6c16646d3dc3572ec4cc5c288448bac93337a242f14",
+      "bytes": 131539,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e905852d585cb4",
+      "from": "Ryan Moss <ryan@seedtree.earth>",
+      "subject": "Re: Ecodia x SeedTree Tax invoice",
+      "date": "Thu, 04 Jun 2026 11:55:47 +1000"
+    },
+    {
+      "file": "9aaafde7659e_yourcelium-interface-boundary.md.pdf",
+      "sha256": "9aaafde7659ec831963bb8933525128386a4ff3b52d96fc39766f8bfd107d5b9",
+      "bytes": 108593,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e8f724706de424",
+      "from": "Ryan Moss <ryan@seedtree.earth>",
+      "subject": "Re: Ecodia x SeedTree Tax invoice",
+      "date": "Thu, 04 Jun 2026 07:44:26 +1000"
+    },
+    {
+      "file": "b2dca0bf0144_INV-2026-005-ryan-moss-seedtree.pdf",
+      "sha256": "b2dca0bf01443d7614e9e2cabfdf49135cedf240d39e84c904a06db81e28e980",
+      "bytes": 118444,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e8c070e5441380",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "Ecodia x SeedTree Tax invoice",
+      "date": "Wed, 3 Jun 2026 15:48:53 +1000"
+    },
+    {
+      "file": "c2bcf7b9dae4_5581083118.pdf",
+      "sha256": "c2bcf7b9dae4144a5b7c2d302b45e96a5f9e740b176d7605d54b07942f7f2737",
+      "bytes": 62168,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e8a1e299e8ff49",
+      "from": "Google Payments <payments-noreply@google.com>",
+      "subject": "Google Workspace: Your invoice is available for ecodia.au",
+      "date": "Tue, 02 Jun 2026 13:54:51 -0700"
+    },
+    {
+      "file": "e07d4d824997_Invoice-QBVZBHPL-0004.pdf",
+      "sha256": "e07d4d82499748a8c7f908217153cc658b994e95c501787f6d2ca7fa9f918f4c",
+      "bytes": 64640,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e86d72b98c8dc0",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2235-3942",
+      "date": "Tue, 2 Jun 2026 05:38:27 +0000"
+    },
+    {
+      "file": "e4b0d4fe192a_Receipt-2235-3942.pdf",
+      "sha256": "e4b0d4fe192a0d98f566e275ee7d56c7f3b0c813f43881f2342cd9cafc6f3b90",
+      "bytes": 65489,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e86d72b98c8dc0",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2235-3942",
+      "date": "Tue, 2 Jun 2026 05:38:27 +0000"
+    },
+    {
+      "file": "a005fd0a6114_visa-application-procedure-en.pdf",
+      "sha256": "a005fd0a611415fc1e7f2d9b370271dcf1173227c6ead46703011e0c7836664d",
+      "bytes": 782343,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e6d0849749555d",
+      "from": "\"Stacy | Altezza Travel\" <office@altezza.travel>",
+      "subject": "⛰️Your Kilimanjaro Adventure with Altezza Travel!",
+      "date": "Thu, 28 May 2026 01:21:56 -0400"
+    },
+    {
+      "file": "620f44b4bc3f_price-list-for-additional-services.pdf",
+      "sha256": "620f44b4bc3f6af125715b05283379a20491a026e33c84bf3005d4fdbb9088cc",
+      "bytes": 177495,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e6d0849749555d",
+      "from": "\"Stacy | Altezza Travel\" <office@altezza.travel>",
+      "subject": "⛰️Your Kilimanjaro Adventure with Altezza Travel!",
+      "date": "Thu, 28 May 2026 01:21:56 -0400"
+    },
+    {
+      "file": "d5b38f016026_Amendment_003_to_the_Founding_Documents_of_Ecodia_DAO_LLC_-_26_05_2026_14_19.pdf",
+      "sha256": "d5b38f0160263300b588489c2e91b6cb20e0ef5fb52705b2fc132e90dc001bcb",
+      "bytes": 292339,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e6285b8942e117",
+      "from": "\"Tate Donohoe (via Google Workspace eSignatures)\" <esignature-noreply@google.com>",
+      "subject": "eSigned document ready: ‘Amendment 003 to the Founding Documents of Ecodia DAO LLC - 26/05/2026, 14:19’",
+      "date": "Mon, 25 May 2026 21:23:10 -0700"
+    },
+    {
+      "file": "c4d7d851421a_Side_Deed_-_Governance_Rights_-_26_05_2026_14_19.pdf",
+      "sha256": "c4d7d851421a696bc6ef49589b38a916aafdabc3b0a02798e45db034c1fb35a6",
+      "bytes": 303252,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e6284fc013bdb0",
+      "from": "\"Tate Donohoe (via Google Workspace eSignatures)\" <esignature-noreply@google.com>",
+      "subject": "eSigned document ready: ‘Side Deed - Governance Rights - 26/05/2026, 14:19’",
+      "date": "Mon, 25 May 2026 21:22:22 -0700"
+    },
+    {
+      "file": "7fe3fff1d5a6_Invoice-ZBVLXO-00007.pdf",
+      "sha256": "7fe3fff1d5a66083020b24e300bae7234f30c444fee3bc7bbc62dd54cab2dce5",
+      "bytes": 120999,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e5a2e125fb5389",
+      "from": "\"Supabase Pte. Ltd.\" <invoice+statements@supabase.com>",
+      "subject": "Payment received for Supabase Pte. Ltd. invoice (#ZBVLXO-00007)",
+      "date": "Sun, 24 May 2026 13:30:28 +0000"
+    },
+    {
+      "file": "8b224fdcbe24_Receipt-ZBVLXO-00007.pdf",
+      "sha256": "8b224fdcbe24b7d515cd8ce3bdcfadfb4ad0bc37ac499b33dee97734ff9c3b93",
+      "bytes": 120935,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e5a2e125fb5389",
+      "from": "\"Supabase Pte. Ltd.\" <invoice+statements@supabase.com>",
+      "subject": "Payment received for Supabase Pte. Ltd. invoice (#ZBVLXO-00007)",
+      "date": "Sun, 24 May 2026 13:30:28 +0000"
+    },
+    {
+      "file": "46f38fac18b3_receipt_E67KB4NF.pdf",
+      "sha256": "46f38fac18b3808eab12c27f907afdeaf1a36de352ef084873d9aa87bb6a2911",
+      "bytes": 20651,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19e42a1c693d8204",
+      "from": "Queensland Environment Day <order@humanitix.com>",
+      "subject": "Order confirmation for Queensland Environment Day 2026 - For the Love of Queensland, Conversation & Cocktails (Order: E67KB4NF)",
+      "date": "Tue, 19 May 2026 23:45:58 +0000"
+    },
+    {
+      "file": "bf19ae9a6d4c_AWXAU2604056344.pdf",
+      "sha256": "bf19ae9a6d4c488d8f451a3440378c8edf1c89ebfac99d9ccf37f788b759d02d",
+      "bytes": 73193,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19dfd9e1fe01dc02",
+      "from": "Airwallex <support@info.airwallex.com>",
+      "subject": "Your Airwallex billing statement is ready",
+      "date": "Wed, 06 May 2026 14:08:10 +0000 (UTC)"
+    },
+    {
+      "file": "cd30e204ba51_Invoice-QBVZBHPL-0003.pdf",
+      "sha256": "cd30e204ba51330f24c3ef375badf23cb7a676a346c953730cd7389c13222d82",
+      "bytes": 64302,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19de7218732323d5",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2314-2534",
+      "date": "Sat, 2 May 2026 05:20:26 +0000"
+    },
+    {
+      "file": "9d7ca84e821c_Receipt-2314-2534.pdf",
+      "sha256": "9d7ca84e821c0151697fdb8ebfc04531a9048b8e876ab49662cf422b590443f3",
+      "bytes": 65031,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19de7218732323d5",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2314-2534",
+      "date": "Sat, 2 May 2026 05:20:26 +0000"
+    },
+    {
+      "file": "5d1291e288b8_5560286352.pdf",
+      "sha256": "5d1291e288b8e120f63ac6abf641955b20a0b95cfb05463e538e7925e51347f7",
+      "bytes": 61467,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19de6fe77b1d4b6d",
+      "from": "Google Payments <payments-noreply@google.com>",
+      "subject": "Google Workspace: Your invoice is available for ecodia.au",
+      "date": "Fri, 01 May 2026 21:42:08 -0700"
+    },
+    {
+      "file": "73740ec35fde_Invoice-8E4I4XBS-0004.pdf",
+      "sha256": "73740ec35fde1eb11caf718b2a1ed39af95399fa565ea0a7c488c61142b83e15",
+      "bytes": 50455,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19de0aab52767c0d",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2385-3903",
+      "date": "Thu, 30 Apr 2026 23:12:56 +0000"
+    },
+    {
+      "file": "49c9cddc6a7b_Receipt-2385-3903.pdf",
+      "sha256": "49c9cddc6a7b138dbb07a901c6c060898a7606fed6e170de58787852d067a3e1",
+      "bytes": 51314,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19de0aab52767c0d",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2385-3903",
+      "date": "Thu, 30 Apr 2026 23:12:56 +0000"
+    },
+    {
+      "file": "c2e73b77e407_Invoice-ZBVLXO-00006.pdf",
+      "sha256": "c2e73b77e407b7a56eacc5f7cdf68cd8845c291d7ee7d96f48c77414c6eebf9b",
+      "bytes": 117961,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19dc1a143f6a3bb3",
+      "from": "\"Supabase Pte. Ltd.\" <invoice+statements@supabase.com>",
+      "subject": "Payment received for Supabase Pte. Ltd. invoice (#ZBVLXO-00006)",
+      "date": "Fri, 24 Apr 2026 22:34:23 +0000"
+    },
+    {
+      "file": "bb71061cd6be_Receipt-ZBVLXO-00006.pdf",
+      "sha256": "bb71061cd6be1ef5991d5d19809d7dc7e21cbd80a1ef25f61e5545419c5e4dc9",
+      "bytes": 117852,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19dc1a143f6a3bb3",
+      "from": "\"Supabase Pte. Ltd.\" <invoice+statements@supabase.com>",
+      "subject": "Payment received for Supabase Pte. Ltd. invoice (#ZBVLXO-00006)",
+      "date": "Fri, 24 Apr 2026 22:34:23 +0000"
+    },
+    {
+      "file": "27f5e1cbe1d9_Invoice-ZIX67BL7-0007.pdf",
+      "sha256": "27f5e1cbe1d9f669692ee944f91e97feb87581bbfef6d5ea16e3ea473e837a24",
+      "bytes": 50000,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19db33c65352e190",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2203-8549",
+      "date": "Wed, 22 Apr 2026 03:29:32 +0000"
+    },
+    {
+      "file": "94da0b12f047_Receipt-2203-8549.pdf",
+      "sha256": "94da0b12f0474642734cc5adb7df61d3130fbf131dcd753d2381170683dfc32c",
+      "bytes": 51224,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19db33c65352e190",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2203-8549",
+      "date": "Wed, 22 Apr 2026 03:29:32 +0000"
+    },
+    {
+      "file": "6a4dc18c0c17_Invoice-QBVZBHPL-0002.pdf",
+      "sha256": "6a4dc18c0c171e080754315f073f1ca87f1de035d48d36fd74a316f72f8dd4d4",
+      "bytes": 64189,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d74e3efcef73fa",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2510-6798",
+      "date": "Fri, 10 Apr 2026 00:56:26 +0000"
+    },
+    {
+      "file": "6dd5196e9407_Receipt-2510-6798.pdf",
+      "sha256": "6dd5196e94076b5e2071db8011c990918b04b8219fdb7f4a9c9adc62f3c56c5c",
+      "bytes": 65180,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d74e3efcef73fa",
+      "from": "\"Fly.io, Inc.\" <invoice+statements+acct_19BnkOGco2mvL6zT@stripe.com>",
+      "subject": "Your receipt from Fly.io, Inc. #2510-6798",
+      "date": "Fri, 10 Apr 2026 00:56:26 +0000"
+    },
+    {
+      "file": "066e31bfe3cd_Invoice-5WQGPV8B-0005.pdf",
+      "sha256": "066e31bfe3cd698ab58b625d7eef8876925a3ed18cbbb372c0d891b14c10acfd",
+      "bytes": 50276,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d721b6d8fdeb7d",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2304-8646",
+      "date": "Thu, 9 Apr 2026 11:58:02 +0000"
+    },
+    {
+      "file": "9d35440a5d30_Receipt-2304-8646.pdf",
+      "sha256": "9d35440a5d30a67a0c7cd9e93397edfc96579216d72dea2987b945c2de66b9fd",
+      "bytes": 51530,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d721b6d8fdeb7d",
+      "from": "\"Vercel Inc.\" <invoice+statements@vercel.com>",
+      "subject": "Your receipt from Vercel Inc. #2304-8646",
+      "date": "Thu, 9 Apr 2026 11:58:02 +0000"
+    },
+    {
+      "file": "736ac2e27f57_invoice_ECO-042026.pdf",
+      "sha256": "736ac2e27f570aec5cc3cf3cdf0d96be196b537c91b5506c8d8c1542ec238ff6",
+      "bytes": 3385,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d56a261af5f1d3",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "ESPS Site Project Completion Invoice",
+      "date": "Sat, 4 Apr 2026 13:56:14 +1000"
+    },
+    {
+      "file": "63bc356fb29e_2026_Sunshine-Coast-Show_Exhibitor-Handbook_1_.pdf",
+      "sha256": "63bc356fb29e4797d83255d936308e930a235329ecb04499b5869f0bc00ed3f0",
+      "bytes": 1093143,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d507db4dfbc19a",
+      "from": "Melissa Green <trades@sunshinecoastshow.com.au>",
+      "subject": "Reminder: Exhibitor Applications Closing 15 April – Sunshine Coast Show 2026",
+      "date": "Fri, 3 Apr 2026 09:18:15 +1000"
+    },
+    {
+      "file": "25c12fc98539_5533480935.pdf",
+      "sha256": "25c12fc98539264d25cfe995185e6a8066d9bf4a6ccb6da3b0309abbe02a00c5",
+      "bytes": 62142,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d4b29f1860c0fb",
+      "from": "Google Payments <payments-noreply@google.com>",
+      "subject": "Google Workspace: Your invoice is available for ecodia.au",
+      "date": "Wed, 01 Apr 2026 15:28:52 -0700"
+    },
+    {
+      "file": "f3319f5b909b_Invoice-HAOVH9CQ-0001.pdf",
+      "sha256": "f3319f5b909b3289e16156dfbdce5ecf56927ab7657e8d3812a9c12be5e10a5e",
+      "bytes": 50268,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d48fcd858111b0",
+      "from": "\"Upstash, Inc.\" <invoice+statements+acct_1HoeMzF0KWKLiikN@stripe.com>",
+      "subject": "Your receipt from Upstash, Inc. #2729-4900",
+      "date": "Wed, 1 Apr 2026 12:20:22 +0000"
+    },
+    {
+      "file": "63a66aca62b9_Receipt-2729-4900.pdf",
+      "sha256": "63a66aca62b9bbd11cf8f52efb74d24ff8683d6605227798311fa468b12b0e3e",
+      "bytes": 50724,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d48fcd858111b0",
+      "from": "\"Upstash, Inc.\" <invoice+statements+acct_1HoeMzF0KWKLiikN@stripe.com>",
+      "subject": "Your receipt from Upstash, Inc. #2729-4900",
+      "date": "Wed, 1 Apr 2026 12:20:22 +0000"
+    },
+    {
+      "file": "9f69bd9d73bd_Intrepid_SOUTH_AFRICA_Itinerary_-_Final.pdf",
+      "sha256": "9f69bd9d73bd2cd58ebb1f6f93bd213af061a2cb18758b851cfa281cdb4d575d",
+      "bytes": 4309685,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d27ba2d15f45b2",
+      "from": "Tate Donohoe <tatedonohoe@gmail.com>",
+      "subject": "Intrepid SOUTH AFRICA Itinerary - Final",
+      "date": "Thu, 26 Mar 2026 11:19:50 +1000"
+    },
+    {
+      "file": "ab33316a6a66_Co-Exist_Invoice_001.pdf",
+      "sha256": "ab33316a6a66f632c268ecbd263f33aec9e7baf8a4abd3ddb8b5b72f669955f8",
+      "bytes": 69328,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d23807b65f7bd8",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "Co-Exist App Docs",
+      "date": "Wed, 25 Mar 2026 15:38:35 +1000"
+    },
+    {
+      "file": "fcaa642e2392_Co-Exist_App_Brief.pdf",
+      "sha256": "fcaa642e2392ad75743b75b8cdc05b7f4b1d8f39c44b21dabefe99c8b7829f5d",
+      "bytes": 158629,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d23807b65f7bd8",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "Co-Exist App Docs",
+      "date": "Wed, 25 Mar 2026 15:38:35 +1000"
+    },
+    {
+      "file": "0b349594970b_Co-Exist_App_Rollout_-_Team.pdf",
+      "sha256": "0b349594970b1c26c4f0f99b1698e150981346ba6acc3be51c170bfba896f1e6",
+      "bytes": 79678,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d23807b65f7bd8",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "Co-Exist App Docs",
+      "date": "Wed, 25 Mar 2026 15:38:35 +1000"
+    },
+    {
+      "file": "fb6ad602eddd_Ecodia_Co-Exist_Agreement_1.pdf",
+      "sha256": "fb6ad602edddd227637bfce5ed27150a09bc5401632ab902835aca4c0dd53704",
+      "bytes": 223411,
+      "source_mailbox": "tate@ecodia.au",
+      "source_message_id": "19d23807b65f7bd8",
+      "from": "Tate Donohoe <tate@ecodia.au>",
+      "subject": "Co-Exist App Docs",
+      "date": "Wed, 25 Mar 2026 15:38:35 +1000"
+    }
+  ]
+}
