@@ -1,0 +1,92 @@
+[
+  {
+    "path": "183d7def-c651-4aaf-831c-be2ef7f3eec8",
+    "mime": "text/jsx",
+    "bytes": 25802,
+    "uuid": "183d7def-c651-4aaf-831c-be2ef7f3eec8"
+  },
+  {
+    "path": "b1f8d2fb-fade-4997-b63e-a7c5cf61350f",
+    "mime": "application/javascript",
+    "bytes": 6096,
+    "uuid": "b1f8d2fb-fade-4997-b63e-a7c5cf61350f"
+  },
+  {
+    "path": "54fd1e5f-df2c-4aa3-97a5-61a4e4514337",
+    "mime": "application/javascript",
+    "bytes": 27496,
+    "uuid": "54fd1e5f-df2c-4aa3-97a5-61a4e4514337"
+  },
+  {
+    "path": "20c7b4cd-bfa5-448a-944d-8daf691902b5",
+    "mime": "text/jsx",
+    "bytes": 15755,
+    "uuid": "20c7b4cd-bfa5-448a-944d-8daf691902b5"
+  },
+  {
+    "path": "00374178-8187-4d8f-95bd-7b3e0f921539",
+    "mime": "application/javascript",
+    "bytes": 36876,
+    "uuid": "00374178-8187-4d8f-95bd-7b3e0f921539"
+  },
+  {
+    "path": "3a00ebf3-e7b9-4386-b640-d9a9d93f5bed",
+    "mime": "text/javascript",
+    "bytes": 109931,
+    "uuid": "3a00ebf3-e7b9-4386-b640-d9a9d93f5bed"
+  },
+  {
+    "path": "bac8a6fd-ce35-4b17-8368-c9f0304ea098",
+    "mime": "application/javascript",
+    "bytes": 57615,
+    "uuid": "bac8a6fd-ce35-4b17-8368-c9f0304ea098"
+  },
+  {
+    "path": "dd748fcb-2e91-49d7-ac71-b179b6459eac",
+    "mime": "text/javascript",
+    "bytes": 1080227,
+    "uuid": "dd748fcb-2e91-49d7-ac71-b179b6459eac"
+  },
+  {
+    "path": "72cdaa88-db2c-4ea6-9a8f-e79d804e1832",
+    "mime": "text/javascript",
+    "bytes": 3137752,
+    "uuid": "72cdaa88-db2c-4ea6-9a8f-e79d804e1832"
+  },
+  {
+    "path": "91d03dd4-e460-4da9-8598-38bed52d43c2",
+    "mime": "font/woff2",
+    "bytes": 7716,
+    "uuid": "91d03dd4-e460-4da9-8598-38bed52d43c2"
+  },
+  {
+    "path": "55a0d53c-a279-4515-b60a-ba69e906448e",
+    "mime": "font/woff2",
+    "bytes": 18472,
+    "uuid": "55a0d53c-a279-4515-b60a-ba69e906448e"
+  },
+  {
+    "path": "d50b2507-7e73-4d6e-8a36-d8e8c7ecb1db",
+    "mime": "font/woff2",
+    "bytes": 26832,
+    "uuid": "d50b2507-7e73-4d6e-8a36-d8e8c7ecb1db"
+  },
+  {
+    "path": "982826be-0245-4ea6-baba-6ff069d4d42f",
+    "mime": "font/woff2",
+    "bytes": 6712,
+    "uuid": "982826be-0245-4ea6-baba-6ff069d4d42f"
+  },
+  {
+    "path": "3568cd69-9901-44d6-9e3e-880e792561c8",
+    "mime": "font/woff2",
+    "bytes": 18940,
+    "uuid": "3568cd69-9901-44d6-9e3e-880e792561c8"
+  },
+  {
+    "path": "3c61b787-9048-4de8-826b-141bcd19c0b3",
+    "mime": "font/woff2",
+    "bytes": 22288,
+    "uuid": "3c61b787-9048-4de8-826b-141bcd19c0b3"
+  }
+]

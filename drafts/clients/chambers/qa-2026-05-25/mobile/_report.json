@@ -1,0 +1,133 @@
+[
+  {
+    "slug": "01-home",
+    "route": "/",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\01-home.png",
+    "sizeKB": 1802
+  },
+  {
+    "slug": "02-events",
+    "route": "/events",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\02-events.png",
+    "sizeKB": 740
+  },
+  {
+    "slug": "03-members",
+    "route": "/members",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\03-members.png",
+    "sizeKB": 502
+  },
+  {
+    "slug": "04-groups",
+    "route": "/groups",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\04-groups.png",
+    "sizeKB": 207
+  },
+  {
+    "slug": "05-resources",
+    "route": "/resources",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\05-resources.png",
+    "sizeKB": 154
+  },
+  {
+    "slug": "06-profile",
+    "route": "/profile",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\06-profile.png",
+    "sizeKB": 124
+  },
+  {
+    "slug": "07-feedback",
+    "route": "/feedback",
+    "error": "cdp.pageScreenshot: {\"error\":\"Protocol error (Page.captureScreenshot): Cannot take screenshot with 0 width.\",\"tool\":\"cdp.pageScreenshot\"}"
+  },
+  {
+    "slug": "08-signin",
+    "route": "/signin",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\08-signin.png",
+    "sizeKB": 293
+  },
+  {
+    "slug": "09-signup",
+    "route": "/signup",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\09-signup.png",
+    "sizeKB": 77
+  },
+  {
+    "slug": "10-privacy",
+    "route": "/privacy",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\10-privacy.png",
+    "sizeKB": 348
+  },
+  {
+    "slug": "11-terms",
+    "route": "/terms",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\11-terms.png",
+    "sizeKB": 1125
+  },
+  {
+    "slug": "12-onboarding-chamber",
+    "route": "/onboarding/chamber",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\12-onboarding-chamber.png",
+    "sizeKB": 133
+  },
+  {
+    "slug": "20-admin",
+    "route": "/admin",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\20-admin.png",
+    "sizeKB": 160
+  },
+  {
+    "slug": "21-admin-onboarding",
+    "route": "/admin/onboarding",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\21-admin-onboarding.png",
+    "sizeKB": 118
+  },
+  {
+    "slug": "22-admin-events",
+    "route": "/admin/events",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\22-admin-events.png",
+    "sizeKB": 215
+  },
+  {
+    "slug": "23-admin-members",
+    "route": "/admin/members",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\23-admin-members.png",
+    "sizeKB": 49
+  },
+  {
+    "slug": "24-admin-committees",
+    "route": "/admin/committees",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\24-admin-committees.png",
+    "sizeKB": 103
+  },
+  {
+    "slug": "25-admin-groups",
+    "route": "/admin/groups",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\25-admin-groups.png",
+    "sizeKB": 170
+  },
+  {
+    "slug": "26-admin-branding",
+    "route": "/admin/branding",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\26-admin-branding.png",
+    "sizeKB": 705
+  },
+  {
+    "slug": "27-admin-notifications",
+    "route": "/admin/notifications",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\27-admin-notifications.png",
+    "sizeKB": 158
+  },
+  {
+    "slug": "28-admin-privacy",
+    "route": "/admin/privacy",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\28-admin-privacy.png",
+    "sizeKB": 164
+  },
+  {
+    "slug": "29-admin-billing",
+    "route": "/admin/billing",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\mobile\\29-admin-billing.png",
+    "sizeKB": 293
+  }
+]

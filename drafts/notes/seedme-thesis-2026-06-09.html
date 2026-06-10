@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SEEDME thesis</title>
+<meta name="description" content="Cross-organisation natural capital synthesis as a peak-body infrastructure layer.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">What happens to the wheat after the quoll release, and who can prove it.</p>
+    <p class="byline">EcodiaOS &middot; 9 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Three primary sources, one diagnosis. The discipline already knows the gap sits between organisations. Nobody has built the layer that closes it.</p>
+
+    <p class="section-label">the missing layer</p>
+
+    <p>Natural capital accounting has seventeen point seven trillion dollars of capital behind it and three named operational case studies globally. The Capitals Coalition's own 2025 roadmap names why: efforts are siloed at company, landscape and national level, with incompatible accounting approaches, and synthesis fails when enabler actors do not move in lockstep. That sentence is the opening.</p>
+
+    <p class="section-label">the worked example</p>
+
+    <p>A conservation organisation releases northern quolls. A different organisation surveys small mammals. A research group counts insects. An agronomist tracks pollinator visits. A farmer records crop yield. Each holds one part of a story none can tell alone, and which is worth real money to at least one of them.</p>
+
+    <blockquote>Each holds one part of a story none can tell alone.</blockquote>
+
+    <p class="section-label">what is already in place</p>
+
+    <p>Australia has more substrate built than expected. DCCEEW and the ABS publish national capital accounts. The Nature Repair Market is legislated and live. The Ecological Knowledge System supports project design. CSIRO and the federal government run HCAS for satellite-based habitat condition monitoring. NRM Regions Australia is peak body for fifty-four regional bodies actively positioning toward natural capital. The Panel of Regional Delivery Partners is an open procurement vehicle through June 2028. Every layer is in place, save for the cross-organisation synthesis layer.</p>
+
+    <p class="section-label">what would be built</p>
+
+    <p>Infrastructure shape. The owner is a peak body. The price sits below commercial market rates. The architecture is AI-native at three places the discipline has not yet automated: ingestion from PDFs and field forms and Access databases, ontology alignment across mismatched taxonomies and observation cadences, and causal inference across multi-organisation chains. The substrate joins existing federal data layers and one anchor region's private data first, and extends from there.</p>
+
+    <p class="section-label">the sequence</p>
+
+    <p>Build leads, conversation runs alongside. Infrastructure-shape products are built then sold, not validated then built. The research already showed the buyers want this. A first conversation with NRM Regions Australia against a running demo on their own region's data is a procurement conversation. The same first conversation with slideware is a polite delay.</p>
+
+    <p class="section-label">v0</p>
+
+    <p>A web surface that opens on a map of Australia, lets the visitor pick a region, shows the federal data layers visible there, and answers one pre-built causal-chain question with real statistics and visible methodology. Probably riparian restoration to downstream water quality to agricultural productivity, because the open data covers the chain. Five months solo, three with ruthless scope.</p>
+
+    <p class="section-label">a note on scope</p>
+
+    <p>Broader-scope work already in the corpus. The direction is the same.</p>
+
+  </main>
+
+  <footer>
+    SEEDME thesis &middot; EcodiaOS &middot; 9 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,322 @@
+  1. [P3|client|tate |14d] SeedTree (Ryan Moss / Mossy) - co-founder-track gap to surface on next call
+      st: awaiting-tate-followup-call
+  2. [P3|client|ecodi| 6d] Client silence: SeedTree (Infinityd no contact)
+      st: stale_threshold_breached
+  3. [P3|client|ecodi| 6d] Client silence: Goodreach (Tom Groat) (Infinityd no contact)
+      st: stale_threshold_breached
+  4. [P3|client|ecodi| 6d] Client silence: CETIN (Angelica Choppin) (Infinityd no contact)
+      st: stale_threshold_breached
+  5. [P3|client|ecodi| 6d] Client silence: Resonaverde (Infinityd no contact)
+      st: stale_threshold_breached
+  6. [P3|client|ecodi| 5d] Resonaverde public-pages UI polish wave 3 (2026-05-27)
+      st: shipped_admin_overhaul_and_public_polish_2026-05-27_05c
+  7. [P3|infras|ecodi|14d] forkComplete listener emitting test-fixture fork IDs into live inbox
+      st: observed_substrate_misconfiguration
+  8. [P3|infras|ecodi|14d] Tate Voice Profile pipeline + skill integration
+      st: shipped v1, weekly refresh due
+  9. [P3|infras|ecodi|13d] Ecodia brand hygiene + attribution rollout (cross-codebase)
+      st: tate_decisions_reclassified_to_conductor_per_decide_don
+ 10. [P3|infras|tate |13d] Chambers Supabase Auth - wire SMTP to Resend (kill 2/hr cap)
+      st: queued | demoted_P2_to_P3_drift_audit_2026-05-20_tate_b
+ 11. [P3|infras|tate |13d] Vercel + Stripe webhook secrets unprovisioned
+      st: live - handlers reject all unsigned with 401 until prov
+ 12. [P3|infras|tate |13d] SY094 eos-laptop-agent: macOS TCC permissions ungranted (Screen Recording + Accessibility)
+      st: tcc_grant_required_for_gui_automation | demoted_P2_to_P
+ 13. [P3|infras|ecodi|13d] CRM MCP bugs - crm_create_project schema drift + crm_add_note serialisation
+      st: open
+ 14. [P3|infras|ecodi|12d] Reroute SMS/Telegram to the Corazon away-conductor + retire VPS Opus
+      st: native channel already routes real-work to the Corazon 
+ 15. [P3|infras|ecodi|11d] away-conductor cf-not-defined defect (stale PID 9548)
+      st: resolved_running_unsupervised
+ 16. [P3|infras|ecodi|11d] usage-poller V8 heap OOM
+      st: surfaced_not_diagnosed
+ 17. [P3|infras|ecodi| 8d] ecodia-catalog (apps.ecodia.au) - quiet showcase of held app names + contact form
+      st: LIVE at https://apps.ecodia.au. Vite + React. Renders t
+ 18. [P3|infras|ecodi| 8d] Self-scheduling cadence primitive: Windows Task Scheduler + laptop-agent dispatch
+      st: live; first registered task EcodiaOS-MetaAudit-Saturday
+ 19. [P3|infras|ecodi| 6d] gkg-phase-2-upsert-degraded
+      st: fix_shipped_b194b270_awaiting_restart_2026-05-27
+ 20. [P3|infras|ecodi| 6d] observation retention cron - column bugs fixed
+      st: shipped
+ 21. [P3|infras|ecodi| 6d] Doctrine consolidation audit (weekly)
+      st: pending review
+ 22. [P3|infras|ecodi| 6d] ecodiaos-social-analytics-weekly-digest
+      st: to_build
+ 23. [P3|infras|tate | 3d] Daily Finance Digest 2026-05-28
+      st: reconciled_2026-05-29_ledger_1000_eq_245.68_real_bank_2
+ 24. [P3|infras|ecodi| 1d] Learning-machine telemetry consumer + surfacing-rate health metric 2026-06-01
+      st: consumer_shipped_surface_rate_jumped_5x_post_hook_fix
+ 25. [P3|infras|ecodi| 1d] Learning-machine audit + recursive-improvement substrate upgrade 2026-06-01
+      st: wave1_shipped_2026-06-01_foundational_arrows_repaired
+ 26. [P3|infras|ecodi| 1d] Calibration-enforcement hook (P7 claim-inflation detector) - live, monitor FP rate + tune
+      st: shipped_2026-05-31_built_adversary_narrowed_named_FP_cl
+ 27. [P3|legal |tate |13d] DAO upgradeability - W.S. 17-31-109 compliance
+      st: spec_v0.1_pending_tate_review_demoted_p1_to_p2_on_drift
+ 28. [P3|opport|tate | 9d] Inbound research: Mary River Catchment Coordinating Committee (MRCCC) - unify supporter stack +
+      st: researched_pending_tate_review
+ 29. [P3|opport|tate | 9d] Fergus / large finance firm - AI+automation+notetaking discovery meeting
+      st: hold-and-wait per deepening fork; awaiting Tate to popu
+ 30. [P3|opport|tate | 9d] SCEC Website
+      st: awaiting Tate: SCEC contact name + brief (CEO warm via 
+ 31. [P3|opport|tate | 9d] YnY land-stake + events partnership
+      st: awaiting Tate decision (pay ~$500 builder + Ecodia land
+ 32. [P3|opport|tate | 9d] Peer-monitor: 5 new peers worth review (11 May 2026)
+      st: surfaced | content angle now folded into today's Stripe
+ 33. [P3|opport|tate | 9d] Research-surfaced: adopt Stripe Agentic Commerce stack on Ecodia's own Stripe + Quorum issue on
+      st: research_dossier_ready_2026-05-23 (Neo4j Episode 3475)
+ 34. [P3|opport|tate | 9d] Inbound research: Barung Landcare (Maleny) - unify fragmented supporter stack + dMRV-lite impac
+      st: researched_pending_tate_review
+ 35. [P3|opport|tate | 9d] Research-surfaced: Ecodia as dMRV + aggregation-admin software layer for a conservation peak-bo
+      st: research_dossier_ready_2026-05-23 (Neo4j Episode 3438)
+ 36. [P3|opport|tate | 8d] Research-surfaced: compliance-reporting meta-thesis validated by fire-safety market + window-cl
+      st: research_dossier_ready_2026-05-24 (Neo4j Episode 3651)
+ 37. [P3|opport|tate | 8d] Research-surfaced: Co-Exist "Impact Report" feature - own the festival sustainability-reporting
+      st: research_dossier_ready_2026-05-24 (Neo4j Episode 3615)
+ 38. [P3|opport|tate | 7d] Inbound research: Silicon Coast + UniSC Innovation Centre - warm institutional distribution cha
+      st: researched_pending_tate_review
+ 39. [P3|opport|tate | 7d] Research-surfaced: conservation-NFP operational+impact seat is UN-OWNED - Landcarer is communit
+      st: research_dossier_ready_2026-05-25 (Neo4j Episode 3773)
+ 40. [P3|opport|tate | 7d] Inbound research: Noosa Biosphere Reserve Foundation - platform + dMRV-lite indicator/impact-re
+      st: researched_pending_tate_review
+ 41. [P3|opport|tate | 7d] Research-surfaced: position Ecodia as AI-native operations co (NOT a web agency) + Silicon Coas
+      st: research_dossier_ready_2026-05-25 (Neo4j Episode 3743)
+ 42. [P3|opport|ecodi| 7d] Play Console name-claim wedge - mirror of ASC wedge (35 names)
+      st: PARTIAL - durable substrate landed, Play state mixed. R
+ 43. [P3|opport|tate | 6d] Inbound research: Horizon Festival (Sunshine Coast Council flagship arts festival, just wrapped
+      st: researched_pending_tate_review
+ 44. [P3|opport|tate | 6d] Co-Exist grant strategy: Tier B $47k pathway via 6-8 parallel applications
+      st: grant_strategy_drafted_2026-05-18 - outreach-engine ack
+ 45. [P3|opport|tate | 6d] Co-Exist retainer renewal + scope expansion post-2026-08-07 (3-month retainer ends, unification
+      st: verbally_locked_via_kurt_awaiting_contract - outreach-e
+ 46. [P3|opport|tate | 6d] Research-surfaced: Nature Repair Market run-time MRV is the wedge (PLANR is plan-time only) - d
+      st: research_dossier_ready_2026-05-26 (Neo4j Episode 4248)
+ 47. [P3|opport|clien| 6d] Wildmountains - full platform engagement verbally locked in (whenever they start building)
+      st: verbally_locked_awaiting_wm_kickoff_signal_freshness_re
+ 48. [P3|opport|tate | 6d] Research-surfaced: Indigenous Data Sovereignty + CARE-aware data governance as a trust moat for
+      st: research_dossier_ready_2026-05-26 (Neo4j Episode 4194)
+ 49. [P3|opport|tate | 6d] Inbound research: Sunshine Coast Business Council - offer AI-native ops community session as wa
+      st: researched_pending_tate_review
+ 50. [P3|opport|tate | 6d] Research-surfaced: "the harness is the moat, not the model" - autonomous coding commoditises, E
+      st: research_dossier_ready_2026-05-26 (Neo4j Episode 4104)
+ 51. [P3|opport|tate | 5d] Inbound research: Live Performance Australia (LPA) - national live-performance peak body, run-t
+      st: researched_pending_tate_review
+ 52. [P3|opport|ecodi| 5d] ASC namespace wedge - premium generic app names reserved (Australia. / Impact. / Future.)
+      st: three_names_reserved_2026-05-27_reclaim_clock_running
+ 53. [P3|opport|tate | 5d] Research-surfaced: Co-Exist platform's wedge is the engagement-to-MERI-reporting bridge no incu
+      st: deep-research dossier 2026-05-27 (Neo4j Episode 4370). 
+ 54. [P3|opport|tate | 5d] Research-surfaced: "continuous evidence / audit-ready by default" is the wedge - Vanta's USD4.1
+      st: research_dossier_ready_2026-05-27 (Neo4j Episode 4355)
+ 55. [P3|opport|tate | 5d] Inbound research: Healthy Land and Water (HLW) - SEQ regional NRM peak body, run-time MRV layer
+      st: researched_pending_tate_review
+ 56. [P3|opport|tate | 5d] Goodreach restructure + Resonaverde channel merge
+      st: outreach-engine ack 2026-05-27T12:00 AEST, 7d idle on p
+ 57. [P3|opport|tate | 5d] WM intensive: Lizz Hills (Trusted Tech Advisors) is the antagonist - infrastructure-shed strate
+      st: outreach-engine ack 2026-05-27T12:00 AEST, no new WM/Li
+ 58. [P3|opport|tate | 5d] Research-surfaced: Co-Exist as live attendee-data feeder to org-level carbon-reporting incumben
+      st: Surfaced by deep-research 27 May 2026 (Neo4j node 4333,
+ 59. [P3|opport|tate | 1d] Inbound research: Queensland Water and Land Carers (QWaLC) - platform + dMRV roll-up for the QL
+      st: researched_pending_tate_review
+ 60. [P3|opport|tate | 0d] Chambers - Angelica UX feedback wave (16 items, SCYCC demo)
+      st: PRODUCTION_AUDIT_WAVE_2026-06-01_BOTH_PLATFORMS_SHIPPED
+ 61. [P3|person|tate | 4d] Africa trip 2026 LOCKED - sprint to fund 23.5k by mid-Aug checkpoint
+      st: kili_100_deposit_paid_2026-05-28_committed_fiji_kruger_
+ 62. [P3|projec|tate |26d] Chambers c-mark design fitness — Tate review
+      st: flagged_6_may_2026
+ 63. [P3|projec|tate |24d] Roam IAP Fix
+      st: UNBLOCKED - several prerequisites already satisfied bey
+ 64. [P3|projec|tate |12d] Nav (Roam) rebrand - domain cutover deps
+      st: Code rebrand Roam->Nav. done in working tree (D:/.code/
+ 65. [P3|projec|tate |11d] Goodreach iOS / TestFlight
+      st: v1.0(3) uploaded to TestFlight 2026-05-21 ~19:36 AEST (
+ 66. [P3|projec|tate |11d] Roam backend CORS fix - awaiting Cloud Run redeploy
+      st: code committed to roam-backend main @ 50ffd84, needs gc
+ 67. [P3|projec|ecodi|11d] Goodreach mobile-native + responsive pass
+      st: SHIPPED to TestFlight. Build 2 (v1.0, Delivery 76ea044b
+ 68. [P3|projec|tate |11d] ecodia-native voice (build 19: voice + interrupt polish)
+      st: Voice = OpenAI gpt-4o-mini-tts, coral (mid female), Aus
+ 69. [P3|projec|ecodi|11d] Nav. Live widgets - black screen fixed; widgets showing PLACEHOLDER (real data not landing)
+      st: Black screen FIXED + shipped 1.1(1779325848). NEW issue
+ 70. [P3|projec|ecodi| 9d] Chambers font drift - Quicksand specified but Montserrat bundled, no @font-face rule
+      st: parallel-builder-dispatched-2026-05-24T02:07:00+10:00 (
+ 71. [P3|projec|ecodi| 9d] Roam nav-mode + map-layer + route-UI polish
+      st: parallel-builder-dispatched-2026-05-23T18:11:31+10:00
+ 72. [P3|projec|tate | 8d] Context (consumer AI memory app)
+      st: FULL RUST-TO-SWIFT FFI BRIDGE PROVEN END-TO-END ON MAC 
+ 73. [P3|projec|tate | 8d] Glovebox (ex-Roam) rebrand + TF ship 2026-05-24
+      st: round-2 polish shipped: TF 1.1(1779325859) VALID, inter
+ 74. [P3|projec|exter| 6d] Glovebox (Roam) v1.1 CarPlay - awaiting Apple entitlement grant
+      st: submitted_to_apple_2026-05-19; awaiting_carplay-maps_gr
+ 75. [P3|projec|ecodi| 6d] ecodiaos-social-calendar-rolling-7d
+      st: active
+ 76. [P3|projec|ecodi| 5d] Chambers vs Wave build-out - back-office parity + decisive wins
+      st: tier1_wave_parity_COMPLETE_4of4_shipped_to_prod_config_
+ 77. [P3|projec|tate | 4d] Chambers App Store launch + public-credit LinkedIn play (2026-05-28)
+      st: ios_WAITING_FOR_REVIEW_android_production_draft_pending
+ 78. [P3|projec|tate | 4d] Chambers pre-launch UX/product fixes (Tate testing 2026-05-28)
+      st: 5_ux_fixes_shipped_plus_anon_demo_preview_c606f2a
+ 79. [P3|projec|tate | 3d] wave-killer-bulk-dedup-2026-05-29
+      st: merged_to_main_2026-05-30: PR #10 squashed at f30108a, 
+ 80. [P3|projec|ecodi| 3d] wave-killer-04 - per-member AR + aged receivables + dunning automation
+      st: shipped_main_deploy_READY
+ 81. [P3|projec|tate | 3d] wave-killer-analytics-2026-05-29
+      st: SHIPPED: officer analytics dashboard live on main (cham
+ 82. [P3|projec|exter| 1d] Glovebox editorial UI pass + iOS build 1.1(32) to ASC
+      st: SUBMITTED_TO_APPLE_REVIEW_2026-05-31 - Glovebox 1.0 WAI
+ 83. [P3|projec|tate | 1d] wave-killer-events-depth-2026-05-29
+      st: SHIPPED: events depth live on main (chambers-frontend c
+ 84. [P3|projec|ecodi| 1d] wave-killer-08 - Tier 3 reach extension (public API + webhooks + documents + custom fields + cu
+      st: shipped_main_deploy_READY
+ 85. [P3|projec|ecodi| 0d] Locals. - v1.1 web: Resend SMTP + self-service signup + my-redemptions + code-split
+      st: v1.1_shipped_2026-06-01_resend_smtp_signup_history_lazy
+ 86. [P3|projec|ecodi| 0d] Glovebox v2.0 native rebuild - 3 codebases + design tokens + backend hygiene
+      st: android_native_shipped_to_play_internal_ios_climbing_pl
+ 87. [P3|projec|ecodi| 0d] Clothes - 1-of-1 secondhand garment drops, lives at ecodia.au/clothes, automated listing pipeli
+      st: scope_locked_2026-06-01_v1_listing_pipeline_and_storefr
+ 88. [P3|task  |tate |27d] Co-Exist: admins not auto-in all state chats by design
+      st: tate-decision-pending
+ 89. [P3|task  |ecodi|21d] Coexist tsc -b TS-debt cleanup + lint warning backlog
+      st: stale_8d_no_progress_check_current_error_count
+ 90. [P3|task  |ecodi|21d] Build Stripe→invoices→ledger syncer
+      st: planned
+ 91. [P3|task  |tate |21d] Quorum of One Edition 005 - drafted, queued behind Edition 004
+      st: drafted-pending-tate-review | due-date cleared 2026-05-
+ 92. [P3|task  |tate |21d] Resonaverde - 5 design decisions for Angelica post-mobile-audit
+      st: pending_angelica_input
+ 93. [P3|task  |tate |19d] Wild Mountains - Leadership Program Resources prep (Tate + Meg)
+      st: kurt_action_priorities_email_14may
+ 94. [P3|task  |ecodi|17d] PILOT1 resonaverde vercel preview deploy-verify chain
+      st: pilot_in_progress
+ 95. [P3|task  |tate |15d] Airwallex account closure - Tate does not use, $19.88/mo bleeding
+      st: shutdown-decision-tate-2026-05-17
+ 96. [P3|task  |ecodi|15d] Visual elevation Phase E: continuous visual-verify loop + diff dashboard + baseline-bump protoc
+      st: drafted_awaiting_dispatch
+ 97. [P3|task  |tate |15d] Multi-account IDE install: VS Code Insiders + Cursor on Corazon, sign each into money@ and code
+      st: awaiting_tate_action
+ 98. [P3|task  |tate |13d] RECORD: ASC TestFlight - create Internal Testing group + invite code@ecodia.au
+      st: queued_for_tate_recording | demoted_P2_to_P3_drift_audi
+ 99. [P3|task  |tate |11d] voice-stateful-coord-2026-05-21
+      st: shipped + live
+100. [P3|task  |tate |10d] LinkedIn post draft pending Tate review (category C - AI-run business angle)
+      st: drafted_awaiting_tate_review
+101. [P3|task  |ecodi| 9d] Co-Exist June invoice INV-2026-004 - send 7 Jun 2026
+      st: parallel-builder-dispatched-2026-05-24T02:07:00+10:00 (
+102. [P3|task  |ecodi| 9d] email_threads projection empty - triage must fall back to gmail_list_messages
+      st: parallel-builder-dispatched-2026-05-23T22:16:00+10:00-t
+103. [P3|task  |ecodi| 9d] Neo4j Aura Free instance "EcodiaOS" scheduled for content deletion ~26 May 2026
+      st: parallel-builder-dispatched-2026-05-23T10:14:04Z
+104. [P3|task  |ecodi| 9d] Pattern corpus archival sweep - 59 patterns reference dead post-migration substrates unmarked
+      st: parallel-builder-dispatched-2026-05-23T10:13:44Z
+105. [P3|task  |ecodi| 9d] World-model audit routine: weekly section-by-section probe of CLAUDE.md / patterns / auto-memor
+      st: parallel-builder-dispatched-2026-05-23T18:11:53+10:00
+106. [P3|task  |ecodi| 9d] Migrate Google Maps Platform iOS SDK from CocoaPods to Swift Package Manager
+      st: parallel-builder-dispatched-2026-05-23T06:08:21Z
+107. [P3|task  |tate | 8d] parallel-builder cron - hard-delete recommendation (P3 doctrine row, sibling to P1 28a5ed76 pau
+      st: doctrine-row-p3-cycle10-recommending-hard-delete
+108. [P3|task  |ecodi| 8d] email_threads ingestion projection dark since 2026-04-03 (email-triage flying blind on Step 1 s
+      st: discovered_2026-05-24_via_ground_truth_gmail_crosscheck
+109. [P3|task  |ecodi| 8d] Pattern corpus tuning batch 2026-W21
+      st: open
+110. [P3|task  |ecodi| 7d] CLAUDE.md edit pending - audit 2026-05-24 (ref claude-md-edit-2026-05-24)
+      st: gap1+2+3_applied_pushed_branch_claude-beautiful-tesla-0
+111. [P3|task  |tate | 6d] LinkedIn post draft pending Tate review - category A recent shipped work (auto-preview substrat
+      st: drafted_awaiting_review
+112. [P3|task  |ecodi| 6d] Re-check Horizon Festival / Bec Martin response status (outreach-engine 7d follow-up, scheduler
+      st: scheduled_followup
+113. [P3|task  |exter| 6d] Co-Exist: ship iOS+Android release for event-push FE + survey fallback
+      st: ios_1.8.12.48_submitted_for_apple_review_2026-05-26_13:
+114. [P3|task  |ecodi| 4d] Africa drawdown $20k target by 2026-10-01
+      st: tracking | requires_revenue_capture_or_consent_path
+115. [P3|task  |ecodi| 3d] MCP monolith to narrow-connector migration 2026-05-29
+      st: part2_routines_to_native_in_progress_teardown_staged
+116. [P3|task  |tate | 3d] wave-killer-edm-builder-2026-05-29
+      st: shipped_block_based_edm_builder_main_7ee005a_vercel_rea
+117. [P3|task  |tate | 3d] wave-killer-tier1-verify-2026-05-29
+      st: shipped_2way_stripe_connect_plus_tier1_verified_main_00
+118. [P3|task  |ecodi| 3d] cursor-preview-extension ide-bridge.js unauthenticated localhost RCE fix
+      st: flagged_p3_post_wave_killer
+119. [P3|task  |ecodi| 3d] Routines status re-validation audit (S3) - scheduled 2026-05-30 09:42 AEST
+      st: scheduled_delayed_fire_2026-05-30T09:42_AEST
+120. [P3|task  |tate | 3d] Dead conductor-substrate nuke audit 2026-05-29
+      st: branch_pushed_4_deleted_33_orphans_documented_pending_t
+121. [P3|thread|tate |23d] Inbound SMS from unknown +61431936879 - rejected by allowlist - potential lead message starts "
+      st: discovered_in_pm2_logs_2026-05-09
+122. [P3|thread|tate |19d] Resonaverde 2-way agreement v3 — draft ready for Tate review
+      st: draft_authored_pending_tate_review_then_send
+123. [P3|thread|exter| 9d] Resonaverde GitHub + Vercel access handover from Angelica
+      st: github_repo_invite_still_not_sent_12d_external_block_re
+124. [P3|thread|tate | 5d] Woodfordia iOS Build 1 - ITMS-90683 missing NSLocationWhenInUseUsageDescription purpose string
+      st: asc_warning_delivered_but_needs_fix_next_upload
+125. [P3|thread|tate | 5d] Supabase security advisor - RLS disabled on public tables in Co-Exist, ROAM + 4 other projects
+      st: automated_advisor_surfaced_pending_tate_review
+126. [P3|thread|tate | 5d] GitHub Claude App permission update request - EcodiaTate org
+      st: action_required_pending_tate_review
+127. [P3|thread|tate | 5d] Airwallex PayTo verification - authorise linked bank account
+      st: action_required_pending_tate_authorisation
+128. [P3|thread|ecodi| 4d] Coexist 3 P1 Jess bugs shipped 2026-05-25
+      st: ios_1.8.25_b1_uploaded_to_asc_2026-05-29
+129. [P4|client|tate |21d] Co-Exist verification - 4 home/photo items (Apr 29)
+      st: tate_required_2_remaining_items_post_72h_window_re_prob
+130. [P4|infras|ecodi|24d] kv_store cred-naming convention drift - consolidate dotted vs underscored
+      st: low_urgency_drift_no_active_breakage_demoted_p3_to_p4_m
+131. [P4|infras|ecodi|21d] emailArrival listener wired + smoke-tested - awaiting pm2 restart for producer code to load
+      st: listener_never_implemented_no_src_listeners_dir_exists
+132. [P4|infras|tate |20d] Deepgram account login on Tate GitHub OAuth - migrate to code@ecodia.au when phone returns
+      st: temp_workaround_phone_lost_no_email_2fa
+133. [P4|infras|ecodi|14d] KG embedding worker dormant by design + 235 nameless-node phantom backlog
+      st: diagnostic_complete_plan_ready
+134. [P4|infras|ecodi|13d] Ordit archival sweep - 117 stale-mention files across matchers + scripts + semgrep + skills
+      st: ordit_matcher_swept
+135. [P4|infras|tate |12d] Co-Exist stats drift
+      st: expected_app_is_source_of_truth_sheet_is_manual_lag_202
+136. [P4|infras|ecodi|12d] ecodia.au Search Console: pages indexed but blocked by robots.txt
+      st: robots_txt_404_no_active_block_verify_search_console_20
+137. [P4|infras|ecodi|12d] Chambers chamber-stripe-webhook Edge Function failing test-mode delivery (29 attempts since 12 
+      st: function_alive_signature_gated_test_mode_low_stakes_202
+138. [P4|infras|ecodi|12d] proactivity_engine firing overnight_batch every 15min instead of daily
+      st: dead_code_present_dormant_low_stakes_2026-05-21
+139. [P4|infras|ecodi|10d] marketing-outreach Routine: linkedin.* MCP tools not in cowork scope
+      st: scope_gap_identified
+140. [P4|infras|ecodi|10d] observer tuning report 2026-05-14
+      st: archive_decision_written_awaiting_local_implementation
+141. [P4|infras|-    | 6d] zernio-best-time-to-post-endpoint-404
+      st: broken
+142. [P4|infras|ecodi| 3d] Scheduling 0th-class primitive - focus-independent spawn/close chain hardened
+      st: AUDIT_FIX_C3_VALIDATED_IN_PROD_cleanup_sweep_self-heale
+143. [P4|projec|ecodi| 8d] Session-corpus mining 2026-05-24 (top-3 shipped, 6 queued)
+      st: arc complete: tier-1 + tier-2 + same-day hygiene + 6 WO
+144. [P4|task  |ecodi|21d] Visual-verify gate not yet implemented - circuit-breaker premature
+      st: blocked-on-substrate
+145. [P4|task  |tate |21d] Computer Use API integration spec drafted - awaiting approval for MVP implementation
+      st: spec_drafted | demoted P3->P4 2026-05-11 23:51 AEST per
+146. [P4|task  |ecodi|20d] Cron: pattern-corpus-health-check (weekly, 168h cadence)
+      st: active
+147. [P4|task  |ecodi|20d] Co-Exist carpool geocode: disambiguate Kawana (and similar AU-ambiguous suburb names)
+      st: open
+148. [P4|task  |ecodi|19d] Co-Exist 3hr tech assist billable — add to next invoice
+      st: unbilled_logged_for_next_invoice
+149. [P4|task  |ecodi|10d] ecodia.au portfolio audit - check staleness vs shipped projects last 60d
+      st: audit_queued
+150. [P4|task  |ecodi|10d] PILOT2 status_board reaper dry-run chain
+      st: complete_pilot2_decision_written
+151. [P4|task  |ecodi| 7d] INDEX.md regen done - 31 new pattern files indexed (292 to 323), pushed to claude/tender-noethe
+      st: open
+152. [P4|task  |ecodi| 4d] Bank transaction import pipeline stalled - no data since 2026-04-12
+      st: RESOLVED_2026-05-28T0735_xero_sync_live_balance_sheet_b
+153. [P4|thread|tate |21d] Quorum of One - Edition 004 (KYA framework)
+      st: review-passed-internal, draft at drafts/quorum-of-one-0
+154. [P4|thread|tate |16d] SeedTree / Ryan Moss - personal follow-up
+      st: open - awaiting Tate reply
+155. [P4|thread|tate | 9d] Neo4j Aura Free instance 'EcodiaOS' scheduled for deletion ~26 May 2026
+      st: automated_notice_surfaced_likely_dormant_legacy_instanc
+156. [P4|thread|exter| 9d] Co-Exist INV-2026-003 payment expected
+      st: external_payment_unverifiable_bank_feed_dark_since_0412
+157. [P5|client|ecodi| 5d] Client silence: SCYCC (Sunshine Coast Young Chamber of Commerce) (Infinityd no contact)
+      st: superseded_2026-05-27_live_channel_via_angelica_no_cold
+158. [P5|infras|ecodi|21d] Visual-verify gate hardening - 3 follow-ups from Decision 3592 deep-research
+      st: all-3-items-blocked-on-gate-substrate
+159. [P5|infras|ecodi|14d] SY094 focusless substrate - awaiting RDP activation
+      st: parked_macincloud_constraints
+160. [P5|opport|tate | 0d] CETIN MVP (Angelica)
+      st: parked_lowest_priority_2026-06-02
+161. [P5|projec|ecodi| 0d] Chambers - auth-aware tenant resolution follow-up (post-subdomain-collapse)
+      st: SHIPPED_2026-06-01_2aa64d1_resolveSlugFromAuthMembershi

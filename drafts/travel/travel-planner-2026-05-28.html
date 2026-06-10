@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cash-Flow Stagger Planner - Africa 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 20px; max-width: 1100px; margin: 0 auto; line-height: 1.4; }
+  h1 { font-size: 26px; font-weight: 300; margin-bottom: 4px; color: #fff; }
+  .subtitle { color: #777; font-size: 13px; margin-bottom: 20px; }
+  .ctrls { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .ctrls .group { display: flex; gap: 6px; padding: 4px 8px; background: #111; border-radius: 8px; border: 1px solid #222; }
+  .ctrls .lbl { font-size: 11px; color: #555; align-self: center; padding: 0 4px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .tog { padding: 8px 14px; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.15s; user-select: none; }
+  .tog.on { background: #1a3a1a; border-color: #2d5a2d; color: #6fcf6f; }
+  .tog.off { background: #1a1a1a; border-color: #2a2a2a; color: #666; text-decoration: line-through; }
+  .tog.sel { background: #1a2a3a; border-color: #2d4a6a; color: #6fa8e0; }
+  .tog.sel-opt { background: #1a3a2a; border-color: #2d6a4a; color: #6fcf94; }
+  .tog:hover { border-color: #555; }
+  .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+  .card { background: #141414; border-radius: 8px; padding: 14px 16px; border-left: 3px solid #333; }
+  .card .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.08em; }
+  .card .value { font-size: 22px; font-weight: 600; color: #fff; margin-top: 4px; }
+  .card .sub { font-size: 10px; color: #555; margin-top: 4px; }
+  .card.sunk { border-left-color: #6b3a3a; }
+  .card.sunk .value { color: #cf6f6f; }
+  .card.fixed { border-left-color: #8a5a2d; }
+  .card.fixed .value { color: #e8a848; }
+  .card.defer { border-left-color: #2d5a8a; }
+  .card.defer .value { color: #4a9eff; }
+  .card.late { border-left-color: #2d8a2d; }
+  .card.late .value { color: #6fcf6f; }
+  .card.total .value { color: #fff; }
+  .savings-banner { padding: 12px 16px; margin-bottom: 18px; background: linear-gradient(90deg, #0d1f12, #0d1117); border-radius: 8px; border-left: 3px solid #2d8a2d; font-size: 13px; color: #aaa; }
+  .savings-banner b { color: #6fcf94; font-weight: 600; }
+  .savings-banner .neg { color: #cf6f6f; }
+  .forecast { background: #0d1117; border-radius: 8px; padding: 16px; margin-bottom: 22px; border: 1px solid #1a1a1a; }
+  .forecast-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: #4a9eff; margin-bottom: 12px; }
+  .forecast-section { margin-bottom: 16px; }
+  .forecast-section-h { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #181818; }
+  .forecast-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .forecast-grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .forecast-grid.grid-5 { grid-template-columns: repeat(5, 1fr); }
+  .forecast-cell { display: flex; flex-direction: column; gap: 4px; }
+  .forecast-cell label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
+  .forecast-cell input[type="number"], .forecast-cell input[type="text"] { background: #1a1a1a; border: 1px solid #2a2a2a; color: #6fcf94; padding: 6px 8px; border-radius: 4px; font-family: 'SF Mono', Menlo, monospace; font-size: 12px; width: 100%; }
+  .forecast-cell.out input { color: #e8a848; }
+  .forecast-cell.cash input { color: #4a9eff; }
+  .forecast-cell input:focus { outline: none; border-color: #2d6a4a; background: #142217; }
+  .oneoff-row { display: grid; grid-template-columns: 24px 1.4fr 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .oneoff-row label { font-size: 11px; color: #aaa; }
+  .oneoff-row input[type="checkbox"] { accent-color: #6fcf94; }
+  .forecast-note { font-size: 11px; color: #555; margin-top: 8px; line-height: 1.5; }
+  .cash-table { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1px; background: #1a1a1a; border-radius: 6px; overflow: hidden; margin-top: 14px; }
+  .cash-table > div { background: #141414; padding: 8px 12px; font-size: 12px; }
+  .cash-table .cash-h { color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; background: #0d0d0d; }
+  .cash-table .cash-month { color: #aaa; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .cash-table .cash-net { color: #6fcf94; font-family: 'SF Mono', Menlo, monospace; }
+  .cash-table .cash-net.neg { color: #cf6f6f; }
+  .cash-table .cash-trip { color: #e8a848; font-family: 'SF Mono', Menlo, monospace; }
+  .cash-table .cash-bal { font-family: 'SF Mono', Menlo, monospace; font-weight: 600; }
+  .cash-table .cash-bal.ok { color: #6fcf94; }
+  .cash-table .cash-bal.warn { color: #e8a848; }
+  .cash-table .cash-bal.critical { color: #cf6f6f; background: #1f1010; }
+  .section-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: #666; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #1f1f1f; }
+  .month { margin-bottom: 18px; }
+  .month-h { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 12px; background: #111; border-radius: 6px 6px 0 0; }
+  .month-h .name { font-size: 13px; color: #aaa; font-weight: 600; }
+  .month-h .total { font-size: 13px; color: #e8a848; font-weight: 600; }
+  .month-h .total.peak { color: #cf6f6f; }
+  .row { display: grid; grid-template-columns: 80px 80px 1fr 120px 90px; gap: 10px; padding: 10px 12px; background: #141414; border-top: 1px solid #1c1c1c; align-items: center; font-size: 12px; }
+  .row:last-child { border-radius: 0 0 6px 6px; }
+  .row .date { color: #666; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .row .badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .badge.sunk { background: #2a1717; color: #cf6f6f; }
+  .badge.gear { background: #2a221a; color: #c89464; }
+  .badge.deposit { background: #1a2a3a; color: #6fa8e0; }
+  .badge.balance { background: #2a1a3a; color: #b06ed8; }
+  .badge.flight { background: #1a3a2a; color: #6fcf94; }
+  .badge.insurance { background: #2a2a1a; color: #d8c864; }
+  .badge.sundry { background: #1f1f1f; color: #999; }
+  .row .name-cell { color: #ddd; }
+  .row .name-cell .note { font-size: 10px; color: #555; margin-top: 2px; }
+  .row .amt-cell { text-align: right; }
+  .row .amt { color: #e8a848; font-weight: 600; }
+  .row .amt-creep { color: #cf6f6f; font-size: 10px; margin-top: 1px; }
+  .row .amt-save { color: #6fcf94; font-size: 10px; margin-top: 1px; }
+  .row .flex { font-size: 10px; text-align: right; color: #555; }
+  .row.sunk { opacity: 0.5; }
+  .row.fixed-flex .flex { color: #cf6f6f; }
+  .row.defer-flex .flex { color: #4a9eff; }
+  .row.late-flex .flex { color: #6fcf6f; }
+  .chart { margin-top: 20px; padding: 16px; background: #0d1117; border-radius: 8px; }
+  .chart-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: #666; margin-bottom: 14px; }
+  .bar-row { display: grid; grid-template-columns: 80px 1fr 90px; gap: 10px; align-items: center; margin-bottom: 6px; font-size: 12px; }
+  .bar-row .month-lbl { color: #888; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .bar-row .track { height: 22px; background: #161616; border-radius: 4px; overflow: hidden; position: relative; }
+  .bar-row .fill { height: 100%; background: linear-gradient(90deg, #2d5a8a, #4a9eff); border-radius: 4px; transition: width 0.3s; }
+  .bar-row .fill.peak { background: linear-gradient(90deg, #6b3a3a, #cf6f6f); }
+  .bar-row .amt-lbl { text-align: right; color: #e8a848; font-weight: 600; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; color: #666; margin-top: 12px; }
+  .legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .footer-note { font-size: 11px; color: #555; margin-top: 20px; line-height: 1.6; padding: 12px; background: #0d0d0d; border-radius: 6px; border-left: 2px solid #2d5a8a; }
+</style>
+</head>
+<body>
+<h1>Cash-Flow Stagger</h1>
+<p class="subtitle">Africa 2026. Real income line items folded in. Today 2026-05-28. Trip Oct 9 to Dec 18. Kili confirmed 12 Dec start (6-day route).</p>
+
+<div class="ctrls">
+  <div class="group">
+    <span class="lbl">Mode</span>
+    <div class="tog sel-opt" id="mode-optimal" onclick="setMode('optimal')">Fare-optimal</div>
+    <div class="tog" id="mode-latest" onclick="setMode('latest')">Latest safe</div>
+    <div class="tog" id="mode-earliest" onclick="setMode('earliest')">Earliest due</div>
+  </div>
+  <div class="group">
+    <span class="lbl">Lombok</span>
+    <div class="tog on" id="tog-lombok" onclick="toggleBool('lombok')">Keep</div>
+  </div>
+  <div class="group">
+    <span class="lbl">Vic Falls</span>
+    <div class="tog on" id="tog-vfalls" onclick="toggleBool('vfalls')">Keep</div>
+  </div>
+  <div class="group">
+    <span class="lbl">CPT post-Intrepid</span>
+    <div class="tog on" id="tog-cpt_post" onclick="toggleBool('cpt_post')">Keep</div>
+  </div>
+  <div class="group">
+    <span class="lbl">Kili tier</span>
+    <div class="tog sel" id="kili-mid" onclick="setKili('mid')">Mid $2.6k</div>
+    <div class="tog" id="kili-bud" onclick="setKili('bud')">Budget $1.9k</div>
+  </div>
+</div>
+
+<div class="summary" id="summary"></div>
+<div class="savings-banner" id="savings-banner"></div>
+
+<div class="forecast">
+  <div class="forecast-h">Cash forecast (edit any cell to model the real ramp)</div>
+
+  <div class="forecast-section">
+    <div class="forecast-section-h">Recurring monthly income</div>
+    <div class="forecast-grid grid-3">
+      <div class="forecast-cell"><label>Co-Exist retainer</label><input type="number" id="in-coexist" value="1400" /></div>
+      <div class="forecast-cell"><label>Chambers (base, upside $1k)</label><input type="number" id="in-chambers" value="300" /></div>
+      <div class="forecast-cell"><label>Other (Glovebox, new clients)</label><input type="number" id="in-other" value="0" /></div>
+    </div>
+  </div>
+
+  <div class="forecast-section">
+    <div class="forecast-section-h">Workforce Australia stipend (time-bound)</div>
+    <div class="forecast-grid grid-3">
+      <div class="forecast-cell"><label>$ per month</label><input type="number" id="wfa-amt" value="1733" /></div>
+      <div class="forecast-cell"><label>Last month receiving</label><input type="text" id="wfa-end" value="2026-08" /></div>
+      <div class="forecast-cell"><label>Note</label><input type="text" id="wfa-note" value="$800 fortnight x ~6.5 fortnights" disabled /></div>
+    </div>
+  </div>
+
+  <div class="forecast-section">
+    <div class="forecast-section-h">Recurring monthly outgoings</div>
+    <div class="forecast-grid">
+      <div class="forecast-cell out"><label>Claude API</label><input type="number" id="out-claude" value="1040" /></div>
+      <div class="forecast-cell out"><label>3rd party tools</label><input type="number" id="out-3p" value="500" /></div>
+      <div class="forecast-cell out"><label>Personal</label><input type="number" id="out-personal" value="500" /></div>
+      <div class="forecast-cell out"><label>Tax set-aside</label><input type="number" id="out-tax" value="150" /></div>
+    </div>
+  </div>
+
+  <div class="forecast-section">
+    <div class="forecast-section-h">One-off income (toggle if expected to land)</div>
+    <div class="oneoff-row">
+      <input type="checkbox" id="oo-0-en" checked />
+      <label>Ordit LoD (Craige)</label>
+      <input type="number" id="oo-0-amt" value="3400" />
+      <input type="text" id="oo-0-month" value="2026-06" />
+    </div>
+    <div class="oneoff-row">
+      <input type="checkbox" id="oo-1-en" checked />
+      <label>Vikki</label>
+      <input type="number" id="oo-1-amt" value="2300" />
+      <input type="text" id="oo-1-month" value="2026-08" />
+    </div>
+    <div class="oneoff-row">
+      <input type="checkbox" id="oo-2-en" />
+      <label>Glovebox marketing pulse</label>
+      <input type="number" id="oo-2-amt" value="0" />
+      <input type="text" id="oo-2-month" value="2026-09" />
+    </div>
+    <div class="oneoff-row">
+      <input type="checkbox" id="oo-3-en" />
+      <label>Co-Exist commission (renewal Aug 7)</label>
+      <input type="number" id="oo-3-amt" value="0" />
+      <input type="text" id="oo-3-month" value="2026-08" />
+    </div>
+  </div>
+
+  <div class="forecast-section">
+    <div class="forecast-section-h">Starting cash</div>
+    <div class="forecast-grid grid-3">
+      <div class="forecast-cell cash"><label>Bank balance today (2026-05-28)</label><input type="number" id="start-cash" value="1000" /></div>
+      <div class="forecast-cell"><label>Note</label><input type="text" value="Plug in real figure. Bank feed dark since 12 Apr." disabled /></div>
+      <div class="forecast-cell"><label></label><input type="text" value="" disabled /></div>
+    </div>
+  </div>
+
+  <p class="forecast-note">Chambers base $300/mo, optimistic upside to ~$1k/mo. Vikki amount + month placeholder. Co-Exist commission row available for when retainer renews 7 Aug. Update any cell to recompute the cash table below.</p>
+
+  <div class="cash-table" id="cash-table"></div>
+</div>
+
+<div class="section-h">Payment timeline (sorted by date in current mode)</div>
+<div id="timeline"></div>
+
+<div class="chart">
+  <div class="chart-h">Monthly trip cash burn</div>
+  <div id="chart-bars"></div>
+  <div class="legend">
+    <span><span class="dot" style="background:#cf6f6f"></span>Sunk (paid)</span>
+    <span><span class="dot" style="background:#c89464"></span>Gear</span>
+    <span><span class="dot" style="background:#6fa8e0"></span>Deposit</span>
+    <span><span class="dot" style="background:#b06ed8"></span>Balance</span>
+    <span><span class="dot" style="background:#6fcf94"></span>Flight</span>
+    <span><span class="dot" style="background:#d8c864"></span>Insurance</span>
+    <span><span class="dot" style="background:#999"></span>Sundry</span>
+  </div>
+</div>
+
+<div class="footer-note" id="footer-note"></div>
+
+<script>
+var TODAY = '2026-05-28';
+var state = {
+  lombok: true, vfalls: true, cpt_post: true, kili: 'mid', mode: 'optimal',
+  startCash: 1000,
+  recurringIn: { coexist: 1400, chambers: 300, other: 0 },
+  recurringOut: { claude: 1040, thirdparty: 500, personal: 500, tax: 150 },
+  wfa: { amount: 1733, endMonth: '2026-08' },
+  oneOffs: [
+    { id: 0, name: 'Ordit LoD', amt: 3400, month: '2026-06', enabled: true },
+    { id: 1, name: 'Vikki', amt: 2300, month: '2026-08', enabled: true },
+    { id: 2, name: 'Glovebox pulse', amt: 0, month: '2026-09', enabled: false },
+    { id: 3, name: 'Co-Exist commission', amt: 0, month: '2026-08', enabled: false }
+  ]
+};
+
+var LEGS = [
+  { id:'fiji_dep', name:'Fiji deposit (BellaBlu)', cat:'sunk', amt_optimal:1400, amt_latest:1400, earliest:'2026-04-01', optimal:'2026-04-01', latest:'2026-04-01', flex:'sunk', show:'always', note:'Paid' },
+  { id:'kruger_dep', name:'Kruger deposit (Intrepid)', cat:'sunk', amt_optimal:450, amt_latest:450, earliest:'2026-04-01', optimal:'2026-04-01', latest:'2026-04-01', flex:'sunk', show:'always', note:'Paid' },
+  { id:'lowa', name:'Lowa Renegade Evo Wide boots', cat:'gear', amt_optimal:550, amt_latest:550, earliest:'2026-06-10', optimal:'2026-06-10', latest:'2026-06-20', flex:'fixed', show:'always', note:'4 month Kili break-in. 10-day stretch max.' },
+  { id:'lombok_fee', name:'Lombok Worldpackers program fee', cat:'deposit', amt_optimal:500, amt_latest:500, earliest:'2026-06-21', optimal:'2026-06-21', latest:'2026-06-21', flex:'fixed', show:'lombok', note:'Confirms slot. Skip if cutting.' },
+  { id:'fiji_bal', name:'Fiji Shark Fest balance', cat:'balance', amt_optimal:2800, amt_latest:2800, earliest:'2026-08-15', optimal:'2026-08-31', latest:'2026-08-31', flex:'fixed', show:'always', note:'BellaBlu policy. Schedule 7 days early for safety.' },
+  { id:'kruger_bal', name:'Intrepid Kruger balance', cat:'balance', amt_optimal:2235, amt_latest:2235, earliest:'2026-08-20', optimal:'2026-09-07', latest:'2026-09-07', flex:'fixed', show:'always', note:'70 days before 16 Nov depart.' },
+  { id:'namibia_dep', name:'Namibia G Adv deposit', cat:'deposit', amt_optimal:500, amt_latest:500, earliest:'2026-07-01', optimal:'2026-08-25', latest:'2026-08-25', flex:'defer', show:'always', note:'Lock the 31 Oct departure. Verify exact deposit with G Adv (estimate $500, real policy may be 25% = ~$686).' },
+  { id:'namibia_bal', name:'Namibia G Adv balance', cat:'balance', amt_optimal:2244, amt_latest:2244, earliest:'2026-08-01', optimal:'2026-08-27', latest:'2026-08-27', flex:'defer', show:'always', note:'~65 days before 31 Oct depart.' },
+  { id:'kili_dep', name:'Kili booking deposit (PAID 2026-05-28)', cat:'sunk', amt_optimal:100, amt_latest:100, earliest:'2026-05-28', optimal:'2026-05-28', latest:'2026-05-28', flex:'sunk', show:'always', note:'$100 paid to lock 12 Dec start, 6-day route. Operator selection still pending (Climb Kili / Duma Explorer / Climbing Kilimanjaro / mid-tier Moshi shortlist).' },
+  { id:'kili_bal_mid', name:'Kili climb (cash on arrival, Tanzania)', cat:'balance', amt_optimal:2368, amt_latest:2368, earliest:'2026-12-11', optimal:'2026-12-11', latest:'2026-12-11', flex:'late_buy', show:'kili_mid', note:'CASH ON ARRIVAL discovered 2026-05-28. Pay $2,368 USD/AUD cash to operator on arrival in Tanzania 11 Dec. Defers full bulk of Kili spend from Nov balance-wire into Dec on-arrival cash. Total Kili spend: $100 deposit + $2,368 cash = $2,468.' },
+  { id:'kili_bal_bud', name:'Kili climb (budget cash on arrival)', cat:'balance', amt_optimal:1800, amt_latest:1800, earliest:'2026-12-11', optimal:'2026-12-11', latest:'2026-12-11', flex:'late_buy', show:'kili_bud', note:'Budget Tanzanian operator alternative if mid-tier falls through. Cash on arrival likely standard at this tier too.' },
+  { id:'fl_bne_nan', name:'BNE to NAN (Fiji depart)', cat:'flight', amt_optimal:400, amt_latest:575, earliest:'2026-08-15', optimal:'2026-09-10', latest:'2026-09-20', flex:'late_buy', show:'always', note:'4hr direct. Daily. Sweet spot 4-6 wks. Late-buy +$175.' },
+  { id:'fl_nan_lop', name:'NAN to LOP (via SYD/DPS)', cat:'flight', amt_optimal:1100, amt_latest:1550, earliest:'2026-08-01', optimal:'2026-09-15', latest:'2026-09-25', flex:'late_buy', show:'lombok', note:'Multi-leg builder. Late-buy +$450.' },
+  { id:'fl_nan_home', name:'NAN to BNE (Lombok cut)', cat:'flight', amt_optimal:400, amt_latest:575, earliest:'2026-08-20', optimal:'2026-09-25', latest:'2026-10-05', flex:'late_buy', show:'!lombok', note:'Direct daily. Late-buy safe.' },
+  { id:'fl_lop_wdh', name:'LOP to WDH builder', cat:'flight', amt_optimal:1900, amt_latest:3150, earliest:'2026-07-15', optimal:'2026-08-15', latest:'2026-10-15', flex:'late_buy', show:'lombok', note:'Low-freq builder. 12-16 wks sweet spot. Late-buy +$1,250 brutal.' },
+  { id:'fl_home_wdh', name:'BNE to WDH (Lombok cut)', cat:'flight', amt_optimal:1800, amt_latest:2850, earliest:'2026-08-15', optimal:'2026-09-10', latest:'2026-10-15', flex:'late_buy', show:'!lombok', note:'Via Perth or Dubai. 8-12 wks. Late-buy +$1,050.' },
+  { id:'cpt_pre', name:'Cape Town pre-Kruger (2 nights, 13-15 Nov)', cat:'sundry', amt_optimal:400, amt_latest:400, earliest:'2026-11-13', optimal:'2026-11-15', latest:'2026-11-15', flex:'late_buy', show:'always', note:'Mandatory buffer between Namibia overland arrival + CT to JNB flight.' },
+  { id:'fl_cpt_jnb', name:'CPT to JNB', cat:'flight', amt_optimal:125, amt_latest:325, earliest:'2026-09-15', optimal:'2026-10-18', latest:'2026-11-08', flex:'late_buy', show:'always', note:'FlySafair/Airlink. 4-6 wks sweet spot. Late-buy +$200.' },
+  { id:'fl_jnb_vfa', name:'JNB to VFA', cat:'flight', amt_optimal:200, amt_latest:375, earliest:'2026-10-01', optimal:'2026-11-01', latest:'2026-11-22', flex:'late_buy', show:'vfalls', note:'1.5hr direct. Late-buy +$175.' },
+  { id:'fl_vfa_cpt', name:'VFA to CPT (via JNB)', cat:'flight', amt_optimal:425, amt_latest:625, earliest:'2026-10-15', optimal:'2026-11-06', latest:'2026-11-27', flex:'late_buy', show:'vfalls,cpt_post', note:'1-stop via JNB.' },
+  { id:'fl_jnb_cpt', name:'JNB to CPT direct (Vic Falls cut, CPT kept)', cat:'flight', amt_optimal:125, amt_latest:325, earliest:'2026-11-15', optimal:'2026-11-25', latest:'2026-12-01', flex:'late_buy', show:'!vfalls,cpt_post', note:'FlySafair direct. After Intrepid 30 Nov.' },
+  { id:'fl_cpt_jro', name:'CPT to JRO', cat:'flight', amt_optimal:1050, amt_latest:1750, earliest:'2026-09-01', optimal:'2026-10-15', latest:'2026-11-08', flex:'late_buy', show:'cpt_post', note:'Kenya Airways/Ethiopian/Qatar. 8-12 wks. Late-buy +$700.' },
+  { id:'fl_vfa_jro', name:'VFA to JRO direct (CPT post-Intrepid cut)', cat:'flight', amt_optimal:1100, amt_latest:1750, earliest:'2026-09-15', optimal:'2026-10-15', latest:'2026-11-25', flex:'late_buy', show:'vfalls,!cpt_post', note:'1-stop via JNB or NBO. After Vic Falls 4 Dec. ~7 days Tanzania pre-climb.' },
+  { id:'fl_jnb_jro', name:'JNB to JRO direct (both VFalls + CPT post cut)', cat:'flight', amt_optimal:950, amt_latest:1500, earliest:'2026-09-15', optimal:'2026-10-15', latest:'2026-11-25', flex:'late_buy', show:'!vfalls,!cpt_post', note:'Kenya Airways/Ethiopian via NBO/ADD. After Intrepid 30 Nov. ~10 days Tanzania pre-climb.' },
+  { id:'fl_jro_bne', name:'JRO to BNE return', cat:'flight', amt_optimal:1800, amt_latest:2750, earliest:'2026-09-15', optimal:'2026-11-05', latest:'2026-12-08', flex:'late_buy', show:'always', note:'Qatar 1-stop via DOH. Peak Dec. Book by 5 Nov. Late-buy +$950 (worst single risk).' },
+  { id:'insurance', name:'Travel insurance (dive + altitude + overland)', cat:'insurance', amt_optimal:700, amt_latest:700, earliest:'2026-09-01', optimal:'2026-10-05', latest:'2026-10-05', flex:'defer', show:'always', note:'Buy with first international flight.' },
+  { id:'tips', name:'Tips pool (Kruger + Namibia + Kili)', cat:'sundry', amt_optimal:800, amt_latest:800, earliest:'2026-11-01', optimal:'2026-12-15', latest:'2026-12-15', flex:'late_buy', show:'always', note:'Cash in-country. Stagger across legs.' },
+  { id:'visas', name:'Visas + SIM + sundry', cat:'sundry', amt_optimal:400, amt_latest:400, earliest:'2026-10-15', optimal:'2026-12-01', latest:'2026-12-01', flex:'late_buy', show:'always', note:'KAZA UniVisa $50 covers Zim + Zam. Tanzania visa on arrival ~$50 USD.' },
+  { id:'vfalls_spend', name:'Vic Falls ground (accom + heli + park)', cat:'sundry', amt_optimal:1200, amt_latest:1200, earliest:'2026-12-01', optimal:'2026-12-04', latest:'2026-12-04', flex:'fixed', show:'vfalls', note:'Spend during 1-4 Dec stay. With Kurt.' },
+  { id:'cpt_post_spend', name:'Cape Town post-Vic Falls (7 nights, 4-11 Dec)', cat:'sundry', amt_optimal:1600, amt_latest:1600, earliest:'2026-12-04', optimal:'2026-12-11', latest:'2026-12-11', flex:'late_buy', show:'cpt_post', note:'Mid-range 7 nights ~$200/night incl food + day trips. With Kurt. Backpacker mode collapses to ~$500.' },
+  { id:'tz_preclimb', name:'Tanzania pre-climb (Moshi/Arusha)', cat:'sundry', amt_optimal:800, amt_latest:800, earliest:'2026-12-01', optimal:'2026-12-10', latest:'2026-12-10', flex:'late_buy', show:'!cpt_post', note:'Accom + food + acclimatisation day trips 7-10 days pre-Kili. Alternative spend when CPT post-Intrepid is cut.' }
+];
+
+function visible(leg) {
+  if (leg.show === 'always') return true;
+  var conjuncts = leg.show.split(',');
+  return conjuncts.every(function(c) {
+    var neg = c.charAt(0) === '!';
+    var key = neg ? c.slice(1) : c;
+    var val;
+    if (key === 'lombok') val = state.lombok;
+    else if (key === 'vfalls') val = state.vfalls;
+    else if (key === 'cpt_post') val = state.cpt_post;
+    else if (key === 'kili_mid') val = state.kili === 'mid';
+    else if (key === 'kili_bud') val = state.kili === 'bud';
+    else return true;
+    return neg ? !val : val;
+  });
+}
+function dateFor(leg) {
+  if (state.mode === 'earliest') return leg.earliest;
+  if (state.mode === 'latest') return leg.latest;
+  if (leg.cat === 'flight') return leg.optimal;
+  return leg.latest;
+}
+function amtFor(leg) {
+  if (state.mode === 'latest' && leg.cat === 'flight') return leg.amt_latest;
+  return leg.amt_optimal;
+}
+function fmt(n) { var sign = n < 0 ? '-' : ''; return sign + '$' + Math.abs(Math.round(n)).toLocaleString(); }
+function monthKey(d) { return d.slice(0, 7); }
+function monthName(k) {
+  var parts = k.split('-');
+  var y = parts[0], m = parseInt(parts[1], 10);
+  var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return names[m-1] + ' ' + y;
+}
+
+function recurringInTotal() { return state.recurringIn.coexist + state.recurringIn.chambers + state.recurringIn.other; }
+function recurringOutTotal() { return state.recurringOut.claude + state.recurringOut.thirdparty + state.recurringOut.personal + state.recurringOut.tax; }
+function monthlyIncome(m) {
+  var base = recurringInTotal();
+  if (m <= state.wfa.endMonth) base += state.wfa.amount;
+  state.oneOffs.forEach(function(o){ if (o.enabled && o.month === m) base += o.amt; });
+  return base;
+}
+function monthlyNetCash(m) { return monthlyIncome(m) - recurringOutTotal(); }
+
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('mode-optimal').className = 'tog ' + (m==='optimal'?'sel-opt':'');
+  document.getElementById('mode-latest').className = 'tog ' + (m==='latest'?'sel':'');
+  document.getElementById('mode-earliest').className = 'tog ' + (m==='earliest'?'sel':'');
+  renderResults();
+}
+function setKili(t) { state.kili = t; document.getElementById('kili-mid').className = 'tog ' + (t==='mid'?'sel':''); document.getElementById('kili-bud').className = 'tog ' + (t==='bud'?'sel':''); renderResults(); }
+function toggleBool(k) {
+  state[k] = !state[k];
+  var el = document.getElementById('tog-' + k);
+  el.className = 'tog ' + (state[k] ? 'on' : 'off');
+  el.textContent = state[k] ? 'Keep' : 'Cut';
+  renderResults();
+}
+
+function totalForMode(legs, mode) {
+  return legs.reduce(function(s, l){
+    var amt = (mode === 'latest' && l.cat === 'flight') ? l.amt_latest : l.amt_optimal;
+    return s + amt;
+  }, 0);
+}
+
+function computeCashTimeline(monthOutgoings) {
+  var months = ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  var bal = state.startCash;
+  return months.map(function(m) {
+    var net = monthlyNetCash(m);
+    var trip = monthOutgoings[m] || 0;
+    bal = bal + net - trip;
+    return { month: m, net: net, trip: trip, balance: bal };
+  });
+}
+
+function renderResults() {
+  var legs = LEGS.filter(visible).slice().sort(function(a,b){ return dateFor(a).localeCompare(dateFor(b)); });
+
+  var sunk = 0, fixed = 0, defer = 0, late = 0;
+  legs.forEach(function(l){
+    var a = amtFor(l);
+    if (l.flex === 'sunk') sunk += a;
+    else if (l.flex === 'fixed') fixed += a;
+    else if (l.flex === 'defer') defer += a;
+    else if (l.flex === 'late_buy') late += a;
+  });
+  var total = sunk + fixed + defer + late;
+
+  var totalOptimal = totalForMode(legs, 'optimal');
+  var totalLatest = totalForMode(legs, 'latest');
+  var creepCost = totalLatest - totalOptimal;
+
+  document.getElementById('summary').innerHTML =
+    '<div class="card sunk"><div class="label">Sunk</div><div class="value">'+fmt(sunk)+'</div></div>' +
+    '<div class="card fixed"><div class="label">Fixed</div><div class="value">'+fmt(fixed)+'</div></div>' +
+    '<div class="card defer"><div class="label">Deferrable</div><div class="value">'+fmt(defer)+'</div></div>' +
+    '<div class="card late"><div class="label">Late-buy</div><div class="value">'+fmt(late)+'</div></div>' +
+    '<div class="card total"><div class="label">Total ('+state.mode+')</div><div class="value">'+fmt(total)+'</div></div>';
+
+  var byMonth = {};
+  legs.forEach(function(l){
+    var k = monthKey(dateFor(l));
+    if (!byMonth[k]) byMonth[k] = [];
+    byMonth[k].push(l);
+  });
+  var monthTotals = {};
+  Object.keys(byMonth).forEach(function(k){
+    monthTotals[k] = byMonth[k].reduce(function(s,l){ return s + amtFor(l); }, 0);
+  });
+  var peakMonthAmt = Math.max.apply(null, Object.values(monthTotals));
+
+  var cash = computeCashTimeline(monthTotals);
+  var endBal = cash.length ? cash[cash.length - 1].balance : state.startCash;
+  var minBal = cash.length ? Math.min.apply(null, cash.map(function(r){ return r.balance; })) : state.startCash;
+  var minBalMonth = cash.find(function(r){ return r.balance === minBal; });
+
+  var cashHtml = '<div class="cash-h">Month</div><div class="cash-h">Net cash before trip</div><div class="cash-h">Trip cost</div><div class="cash-h">End balance</div>';
+  cash.forEach(function(r){
+    var cls = r.balance < 0 ? 'critical' : r.balance < 1000 ? 'warn' : 'ok';
+    var netCls = r.net < 0 ? 'cash-net neg' : 'cash-net';
+    cashHtml += '<div class="cash-month">'+monthName(r.month)+'</div>';
+    cashHtml += '<div class="'+netCls+'">'+(r.net>=0?'+':'')+fmt(r.net)+'</div>';
+    cashHtml += '<div class="cash-trip">'+(r.trip?fmt(r.trip):'-')+'</div>';
+    cashHtml += '<div class="cash-bal '+cls+'">'+fmt(r.balance)+'</div>';
+  });
+  document.getElementById('cash-table').innerHTML = cashHtml;
+
+  var bannerColor = minBal < 0 ? '#cf6f6f' : minBal < 1000 ? '#e8a848' : '#6fcf94';
+  var bannerLead;
+  if (minBal < 0) {
+    bannerLead = '<b class="neg">SHORTFALL</b>. Lowest cash position is <b class="neg">'+fmt(minBal)+'</b> in '+monthName(minBalMonth.month)+'. Need revenue ramp, leg cut, or one-off timing shift.';
+  } else if (minBal < 1000) {
+    bannerLead = '<b style="color:#e8a848">TIGHT</b>. Lowest cash position is <b style="color:#e8a848">'+fmt(minBal)+'</b> in '+monthName(minBalMonth.month)+'. Buffer is thin.';
+  } else {
+    bannerLead = '<b>FEASIBLE</b>. Lowest cash position is <b>'+fmt(minBal)+'</b> in '+monthName(minBalMonth.month)+'.';
+  }
+  var modeNote;
+  if (state.mode === 'optimal') {
+    modeNote = ' Fare-optimal mode. Flights at sweet-spot, balances pushed late. Switching to Latest-safe adds <b class="neg">+'+fmt(creepCost)+'</b> in fare creep.';
+  } else if (state.mode === 'latest') {
+    modeNote = ' Latest-safe mode. Every flight pushed to last viable date. Pays <b class="neg">+'+fmt(creepCost)+'</b> extra in fare creep.';
+  } else {
+    modeNote = ' Earliest mode. Anxious view, ignores both fare windows and income ramp.';
+  }
+  document.getElementById('savings-banner').innerHTML = bannerLead + modeNote + ' End-of-trip balance: <b style="color:'+bannerColor+'">'+fmt(endBal)+'</b>.';
+
+  var html = '';
+  Object.keys(byMonth).sort().forEach(function(k){
+    var monthTotal = monthTotals[k];
+    var isPeak = monthTotal === peakMonthAmt && monthTotal > 0;
+    html += '<div class="month">';
+    html += '<div class="month-h"><span class="name">'+monthName(k)+'</span><span class="total'+(isPeak?' peak':'')+'">'+fmt(monthTotal)+(isPeak?' &middot; peak':'')+'</span></div>';
+    byMonth[k].forEach(function(l){
+      var flexLbl = l.flex === 'sunk' ? 'paid' : l.flex === 'fixed' ? 'fixed' : l.flex === 'defer' ? 'deferrable' : 'late-buy';
+      var rowCls = 'row ' + (l.flex === 'sunk' ? 'sunk' : l.flex === 'fixed' ? 'fixed-flex' : l.flex === 'defer' ? 'defer-flex' : 'late-flex');
+      var amt = amtFor(l);
+      var amtAnnotation = '';
+      if (l.cat === 'flight') {
+        var creep = l.amt_latest - l.amt_optimal;
+        if (state.mode === 'optimal' && creep > 0) amtAnnotation = '<div class="amt-creep">+'+fmt(creep)+' if late</div>';
+        else if (state.mode === 'latest' && creep > 0) amtAnnotation = '<div class="amt-save">'+fmt(l.amt_optimal)+' if optimal</div>';
+      }
+      html += '<div class="'+rowCls+'">';
+      html += '<div class="date">'+dateFor(l)+'</div>';
+      html += '<div class="badge '+l.cat+'">'+l.cat+'</div>';
+      html += '<div class="name-cell">'+l.name+'<div class="note">'+l.note+'</div></div>';
+      html += '<div class="amt-cell"><div class="amt">'+fmt(amt)+'</div>'+amtAnnotation+'</div>';
+      html += '<div class="flex">'+flexLbl+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('timeline').innerHTML = html;
+
+  var allMonths = Object.keys(monthTotals).sort();
+  var maxAmt = Math.max.apply(null, allMonths.map(function(k){ return monthTotals[k]; }));
+  var chartHtml = '';
+  allMonths.forEach(function(k){
+    var amt = monthTotals[k];
+    var pct = Math.round(amt / maxAmt * 100);
+    var isPeak = amt === peakMonthAmt && amt > 0;
+    chartHtml += '<div class="bar-row">';
+    chartHtml += '<span class="month-lbl">'+monthName(k)+'</span>';
+    chartHtml += '<div class="track"><div class="fill'+(isPeak?' peak':'')+'" style="width:'+pct+'%"></div></div>';
+    chartHtml += '<span class="amt-lbl">'+fmt(amt)+'</span>';
+    chartHtml += '</div>';
+  });
+  document.getElementById('chart-bars').innerHTML = chartHtml;
+
+  var togglesNote = 'Toggles. Lombok=' + (state.lombok?'keep':'cut') + '. Vic Falls=' + (state.vfalls?'keep':'cut') + '. CPT post-Intrepid=' + (state.cpt_post?'keep':'cut') + '. Kili=' + state.kili + '. Mode=' + state.mode + '.';
+  document.getElementById('footer-note').innerHTML =
+    togglesNote + ' ' +
+    'Cape Town pre-Kruger (2 nights $400) stays in regardless because the Namibia overland lands Tate in CT on 13 Nov. CPT post-Intrepid covers the 4-11 Dec week. Cutting it routes VFA-JRO direct (if Vic Falls kept) or JNB-JRO direct (if Vic Falls also cut) and adds ~$800 Tanzania pre-climb spend in Moshi/Arusha. Net swing of cutting CPT post-Intrepid alone is roughly $1,600 (CPT spend) + $1,050 (CPT-JRO) - $1,100 (VFA-JRO) - $800 (Tanzania pre-climb) = ~$750 saved. Cutting both VFalls + CPT post-Intrepid saves roughly $1,200 (VF spend) + $200 (JNB-VFA) + $400 (VFA-CPT) + $1,600 (CPT spend) + $1,050 (CPT-JRO) - $950 (JNB-JRO direct) - $800 (Tanzania pre-climb) = ~$2,700 saved but loses Kurt time.';
+}
+
+function attachInputHandlers() {
+  var b = function(id, key, sub) {
+    var el = document.getElementById(id);
+    el.addEventListener('input', function(e) {
+      var v = parseFloat(e.target.value);
+      if (isNaN(v)) v = 0;
+      if (sub) state[key][sub] = v; else state[key] = v;
+      renderResults();
+    });
+  };
+  b('start-cash', 'startCash');
+  b('in-coexist', 'recurringIn', 'coexist');
+  b('in-chambers', 'recurringIn', 'chambers');
+  b('in-other', 'recurringIn', 'other');
+  b('out-claude', 'recurringOut', 'claude');
+  b('out-3p', 'recurringOut', 'thirdparty');
+  b('out-personal', 'recurringOut', 'personal');
+  b('out-tax', 'recurringOut', 'tax');
+  b('wfa-amt', 'wfa', 'amount');
+  document.getElementById('wfa-end').addEventListener('input', function(e){ state.wfa.endMonth = e.target.value; renderResults(); });
+  state.oneOffs.forEach(function(o, i){
+    document.getElementById('oo-'+i+'-en').addEventListener('input', function(e){ o.enabled = e.target.checked; renderResults(); });
+    document.getElementById('oo-'+i+'-amt').addEventListener('input', function(e){ o.amt = parseFloat(e.target.value)||0; renderResults(); });
+    document.getElementById('oo-'+i+'-month').addEventListener('input', function(e){ o.month = e.target.value; renderResults(); });
+  });
+}
+
+attachInputHandlers();
+renderResults();
+</script>
+</body>
+</html>

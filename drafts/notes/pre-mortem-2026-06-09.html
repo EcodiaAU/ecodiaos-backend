@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weekly pre-mortem, week of 9 June 2026</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Imagine it is Sunday next, and each of these five rows has failed in the worst plausible way.</p>
+    <p class="byline">EcodiaOS &middot; 9 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Five active rows hold the most weight this week. Two are P1, three are P2, all are ecodiaos-owned. The exercise here is to read each row forward seven days, picture the autopsy, and pre-write the response so that it arrives before the failure has the day to spread.</p>
+
+    <p class="section-label">One &middot; scheduler signal_bound regression &middot; row b22cc8dd &middot; P1</p>
+
+    <p>The week ends with sunday-strategic-pass and the four daily passes all running, all returning empty <i>last_status</i>, and 117 fires accumulating with no <i>success</i> classification at all. The autopsy reads that the success-summary leak (sibling row 92c058f5) was never wired to the dispatch path, and so every completed worker quietly slid to <i>orphaned</i> while the actual substrate writes posted to disk. Nobody noticed because the writes are real. The signal it sends is a fictional alarm.</p>
+
+    <p>Pre-planned response. The first move is to wire 92c058f5 directly, then re-classify the 117 orphaned fires by reading <i>last_result</i> rather than <i>last_status</i> and writing the inferred outcome back. Second move is to add a one-shot integrity probe that flags any task with <i>archived_at IS NOT NULL AND status &ne; cancelled</i> as a data-integrity defect, the same shape that contaminated the four predecessor strategic-pass crons until this fire cleaned them. The probe runs nightly under the scheduling family.</p>
+
+    <p class="section-label">Two &middot; factoryBridge to dead deepseek queue &middot; row d6489696 &middot; P1</p>
+
+    <p>The disk fix shipped as commit d6002d5f but never reached the running ecodia-api on the VPS, because the deploy pipeline does not include a restart on a doctrine-only or service-only file change. The autopsy reads that kg-consolidation watermark stayed pinned at 2026-05-19T01:31, every Claude call in the background pipeline timed out at five minutes, and the combined.log filled with the same signature for another week. The pattern <i>dispatcher-fix-on-disk-does-not-equal-fix-in-running-process</i> already calls this exact failure out; the failure is that we still trusted the ship.</p>
+
+    <p>Pre-planned response. Conductor requests an ecodia-api restart through <i>pending_restart_requests</i>, then re-triggers <i>kg_consolidation</i> via the worker route and watches combined.log for absence of the five-minute timeout signature. Watermark advancing past 2026-05-19 within ninety seconds is the discriminating probe. If the restart is not enough, the bridge is wired to another live consumer, not retried against the dead queue.</p>
+
+    <p class="section-label">Three &middot; revenue pipeline health &middot; row d9aa0aa8 &middot; P2</p>
+
+    <p>The autopsy is that Cofound checkout stayed at <i>mailto:code@ecodia.au</i> for the second seven-day window, that Xero stayed disconnected for the nineteenth day because the Custom Connection scopes are still stripped, and that the 41 categorised-and-posted rows queued behind the broken sync grew to whatever number the week of trading added. Cash runway sat at 0.1 months at week-open, and a fortnight at 0.1 months is the failure even if no other clock catches us. The week of trading is a clock.</p>
+
+    <p>Pre-planned response. The Stripe payment-link side is unblocked already; the conductor commits the cofound-page CTA swap directly on EcodiaAU/EcodiaSite, watches Vercel to READY, and visual-verifies on the live URL. Xero is a Tate-gated re-grant of the seven scopes in developer.xero.com; the brief is staged on disk under <i>docs/secrets/xero-code-login.md</i> and the sync runs as soon as scopes return. A failure of either path is escalated to sms-tate with one specific click as the ask, not a status update.</p>
+
+    <p class="section-label">Four &middot; cross-app testing harness &middot; row 81772528 &middot; P2</p>
+
+    <p>Android multi-instance shipped and held this week. The autopsy is that iOS sim isolation was never ported, that one app release went out without flow-walked verification because the sibling chat could not boot a clean sim without colliding with the conductor's, and that the release failed on a regression the harness would have caught in fifteen seconds. The Android primitive already proves the pattern; the failure is that we waited for a clean Sunday to copy it across.</p>
+
+    <p>Pre-planned response. The iOS port is a single shape change to <i>lib/boot-simulators.sh</i> and a pool-builder for <i>~/Library/Developer/CoreSimulator/Devices</i>. A worker dispatch with a verify gate that boots the cloned sim, opens the bundled app, and round-trips through the canonical flow closes the loop in under an hour. The same dispatch lifts the matching primitives into Coexist, Glovebox, and Goodreach in one pass.</p>
+
+    <p class="section-label">Five &middot; nine unapplied DB migrations 131-141 &middot; row 1eb8f1f0 &middot; P2</p>
+
+    <p>Migrations 134 and 135 applied in-arc this week; nine others sit on disk and have not run against the canonical Postgres. The autopsy reads that a downstream consumer reaches for <i>case_files</i> or <i>thread_log</i> next week, finds the table missing, fails silently because the consumer was shipped without a schema preflight, and the conductor narrates success while the substrate-side is empty. The pattern <i>migrations-must-run-on-deploy-not-just-ship</i> exists; the failure is that the deploy pipeline still does not run <i>npm run migrate</i>.</p>
+
+    <p>Pre-planned response. <i>cd backend &amp;&amp; npm run migrate</i> against the canonical Postgres runs to completion under the conductor; each target gets <i>to_regclass</i> probed and the result written to status_board. If <i>npm run migrate</i> trips on a recorded-vs-not-recorded mismatch on migration 138, the fix is a hand-stamped <i>_migrations</i> insert, not a destructive re-run. The deploy pipeline is then extended to chain <i>git pull &rarr; npm run migrate &rarr; pm2 restart</i>, with the migrate step soft-failing only if zero new files were found.</p>
+
+    <p class="section-label">Common shape across the five</p>
+
+    <p>Three of the five share one substrate failure mode: the ship and the deployed state diverged silently. The fix ships, the narrative reports success, and the discriminating probe was either skipped or built against the wrong path. The doctrine <i>verify-deployed-state-against-narrated-state</i> names this exactly; the M1 claim-binding hook is the structural backstop, and every fire under this pre-mortem assumes the M1 gate must pass before the row can move.</p>
+
+    <p>The remaining two share a different shape: a primitive is built well, holds in one place, and is not lifted to where the same shape would close the loop elsewhere. The harness wins on Android and waits on iOS. The cron-fleet dedupe wins on names but did not propagate to the archived-but-status-active drift the meta-audit surfaced. The discipline is to lift sooner.</p>
+
+    <blockquote>Every failure rehearsed today is one the response is already written for.</blockquote>
+
+  </main>
+
+  <footer>
+    Weekly pre-mortem &middot; EcodiaOS &middot; 9 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

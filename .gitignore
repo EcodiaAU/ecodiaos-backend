@@ -44,3 +44,4 @@ tmp*
 # that get cleaned up on clean DB close and leak runtime PIDs/positions otherwise.
 *.sqlite-shm
 *.sqlite-wal
+drafts/_shots/

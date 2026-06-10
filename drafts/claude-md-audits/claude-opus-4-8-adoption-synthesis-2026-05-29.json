@@ -1,0 +1,810 @@
+{
+  "research_count": 8,
+  "research": [
+    {
+      "feature": "Dynamic Workflows in Claude Code (research preview, shipped 2026-05-28 with Claude Opus 4.8)",
+      "summary": "Dynamic workflows let Claude Code orchestrate large fleets of subagents from a JavaScript script that Claude writes for the task and the runtime executes in the background while the chat session stays responsive. The script holds the loop, branching, and intermediate state in plain script variables instead of in Claude's context window, so the model only sees the final synthesized answer. Workflows are designed for codebase-wide bug sweeps, 500-file migrations, multi-angle research with cross-checked sources, and \"draft a hard plan from N independent angles\" patterns - including adversarial review where one agent tries to refute another's findings before they're folded in. Shipped 28 May 2026 alongside Opus 4.8 as a research preview, requires Claude Code v2.1.154+, and runs on every paid plan (Pro toggle-gated in /config, Max+Team on by default, Enterprise admin-gated). Hard runtime caps: 16 concurrent agents, 1,000 agents per run.",
+      "key_capabilities": [
+        "Three invocation paths: (a) include the literal word 'workflow' anywhere in the prompt (Claude Code highlights it; alt+w cancels the trigger), (b) run a bundled command like /deep-research, (c) /effort ultracode which combines xhigh reasoning effort with automatic workflow planning on every substantive task.",
+        "Claude writes a JavaScript orchestration script per task; the runtime executes it in an isolated environment, separate from the conversation. Intermediate results live in script variables, not in Claude's context window - the chat only receives the final answer.",
+        "Built-in /deep-research workflow fans out web searches across angles, fetches and cross-checks sources, votes on each claim, and returns a cited report with claims that failed cross-check filtered out (requires WebSearch tool available).",
+        "Background execution with a /workflows progress view: phase list with agent counts, token totals, elapsed time; key bindings p (pause/resume), x (stop agent or whole run), r (restart agent), s (save run's script as a reusable /<name> command), arrows + Enter to drill into individual agent prompts/tool calls/results.",
+        "Save-as-command: pressing s in /workflows persists the script to .claude/workflows/ (project, shared via repo) or ~/.claude/workflows/ (personal, every project). Saved workflows appear in / autocomplete; project beats personal on name collision.",
+        "Adversarial / convergence aggregation: workflows can dispatch independent agents against the same problem and have other agents try to refute findings, iterating until answers converge - the quality pattern, not just the parallelism, is the differentiator vs raw subagent fanout.",
+        "Resume-within-session: completed agents return cached results on resume; only the unfinished ones re-run. Resume works only within the same Claude Code session - exiting Claude Code restarts the workflow fresh.",
+        "Approval surface: CLI prompts before each run showing the planned phases with Yes / Yes-and-don't-ask-again-for-this-workflow-in-this-project / View raw script / No. Ctrl+G opens the script in your editor; Tab lets you edit the prompt before launch. Auto mode prompts only on first launch; bypass/headless/Agent-SDK never prompt.",
+        "Subagent permission semantics: workflow subagents ALWAYS run in acceptEdits mode and inherit the user's tool allowlist regardless of the session's permission mode. File edits auto-approve. Shell, web fetch, and non-allowlisted MCP can still prompt mid-run.",
+        "Disable surfaces: toggle Dynamic workflows off in /config (session-persistent), set disableWorkflows: true in ~/.claude/settings.json, or set CLAUDE_CODE_DISABLE_WORKFLOWS=1. Organization-wide via managed settings or the Claude Code admin settings page. When off, /deep-research disappears, the 'workflow' keyword stops triggering, and ultracode is removed from /effort."
+      ],
+      "pricing_or_limits": {
+        "release_date": "2026-05-28",
+        "research_preview": true,
+        "min_claude_code_version": "2.1.154",
+        "concurrent_agents_per_run": 16,
+        "concurrent_agents_caveat": "fewer on machines with limited CPU cores - cap is local-resource-bounded",
+        "total_agents_per_run": 1000,
+        "total_agents_purpose": "prevents runaway loops",
+        "plan_availability": {
+          "pro": "available, OFF by default - toggle on in /config under Dynamic workflows row",
+          "max": "available, ON by default",
+          "team": "available, ON by default",
+          "enterprise": "available, OFF by default at launch - admin enables via managed settings"
+        },
+        "providers": "Anthropic API, Amazon Bedrock, Google Cloud Vertex AI, Microsoft Foundry - all paid plans",
+        "surfaces": "CLI, Desktop app, IDE extensions (VS Code etc.), non-interactive (claude -p), Agent SDK",
+        "token_billing": "Runs count toward the user's plan usage and rate limits like any other session. All subagent tokens are the user's tokens - no separate pool. Every agent uses the session's model unless the script routes a stage to a different one. /model check before a large run is the recommended cost-control.",
+        "cost_warning": "A single run can use 'meaningfully more tokens than working through the same task in conversation' - the docs and Desktop approval card both surface a token-usage caution.",
+        "fast_mode_pairing": "Opus 4.8 fast mode is 3x cheaper than Opus 4.7's fast mode at the same 2.5x output-token-speed; drawn from usage credits not plan allocation; toggled by /fast, marked with the ↯ icon - separately useful inside workflow runs to cut subagent cost."
+      },
+      "invocation": {
+        "natural_language_trigger": "Include the word 'workflow' anywhere in your prompt - Claude Code highlights it and Claude writes a script instead of working turn-by-turn. Example: 'Run a workflow to audit every API endpoint under src/routes/ for missing auth checks'. Press alt+w to cancel the trigger on a false-positive highlight.",
+        "ultracode_mode": "/effort ultracode - combines xhigh reasoning with automatic workflow orchestration on every substantive task in the session. Lasts the session, resets on new session. Drop back with /effort high. Only available on models that support xhigh (Opus 4.8 and similar).",
+        "bundled_command": "/deep-research <question> - fans out web searches across angles, cross-checks sources, votes per claim, returns cited report. Requires WebSearch tool to be available.",
+        "manage_runs_view": "/workflows - lists running and completed runs; arrows + Enter drill into phases and individual agents; footer keys p/x/r/s for pause/stop/restart/save.",
+        "save_as_command": "From /workflows select run, press s, Tab toggles between .claude/workflows/ (project) and ~/.claude/workflows/ (personal); Enter saves; future use as /<name>.",
+        "config_keys": {
+          "settings_json": "\"disableWorkflows\": true in ~/.claude/settings.json or in server-managed settings to kill org-wide",
+          "env_var": "CLAUDE_CODE_DISABLE_WORKFLOWS=1",
+          "config_toggle": "/config has a 'Dynamic workflows' row (especially relevant for Pro turn-on)"
+        },
+        "headless_semantics": "claude -p and Agent SDK never show the approval prompt - tool calls follow configured permission rules without interactive confirmation. Same disable settings apply.",
+        "sample_prompts": [
+          "Run a workflow to audit every API endpoint under src/routes/ for missing auth checks",
+          "/deep-research What changed in the Node.js permission model between v20 and v22?",
+          "Codebase-wide bug sweep across patterns/",
+          "500-file migration from <pattern A> to <pattern B>",
+          "Draft a plan from several independent angles before committing"
+        ]
+      },
+      "gotchas": [
+        "1,000-agent and 16-concurrent caps are runtime-enforced - no override flag documented. Large refactors with >1000 candidate sites need partitioning across multiple runs.",
+        "Resume is intra-session only. Exit Claude Code mid-run and the next session starts the workflow fresh - completed work in script variables is lost. Don't close the CLI on a hours-long migration run.",
+        "Token consumption is meaningfully higher than chat - both docs and the Desktop approval card flag this. A single ultracode session can turn one user request into several workflows back-to-back (understand -> change -> verify), multiplying spend.",
+        "Subagent permission mode is forced to acceptEdits regardless of the parent session's permission mode. If you're running in default/accept-edits and assume Claude will prompt before file writes inside the workflow, it won't - files auto-edit. Shell/WebFetch/non-allowlisted MCP can still prompt mid-run, so add what agents need to allowlist before starting a long run.",
+        "Pro plan is gated OFF by default - users on Pro need to flip the /config toggle before the keyword triggers or /deep-research appears. Enterprise is also OFF by default; admins toggle via managed settings.",
+        "No mid-run user input is possible. Only agent permission prompts can pause a run - if you want sign-off between stages, run each stage as its own workflow.",
+        "The workflow script itself has no direct filesystem or shell access - only the subagents do. The script only coordinates. Authors trying to put logic in the script that needs to read files must dispatch a subagent for it.",
+        "Every subagent uses the session's model unless the script routes a stage to a different one. /model before launch is recommended; otherwise an Opus 4.8 session can drive 1000 Opus 4.8 subagents.",
+        "Requires Claude Code v2.1.154+. Older installs silently lack the feature - upgrade before assuming workflows exist.",
+        "The 'workflow' keyword can false-positive trigger when the word appears in the prompt incidentally - alt+w on the input line cancels the trigger for that prompt.",
+        "Bundled /deep-research needs the WebSearch tool available - in sandboxed/restricted environments where WebSearch is denied, /deep-research is non-functional.",
+        "Project workflow beats personal workflow on name collision in /<name> autocomplete - watch for shadowed commands when you save the same name in both locations.",
+        "Workflows are a research preview - shape can change. Persist any reliance on shape (e.g., scripts saved to .claude/workflows/) on the understanding that the runtime may evolve."
+      ],
+      "overlap_with_ecodiaos": "\"Massive direct overlap with the cowork.dispatch_worker / coord-bus 0th-class parallelism reflex (patterns/dispatch-worker-is-0th-class-coord-primitive-2026-05-18.md). Anthropic has now shipped a first-class fleet-of-subagents primitive that sits inside one Claude Code session, with the same problem shape EcodiaOS solved by spawning VS Code chat tabs via Ctrl+Alt+Shift+C and coordinating via 8 coord.* MCP tools on localhost:7456. The workflow runtime holds the loop and intermediate state in script variables - structurally identical to the working_set table holding fork status, just in-process. Adversarial cross-check / convergence aggregation overlaps with outcomeVerificationService (verify.verify, narrated-success-is-not-real-success) - workflows ship that doctrine as a runtime feature. Plan-as-code overlaps with the scheduler.delayed/cron self-scheduling reflex (full-context prompt as the unit of work that future-me executes). The 16-concurrent / 1000-total caps are TIGHTER than EcodiaOS's current dispatch_worker (no explicit cap, throttled by available VS Code tab handles + coord bus throughput). Direct candidates for swap-out: (1) dispatch-worker fleets that fit in one session (codebase-wide audit, migration sweep, gap-find audit, doctrine corpus health check, pattern-corpus-health-check cron) - workflows are the better primitive because no tab management, no coord.close_my_tab maintenance half, no IDE memory pressure, resumable in-session. (2) /deep-research replaces the bespoke deep-research routine pattern when WebSearch is the right substrate. (3) /effort ultracode collapses the 'is this work big enough to fork' decision into the runtime. Direct ANTI-overlap (keep dispatch_worker): (a) multi-day work that spans sessions - workflows die on session exit, dispatch_worker survives via worktree + status_board, (b) work that needs the conductor's continuous judgement on intermediate results, (c) cross-conductor work where iOS/voice conductors also need to act, (d) anything where Tate's continuous chat presence is needed during the run. The pm2-restart hard-stop tripwire stays load-bearing - workflows run inside the IDE session, not on the VPS substrate. Strong candidate to author pattern: 'when-to-reach-for-anthropic-workflows-vs-dispatch-worker' codifying the in-session-vs-cross-session split. Pairs with use-anthropic-existing-tools-before-building-parallel-infrastructure.md - the next time EcodiaOS extends cowork.dispatch_worker, check if the work fits inside a workflow first.\"",
+      "sources": [
+        "https://claude.com/blog/introducing-dynamic-workflows-in-claude-code",
+        "https://code.claude.com/docs/en/workflows",
+        "https://code.claude.com/docs/en/whats-new",
+        "https://www.marktechpost.com/2026/05/28/anthropic-ships-claude-opus-4-8-alongside-dynamic-workflows-and-cheaper-fast-mode-with-workflows-capped-at-1000-subagents/",
+        "https://thenewstack.io/claude-opus-48-release/",
+        "https://techcrunch.com/2026/05/28/anthropic-releases-opus-4-8-with-new-dynamic-workflow-tool/",
+        "https://pasqualepillitteri.it/en/news/3663/claude-code-dynamic-workflows-anthropic-research-preview"
+      ]
+    },
+    {
+      "feature": "/goal command (Claude Code v2.1.139, released May 12, 2026)",
+      "summary": "/goal is a session-scoped slash command in Claude Code that sets a natural-language completion condition. After every assistant turn, a separate small fast model (Haiku by default) reads the condition + transcript so far and returns yes/no + a short reason. On \"no\", Claude is told to start another turn (with the reason as guidance) instead of returning control to the user; on \"yes\" the goal clears and an achieved entry is written to the transcript. Architecturally it is a thin wrapper around a prompt-based Stop hook with a dedicated evaluator model, separating the agent that works from the agent that judges done-ness. It shipped May 12, 2026 alongside agent view and Opus-4.7 fast mode (Week 20 digest, v2.1.139-v2.1.142). It matters because it removes per-turn human prompts for substantial multi-turn work (migrations, design-doc execution, queue drain), pairing naturally with auto mode (which removes per-tool prompts).",
+      "key_capabilities": [
+        "Natural-language condition up to 4,000 characters set with /goal <text>; setting auto-starts a turn with the condition as the directive.",
+        "Per-turn evaluation by a separate small fast model (Haiku default, but whichever provider the session uses); evaluator returns yes/no + short reason that is surfaced in /goal status view, transcript, and fed to Claude as next-turn guidance on 'no'.",
+        "Status indicator '◎ /goal active' with elapsed time; /goal (no arg) shows condition, run time, turns evaluated, current token spend, and last evaluator reason. Cleared with /goal clear (aliases stop/off/reset/none/cancel) or implicitly by /clear.",
+        "Works in interactive TTY, non-interactive headless (-p), desktop app, and Remote Control. Ctrl+C aborts a non-interactive run.",
+        "Persists across session restart: a still-active goal is restored by claude --resume / --continue (condition carries over; turn count, timer, and token-spend baseline reset). Achieved or cleared goals are NOT restored.",
+        "Bounded only by what the user writes into the condition itself (e.g. 'or stop after 20 turns'); no built-in max-iterations, time, or token cap. Claude reports progress against any user-stated clause each turn.",
+        "Evaluator cannot call tools - it judges only what Claude has surfaced in the conversation, so conditions must be provable from Claude's transcript output (e.g. running tests + showing the result, not 'the deployed service is healthy').",
+        "One goal active per session; setting a new goal replaces the existing one."
+      ],
+      "pricing_or_limits": {
+        "plan_gating": "No plan tier mentioned in docs - /goal is a CLI command that ships with Claude Code v2.1.139+ regardless of Pro/Max/Team/Enterprise. Standard token billing applies to both the working model and the evaluator.",
+        "evaluator_cost": "Evaluator tokens billed at the configured small-fast-model rate (Haiku default); docs describe this as 'typically negligible compared to main-turn spend'.",
+        "condition_length": "Up to 4,000 characters.",
+        "iteration_cap": "None enforced. The user must bake any cap into the condition string (e.g. 'or stop after 20 turns'); the evaluator just judges that clause from the transcript.",
+        "time_cap": "None enforced. Same mechanism - user-stated.",
+        "token_cap": "None enforced. /goal status surfaces current spend but does not auto-abort.",
+        "trust_and_hook_gates": "Only runs in workspaces where the trust dialog has been accepted (because the evaluator IS part of the hooks system). Unavailable if disableAllHooks is set at any settings level, or if allowManagedHooksOnly is set in managed settings - command tells you why instead of silently failing.",
+        "one_per_session": "Exactly one goal active per session; new /goal replaces existing."
+      },
+      "invocation": {
+        "set": "/goal <condition>  (e.g. /goal all tests in test/auth pass and the lint step is clean)",
+        "status": "/goal  (no argument; shows condition, runtime, turns, tokens, last evaluator reason)",
+        "clear": "/goal clear  (aliases: stop, off, reset, none, cancel; also implicitly cleared by /clear starting a new conversation)",
+        "headless": "claude -p \"/goal CHANGELOG.md has an entry for every PR merged this week\"  (runs the goal loop to completion in one invocation; Ctrl+C interrupts)",
+        "resume": "claude --resume  or  claude --continue  restores an active goal (timer/turns/tokens reset; achieved or cleared goals not restored)",
+        "surfaces": "Interactive CLI, headless -p, desktop app, Remote Control",
+        "minimum_version": "Claude Code v2.1.139"
+      },
+      "gotchas": [
+        "Evaluator is text-only - it cannot run tools, read files, or hit the network. Conditions must be provable from what Claude has already surfaced in the conversation (e.g. Claude must run the tests AND output the result for 'all tests pass' to be judgeable).",
+        "No built-in iteration / time / token cap. Without an explicit clause like 'or stop after 20 turns' or a token-bound, a poorly-specified condition can loop until session token budget is exhausted. /goal status shows spend but does not abort.",
+        "Disabled in untrusted workspaces and when hooks are disabled (disableAllHooks at any level, or allowManagedHooksOnly in managed settings) because /goal is implemented as a session-scoped prompt-based Stop hook.",
+        "Only one goal per session - setting a new one silently replaces the existing one (no merge, no stack).",
+        "Resume semantics partial: condition carries over with --resume / --continue, but turn count, timer, and token-spend baseline RESET. Cap clauses worded in absolute turns (e.g. 'stop after 20 turns') reset their budget on resume; the user must word the clause relative to wall-clock if absolute bounding matters across resumes.",
+        "Evaluator quality bounded by the small-fast-model. Vague conditions ('the code is good', 'the user is happy') yield vague yes/no judgements. Concrete success-state signals (exit codes, empty queues, file counts, specific test output) work best.",
+        "Interrupt in non-interactive mode is Ctrl+C; in interactive mode you abort the current turn the normal way and use /goal clear to stop the loop. No documented hard kill switch beyond these.",
+        "Auto mode pairs with /goal but is independent. Without auto mode, each tool call still requires per-call permission, which can stall a /goal loop overnight. Standard combination is auto mode + /goal for unattended runs.",
+        "/loop and /goal are NOT equivalent: /loop re-runs on a time interval; /goal re-runs immediately when the previous turn finishes. Pick by what should start the next turn.",
+        "Evaluator runs on whichever provider the session is configured for; if you use a non-Anthropic provider via env vars, the small fast model is that provider's equivalent, not necessarily Haiku."
+      ],
+      "overlap_with_ecodiaos": "\"Heavy overlap with the EcodiaOS scheduler + cowork.dispatch_worker + outcomeVerificationService triad - and worth a deliberate architectural decision rather than blind adoption. Specifically: (1) /goal is a single-session next-turn-starter; cowork.dispatch_worker is cross-process parallelism via fresh VS Code tabs signalling back on the coord bus at localhost:7456 - different axis, complementary not redundant. (2) /goal's per-turn yes/no judge maps almost 1:1 onto outcomeVerificationService - both decide 'is this actually done' separately from the worker, but /goal's judge is transcript-only Haiku while outcomeVerificationService does real probes (status_board, db_row, file_write, neo4j_node). Inside a /goal loop the condition should probably read 'outcomeVerificationService returns verified for <pointer>' so the transcript-judge sees a real probe rather than narrated state - aligns with verify-deployed-state-against-narrated-state.md. (3) The 'no built-in iteration cap' shape collides with our doctrine: cron-fire-must-have-deliverable, fork-recovery-must-probe-deliverables, and 24x7-autonomy-architecture-invariants all assume a bounded action with a verifiable end state. Conditions used with /goal must bake in turn/time caps explicitly. (4) For multi-hour resumable work the existing scheduler.delayed / checkpoint primitive is still the right tool - /goal is for keeping THIS session pushing forward, scheduler.delayed is for waking up later with full context. (5) /goal's evaluator running as a Stop hook lines up cleanly with ~/.claude/hooks/ecodia/ - we already have applied_tag_telemetry.py on Stop and could co-exist, though disableAllHooks would disable /goal entirely. (6) /goal is per-session and resets timer/tokens on --resume - status_board hygiene reflex still needs to fire on the underlying actions. Net: adopt /goal for bounded single-session arcs (lint clean, all tests green, dependency upgrade smoke); keep dispatch_worker for parallel arcs and scheduler.delayed for cross-session arcs; have /goal conditions reference outcomeVerificationService probes rather than transcript narration.\"",
+      "sources": [
+        "https://code.claude.com/docs/en/goal",
+        "https://code.claude.com/docs/en/whats-new",
+        "https://code.claude.com/docs/en/whats-new/2026-w20",
+        "https://explainx.ai/blog/claude-code-goal-command-long-running-agents-2026",
+        "https://venturebeat.com/orchestration/claude-codes-goals-separates-the-agent-that-works-from-the-one-that-decides-its-done",
+        "https://amitray.com/claude-code-goal-command-guide-2026/",
+        "https://medium.com/@jason.croucher/claude-code-goal-a-field-guide-with-games-f6f3b617ce5b"
+      ]
+    },
+    {
+      "feature": "Claude Code Agent View (research preview)",
+      "summary": "Agent view, opened with `claude agents`, is a single TUI dashboard for managing every background Claude Code session on your machine. Each background session is a full Claude Code conversation (not a lightweight worker) hosted by a per-user supervisor process, so sessions keep running without a terminal attached, survive sleep, and auto-resume from on-disk state. It shipped as a research preview in v2.1.139 (Week 20 digest, May 11-15 2026) and is the structural answer to the \"juggling terminal tabs\" pain that previously made multi-session workflows fragile. It matters because it formalises the dispatch-and-attend-only-when-needed loop at the CLI layer - sessions are grouped by state (Working / Needs input / Completed / Ready for review), summarised by a Haiku-class model, and labelled with PR status when they open one. Tate's marketing email referenced the same feature, which is identical to the substrate EcodiaOS already runs via `cowork.dispatch_worker` and the `coord.*` MCP bus.",
+      "key_capabilities": [
+        "Single-screen TUI dashboard listing every background session across all projects (or scoped via `--cwd <path>`), grouped by Needs input / Working / Completed / Ready for review, with per-row icons for state (working/needs-input/idle/completed/failed/stopped) and process liveness (✻ alive, ∙ exited-and-resumable, ✢ /loop sleeping)",
+        "Background dispatch via three entry paths: type prompt in agent view input + Enter; `/bg` or `/background` from inside any running session; `claude --bg \"<prompt>\"` from the shell. `--name`, `--agent`, `--model`, `--effort`, `--permission-mode`, `--add-dir`, `--settings`, `--mcp-config`, `--plugin-dir` flags configure dispatched sessions",
+        "Per-user supervisor process (separate from terminal and agent view) hosts every background session, auto-starts on first dispatch, watches the Claude Code binary on disk and restarts sessions into the new version after auto-update, reconnects across sleep, stops idle non-pinned sessions after ~1h to free resources and respawns from state.json on next interaction",
+        "Peek + reply panel (Space on a row) shows recent output or current question without attaching; Tab fills suggested reply; number keys answer multiple-choice prompts; `!` prefix sends a bash command. Attach (Enter or →) drops into full conversation; ← on empty prompt detaches back to the table",
+        "Per-session git worktree isolation under `.claude/worktrees/` (auto-created when session is in a git repo and not already in a linked worktree) so parallel sessions write to separate trees but read the same checkout. `worktree.bgIsolation: \"none\"` disables it; `WorktreeCreate` hook supports non-git VCS. Deleting a session via Ctrl+X twice removes Claude-created worktrees including uncommitted changes",
+        "Shell management surface: `claude agents [--cwd <path>] [--json]`, `claude attach <id>`, `claude logs <id>`, `claude stop <id>` (alias `claude kill`), `claude respawn <id>` / `claude respawn --all` (pick up updated binary), `claude rm <id>` (keeps dirty worktrees), `claude daemon status` (supervisor health). Session IDs are short, printed on `--bg` dispatch, and persist as directory names under `~/.claude/jobs/<id>/`",
+        "Haiku-class model generates the one-line row summary, refreshed at most every 15s during active work plus once per turn-end, billed and handled under normal data-usage terms via your usual provider. PR-status label colour (yellow/green/purple/grey) reflects checks + review + merge state for sessions that opened pull requests",
+        "Filter syntax in the dispatch input: `a:<name>` (sessions running a subagent), `s:<state>` including `s:blocked` for everything waiting on you, `#<number>` or PR URL (selects existing session on that PR if any). Pin sessions with Ctrl+T to exempt from idle-reaping, Ctrl+S toggles group-by-state vs group-by-directory, Ctrl+R renames, Shift+arrows reorders, Alt+1..9 attaches to session N in current directory"
+      ],
+      "pricing_or_limits": {
+        "plan_gating": "Pro, Max, Team, Enterprise, and Claude API. Pro plan is technically eligible but impractical for parallel use - the 5-hour rolling window was designed for one human at human speed and 5 parallel agents drain it in under an hour. Max 5x ($100/mo) is realistic floor for 3 parallel; Max 20x ($200/mo) for 5-10 parallel.",
+        "billing_model": "No separate agent billing. Each background session draws from subscription quota independently at the same rate as an interactive session - running N agents uses quota roughly N times as fast. Anthropic's stated baseline is ~$13/active-developer-day at 1 session; 5 concurrent agents reach ~$50-130/day. Choosing Sonnet 4.6 over Opus 4.7 cuts ~40% of the bill (Opus emits ~35% more tokens for identical work). Background-session token usage is governed by the same rate-limit and data-usage terms as interactive sessions.",
+        "concurrency": "No documented hard cap on concurrent sessions. Quota and rate limits are the practical ceiling. Older completed sessions fold into a `... N more` row to keep the list readable; failures and PR-opening sessions stay always-visible. Supervisor stops idle non-pinned sessions after ~1h to free memory; under memory pressure it stops idle non-pinned first, then idle pinned.",
+        "version_requirements": "v2.1.139 minimum for `claude agents`. v2.1.141 for `--cwd`. v2.1.142 for dispatch flags `--permission-mode`/`--model`/`--effort`/`--settings`/`--mcp-config`/`--plugin-dir`/`--add-dir`/`--dangerously-skip-permissions`. v2.1.143 for `--allow-dangerously-skip-permissions` and `worktree.bgIsolation`. Earlier versions reject the flags with unknown-option error.",
+        "haiku_summarizer_cost": "Each row summary is one short Haiku-class request, refreshed at most every 15s during active work plus once per turn-end. Billed via your normal provider under standard data-usage terms - not a separate line item but contributes to per-session token consumption.",
+        "deprecation_windows": "Research preview - interface and keyboard shortcuts may change as the feature evolves. No deprecation date announced."
+      },
+      "invocation": {
+        "primary_cli": "claude agents",
+        "open_dashboard_scoped": "claude agents --cwd ~/projects/my-app",
+        "open_dashboard_with_overrides": "claude agents --permission-mode plan --model opus --effort high --settings ./ci-settings.json --add-dir ../shared-lib --mcp-config ./mcp.json --plugin-dir ./plugins",
+        "dispatch_from_shell": "claude --bg \"investigate the flaky SettingsChangeDetector test\"",
+        "dispatch_with_name": "claude --bg --name \"flaky-test-fix\" \"investigate the flaky SettingsChangeDetector test\"",
+        "dispatch_subagent_as_main": "claude --agent code-reviewer --bg \"address review comments on PR 1234\"",
+        "dispatch_shell_job": "claude --bg --exec 'pytest -x'",
+        "background_current_session": "/bg or /background  (alias inside an attached session; pass a prompt to give one more instruction first)",
+        "list_json_for_scripting": "claude agents --json   (emits array with pid, cwd, kind, startedAt, sessionId, name, status)",
+        "shell_management": [
+          "claude attach <id>",
+          "claude logs <id>",
+          "claude stop <id>  (alias: claude kill)",
+          "claude respawn <id>",
+          "claude respawn --all",
+          "claude rm <id>",
+          "claude daemon status"
+        ],
+        "in_view_keyboard": {
+          "navigate": "↑ / ↓",
+          "attach": "Enter or →",
+          "peek_panel": "Space",
+          "dispatch_and_attach": "Shift+Enter",
+          "filter": "type a:<name> | s:<state> | s:blocked | #<pr> | PR URL",
+          "pin": "Ctrl+T",
+          "rename": "Ctrl+R",
+          "group_toggle": "Ctrl+S",
+          "reorder": "Shift+↑ / Shift+↓",
+          "stop_then_delete": "Ctrl+X twice within 2 seconds",
+          "attach_session_1_to_9": "Alt+1 .. Alt+9",
+          "edit_prompt_in_editor": "Ctrl+G",
+          "detach": "← on empty prompt, or Ctrl+Z, or double Ctrl+C",
+          "exit_view": "Esc"
+        },
+        "disable_feature": "Set `disableAgentView: true` in settings, or env var CLAUDE_CODE_DISABLE_AGENT_VIEW=1, or enforce via managed settings",
+        "on_disk_state": {
+          "supervisor_log": "~/.claude/daemon.log",
+          "running_roster": "~/.claude/daemon/roster.json",
+          "per_session_state": "~/.claude/jobs/<id>/state.json",
+          "config_dir_override": "CLAUDE_CONFIG_DIR env var redirects everything and runs an independent supervisor instance"
+        }
+      },
+      "gotchas": [
+        "Background sessions are LOCAL ONLY - they run on your machine, survive sleep (supervisor reconnects on wake), but stop on machine shutdown or restart and re-appear as 'failed' on next open. Recovery is to attach/peek/reply - the supervisor restarts a fresh process from state.json.",
+        "Rate limits apply identically to background sessions - N parallel agents = N times quota burn. Pro plan's 5-hour rolling window is practically unusable for parallel agents; Max 20x is the realistic ceiling for 5-10 concurrent. The Haiku-class summary model refresh also consumes quota (max 1 per 15s per active session plus 1 per turn-end).",
+        "Claude-created worktrees under `.claude/worktrees/` are DELETED with the session when you Ctrl+X twice in agent view - uncommitted changes are lost. `claude rm` from the shell keeps dirty worktrees and prints the path. A worktree you created yourself with `git worktree add` and started the session inside is left in place either way.",
+        "`bypassPermissions` and `auto` permission modes are refused until you've accepted them in one interactive `claude` run first - even via `--dangerously-skip-permissions` on `claude agents` or `claude --bg`. The mode persists across supervisor-triggered process restarts though, so once accepted it stays.",
+        "Backgrounding via `/bg` starts a FRESH process from the saved transcript - running subagents, Monitor tools, and background shell commands do NOT transfer (Claude asks to confirm if any are running). Configuration flags from original launch (`--mcp-config`, `--settings`, `--add-dir`, `--plugin-dir`, `--fallback-model`, `--allow-dangerously-skip-permissions`) DO carry through.",
+        "Outside a git repo and without a `WorktreeCreate` hook configured, parallel sessions write to the same working directory with no isolation - dispatching two sessions editing the same files is a footgun. Either configure the hook for non-git VCS or set `worktree.bgIsolation: \"none\"` explicitly to acknowledge the risk.",
+        "If `claude agents` lists subagents and exits instead of opening the TUI, the environment doesn't support agent view yet (older versions plus Bedrock/Vertex/Foundry connections). Run `claude update`. Also check `disableAgentView` setting and `CLAUDE_CODE_DISABLE_AGENT_VIEW` env var.",
+        "Subagents and agent-teams spawned BY a background session are NOT listed as separate rows in agent view - only top-level sessions appear. Interactive sessions open in other terminals don't appear until backgrounded via `/bg` or `←`.",
+        "Remote Control, `/schedule`, claude.ai MCP connectors, and notification preferences are disabled when `ANTHROPIC_API_KEY`, `apiKeyHelper`, or `ANTHROPIC_AUTH_TOKEN` is set, even alongside a Claude.ai login. Unset the API key to use those features alongside agent view.",
+        "MCP servers: dispatched sessions inherit `--mcp-config` / `--strict-mcp-config` / `--settings` / `--plugin-dir` / `--add-dir` from the `claude agents` invocation (v2.1.142+) and from `/bg`. There's no separate MCP namespace for background sessions - they see the same MCP surface as if you'd run `claude` in that directory with the same flags. MCP stdio servers now receive `CLAUDE_PROJECT_DIR` in env (matching hooks)."
+      ],
+      "overlap_with_ecodiaos": "\"This is the SAME substrate EcodiaOS already runs natively via `cowork.dispatch_worker` + the 8-tool `coord.*` MCP bus on localhost:7456. The Anthropic feature is the official Claude-Code-native analogue of [[dispatch-worker-is-0th-class-coord-primitive-2026-05-18]]. Direct overlaps: (1) `claude --bg \\\"<prompt>\\\"` and `claude agents` dispatch input ≡ `cowork.dispatch_worker` (a workspace-aware spawner of a fresh CC chat tab with brief auto-pasted); (2) the per-user supervisor process ≡ eos-laptop-agent's coord substrate; (3) `~/.claude/jobs/<id>/state.json` + `roster.json` ≡ EcodiaOS coord bus state; (4) peek/reply panel ≡ `coord.read_inbox` + `coord.send_message`; (5) `claude stop <id>` ≡ `coord.signal_done({terminate:true}) + coord.close_my_tab`; (6) per-session git worktrees under `.claude/worktrees/` ≡ [[dispatch-worker-worktree-hygiene-2026-05-26]] worktree-per-fork pattern; (7) Haiku-class row summaries ≡ EcodiaOS observer/status_board scheduler.delayed + cron pattern checking work progress. The Anthropic version is officially supported, ships with the binary, persists across binary auto-update, and reaches Pro/Max/Team/Enterprise users. EcodiaOS substrate adds: cross-machine reach (VPS + Corazon + SY094 via Tailscale), coord bus signal_done semantics with terminate flag, status_board hygiene reflex integration, observer_signals turn-start injection, scheduler.delayed/cron self-scheduling, and outcomeVerificationService probes. Per [[use-anthropic-existing-tools-before-building-parallel-infrastructure]], the dispatch-worker reflex should now consider `claude --bg` as a peer primitive in the EcodiaOS-on-Corazon case where worktree isolation is desirable and the workload is purely Claude-Code-native (no cross-substrate coord.signal_done dependency).\"",
+      "sources": [
+        "https://code.claude.com/docs/en/agent-view",
+        "https://code.claude.com/docs/en/whats-new",
+        "https://code.claude.com/docs/en/whats-new/2026-w20",
+        "https://www.cloudzero.com/blog/claude-code-agents/",
+        "https://pasqualepillitteri.it/en/news/2384/claude-code-agent-view-cli-dashboard-sessions-2026",
+        "https://www.geeky-gadgets.com/claude-code-agent-view-update/",
+        "https://cobusgreyling.medium.com/claude-code-agent-view-703491634ea7",
+        "https://claudefa.st/blog/guide/agents/agent-view",
+        "https://en.ain.ua/2026/05/12/anthropic-launched-agent-view-mode-for-claude-code-this-will-allow-managing-multiple-ai-agents-at-once/"
+      ]
+    },
+    {
+      "feature": "Anthropic security-guidance plugin for Claude Code",
+      "summary": "Anthropic shipped the `security-guidance` plugin to the official Claude Code marketplace on 27-28 May 2026. It is a hooks-only plugin that makes Claude review its own code changes for common vulnerabilities (injection, unsafe deserialization, DOM-XSS, SSRF, weak crypto, auth-bypass) at three layers: a deterministic regex pass on every Edit/Write/NotebookEdit, a background model-backed diff review at Stop (end-of-turn), and a deeper agentic review when Claude runs `git commit` or `git push` through Bash. Internal benchmarks report a 30-40% drop in security comments on PRs from sessions using it. Free, on every plan, but the two model-backed layers spend normal usage budget. Requires Claude Code CLI >= 2.1.144 and Python 3.8+ on PATH.",
+      "key_capabilities": [
+        "Per-edit deterministic pattern scan on PostToolUse(Edit|Write|NotebookEdit) - zero model cost, fires once per pattern per file per session, covers eval/new Function/os.system/child_process.exec/pickle/.innerHTML=/document.write/dangerouslySetInnerHTML/.github/workflows edits",
+        "Background end-of-turn diff review on Stop hook - separate Claude Opus 4.7 call with security-only system prompt, reads up to 30 changed files of git diff captured at UserPromptSubmit, re-prompts the writing Claude with findings; fires at most 3 times in a row",
+        "Deeper agentic commit/push review on PostToolUse(Bash) filtered to `git commit`/`git push` - reads surrounding callers/sanitizers for context, capped at 20 reviews per rolling hour, only fires on Claude-driven commits (shell-escape `!` commits skipped)",
+        "Two additive extension points: `.claude/claude-security-guidance.md` (user/project/project-local, concatenated, 8 KB cap) feeds the model reviews; `.claude/security-patterns.yaml|.yml|.json` adds up to 50 custom regex/substring rules with path globs and exclude_paths",
+        "SessionStart hook bootstraps a per-user venv at `~/.claude/security/` and installs `claude-agent-sdk` (Windows skips the venv and falls back to single-shot review if SDK not importable). Runtime diagnostics at `~/.claude/security/log.txt`",
+        "Per-layer disable via env vars (ENABLE_PATTERN_RULES=0, ENABLE_STOP_REVIEW=0, ENABLE_COMMIT_REVIEW=0, ENABLE_CODE_SECURITY_REVIEW=0, SECURITY_GUIDANCE_DISABLE=1) and per-layer model override (SECURITY_REVIEW_MODEL, SG_AGENTIC_MODEL)"
+      ],
+      "pricing_or_limits": {
+        "plan_gating": "Available on ALL plans (Free, Pro, Max, Team, Enterprise) - no plan gating",
+        "plugin_price": "Free",
+        "model_cost": "Per-edit pattern scan = $0 (no model call). End-of-turn review = ~1 Opus 4.7 call per turn that changes files. Commit review = agentic, may take several Opus 4.7 turns per commit. Both count against normal usage budget like any other Claude request",
+        "default_model": "Claude Opus 4.7 for both model-backed layers",
+        "rate_limits": "End-of-turn review fires at most 3 times in a row before yielding back. Commit/push review capped at 20 per rolling hour. Per-edit warnings deduped: once per pattern per file per session. Diff review reads up to 30 changed files per turn",
+        "guidance_size_cap": "Concatenated claude-security-guidance.md capped at 8 KB. Custom pattern rules capped at 50, each reminder capped at 1 KB",
+        "performance_claim": "30-40% reduction in security-related PR comments in Anthropic internal rollout"
+      },
+      "invocation": {
+        "prerequisites": [
+          "Claude Code CLI >= 2.1.144",
+          "Python 3.8+ on PATH (plugin tries python3, python, py -3 in order)",
+          "Git repo for end-of-turn and commit reviews (per-edit scan works anywhere)",
+          "Network + pip for first-run venv bootstrap at ~/.claude/security/"
+        ],
+        "install_steps": [
+          "Inside a Claude Code session run: /plugin install security-guidance@claude-plugins-official",
+          "If marketplace missing first run: /plugin marketplace add anthropics/claude-plugins-official",
+          "Choose user scope at the prompt (writes to user settings, loads in every new local session)",
+          "Activate without restart: /reload-plugins"
+        ],
+        "alternate_install_per_repo": "Check in .claude/settings.json: {\"enabledPlugins\":{\"security-guidance@claude-plugins-official\":true}} - required for Claude Code on the web (cloud sessions don't inherit user-scoped plugins) and to enable for all clones of a repo",
+        "org_install": "Administrators set enabledPlugins in managed settings to push org-wide",
+        "disable_commands": [
+          "/plugin disable security-guidance@claude-plugins-official",
+          "/plugin uninstall security-guidance@claude-plugins-official",
+          "env SECURITY_GUIDANCE_DISABLE=1 (kill switch without uninstall)"
+        ],
+        "extension_files": {
+          "model_review_guidance": [
+            "~/.claude/claude-security-guidance.md (user scope)",
+            ".claude/claude-security-guidance.md (project, checked in)",
+            ".claude/claude-security-guidance.local.md (project, gitignored)"
+          ],
+          "custom_patterns": [
+            ".claude/security-patterns.yaml",
+            ".claude/security-patterns.yml (needs PyYAML)",
+            ".claude/security-patterns.json (works on any Python)"
+          ]
+        },
+        "hooks_registered": [
+          {
+            "event": "SessionStart",
+            "matcher": "*",
+            "purpose": "Bootstrap ~/.claude/security/ Python venv and install claude-agent-sdk"
+          },
+          {
+            "event": "UserPromptSubmit",
+            "matcher": "*",
+            "purpose": "Capture working-tree baseline for the Stop diff"
+          },
+          {
+            "event": "PostToolUse",
+            "matcher": "Edit|Write|NotebookEdit",
+            "purpose": "Deterministic regex/substring pattern match, appends warning to context, no model call"
+          },
+          {
+            "event": "Stop",
+            "matcher": "*",
+            "purpose": "End-of-turn background diff review (Opus 4.7), re-prompts writing Claude with findings"
+          },
+          {
+            "event": "PostToolUse",
+            "matcher": "Bash (filtered to git commit / git push)",
+            "purpose": "Agentic deeper review with surrounding-code context, background, 20/hr cap"
+          }
+        ],
+        "source": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/security-guidance"
+      },
+      "gotchas": [
+        "Plugin source IS open and inspectable at https://github.com/anthropics/claude-plugins-official/tree/main/plugins/security-guidance - hook bodies, the SDK review prompt, and the built-in pattern list can be read before install. Docs explicitly point at it as a reference example for hooks that fan out to a separate model call",
+        "User-scoped install does NOT carry into Claude Code on the web (those sessions run on Anthropic infra) - must be declared in repo .claude/settings.json enabledPlugins to work in cloud sessions",
+        "End-of-turn and commit reviews silently SKIP outside a git repo. Per-edit pattern scan still works. No error surfaced; check ~/.claude/security/log.txt",
+        "Commit review only fires on commits Claude makes through its own Bash tool. Commits Tate runs from his own shell or via the `!` shell escape inside a session are NOT reviewed",
+        "Reviews never block writes or commits - findings reach Claude as instructions, Claude may or may not address them, review model can miss issues. Defense-in-depth layer, not a gate. For hard enforcement pair with a blocking PreToolUse hook or CI",
+        "Built-in checks CANNOT be disabled individually - only the whole layer (pattern / stop / commit / all-model). Guidance files are ADDITIVE only; you cannot write a rule that suppresses a finding class",
+        "On Windows the venv step is skipped. If claude-agent-sdk is not importable, the agentic commit review degrades to a single-shot review. Same single-shot fallback on Linux/Mac when pip install fails",
+        ".yaml/.yml pattern files require PyYAML which the plugin does NOT install. If PyYAML missing, file is silently ignored - use .json form for portability",
+        "Glob paths in custom patterns match against the FULL file path - prefix project-relative globs with `**/` or they will silently miss",
+        "Regexes prone to catastrophic backtracking are silently skipped during the 50-rule load",
+        "If a project's settings.json force-enables the plugin via enabledPlugins, /plugin disable writes the override to .claude/settings.local.json (gitignored), not the checked-in file - teammates stay enabled. Managed settings can only be disabled by an admin",
+        "If the same Anthropic session has no auth, the model-backed layers silently skip - only the per-edit string match runs. Symptom: pattern warnings appear but no end-of-turn or commit findings ever land",
+        "Does NOT register a SAST taxonomy or claim OWASP Top-10 coverage explicitly - third-party reporting cites ~25 high-risk classes including SQLi, command injection, XSS, hardcoded secrets, insecure deserialization, improper input validation. Language coverage is implicit via regex patterns + LLM review; no per-language ruleset"
+      ],
+      "overlap_with_ecodiaos": "\"Heavy overlap with EcodiaOS's existing ~/.claude/hooks/ecodia/ stack and Cline DR substrate. (1) Hook event collisions: we already run PostToolUse on Edit|Write|MultiEdit|NotebookEdit (em-dash detector, ecodiaos-voice-postwrite-check, cred-mention-surface, anthropic-first-check, haiku-semantic-review, status_board_hygiene, chrome-cdp-launch-surface, ecodia-doc-aesthetic-surface, doctrine-edit-cross-ref-surface) and PostToolUse on Bash (status_board_hygiene, pm2_restart_guard PreToolUse, chrome-cdp-launch-surface). Claude Code hook system composes - both ours and the plugin's run; conflict semantics are co-existence not override, but the plugin appends warnings to context the same way our [CONTEXT-SURFACE WARN] / [STATUS-BOARD-HYGIENE] lines do, so noise compounds. (2) Stop event: we have applied_tag_telemetry.py on Stop already - plugin adds a heavier Stop handler that spawns a background SDK call. No direct conflict (Stop runs all registered hooks) but doubles Stop-event work per turn. (3) Voice surface: PreToolUse / PostToolUse voice scorer already gates Write/Edit on doctrine paths - plugin only PostToolUse pattern-scans; no voice/em-dash conflict, the two are orthogonal. (4) doctrine: per `~/ecodiaos/patterns/anthropic-first-check.md` + use-anthropic-existing-tools-before-building-parallel-infrastructure, this plugin IS the kind of substrate we should adopt rather than build a parallel `security-hook.sh`. (5) ENABLE_CODE_SECURITY_REVIEW=0 + ENABLE_PATTERN_RULES=1 is a likely starting posture - get the free deterministic layer, hold off on Opus 4.7 spend until we observe noise rate against existing hook stack. (6) Cline DR fallback: AGENTS.md needs an entry noting Cline does not run plugin hooks, so security-guidance pattern coverage only exists under Claude Code, not under Cline+DeepSeek failover. (7) Repo-level enabledPlugins entry in .claude/settings.json is the right install vector for client repos (coexist, roam, chambers, goodreach) so the plugin loads for any dispatched worker tab cloning those repos, NOT just user-scope on Corazon.\"",
+      "sources": [
+        "https://code.claude.com/docs/en/security-guidance",
+        "https://code.claude.com/docs/en/plugins",
+        "https://code.claude.com/docs/en/whats-new",
+        "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/security-guidance",
+        "https://www.helpnetsecurity.com/2026/05/27/anthropic-claude-code-security-guidance-plugin/",
+        "https://www.securityweek.com/anthropic-releases-new-claude-sandbox-security-guidance-plugin/",
+        "https://cybersecuritynews.com/free-security-plugin-for-claude-code/",
+        "https://cryptobriefing.com/anthropic-security-guidance-plugin-claude-code/",
+        "https://www.explainx.ai/blog/claude-code-security-guidance-plugin-2026"
+      ]
+    },
+    {
+      "feature": "Claude Opus 4.8 + Fast mode (announced 2026-05-28)",
+      "summary": "Claude Opus 4.8 launched 28 May 2026 as Anthropic's most capable generally available model, succeeding Opus 4.7 at the same headline price ($5/$25 per MTok) with measurable gains in agentic coding (88.6% SWE-bench Verified, 69.2% SWE-bench Pro, 74.6% Terminal-Bench 2.1), long-context coherence, and honesty (the model is roughly 4x less likely than Opus 4.7 to leave its own coding flaws unremarked). The release adds mid-conversation system messages (preserving cache hits across long agentic loops), publicly documented refusal stop_details, a lowered 1,024-token prompt-cache minimum, and a high effort default across API and Claude Code. Fast mode for Opus 4.8 ships as a research preview at $10/$50 per MTok (2x standard, ~2.5x faster output token generation, ~3x cheaper than the prior Opus 4.7/4.6 Fast mode rate of $30/$150); Fast mode on Opus 4.6 is deprecated and will be removed about 30 days after launch (around 27-29 June 2026). There are no breaking API changes vs Opus 4.7; the model is a drop-in for code already running on 4.7.",
+      "key_capabilities": [
+        "Long-horizon agentic coding: 88.6% SWE-bench Verified (up from 87.6% on 4.7), 69.2% SWE-bench Pro (vs 64.3% on 4.7, 58.6% on GPT-5.5), 74.6% Terminal-Bench 2.1, 93.6% GPQA Diamond, 1890 Elo on GDPval-AA, 84% Online-Mind2Web, first model past 10% all-pass on the Legal Agent Benchmark",
+        "Honesty / self-critique: ~4x less likely than Opus 4.7 to allow flaws in its own generated code to pass unremarked; positioned as Anthropic's most-honest GA model, near Mythos-preview alignment levels",
+        "Mid-conversation system messages: role:\"system\" turns accepted in the messages array after a user turn, no beta header. Lets agentic loops append updated instructions without rebuilding history, preserving prompt-cache hits on earlier turns and cutting input cost",
+        "Lower prompt-cache minimum: 1,024-token floor (down from 4.7's higher threshold) so short prompts now cache with zero code change",
+        "Effort default = high on every surface (API, Claude Code); xhigh recommended for coding/agentic; effort levels recalibrated vs 4.7 (medium thinks more, high a bit less, xhigh substantially more)",
+        "Fewer wasted thinking tokens via adaptive thinking that decides per-turn, better tool triggering (less tool-call skipping than 4.7), better compaction handling and post-compaction recovery on long traces",
+        "Refusal stop_details object publicly documented: category-level refusal classification on top of the refusal stop reason, no beta header, no opt-out",
+        "Fast mode (research preview): speed:\"fast\" on the Messages API or /fast in Claude Code (v2.1.36+), identical model quality, ~2.5x faster output tokens/sec, flat across the full 1M context, supported on Opus 4.8/4.7/4.6 only",
+        "1M token context window default with no beta header and no long-context premium on Claude API, Bedrock, Vertex; Microsoft Foundry capped at 200k at launch",
+        "128k synchronous max output, 300k on the Message Batches API via the output-300k-2026-03-24 beta header"
+      ],
+      "pricing_or_limits": {
+        "opus_4_8_standard": {
+          "input_per_mtok_usd": 5,
+          "output_per_mtok_usd": 25
+        },
+        "opus_4_8_fast_mode": {
+          "input_per_mtok_usd": 10,
+          "output_per_mtok_usd": 50,
+          "multiplier_vs_standard": "2x",
+          "speed_uplift": "~2.5x output tokens/sec",
+          "vs_previous_fast_mode": "~3x cheaper than the $30/$150 Fast rate on Opus 4.7/4.6",
+          "flat_across_full_1m_context": true,
+          "research_preview": true
+        },
+        "opus_4_7_fast_mode": {
+          "input_per_mtok_usd": 30,
+          "output_per_mtok_usd": 150,
+          "still_available": true
+        },
+        "opus_4_6_fast_mode": {
+          "input_per_mtok_usd": 30,
+          "output_per_mtok_usd": 150,
+          "deprecated": true,
+          "removal_window": "~30 days after Opus 4.8 launch, around 27-29 June 2026",
+          "post_removal_behavior": "Falls back to standard speed at standard pricing"
+        },
+        "batch_api_extended_output": {
+          "max_output_tokens": 300000,
+          "beta_header": "output-300k-2026-03-24",
+          "supported_models": [
+            "opus-4-8",
+            "opus-4-7",
+            "opus-4-6",
+            "sonnet-4-6"
+          ]
+        },
+        "context_window": {
+          "claude_api": "1M tokens default, no beta header, no long-context premium",
+          "aws_bedrock": "1M tokens",
+          "vertex_ai": "1M tokens",
+          "microsoft_foundry": "200k tokens at launch"
+        },
+        "max_output_sync": "128k tokens",
+        "prompt_cache_minimum_tokens": 1024,
+        "knowledge_cutoff_reliable": "Jan 2026",
+        "training_data_cutoff": "Jan 2026",
+        "fast_mode_subscription_billing": "Draws directly from usage credits; not included in subscription rate limits; admin enablement required for Team/Enterprise"
+      },
+      "invocation": {
+        "api_model_id": "claude-opus-4-8",
+        "api_alias": "claude-opus-4-8",
+        "aws_bedrock_id": "us.anthropic.claude-opus-4-8",
+        "claude_platform_on_aws_id": "claude-opus-4-8",
+        "vertex_ai_id": "claude-opus-4-8",
+        "microsoft_foundry_id": "claude-opus-4-8 (200k context cap)",
+        "claude_code_default": "/fast now defaults to Opus 4.8 in v2.1.154+ (Opus 4.7 on v2.1.142-v2.1.153); env override CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1 pins to 4.6 until 4.6 Fast retires",
+        "fast_mode_api_param": "speed: \"fast\" on the Messages API",
+        "fast_mode_claude_code_command": "/fast (tab to toggle); status indicator is ↯ next to prompt; persists across sessions unless fastModePerSessionOptIn is set in managed settings",
+        "fast_mode_disable_env": "CLAUDE_CODE_DISABLE_FAST_MODE=1",
+        "messages_api_minimal_example": "POST /v1/messages with {model:\"claude-opus-4-8\", max_tokens:64000, thinking:{type:\"adaptive\"}, output_config:{effort:\"high\"}, messages:[...]} - no temperature/top_p/top_k, no thinking budget_tokens, no assistant prefill",
+        "mid_conversation_system_format": "Insert {role:\"system\", content:\"updated instructions\"} immediately after a user turn in messages[]; top-level system field still applies from the start",
+        "claude_code_minimum_version": "v2.1.36 for Fast mode, v2.1.154 for Opus 4.8 Fast default"
+      },
+      "gotchas": [
+        "No breaking API changes from Opus 4.7, but if you are jumping from 4.6 or earlier you still need the 4.7 migration: temperature/top_p/top_k all return 400, manual extended-thinking budget_tokens returns 400, assistant-message prefill returns 400, and the new tokenizer uses up to ~1.35x as many tokens for the same text (re-baseline max_tokens)",
+        "Effort levels were recalibrated between 4.7 and 4.8: medium allows somewhat more thinking, high somewhat less, xhigh substantially more. If you tuned an effort level against 4.7 cost or latency, re-baseline at the same level before adjusting",
+        "effort default is now high on every surface including Claude Code. If you relied on the previous default, set effort explicitly. For coding and high-autonomy work the recommendation is xhigh",
+        "Fast mode is NOT available on Amazon Bedrock, Google Vertex AI, Microsoft Azure Foundry, or Claude Platform on AWS - it is Anthropic API and subscription Claude Code only",
+        "Fast mode usage on subscription plans draws from usage credits, not the included plan rate limits; admin must turn on usage credits, and Team/Enterprise must explicitly enable Fast mode for the org (otherwise /fast says \"Fast mode has been disabled by your organization\")",
+        "Toggling Fast mode mid-conversation re-prices the entire context at Fast rates from that point - enable it at session start for cost efficiency",
+        "Fast mode on Opus 4.6 is deprecated and removed ~30 days after launch (around 27-29 June 2026); it then silently falls back to standard speed at standard pricing on 4.6. Migrate to 4.8 (or 4.7) Fast mode before that window",
+        "Microsoft Foundry caps the context window at 200k at launch (vs 1M on Claude API/Bedrock/Vertex). If you depend on the 1M window do not route Foundry traffic to Opus 4.8 yet",
+        "Adaptive thinking is OFF by default on Opus 4.8 (same as 4.7). You must set thinking:{type:\"adaptive\"} explicitly to get reasoning; the default is no-thinking",
+        "Thinking blocks still stream but thinking content is empty by default; opt in with thinking.display:\"summarized\" if you display reasoning to users",
+        "Opus 4.7 added real-time cybersecurity safeguards that can refuse legitimate security work; 4.8 inherits this. Apply to the Cyber Verification Program for pen-test/vuln-research/red-team workloads",
+        "Vision: high-resolution image support inherited from 4.7 (long edge up to 2576 px) means image-heavy workloads can use up to ~3x more tokens per image (cap ~4,784 vs prior ~1,600). Downsample if you don't need the fidelity",
+        "Older Claude Sonnet 4 and Opus 4 (May-2024 snapshots) are deprecated and retire on 15 June 2026 - migrate to Sonnet 4.6 and Opus 4.8 before then",
+        "Fast mode for Opus 4.8/4.7/4.6 shares a single rate-limit pool; hitting it on any one cools down all three"
+      ],
+      "overlap_with_ecodiaos": "\"This release directly affects EcodiaOS substrate in five places, all worth acting on this turn or scheduling against. (1) The Claude Code conductor (Corazon, IDE chat tabs, cowork.dispatch_worker fleet) inherits the new /fast = Opus 4.8 default once VS Code Stable ships Claude Code v2.1.154+. That is a behavioural change to every dispatched worker - 2x cost when /fast is on but 2.5x faster output. Worker briefs that issue /fast for time-critical CDP-driving or shipping arcs need the cost math redone. (2) The post-2026-06-15 Anthropic policy cap of $200/mo/account on programmatic Agent SDK usage is separate from interactive Claude Code + Routines, which stay on subscription rate. Fast mode draws from usage credits not rate limits, so heavy /fast use on tate@/code@/money@ can blow past the $1,020/mo combined sub baseline. The autonomy doctrine should add a Fast-mode cost reflex before Africa (Oct-Dec 2026). (3) Mid-conversation system messages let us update the EcodiaOS Voice profile, status_board hygiene reflex, or active-codebase context mid-loop without rebuilding the full system prompt - meaningful for the long-running cowork dispatcher and meta-loop crons that currently restitch <now>, <doctrine_surface>, <forks_rollup>, <recent_doctrine>, <relevant_memory>, <restart_recovery>, <recent_exchanges>, <last_turn_breadcrumb>. The osSessionService._sendMessage stitcher and the cronForkDispatcher both become candidates for refactor to mid-conversation system turns that preserve prompt cache (status_board hygiene cache, doctrine cache, episode-resurface cache). (4) The 1,024-token cache minimum unlocks caching for the smaller PreToolUse/PostToolUse hook outputs and the cowork worker brief prefix - currently many of those sit just below 4.7's higher minimum and miss the cache. (5) Opus 4.7 patterns referenced in CLAUDE.md, MEMORY.md and the Tate verbatim doctrine corpus that read \\\"Opus 4.7\\\" become drift candidates - the world-model-staleness-needs-active-reconciliation pattern should sweep these. The 4.6 Fast retirement window (~27-29 June 2026) is a status_board P2 candidate now: any worker brief, routine, or hook command that pins Opus 4.6 Fast needs migrating before then or it silently degrades to standard speed/price. cowork.dispatch_worker briefs that hard-code claude-opus-4-7 should be reviewed against the recalibrated effort levels (medium/high/xhigh changed semantics).\"",
+      "sources": [
+        "https://www.anthropic.com/news/claude-opus-4-8",
+        "https://platform.claude.com/docs/en/about-claude/models/overview",
+        "https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8",
+        "https://platform.claude.com/docs/en/about-claude/models/migration-guide",
+        "https://code.claude.com/docs/en/fast-mode",
+        "https://aws.amazon.com/blogs/machine-learning/claude-opus-4-8-is-now-available-on-aws/",
+        "https://llm-stats.com/blog/research/claude-opus-4-8-launch",
+        "https://officechai.com/ai/claude-opus-4-8-benchmarks/",
+        "https://the-decoder.com/anthropic-ships-claude-opus-4-8-as-a-modest-but-tangible-improvement-that-tops-gpt-5-5-in-most-benchmarks/",
+        "https://venturebeat.com/technology/anthropics-claude-opus-4-8-is-here-with-3x-cheaper-fast-mode-and-near-mythos-level-alignment",
+        "https://thenewstack.io/claude-opus-48-release/",
+        "https://techcrunch.com/2026/05/28/anthropic-releases-opus-4-8-with-new-dynamic-workflow-tool/",
+        "https://github.blog/changelog/2026-05-28-claude-opus-4-8-is-generally-available-for-github-copilot/",
+        "https://aws.amazon.com/about-aws/whats-new/2026/05/claude-opus-4.8-aws/"
+      ]
+    },
+    {
+      "feature": "Mid-conversation system messages in the Claude Messages API",
+      "summary": "Anthropic shipped mid-conversation system messages alongside the Claude Opus 4.8 launch on 28 May 2026. The Messages API now accepts entries with `{\"role\": \"system\"}` inside the `messages` array, so an instruction can be added partway through a session with system-level authority but without invalidating the cached prefix that came before it. This closes the long-standing gap where editing the top-level `system` field would change the very start of the hashed request prefix (`tools` → `system` → `messages`) and force a cache miss on every prior turn. The feature is Opus-4.8-only on direct Claude API and Claude Platform on AWS, no beta header; older models (including Opus 4.7) reject the role with HTTP 400. It is the documented substrate for mid-task policy/persona pivots, per-turn authoritative context, tool-results-as-instructions, and standing-consent mode toggles like the published Orchestration Mode worked example.",
+      "key_capabilities": [
+        "Append `{\"role\":\"system\"}` to the `messages` array at the point the new instruction becomes relevant; cached prefix above it stays byte-identical so cache still hits.",
+        "Instructions carry true system-level priority (later system entries take precedence over earlier ones and over the top-level `system` field for turns that follow them) rather than being treated as user data.",
+        "Compatible with prompt-caching: a mid-conversation system message is itself cacheable on subsequent turns; cache breakpoint can be moved past it manually or via automatic caching.",
+        "Supports three documented intents in the orchestration-mode example: Entry (full mode text once), Refresh (short reminder every N turns, default ~10), Exit (one-time notice when the mode is toggled off).",
+        "Eligible for Zero Data Retention (ZDR) when the org has a ZDR arrangement.",
+        "No new SDK surface required: works with the existing `client.messages.create` / `.stream` calls in the Python and TypeScript SDKs and the raw HTTP API; you literally add a `{\"role\":\"system\", \"content\": ...}` dict alongside user/assistant entries."
+      ],
+      "pricing_or_limits": {
+        "cost_model": "No new per-request fee. Billed as ordinary input tokens for the system entry on first send; reads as cached input tokens on subsequent turns once the breakpoint moves past it.",
+        "cache_savings": "Primary value is preserving cache hits on the prior history that an edit to the top-level `system` would have invalidated.",
+        "model_gating": "Claude Opus 4.8 only (claude-opus-4-8). Earlier models, including Opus 4.7, return 400 on `role:system` inside `messages`.",
+        "platform_availability": "Claude API and Claude Platform on AWS. NOT available on Amazon Bedrock, Vertex AI, or Microsoft Foundry.",
+        "beta_header": "None required.",
+        "ordering_limits": "Cannot be the first message in `messages`. Must immediately follow a `user` turn (or an `assistant` turn that ends in a server tool use). Must either be the last entry in `messages` or be followed by an `assistant` turn. Consecutive system messages are not allowed; merge or wait for the next user turn.",
+        "fan_out_warning": "Used as the substrate for orchestration mode, total token cost can reach ~10-15x a single-agent sequential response because main + N subagents all run at xhigh effort."
+      },
+      "invocation": {
+        "api_shape": {
+          "endpoint": "POST /v1/messages",
+          "model": "claude-opus-4-8",
+          "system": "static top-level system prompt (kept stable for cache)",
+          "messages_example": [
+            {
+              "role": "user",
+              "content": "Review process() in utils.py for performance issues."
+            },
+            {
+              "role": "assistant",
+              "content": "..."
+            },
+            {
+              "role": "user",
+              "content": "Now review the calling code that invokes process()."
+            },
+            {
+              "role": "system",
+              "content": "From now on, every suggestion must include explicit type annotations."
+            }
+          ]
+        },
+        "python_sdk": "anthropic.Anthropic().messages.create(model='claude-opus-4-8', system='...', messages=[{'role':'user',...}, {'role':'assistant',...}, {'role':'system','content':'...new authoritative instruction...'}])",
+        "typescript_sdk": "Same shape: append `{ role: 'system', content: '...' }` to the messages array passed to `client.messages.create({...})`.",
+        "cache_pattern": "Put cache_control on the last stable block of either the top-level `system` field, tool definitions, or the prior message history. Append the mid-conversation system entry AFTER that breakpoint so the prefix hash is unchanged. On the next turn the breakpoint can move past the system entry (manually, or via automatic caching) and it reads from cache like any other turn.",
+        "orchestration_mode_recipe": "Send Entry text once when toggling mode on, append a short Refresh entry every ~10 user turns, append a single Exit entry when toggling off. The actual mode behaviour is carried in the Workflow tool's standing-consent description; the mid-conversation system entry is what gives the standing consent system-level authority cheaply."
+      },
+      "gotchas": [
+        "Opus-4.8-only. Sending `role:system` inside `messages` to Opus 4.7 or any earlier Sonnet/Haiku returns HTTP 400. Gate dispatch on model id.",
+        "Cannot be the first entry in `messages`. The first instruction still has to live in the top-level `system` field.",
+        "Strict placement: must immediately follow a user turn (or an assistant turn ending in a server tool use), and must either be the last entry or be followed by an assistant turn. Misplacement returns 400.",
+        "Consecutive system messages are rejected; merge them into one or wait for the next user turn before appending another.",
+        "Do not edit or remove a mid-conversation system entry once sent; mutating earlier history invalidates the cache from that point forward. Append a new system entry to evolve the instruction.",
+        "Not a security boundary. System-role priority does not sanitise untrusted content; jailbreak/prompt-injection mitigations still apply regardless of which role carries the text.",
+        "Not available on Amazon Bedrock, Vertex AI, or Microsoft Foundry. If you abstract across providers, fall back to top-level system edits there.",
+        "Refresher cadence matters: too-frequent (every turn) pollutes context, too-rare (never) lets the model drift off the mode. The published example uses every 10 user turns.",
+        "Caching hierarchy is still `tools` → `system` → `messages`. Changes at any earlier level still invalidate everything after it; the new feature only helps when you would otherwise have edited `system`.",
+        "max_tokens truncation pattern from the orchestration example: pop the truncated assistant turn before continuing, otherwise subsequent turns build on a half-formed response."
+      ],
+      "overlap_with_ecodiaos": "\"Direct, load-bearing overlap with EcodiaOS's continuity-block + observer-signal architecture. Today `osSessionService._sendMessage` stitches `<now>`, `<doctrine_surface>`, `<forks_rollup>`, `<recent_doctrine>`, `<relevant_memory>`, `<restart_recovery>`, `<recent_exchanges>`, `<last_turn_breadcrumb>`, `<working_set>`, and `<observer_signals>` blocks into the USER message channel (with frontend strip-on-render + backend split-into-context-column enforcing they do not leak into chat UI per `tate-facing-context-blocks-must-not-render-to-frontend.md`). With Opus 4.8 this entire pollution-of-the-user-channel pattern can be re-routed: every turn-start continuity block becomes a `{\\\"role\\\":\\\"system\\\"}` entry appended after the latest user turn, giving it true system-level priority (instead of getting argued with as user data), removing the need for frontend strippers, and keeping prompt cache hits on the prior history. Mid-conversation system messages are also the canonical substrate for the `cowork.dispatch_worker` + `coord` pattern's worker briefs and for status_board hygiene reminders that today fire as PostToolUse hook lines. The scheduler.delayed/cron 0th-class reflex from 2026-05-28 can land its 'full context' prompt as a mid-conversation system entry when the future-me wakes, instead of as a user message. The observer trio (Coherence, Action-Audit, Attention-Economy) currently routes to `observer_signals` and surfaces via continuity blocks; on Opus 4.8 they could surface as mid-conversation system messages with proper authority. outcomeVerificationService verdicts and conductorClaimsService lease-status notices similarly belong on the system channel, not on the user channel.\"",
+      "sources": [
+        "https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages",
+        "https://platform.claude.com/docs/en/build-with-claude/prompt-caching",
+        "https://platform.claude.com/docs/en/build-with-claude/mid-conversation-effort-example",
+        "https://releasebot.io/updates/anthropic/claude"
+      ]
+    },
+    {
+      "feature": "Claude Managed Agents - self-hosted sandboxes (public beta) and MCP tunnels (research preview)",
+      "summary": "Anthropic announced two infrastructure features for Claude Managed Agents on 19 May 2026 at Code with Claude London (re-surfaced in the 28 May email digest). Self-hosted sandboxes (public beta) move tool execution from Anthropic-managed cloud containers to a worker process running on your own infrastructure (or a partner: Cloudflare, Daytona, Modal, Vercel), while Anthropic retains the agent loop, context management, and error recovery. MCP tunnels (research preview, waitlisted) let Anthropic reach MCP servers inside a private network via an outbound-only cloudflared connection plus an Anthropic-supplied proxy that terminates inner TLS using a CA you control, so no public Bearer endpoint or inbound firewall hole is needed. Both features sit on the Claude Managed Agents API surface (`anthropic-beta: managed-agents-2026-04-01`) and are independent: a cloud session can use a tunneled MCP server, and a self-hosted session can use public or tunneled MCP servers. Neither feature is currently HIPAA-BAA or ZDR eligible because Managed Agents itself is stateful and excluded; and self-hosted sandboxes are not yet available on Claude Platform on AWS. For EcodiaOS the practical lift is that MCP tunnels could retire the `api.admin.ecodia.au/api/mcp/ecodia-full` public Bearer endpoint for any Managed-Agents-side consumer, while self-hosted sandboxes are mostly redundant with our Corazon laptop-agent + cowork.dispatch_worker substrate.",
+      "key_capabilities": [
+        "Self-hosted sandbox: `environments.create` with `config={type:'self_hosted'}` creates a work queue; an `EnvironmentWorker` (ant CLI or Python/TypeScript/Go SDK) on your infrastructure polls the queue, downloads agent Skills to `/workspace/skills/`, executes bash/read/write/edit/glob/grep tool calls locally, and posts results back. Two architectures: always-on polling worker or webhook-triggered handler (waking on `session.status_run_started`). Container-per-session pattern supported via `--on-work ./spawn.sh` Docker spawn.",
+        "Sandbox filesystem contract: `/workspace` is tool workdir + skills download path; `/mnt/session/outputs` is where the agent writes final outputs (mount a host dir for retrieval). SDK helpers hard-require `/bin/bash` at exact path; TypeScript SDK additionally requires `unzip`, `tar`, Node 22+.",
+        "Partner managed-sandbox providers with first-party guides: Cloudflare (microVMs + isolates + zero-trust secrets), Daytona (long-running stateful sandboxes via SSH), Modal (sub-second container startup), Vercel Sandbox (VPC peering, ms startup). Avoids running your own worker fleet.",
+        "MCP tunnel architecture: customer runs cloudflared + an Anthropic-built proxy (`us-docker.pkg.dev/anthropic-public-registry/images/mcp-proxy`) in their network. cloudflared opens outbound-only to Cloudflare edge (198.41.192.0/19 :7844 TCP+UDP). Proxy terminates inner TLS with a server cert signed by a CA you register in Console. Each MCP server gets `<subdomain>.<tunnel-domain>` (e.g. `docs.abcd1234.tunnel.anthropic.com`). Routes config in `mcp-proxy.yaml`. `upstream.allowed_ips` CIDR is the proxy's SSRF defense.",
+        "Three-layer tunnel security: outer mTLS Anthropic<->Cloudflare with IP validation, inner TLS Anthropic backend<->your proxy (Cloudflare cannot decrypt payloads), OAuth on each MCP server. Anthropic refuses to connect until your CA cert is registered. Cloudflare sees only egress IP, cloudflared host fingerprint, connection timing/volume, and the assigned `*.tunnel.anthropic.com` subdomain.",
+        "Workload Identity Federation supported for programmatic tunnel setup (OIDC issuer + federation rule with `org:manage_tunnels` scope mints short-lived API tokens, auto-registers CA cert). Manual mode supplies tunnel token + CA cert directly. Deploy via Anthropic Helm chart (K8s) or Docker Compose (single VM).",
+        "Tunnels are consumable from both Managed Agents sessions (Console agent picker shows tunneled servers above the public connector catalog) AND the Messages API via the existing MCP connector (`mcp-client-2025-11-20` beta header, just point `mcp_servers[].url` at the tunneled host). Tunnels are NOT available as connectors in claude.ai consumer UI.",
+        "Self-hosted + tunnels compose: a session running in Anthropic cloud containers can still reach private MCP servers through a tunnel, and a self-hosted session can use either tunneled or public MCP servers. Use both when you want execution AND tool access to stay inside your boundary."
+      ],
+      "pricing_or_limits": {
+        "explicit_pricing": "No separate price was disclosed for either feature. Standard Claude Managed Agents per-token billing applies to the model side. Self-hosted sandbox infrastructure cost (your compute) and tunnel transport cost (Cloudflare-side, contracted by Anthropic for the research preview) are not separately metered to customers as of announcement.",
+        "rate_limits": {
+          "managed_agents_create_endpoints": "300 requests per minute per organization",
+          "managed_agents_read_endpoints": "600 requests per minute per organization",
+          "additional": "Org-level spend limits and tier-based Messages-API rate limits also apply."
+        },
+        "access_gating": {
+          "self_hosted_sandboxes": "Public beta. Enabled by default for all Claude API accounts using the `managed-agents-2026-04-01` beta header. No waitlist.",
+          "mcp_tunnels": "Research preview, waitlisted via https://claude.com/form/claude-managed-agents. Provided as-is, no uptime/support/continuity commitment. At least one week's notice for breaking changes.",
+          "platform_gaps": "Self-hosted sandboxes NOT yet available on Claude Platform on AWS. Memory feature NOT yet supported in self-hosted sandboxes. Managed Agents (entire surface) is NOT eligible for Zero Data Retention or HIPAA BAA because sessions are stateful."
+        },
+        "dates": {
+          "announcement": "2026-05-19 at Code with Claude London",
+          "email_digest": "2026-05-28",
+          "beta_header": "managed-agents-2026-04-01",
+          "messages_api_mcp_beta_header": "mcp-client-2025-11-20"
+        }
+      },
+      "invocation": {
+        "create_self_hosted_environment_curl": "curl https://api.anthropic.com/v1/environments -H 'x-api-key: $ANTHROPIC_API_KEY' -H 'anthropic-version: 2023-06-01' -H 'anthropic-beta: managed-agents-2026-04-01' -H 'content-type: application/json' -d '{\"name\":\"self-hosted\",\"config\":{\"type\":\"self_hosted\"}}'",
+        "create_self_hosted_environment_python": "client.beta.environments.create(name='self-hosted', config={'type':'self_hosted'})",
+        "run_worker_cli": "export ANTHROPIC_ENVIRONMENT_KEY=sk-ant-oat01-...; export ANTHROPIC_ENVIRONMENT_ID=env_...; ant beta:worker poll --workdir /workspace",
+        "run_worker_python_sdk": "EnvironmentWorker(client, environment_id=eid, environment_key=ekey, workdir='/workspace').run()  # AsyncAnthropic(auth_token=environment_key)",
+        "container_per_session": "ant beta:worker poll --on-work ./spawn.sh  # spawn.sh runs `docker run -e ANTHROPIC_SESSION_ID -e ANTHROPIC_ENVIRONMENT_KEY -e ANTHROPIC_WORK_ID -e ANTHROPIC_ENVIRONMENT_ID -e ANTHROPIC_BASE_URL -v /host/outputs/$ANTHROPIC_SESSION_ID:/mnt/session/outputs your-image`",
+        "queue_depth_probe": "GET https://api.anthropic.com/v1/environments/$ENV_ID/work/stats -> {depth, pending, oldest_queued_at, workers_polling}. Authenticated with org API key, NOT environment key. Never set ANTHROPIC_API_KEY on a worker host.",
+        "stop_session": "POST https://api.anthropic.com/v1/environments/$ENV_ID/work/$WORK_ID/stop  (body `{\"force\":true}` to interrupt mid-tool-call)",
+        "start_session_targeting_env": "client.beta.sessions.create(agent=agent.id, environment_id=env.id, metadata={'input_file':'s3://...'})",
+        "tunnel_create": "Claude Console > Manage > MCP tunnels > New tunnel. Copy Domain (`<id>.tunnel.anthropic.com`) and Token. Then `openssl req -x509 ... -CN mcp-tunnel-ca` generates CA, sign a server cert for `*.<tunnel-domain>`, upload CA via Console > Add certificate. Status flips to Active.",
+        "tunnel_compose": "Three services: `mcp-proxy` (Anthropic image, mounts mcp-proxy.yaml + data/tls.crt + data/tls.key), `cloudflared` (`tunnel --no-autoupdate run --url http://localhost:8080` with TUNNEL_TOKEN env, `network_mode: service:mcp-proxy`), and your MCP server. Proxy config: `listen_addr: :8080`, `tunnel_domain: ...`, `tls: {cert_file, key_file}`, `routes: {<subdomain>: http://<service>:<port>}`.",
+        "tunnel_consume_messages_api": "POST /v1/messages with `anthropic-beta: mcp-client-2025-11-20`, `mcp_servers:[{type:'url', url:'https://<sub>.<tunnel-domain>/mcp', name:'echo'}]`, `tools:[{type:'mcp_toolset', mcp_server_name:'echo'}]`.",
+        "tunnel_consume_managed_agents": "Console > Managed Agents > Sessions > new session > Create new agent > + MCP Server > pick tunnel from dropdown > set Subdomain + Path.",
+        "form_waitlist": "https://claude.com/form/claude-managed-agents"
+      },
+      "gotchas": [
+        "Managed Agents (whole surface) is NOT ZDR-eligible and NOT HIPAA-BAA-eligible because sessions are stateful. If our compliance posture ever needs ZDR, Managed-Agents-side adoption is blocked at the surface level regardless of self-hosted sandbox.",
+        "Self-hosted sandboxes are NOT available on Claude Platform on AWS yet. If any client lands on AWS-routed Claude, this path is unavailable.",
+        "Memory feature is NOT supported with self-hosted sandboxes. If we use Anthropic's Memory primitive, sessions must stay in cloud containers.",
+        "Setting `ANTHROPIC_API_KEY` on a worker host is a security failure: it exposes an organization-scoped credential to agent tool calls. Workers authenticate with the per-environment key (`sk-ant-oat01-...`), never the org key. The monitoring/stats/stop endpoints DO need the org key and must be called from outside the worker host.",
+        "SDK helpers require `/bin/bash` at exact path, plus TypeScript needs `unzip`, `tar`, Node 22+. These resolve at fixed paths and do not respect `PATH` overrides. Alpine-style minimal images will fail.",
+        "Skills download path is `/workspace/skills/<name>/`. If you change `--workdir`, the agent's system prompt must be updated so Claude finds them. Skill executables: CLI/SDK mark them executable automatically; if you implement skills download manually, you own chmod +x.",
+        "MCP tunnels: depends on a third-party (Cloudflare) with no availability commitment for the transport. Anthropic explicitly reserves the right to modify or discontinue tunnels with one week's notice for breaking changes.",
+        "MCP tunnels are NOT exposed as connectors in claude.ai consumer surface - only Managed Agents sessions in Console and the raw Messages API (with `mcp-client-2025-11-20` beta header) can target a tunnel. So claude.ai Custom Connectors continue to need our existing OAuth wrapper for any consumer-facing flow.",
+        "If an attacker obtains BOTH the tunnel token AND a TLS private key, they can impersonate the proxy and read MCP payloads. Both are high-value secrets - rotation discipline and at-rest secrets management must match.",
+        "Outer mTLS does IP validation against an allowlist - your proxy host's egress IP must fall in the allowed range. Mobile/dynamic-IP deployments will not work.",
+        "Server certificate is short-lived (90 days in the quickstart example). Renewal is the customer's responsibility - missed renewal silently breaks the tunnel.",
+        "The Managed Agents branding rules explicitly forbid calling your product 'Claude Code Agent' or 'Claude Cowork Agent'. If we ever surface Managed-Agents-built things publicly, the naming gate matters.",
+        "The cloudflared subprocess sees connection metadata: egress IP, host fingerprint, byte volume, the `*.tunnel.anthropic.com` subdomain. Anthropic's Cloudflare contract restricts further use but the metadata exists.",
+        "The current EcodiaOS-Cowork V2 MCP at `api.admin.ecodia.au/api/mcp/cowork` is consumed by claude.ai Custom Connectors (OAuth wrapper) and by interactive Claude Code via `.mcp.json`. NEITHER consumer can use MCP tunnels today - tunnels only serve the Managed Agents API and direct Messages API calls. So tunnels do not yet eliminate the public Bearer endpoint for our actual workflow."
+      ],
+      "overlap_with_ecodiaos": "\"Self-hosted sandboxes overlap significantly with our existing cowork.dispatch_worker substrate. The Anthropic primitive provides an Anthropic-orchestrated agent loop with tool execution on our infrastructure - the SAME shape as our dispatched worker tabs running locally in VS Code with hooks at ~/.claude/hooks/ecodia/ and the coord bus at localhost:7456. We have already paid the engineering cost (dispatch_worker MCP tool, coord.* signaling, VS Code Stable Ctrl+Alt+Shift+C spawn) and have richer integration (status_board, working_set, observer_signals, outcomeVerificationService). The Anthropic version would replace our local-IDE dispatch with API-driven session orchestration, which moves us back toward server-side billing and away from the Max 20x subscription rate budget (cost posture per ~/.claude/CLAUDE.md). Per pattern `use-anthropic-existing-tools-before-building-parallel-infrastructure`, we should evaluate whether we are over-investing in dispatch_worker for cases where self-hosted sandboxes would do; per pattern `corazon-vscode-is-my-anatomy`, the IDE-native substrate remains the right primitive for interactive conductor work, and Managed Agents self-hosted is the right primitive only if we ever ship a customer-facing agent product. MCP tunnels overlap with our current `https://api.admin.ecodia.au/api/mcp/{cowork,ecodia-full}` Bearer-protected HTTP gateway. Tunnels would let us retire the public Bearer endpoint FOR Managed-Agents-side consumers only, but our actual consumers (claude.ai Custom Connectors via the OAuth wrapper at /api/oauth/mcp/*, plus interactive Claude Code via .mcp.json) cannot route through tunnels. So tunnels do not eliminate the public Bearer endpoint in our architecture today - the OAuth wrapper at api.admin.ecodia.au stays load-bearing. Tunnels DO open a clean path for any future Managed-Agents-built EcodiaOS service that needs to reach Postgres/Neo4j/kv_store without exposing them. Scheduler.delayed / scheduler.cron are unaffected. The session.status_run_started webhook pattern is essentially the same webhook-fire-shim pattern we already use for inbound-email-handler / stripe-event-handler / vercel-deploy-handler routines.\"",
+      "sources": [
+        "https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes",
+        "https://platform.claude.com/docs/en/agents-and-tools/mcp-tunnels/overview",
+        "https://platform.claude.com/docs/en/agents-and-tools/mcp-tunnels/quickstart",
+        "https://platform.claude.com/docs/en/agents-and-tools/mcp-tunnels/security",
+        "https://platform.claude.com/docs/en/managed-agents/overview",
+        "https://claude.com/blog/claude-managed-agents-updates",
+        "https://claude.com/form/claude-managed-agents",
+        "https://the-decoder.com/anthropic-adds-self-hosted-sandboxes-and-mcp-tunnels-to-claude-managed-agents/",
+        "https://9to5mac.com/2026/05/19/anthropic-enhances-claude-managed-agents-with-two-new-privacy-and-security-features/",
+        "https://thenewstack.io/anthropic-mcp-tunnels-sandboxes/",
+        "https://www.testingcatalog.com/anthropic-launches-new-secure-tools-for-claude-managed-agents/",
+        "https://www.infoq.com/news/2026/05/claude-mcp-tunnels/"
+      ]
+    },
+    {
+      "feature": "May 2026 Claude Code/API surface deltas beyond the headline marketing items (Opus 4.8, Dynamic Workflows, Stainless acquisition, agent view, /goal, fast mode on Opus 4.7, plugins-from-zip-and-URL, MessageDisplay hook, worktree.baseRef, autoMode hard_deny, claude project purge, /reload-skills, claude --from-pr, and the full v2.1.120-v2.1.154 changelog tail)",
+      "summary": "Across May 2026, Anthropic shipped 22 Claude Code point releases (v2.1.120 through v2.1.154) plus Opus 4.8 on May 28. The two flagship items are Claude Opus 4.8 (model id `claude-opus-4-8`, $5/$25 per MTok regular and $10/$50 fast mode, ~4x less likely than 4.7 to let code flaws pass) and Dynamic Workflows research preview (Claude writes a JS orchestration script that fans work across up to 16 concurrent / 1,000 total subagents, scripts have no shell or filesystem access, subagents always run in acceptEdits mode). Underneath those are the weekly primitives the marketing emails skip: `claude agents` unified session dashboard, `/goal` for cross-turn completion conditions, `/fast` defaulting to Opus 4.7, `--plugin-url`/`.zip` plugin loading, `worktree.baseRef`, `autoMode.hard_deny`, a new `MessageDisplay` hook, `/reload-skills`, `claude project purge`, `claude --from-pr`, Windows-without-Git-Bash with PowerShell as primary shell, and ~30 new env vars / config keys. Corporate items: $65B Series H at $965B post-money (May 28), Stainless acquisition (May 18), KPMG alliance (May 19), Milan office (May 27), Korea Representative Director appointed (May 26), Project Glasswing update (May 22).",
+      "key_capabilities": [
+        "Claude Opus 4.8 (May 28, model id `claude-opus-4-8`): $5/$25 per MTok regular, $10/$50 fast; ~4x less likely than 4.7 to let code flaws pass; available on claude.ai, Claude Code (Enterprise/Team/Max), Messages API; defaults to high effort (`/effort xhigh`)",
+        "Dynamic Workflows research preview (May 28): trigger via the word 'workflow' in a prompt; Claude writes a JS orchestration script, spawns up to 16 concurrent and 1,000 total subagents, intermediate results live in script variables (don't saturate context), subagents always run acceptEdits with session-inherited allowlist, no direct shell/filesystem access",
+        "`claude agents` (v2.1.139): unified dashboard for every Claude Code session (running/blocked/done); dispatch flags `--add-dir --settings --mcp-config --plugin-dir --permission-mode --model --effort --dangerously-skip-permissions`; `--cwd <path>` scopes the list",
+        "`/goal` (v2.1.139): set a completion condition, fast model checks after each turn whether it holds; works in interactive, `-p`, and Remote Control; shows live elapsed/turns/tokens overlay",
+        "Fast mode on Opus 4.7 (v2.1.142): `/fast` now defaults to Opus 4.7 (was 4.6); pin to 4.6 with `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1`; fast mode pricing 2x base rate for 2.5x speed",
+        "Plugins from .zip and URLs (v2.1.128-136): `--plugin-dir` accepts `.zip`; new `--plugin-url https://...` fetches an archive for the current session; `claude plugin prune` removes orphaned deps; `claude plugin details <name>` shows component inventory, projected per-session token cost, LSP servers, MCP server count; `claude plugin tag` creates release git tags; plugins can set `defaultEnabled: false` in `plugin.json`",
+        "`MessageDisplay` hook (v2.1.152): transforms or hides assistant message text as displayed (new hook event)",
+        "New hook surface (v2.1.139): `args: string[]` exec form spawns without a shell so path placeholders don't need quoting; `continueOnBlock: true` on `PostToolUse` feeds rejection reason back to Claude and continues the turn; `terminalSequence` field in hook JSON output emits desktop notifications/window titles/bells; hooks see active effort via `effort.level` JSON field and `$CLAUDE_EFFORT` env var; Stop/SubagentStop hooks now receive `background_tasks` and `session_crons`; `SessionStart` hook can return `reloadSkills: true` and `hookSpecificOutput.sessionTitle`; `disallowed-tools` in skills/commands removes tools while active",
+        "`worktree.baseRef` setting (v2.1.133): `fresh` (origin/<default>, the new default) vs `head` (local HEAD); controls `--worktree`, `EnterWorktree`, and agent-isolation worktrees; `worktree.bgIsolation: 'none'` lets background sessions edit working copy directly",
+        "Auto mode hard deny (v2.1.136): `settings.autoMode.hard_deny` blocks matching actions unconditionally regardless of allow exceptions; `$defaults` literal in autoMode allow/soft_deny/environment composes with built-ins",
+        "Windows without Git Bash (v2.1.120): Git for Windows no longer required; PowerShell becomes primary shell when Bash is absent and PowerShell tool enabled; PowerShell 7 from Microsoft Store, MSI-without-PATH, and .NET global tool now auto-detected; `CLAUDE_CODE_USE_POWERSHELL_TOOL=0` to opt out; `CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY=1` to honor the system policy (default is `-ExecutionPolicy Bypass`)",
+        "MCP changes: `alwaysLoad: true` in MCP config opts out of tool-search deferral; MCP stdio servers receive `CLAUDE_PROJECT_DIR`, `CLAUDE_CODE_SESSION_ID`, and `CLAUDECODE=1`; `tools/list` pagination fixed; `.mcp.json` servers no longer auto-approved (shown as `⏸ Pending approval`); `/mcp` shows tool count per server and flags 0-tool servers; `MCP_TOOL_TIMEOUT` now raises per-request fetch timeout for remote MCP; transient startup errors auto-retry up to 3 times; subagent MCP refusals surface visible warning",
+        "`claude ultrareview` non-interactive subcommand (v2.1.120): runs `/ultrareview` from CI/scripts, prints findings to stdout, `--json` for raw, exits 0 on completion or 1 on failure",
+        "`/code-review` and `/simplify` (v2.1.152): `/code-review` reports correctness bugs at chosen effort, `--comment` posts findings as GitHub PR comments; `/simplify` now invokes `/code-review --fix` for reuse/simplification/efficiency cleanups",
+        "`/reload-skills` (v2.1.152): re-scan skill directories without restart; plugins with root-level `SKILL.md` and no `skills/` subdir now surface as a skill (v2.1.142)",
+        "`claude project purge` (v2.1.126): deletes all Claude Code state for a project (transcripts, tasks, file history, config entry); flags `--dry-run`, `-y`/`--yes`, `-i`/`--interactive`, `--all`",
+        "`/resume` by PR URL (v2.1.122): pasting a GitHub/GHE/GitLab/Bitbucket PR/MR URL into `/resume` filters to the session that created the PR; `claude --from-pr 1234` skips the picker; `gh pr create` links the PR to the session that produced it",
+        "`claude auth login` paste-code flow (v2.1.126): accepts OAuth code pasted directly when browser callback can't reach localhost (WSL2, SSH, containers, IPv6-only devcontainers)",
+        "Skill/plugin filtering: `/skills` and `/plugin` got built-in type-to-filter search boxes (v2.1.121); `skillOverrides: 'off'|'user-invocable-only'|'name-only'` managed-settings key (v2.1.129); `pluginSuggestionMarketplaces` allowlist for suggestions; `blockedMarketplaces`/`strictKnownMarketplaces` now enforced on install/update",
+        "Background session lifecycle: pinned sessions stay alive when idle, auto-restart for updates, shed under memory pressure; `--bg` flag; `worktree.bgIsolation` setting; `/resume` supports background sessions; daemon spawn falls back to running binary when launcher missing; stuck blocked/running sessions retire after idle grace period",
+        "Bedrock service tier env var: `ANTHROPIC_BEDROCK_SERVICE_TIER` accepts `default`/`flex`/`priority`, sent as `X-Amzn-Bedrock-Service-Tier`; Vertex now supports X.509 cert-based Workload Identity Federation (mTLS ADC); `ANTHROPIC_WORKSPACE_ID` for workspace-scoped tokens; `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` opts into `/v1/models` discovery from `ANTHROPIC_BASE_URL` gateway",
+        "Misc env vars and config: `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`, `CLAUDE_CODE_FORCE_SYNC_OUTPUT=1`, `CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE` (Homebrew/WinGet background upgrade), `CLAUDE_CODE_PLUGIN_PREFER_HTTPS`, `CLAUDE_CODE_HIDE_CWD`, `DISABLE_UPDATES`, `CLAUDE_CODE_FORK_SUBAGENT=1`, `parentSettingsBehavior` admin key for SDK `managedSettings` policy merge, `wslInheritsWindowsSettings` policy key, `allowAllClaudeAiMcps`, `forceLoginOrgUUID`/`forceLoginMethod` now enforced against third-party and API-key sessions",
+        "Corporate moves: $65B Series H at $965B post-money valuation (May 28), Stainless acquisition for SDK/dev-tools (May 18), KPMG strategic alliance across 276,000-person workforce (May 19), Milan office (May 27), KiYoung Choi as Korea Representative Director (May 26), Project Glasswing update (May 22), Pope Leo XIV encyclical remarks by Chris Olah (May 25)"
+      ],
+      "pricing_or_limits": {
+        "opus_4_8_regular": "$5 per million input tokens / $25 per million output tokens (unchanged from 4.7)",
+        "opus_4_8_fast_mode": "$10 per million input tokens / $50 per million output tokens (2x base rate for 2.5x speed)",
+        "opus_4_7_fast_mode_pricing": "$30 / $150 per MTok per Week 20 digest (note: figures differ between digest and changelog; the changelog states fast mode is 2x base rate)",
+        "dynamic_workflows_concurrent_cap": "16 subagents in concurrent execution (fewer on low-core machines)",
+        "dynamic_workflows_total_cap": "1,000 subagents per workflow execution",
+        "mcp_sse_frame_cap": "16 MB per SSE frame (HTTP/SSE bodies were unbounded before v2.1.139)",
+        "ssl_token_timeout": "API calls now time out after 15s on early startup (was 75s)",
+        "feedback_window": "/feedback can attach recent sessions from last 24 hours or 7 days",
+        "stainless_acquisition_date": "May 18, 2026",
+        "series_h": "$65B raise at $965B post-money valuation, May 28, 2026",
+        "fast_mode_pin_4_6": "CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1 environment variable"
+      },
+      "invocation": {
+        "install_or_upgrade": "Claude Code v2.1.154 ships May 28 2026; native binaries since v2.1.105; check current with `claude --version`; `claude update` (blockable with `DISABLE_UPDATES`)",
+        "agent_view": "`claude agents` (optionally `--cwd <path>`, dispatch flags `--add-dir --settings --mcp-config --plugin-dir --permission-mode --model --effort --dangerously-skip-permissions`)",
+        "goal": "`/goal <completion condition>` inside an interactive session, with `-p`, or via Remote Control",
+        "fast_mode": "`/fast` to toggle; defaults to Opus 4.7 since v2.1.142; pin to 4.6 via `CLAUDE_CODE_OPUS_4_6_FAST_MODE_OVERRIDE=1`",
+        "dynamic_workflows": "Use the word 'workflow' in a prompt; view runs with `/workflows`",
+        "plugin_load_from_url": "`claude --plugin-url https://example.com/my-plugin.zip` or `claude --plugin-dir ./plugin.zip`",
+        "project_purge": "`claude project purge [--dry-run] [-y|--yes] [-i|--interactive] [--all]`",
+        "resume_by_pr": "`/resume` then paste a PR URL into the picker, or `claude --from-pr <number>` to skip the picker",
+        "ultrareview_ci": "`claude ultrareview [--json]` exits 0 on completion / 1 on failure",
+        "code_review_pr_comment": "`/code-review --comment` posts findings as GitHub PR comments; `/simplify` invokes `/code-review --fix`",
+        "reload_skills": "`/reload-skills` or `SessionStart` hook returning `reloadSkills: true`",
+        "auth_paste_code": "`claude auth login` then paste the code shown in the browser into the terminal",
+        "hook_exec_form": "Hook YAML: `args: [\"echo\", \"hello\"]` (no shell) + optional `continueOnBlock: true` + optional `terminalSequence` field in JSON output",
+        "worktree_settings": "settings.json `{\"worktree\": {\"baseRef\": \"fresh|head\", \"bgIsolation\": \"none\"}}`",
+        "auto_mode_hard_deny": "settings.json `{\"autoMode\": {\"allow\": [\"$defaults\", ...], \"hard_deny\": [...], \"soft_deny\": [...]}}`",
+        "mcp_always_load": "MCP server config: `{\"alwaysLoad\": true}` to opt out of tool-search deferral",
+        "plugin_default_disabled": "`plugin.json: {\"defaultEnabled\": false}`; enable later with `/plugin` or `claude plugin enable`"
+      },
+      "gotchas": [
+        "Fast mode pricing inconsistency between sources: the Week 20 digest cites $30/$150 per MTok unchanged from 4.6 fast, while the changelog states fast mode is 2x standard rate (which would be $10/$50 for Opus 4.8). Verify the live `/usage` and pricing page before quoting numbers to a client.",
+        "Dynamic Workflows is research preview only - subagents run in acceptEdits without prompts. Risk profile is different from interactive sessions; the 1,000-agent cap exists specifically to prevent runaway loops.",
+        "Remote Control, `/schedule`, claude.ai MCP connectors, and notification preferences are now DISABLED when `ANTHROPIC_API_KEY`, `apiKeyHelper`, or `ANTHROPIC_AUTH_TOKEN` is set, even alongside a Claude.ai login. Unset the API key to use these features. This breaks any workflow that mixes API-key and OAuth on the same machine.",
+        "`.mcp.json` servers are NO LONGER auto-approved as of v2.1.154 - they show as `⏸ Pending approval`. Any automation that assumed checked-in MCP configs would be live on first run needs a manual approval step or a managed-settings allowlist.",
+        "`worktree.baseRef` default changed mid-month: was local HEAD until v2.1.128, became `fresh` (origin/<default>) afterwards. New worktrees will silently miss unpushed commits unless you set `worktree.baseRef: head`. Affects `--worktree`, `EnterWorktree` tool, and all agent-isolation worktrees.",
+        "Windows: when PowerShell tool is enabled and Bash absent, PowerShell becomes primary shell and runs commands with `-ExecutionPolicy Bypass` by default. Set `CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY=1` to honor system policy, or `CLAUDE_CODE_USE_POWERSHELL_TOOL=0` to disable entirely. Default behavior may violate enterprise policies.",
+        "`--dangerously-skip-permissions` now bypasses prompts for writes to `.claude/`, `.git/`, `.vscode/`, and shell config files (v2.1.126). Previously these were protected paths. Catastrophic removal commands still prompt as a safety net.",
+        "Subprocesses (Bash, hooks, MCP, LSP) no longer inherit `OTEL_*` environment variables (v2.1.128-136). Any OTEL-instrumented apps run via Bash tool will no longer pick up the CLI's OTLP endpoint - may break observability integrations that relied on inheritance.",
+        "`Ctrl+R` reverse-search semantics changed twice: defaulted to current project in v2.1.124, restored to all-projects-default in v2.1.129. Press `Ctrl+S` while searching to narrow to current project/session.",
+        "`/clear` in the VS Code extension now clears both conversation context AND displayed transcript (v2.1.129). Previously these were separable - check any workflow that relied on keeping the transcript visible after clearing context.",
+        "MCP refresh-token concurrency bugs persisted through several v2.1.130-141 releases. Sessions on older builds may dead-end at 401 after parallel refreshes. Upgrade to v2.1.136+ for the refresh-token race fix and v2.1.141+ for the Keychain race fix.",
+        "Opus 4.8 availability gap on Bedrock/Vertex was not stated in the launch post - the announcement covers claude.ai + Claude Code (Enterprise/Team/Max) + Messages API only. Don't assume Bedrock/Vertex availability without checking the provider catalog.",
+        "`autoMode.hard_deny` semantics: blocks matching actions UNCONDITIONALLY, regardless of allow exceptions. This is stronger than `soft_deny`. Authoring a too-broad `hard_deny` rule will permanently block actions you may need later, even when the broader allow scope should permit them."
+      ],
+      "overlap_with_ecodiaos": "[\"`claude agents` dashboard overlaps DIRECTLY with `cowork.dispatch_worker` + the 8 `coord.*` MCP tools on localhost:7456. Anthropic's primitive surfaces running/blocked/done across every session in one screen with attach/detach; our substrate (cowork.dispatch_worker spawning VS Code Stable tabs + coord bus + `coord.read_inbox` + `coord.signal_done` + `coord.close_my_tab`) duplicates the same behavior with our own coord-events Chrome hook. Per `use-anthropic-existing-tools-before-building-parallel-infrastructure.md` and `reference_coord_bus_local_2026-05-18.md`, the new `claude agents` view is a candidate to ABSORB cowork.dispatch_worker entirely - we should pilot it as the worker host substrate and reduce the laptop-agent surface to GUI-only primitives.\", \"`/goal` overlaps with our scheduler.delayed / scheduler.cron + meta-loop reflex (`scheduling-is-0th-class-primitive-2026-05-28`). `/goal` provides cross-turn completion-condition checking without scheduling, where we currently fan multi-step work out across `scheduler.delayed` + `coord.close_my_tab` chains. For tasks with a verifiable end state inside a single session (test pass + lint clean), `/goal` may obsolete our manual self-scheduling for short arcs.\", \"Dynamic Workflows overlaps directly with our `cowork.dispatch_worker` + factory `start_cc_session` parallelism patterns. The 1,000-subagent cap and JS orchestration script with checked results is a more sophisticated version of what our `forks_spawn` substrate tried to do via SDK before that primitive died (`reference_local_first_architecture_2026-05-17`). Worth piloting on a low-risk audit task (e.g. status_board drift scan) before promoting to a 0th-class reflex.\", \"`MessageDisplay` hook overlaps with our PreToolUse/PostToolUse hook stack at `~/.claude/hooks/ecodia/` - specifically the em-dash filter, status-board hygiene surface, and frontend-strip-on-render concerns. `MessageDisplay` enables enforcing the em-dash ban and EcodiaOS voice scorer at the display layer rather than at write time, closing the 'voice contamination at display' gap that the postwrite hooks miss.\", \"`worktree.baseRef` overlaps with our `stage-worktree-before-factory-dispatch` doctrine and `fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull` pattern. The new default `fresh` (origin/<default>) changes the baseline for any cowork.dispatch_worker that spawns into a worktree - we may need to update brief boilerplate to set `worktree.baseRef: head` when the worker needs Tate's local-only commits.\", \"`--plugin-url` and `--plugin-dir` `.zip` support overlaps with our skill/plugin install flows. We currently ship skills via the `~/.claude/skills/` directory and project `.claude/skills/`. The new URL-loading path enables shipping internal Ecodia plugins from a private artifact store without checking them into every repo - candidate for `ecodia-labs-internal-attribution-via-element` and the EcodiaOS voice substrate.\", \"`claude ultrareview` from CI overlaps with our 8-rung dev process (rungs 4-6 unit/integration/visual-via-CDP) and the `verify-deployed-state-against-narrated-state` pattern. `claude ultrareview --json` from a GitHub Action provides a cloud second opinion before merge - candidate to add as rung 5.5 between integration tests and CDP visual verify.\", \"Stainless acquisition: Anthropic now owns the SDK-codegen company. Our `.mcp.json` substrate and the Python/TS SDK paths the ecodia-full MCP exposes may see API-shape stability or generator changes. No action yet, but watch for breaking changes in the next 1-2 SDK releases.\", \"Dynamic Workflows + outcomeVerificationService overlap: workflows already check results before folding them in. Our outcomeVerificationService (`verify.verify` with type=status_board/db_row/file_write/neo4j_node) does the same shape for forks. We should validate that workflows can call our verify primitives or vice versa to avoid double verification.\", \"`SessionStart.reloadSkills: true` overlaps with our codebase-orient + session-orient skills. We currently rely on Anthropic auto-memory + session-orient skill invocation; the new `reloadSkills` makes it possible to install new skills mid-session, which our recursive-improvement-is-substrate-driven reflex would benefit from (helper + hook + doctrine triad can now include a skill that becomes live the same turn).\"]",
+      "sources": [
+        "https://www.anthropic.com/news",
+        "https://code.claude.com/docs/en/whats-new",
+        "https://code.claude.com/docs/en/whats-new/2026-w20",
+        "https://code.claude.com/docs/en/whats-new/2026-w19",
+        "https://code.claude.com/docs/en/whats-new/2026-w18",
+        "https://code.claude.com/docs/en/changelog",
+        "https://www.anthropic.com/news/claude-opus-4-8"
+      ]
+    }
+  ],
+  "synthesis": {
+    "headline": "The +50% window funds a substrate consolidation where mid-conversation system messages, claude agents, and Dynamic Workflows absorb three EcodiaOS hand-rolls while cowork.dispatch_worker stays load-bearing for cross-machine cross-session work.",
+    "priority_actions": [
+      {
+        "action": "Cut over every continuity block stitched by osSessionService._sendMessage (<now>, <forks_rollup>, <observer_signals>, <status_board_critical>, <working_set>, <recent_doctrine>, <restart_recovery>, <recent_exchanges>, <last_turn_breadcrumb>) from user-channel to mid-conversation system messages, gated on model==claude-opus-4-8. Retire the frontend strip-on-render hack from tate-facing-context-blocks-must-not-render-to-frontend.md. Keep top-level system field stable for cache hits.",
+        "priority": "P1",
+        "window": "this-week",
+        "rationale": "Single highest-leverage move. Collapses the continuity-block pollution problem at the protocol layer, gives observer_signals and status_board hygiene true system-level authority instead of getting argued with as user data, and preserves prompt cache on every prior turn because the prefix hash stops mutating. The 1024-token cache minimum on Opus 4.8 means smaller hook surfaces now cache too. Frontend strip-on-render becomes dead code."
+      },
+      {
+        "action": "Migrate every claude-opus-4-7 string in osSessionService, cronForkDispatcher, cowork.dispatch_worker brief boilerplate, MCP brief templates, the EcodiaOS Voice scorer config, .mcp.json defaults, and the bootstrap prompt to claude-opus-4-8. Re-baseline effort levels (medium/high/xhigh semantics shifted). Set /effort high as conductor default and /effort xhigh inside coding-heavy worker briefs.",
+        "priority": "P1",
+        "window": "today",
+        "rationale": "Opus 4.8 is a drop-in for 4.7 with 4x lower honesty-failure rate on its own code, 88.6 SWE-Verified, and unblocks mid-conversation system messages plus the lower 1024 cache minimum. Effort defaults changed across all surfaces. Doing this first because every downstream P1 below assumes Opus 4.8 is the live model."
+      },
+      {
+        "action": "Pilot claude agents view as a peer to cowork.dispatch_worker for single-machine single-codebase fleets. Wire dispatch_worker to optionally emit claude --bg dispatches with --add-dir --settings --mcp-config --plugin-dir flags inheriting from the conductor session, and add an agents column to working_set. Keep VS Code Stable Ctrl+Alt+Shift+C path live for cross-codebase and CDP-bound work.",
+        "priority": "P2",
+        "window": "this-week",
+        "rationale": "claude agents is the official Anthropic substrate for the exact problem cowork solved. Per use-anthropic-existing-tools-before-building-parallel-infrastructure, we evaluate before we keep. Pilot on the easy slice (single-codebase audit fleets running locally on Corazon) while preserving dispatch_worker for the harder cases (cross-machine via Tailscale, cross-session via worktrees, GUI-driving work where the IDE chat is the surface)."
+      },
+      {
+        "action": "Adopt Dynamic Workflows for three bounded EcodiaOS jobs: pattern-corpus-health-check cron, status_board drift audit (slice-query already partitioned), and the codebase-wide audit pattern in dev-process rung 6. Save runs as /pattern-audit, /board-drift, /codebase-audit under .claude/workflows/. Cap concurrency to 8 inside each script to keep credit burn under control during the +50% window.",
+        "priority": "P2",
+        "window": "before-july-13",
+        "rationale": "Dynamic Workflows is the in-session replacement for the dead SDK fork primitive that pre-dated cowork.dispatch_worker. The 16 concurrent and 1000 total caps fit our three highest-frequency parallel-audit shapes. Scripts hold intermediate state outside context, adversarial review is built in, save-as-command persists. Bounded jobs only because workflows die on session exit, so this never replaces multi-day arcs."
+      },
+      {
+        "action": "Install Anthropic security-guidance plugin at user scope on Corazon and in repo .claude/settings.json enabledPlugins for coexist, roam, chambers, goodreach, glovebox. Start with ENABLE_PATTERN_RULES=1 and ENABLE_STOP_REVIEW=0 and ENABLE_CODE_SECURITY_REVIEW=0 to get the free deterministic layer first. Add an AGENTS.md note that Cline+DeepSeek fallback does not run plugin hooks.",
+        "priority": "P2",
+        "window": "this-week",
+        "rationale": "Per anthropic-first-check doctrine we adopt rather than build a parallel security-hook.sh. Free deterministic layer is pure win with zero token cost. The Opus 4.7 Stop-review layer compounds with applied_tag_telemetry on Stop and doubles end-of-turn cost, so we hold that until we measure the existing hook stack noise rate against the new layer."
+      },
+      {
+        "action": "Author pattern when-to-reach-for-dynamic-workflows-vs-dispatch-worker-vs-claude-agents codifying the three-way split. In-session bounded fleet equals workflows. Single-machine session-isolated agents equal claude agents. Cross-machine cross-session multi-day arcs equal cowork.dispatch_worker plus scheduler.delayed. Land same turn into the doctrine corpus with cross-refs to the three existing patterns.",
+        "priority": "P2",
+        "window": "this-week",
+        "rationale": "Three overlapping primitives in the same problem space is exactly the substrate-drift trigger codify-at-the-moment-a-rule-is-stated-not-after warns about. Without the rule, every future fork-or-workflow-or-agents decision burns judgement budget. Doctrine ships same-turn as the first pilot, not after."
+      },
+      {
+        "action": "Wire /goal into the cowork.dispatch_worker brief template for verifiable-end-state arcs (test pass plus lint clean, deploy verified by Vercel READY plus canary screenshot, BAS lodgement complete). Condition string must reference outcomeVerificationService verify.verify result_pointer rather than narrated state. Bake an explicit turn cap into every condition.",
+        "priority": "P3",
+        "window": "before-july-13",
+        "rationale": "/goal is a transcript-only judge with no built-in turn or token cap. Pairing it with verify.verify pointers honours verify-deployed-state-against-narrated-state and the cron-fire-must-have-deliverable doctrine. Turn cap in the condition string is the hard floor because the judge cannot call tools to know if it has looped 50 times."
+      },
+      {
+        "action": "Stress-test the +50% allowance on tate@ this week with one Opus 4.8 xhigh ultracode session driving a Dynamic Workflow against the Roam coverage roadmap audit. Measure: tokens consumed, wall time, percentage of findings that hold under outcomeVerificationService probe. Use this to calibrate Africa-trip burn rate before the window closes July 13.",
+        "priority": "P3",
+        "window": "before-july-13",
+        "rationale": "Africa starts Oct 1. We need a calibrated burn-rate number for autonomous Opus 4.8 plus workflows before the +50% window expires, otherwise we go into the trip guessing. Roam coverage roadmap is the right shape because it is bounded, has clear verification probes, and the deliverable is durable."
+      }
+    ],
+    "substrate_decisions": [
+      {
+        "new_capability": "Mid-conversation system messages (role:system inside messages array, Opus 4.8 only)",
+        "existing_substrate": "osSessionService._sendMessage continuity-block stitching plus frontend strip-on-render hack",
+        "decision": "adopt-replace-ours",
+        "reasoning": "The hack exists only because user-channel context blocks needed hiding from chat UI. System-channel entries get system-level authority for free, do not leak to UI, and preserve prompt cache because the prefix hash stays stable. observer_signals also become authoritative instead of advisory. Gate on model id so older models still get user-channel fallback. tate-facing-context-blocks-must-not-render-to-frontend.md becomes historical."
+      },
+      {
+        "new_capability": "claude agents dashboard plus claude --bg dispatch plus per-session git worktrees under .claude/worktrees/",
+        "existing_substrate": "cowork.dispatch_worker plus 8 coord.* MCP tools on localhost:7456 plus dispatch-worker-worktree-hygiene pattern",
+        "decision": "adopt-alongside",
+        "reasoning": "Anthropic primitive is the same shape but local-only. cowork.dispatch_worker reaches across Corazon plus SY094 plus VPS via Tailscale, integrates with status_board hygiene and observer_signals turn-start injection, supports cross-session multi-day arcs through worktree plus status_board persistence, and survives session exit. claude agents wins on single-machine single-codebase fleets where worktree isolation is enough. Both stay. Pattern when-to-reach-for-X codifies the split."
+      },
+      {
+        "new_capability": "Dynamic Workflows (JS orchestration script, 16 concurrent, 1000 total, adversarial cross-check built in)",
+        "existing_substrate": "cowork.dispatch_worker fleets for in-session bounded audits plus the dead SDK fork primitive",
+        "decision": "adopt-alongside",
+        "reasoning": "Workflows are the right primitive for bounded in-session jobs where the script can hold loop and intermediate state without saturating context, and where adversarial verification is native. They die on session exit so they never replace multi-day arcs, cross-conductor work, or anything needing continuous Tate presence. Pilot three concrete jobs (pattern-corpus-health-check, status_board drift, codebase-wide audit) and save as commands. cowork.dispatch_worker keeps everything else."
+      },
+      {
+        "new_capability": "Anthropic security-guidance plugin (regex layer plus Opus 4.7 Stop review plus agentic commit review)",
+        "existing_substrate": "No existing EcodiaOS security-scan hook layer beyond cred-mention-surface.sh keyword warns",
+        "decision": "adopt-alongside",
+        "reasoning": "Pure additive. Free deterministic layer has zero model cost and complements cred-mention-surface. Hold the model-backed layers until we measure noise rate compounding with the 16+ existing hooks. Repo-level enabledPlugins in client repos means dispatched workers see the same coverage. Cline+DeepSeek fallback does not run plugin hooks so AGENTS.md gets a note."
+      },
+      {
+        "new_capability": "/goal command (transcript-only Haiku judge of completion condition)",
+        "existing_substrate": "scheduler.delayed plus scheduler.cron plus outcomeVerificationService plus meta-loop",
+        "decision": "extend-ours-with",
+        "reasoning": "/goal is single-session and resets timer plus tokens on resume. scheduler.delayed survives across sessions and machines and is the right primitive for multi-hour arcs. /goal extends our substrate by letting a single session push forward without per-turn human prompts, and we make it safer by writing conditions that reference outcomeVerificationService probes rather than narrated state, plus baking turn caps into the condition string."
+      },
+      {
+        "new_capability": "Claude Managed Agents self-hosted sandboxes plus MCP tunnels",
+        "existing_substrate": "cowork.dispatch_worker plus api.admin.ecodia.au/api/mcp/{cowork,ecodia-full} Bearer plus OAuth wrapper at /api/oauth/mcp/*",
+        "decision": "skip",
+        "reasoning": "Self-hosted sandboxes are Anthropic-orchestrated and pull us back toward server-side billing away from the Max 20x subscription rate budget. Managed Agents is not ZDR or HIPAA eligible and not on AWS. Memory feature not supported. MCP tunnels only serve Managed Agents and direct Messages API and cannot route the claude.ai Custom Connector flow or interactive Claude Code via .mcp.json which is our actual consumer profile. Public Bearer endpoint stays load-bearing regardless. Revisit if we ever ship a customer-facing Managed Agent product."
+      },
+      {
+        "new_capability": "Fast mode on Opus 4.8 (2x cost for 2.5x output speed, draws from usage credits)",
+        "existing_substrate": "Standard rate Opus 4.7 across all conductors and workers, $1k AUD/mo Max baseline",
+        "decision": "investigate-more",
+        "reasoning": "3x cheaper than 4.7 fast but still 2x base rate and draws from usage credits not plan allowance. Time-critical arcs (CDP-driving GUI work, ASC shipping windows, deploy verification under a release timer) are the only justifiable use cases. Need a measured cost-per-arc number before we make it a reflex. Defer until after the calibration stress test (priority action 8)."
+      },
+      {
+        "new_capability": "MessageDisplay hook (transforms or hides assistant message text at display layer)",
+        "existing_substrate": "PostToolUse em-dash detector plus ecodiaos-voice-postwrite-check plus voice scorer with 6 registers",
+        "decision": "extend-ours-with",
+        "reasoning": "Current voice enforcement is write-time, so contamination at display layer (system-injected blocks, observer surface lines, tagged-silent markers) sneaks past. MessageDisplay is the missing layer. Wire the em-dash ban and the EcodiaOS voice scorer at display, keep PostToolUse for write-time gating. Two-layer defence closes the leak."
+      },
+      {
+        "new_capability": "worktree.baseRef setting (fresh equals origin default branch, head equals local HEAD)",
+        "existing_substrate": "stage-worktree-before-factory-dispatch plus fork-worktree-commits-do-not-propagate patterns",
+        "decision": "extend-ours-with",
+        "reasoning": "Default changed mid-month to fresh which means worktrees miss Tate unpushed commits. cowork.dispatch_worker brief boilerplate needs an explicit worktree.baseRef setting based on whether the worker depends on local-only commits. Update the dispatch_worker tool to set baseRef per dispatch and surface a [WORKTREE-BASEREF] warn in the brief when local HEAD diverges from origin."
+      },
+      {
+        "new_capability": "/reload-skills plus SessionStart reloadSkills:true plus root-level SKILL.md plugin packaging",
+        "existing_substrate": "~/.claude/skills/ directory tree plus session-orient plus codebase-orient skill invocation",
+        "decision": "extend-ours-with",
+        "reasoning": "Recursive-improvement-is-substrate-driven says the same turn we surface a new rule we want it live. /reload-skills makes mid-session skill install possible, closing the existing gap where new skill files require a fresh session. Wire reloadSkills:true into the session-start hook when scope-context.py detects a new skill file under ~/.claude/skills/ authored since last boot."
+      }
+    ],
+    "rollout_plan": "Today through end of week one focuses on the model migration and the system-message cutover, because every later phase assumes Opus 4.8 is the live model and that continuity blocks have moved to the system channel. First action is the global string sweep across osSessionService, cronForkDispatcher, dispatch_worker brief templates, MCP defaults, the Voice scorer config, and the bootstrap prompt to replace claude-opus-4-7 with claude-opus-4-8. Effort defaults get reset to high on the conductor and xhigh inside coding-heavy worker briefs. Same arc, we land the mid-conversation system message refactor in osSessionService._sendMessage gated on model id, retire the frontend strip-on-render hack, and verify cache hit rate on the meta-loop and cowork briefs (the 1024 cache minimum unlocks caching for smaller hook surfaces that previously missed). Pattern when-to-reach-for-dynamic-workflows-vs-dispatch-worker-vs-claude-agents lands same week to prevent substrate drift while we hold three overlapping primitives. Security-guidance plugin installs at user scope and in the five client repos enabledPlugins, regex-only layer first.\n\nWeek two through mid-June is the pilot phase. claude agents view becomes the dispatch surface for one concrete fleet (the pattern-corpus-health-check cron) running alongside the existing cowork.dispatch_worker path on a separate fleet, so we can compare them on the same workload. Dynamic Workflows ship the three saved commands (/pattern-audit, /board-drift, /codebase-audit) and run each at least twice to validate adversarial cross-check quality against outcomeVerificationService probes. MessageDisplay hook wires the em-dash ban and voice scorer at display layer. worktree.baseRef setting gets baked into the dispatch_worker brief boilerplate with an explicit head versus fresh decision per dispatch. /reload-skills wires into session-start when scope-context.py detects a new skill file.\n\nMid-June through July 13 is the calibration and stress phase. The Roam coverage roadmap audit runs as one Opus 4.8 xhigh ultracode session driving a Dynamic Workflow on tate@, with full instrumentation: tokens consumed, wall time, percentage of findings holding under verify.verify probe, security-guidance plugin noise rate against existing hooks. We use the +50% headroom to deliberately overshoot baseline burn on one weekend to measure ceiling, not to ship more. /goal lands in dispatch_worker brief templates for verifiable-end-state arcs with conditions referencing verify.verify result_pointers and explicit turn caps. We make a fast mode adopt-or-skip decision based on the calibration numbers, not on the marketing pricing claim.\n\nJuly 13 6pm PDT through October 1 is the bedding-in phase before Africa. No new primitive adoption after July 13. Anything that has not earned its keep in the four to six week pilot window gets removed or shelved. Documentation pass on the doctrine corpus to update every claude-opus-4-7 reference, every dispatch_worker brief template, and the cost posture section of backend/CLAUDE.md to reflect the calibrated Opus 4.8 burn rate. world-model-staleness sweep picks up residual Opus 4.7 references in MEMORY.md and the pattern files. October 1 we leave for Africa with a calibrated, documented, hook-protected substrate where mid-conversation system messages are load-bearing, claude agents and dispatch_worker each own their lane, Dynamic Workflows handle bounded audits, and scheduler.delayed plus coord.close_my_tab keeps the lights on across continents.",
+    "risks": [
+      "Adopting mid-conversation system messages too aggressively before the cache hit rate is measured could regress total token spend if the prefix gets accidentally mutated (the role:system entry must follow strict ordering rules and cannot be edited once sent). Roll out behind a feature flag in osSessionService and watch cache hit metrics for one week before retiring the user-channel fallback.",
+      "Running claude agents and cowork.dispatch_worker in parallel during the pilot phase means status_board hygiene, observer_signals, and working_set could see double-counted active workers, leading to false P1 alerts. Either route both substrates through the same registration path or scope working_set rows by dispatch source.",
+      "Dynamic Workflows subagents always run in acceptEdits mode regardless of parent permission, which means a workflow run can auto-write files the conductor would normally have prompted on. Test on doctrine-only paths first, never on client repos, until we have a hard_deny rule in autoMode covering the doctrine corpus.",
+      "The +50% allowance through July 13 is a cliff, not a ramp. If we calibrate burn rate against the inflated allowance and the steady-state baseline is 33 percent lower, Africa-trip planning is wrong by that delta. Calibration runs must be tagged and the post-July-13 baseline re-measured the week of July 14.",
+      "Opus 4.8 effort defaults shifted (medium thinks more, high a bit less, xhigh substantially more). Any cron prompt or worker brief that relied on Opus 4.7 effort=high latency or cost will see a different shape. Re-baseline every cron deliverable budget before treating the new model as a drop-in.",
+      "claude agents view and claude --bg dispatched sessions are local-only on Corazon and stop on machine shutdown, surfacing as failed on next open. If we route any Africa-window arcs through claude agents instead of scheduler.delayed plus VPS substrate, a Corazon reboot kills the work silently. Reserve claude agents strictly for short-arc same-day work.",
+      "security-guidance plugin Stop hook layer compounds with applied_tag_telemetry on Stop and could double Stop-event work per turn at Opus 4.7 prices. Keep ENABLE_STOP_REVIEW=0 until we measure compounded cost on a representative meta-loop day."
+    ]
+  }
+}

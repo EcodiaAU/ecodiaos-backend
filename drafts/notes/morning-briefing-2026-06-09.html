@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Morning briefing - 2026-06-09</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Apple cleared Co-Exist 1.9.0 for distribution overnight and the factory fix is on disk waiting for the verify probe.</p>
+    <p class="byline">EcodiaOS &middot; Tuesday, 9 June 2026 &middot; 07:00 AEST</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Since the 05:36 pass two things have moved that the earlier briefing did not see. App Store Connect emailed at 03:41 AEST: Co-Exist 1.9.0 iOS review is complete and the build is eligible for distribution. And one of the two P1 rows tracking the factoryBridge fault, the explicit duplicate <em>ad9ab3e0</em>, was archived this fire. One hundred and seventy seven rows remain active. Nine at P1, thirty at P2, the rest at P3. The morning state was already half-good when the earlier draft ran; it is now better.</p>
+
+    <p class="section-label">the row that just turned green on disk</p>
+
+    <p>Two P1 rows described the same fault yesterday. Every background Claude call hung the full five-minute timeout on a Redis channel with no consumer. The code path is now direct to <em>v1/messages</em>. <em>d6489696</em> moved to verify-pending. <em>ad9ab3e0</em> is marked duplicate. The downstream kg-consolidation row <em>651a1304</em> re-verifies on the same probe. Restart <em>ecodia-api</em>, fire the kg-consolidation trigger, watch <em>combined.log</em> for the absence of timeout lines. Confirm a new <em>ConsolidationRun</em> lands within ninety seconds. If the watermark advances past 2026-05-19, three rows archive together.</p>
+
+    <p class="section-label">the revenue arc that did not move</p>
+
+    <p>The cofound checkout still ships <em>mailto:code@ecodia.au</em>, not a Stripe link. Six days idle on a dispatch-ready row. <em>stripeAgentService</em> is live. The smoke pass against <em>acct_1SWvWdCjJTDXevIj</em> is in the commit history. Step four of the agentic-commerce wiring is independent and equally ready. Either path closes the gap. Mac CDP is not required for steps one through four.</p>
+
+    <p class="section-label">the App Store window</p>
+
+    <p>Co-Exist 1.9.0 iOS is cleared. The ASC email at 03:41 AEST says <em>review complete, eligible for distribution</em>. The next question is the release behaviour of the build: if the auto-release toggle is on, 1.9.0 ships to users today without further action; if it is on manual, one ASC click or one ASC API call is the only thing standing between the build and the App Store. The Google Play half of the same 1.9.0 ship is still in review. The 1.8.28 Android branch is a separate Tate-hands row, waiting on the keystore-password env vars to build the AAB.</p>
+
+    <p>Chambers v1.5(27) is still in App Review. The business-model reply went via CDP at 03:57Z on 2026-06-08; Apple has been silent for thirty hours, well inside the twenty-four-to-forty-eight-hour band. <em>chambers-asc-2.1b-reply-check-2026-06-10</em> fires at 15:27 AEST today as the next polite probe. No action this morning.</p>
+
+    <p class="section-label">the scheduler is partly green</p>
+
+    <p>The 04:45 AEST signal_bound healing held for some paths and not others. The orphan cluster from yesterday includes <em>infra-health-pulse</em>, <em>self-evolution</em>, <em>research-batch</em>, <em>zernio-analytics-watch</em>, <em>codebase-manifest-refresh</em>, <em>neo4j-maintenance</em>, <em>kg-consolidation-watermark-verify-cycle-6</em>, <em>app-store-review-watch</em>, and <em>eofy-tax-prep</em>. Each row has a populated <em>last_run_at</em> and a stale <em>next_run_at</em> in the past. The worker spawned, ran, never called <em>signal_done</em>. The cron-row never recomputed its next fire. The auto-recompute path documented in the never-permanently-fail invariant is not firing for these rows. Worth a tighter probe today; the existing P1 row tracks the broader bug.</p>
+
+    <p class="section-label">two security items that should not stay open</p>
+
+    <p>The Supabase service-role key and a Co-Exist login still sit in public commit <em>6d4ab0aa</em>. Rotation is one Management-API call via the local PAT. RLS is also disabled on Co-Exist, ROAM, and four other projects. The 2026-05-25 advisor alert surfaced it. Nothing has moved since. Both rows are P2 with P1-class severity. The only reason they stay P2 is that no exploit has surfaced. Neither will take more than half an hour.</p>
+
+    <p class="section-label">two things waiting on your hands</p>
+
+    <p>Co-Exist 1.8.28(34) wants the keystore-password env vars to build the AAB. Code shipped to <em>main</em> at <em>f393173</em> on 2026-06-08. The upload is the last step before Google Play reads the cleaned-up media permissions. Corazon C: drive sat at ninety-five percent yesterday. Mac is now the canonical workstation for poller-side autonomy, which softens the urgency. The cleanup is still reachable autonomously via Tailscale and the row stays open.</p>
+
+    <p class="section-label">the rest of the top fifteen</p>
+
+    <p>Goodreach restructure plus Resonaverde channel merge waits on a drafted proposal before Tate's next call. The Mac telemetry path has zero hook fires because <em>/Users/ecodia/.claude/settings.json</em> has no Ecodia hooks wired. A half-hour edit closes the visibility loop on the whole learning machine. Session-corpus mining still needs to convert from a one-off arc to the weekly Sunday cron. The cross-app testing harness is two flows from breadth coverage. Full ranked list lives in <em>kv_store.daily.priority_rank</em>.</p>
+
+    <p class="section-label">drift this morning</p>
+
+    <p>Three rows sharpened: <em>d6489696</em>, <em>ad9ab3e0</em>, and <em>651a1304</em>, all reflecting the <em>d6002d5f</em> fix. No premature archives; the underlying restart-and-trigger probe still has to land. Calendar API on the ecodia-code Cloud project is disabled, which is why this briefing has no calendar block; one click in Cloud Console clears it.</p>
+
+    <p class="section-label">what to do first</p>
+
+    <p>The verify probe on the factory fix. If it passes, three rows close together and the broader background-Claude surface comes back online. Second is the cofound checkout ship, because waiting is what is costing money. Third is the service-role key rotation. Thirty minutes of work should not be carrying P1-class severity in a P2 row for a week.</p>
+
+    <blockquote>A row I worked on but did not update is a failure, same severity as leaving a spec stale.</blockquote>
+
+  </main>
+
+  <footer>
+    Morning briefing &middot; EcodiaOS &middot; 2026-06-09 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

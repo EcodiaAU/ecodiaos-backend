@@ -22,6 +22,16 @@ STATE_ROOT="${STATE_ROOT:-$HOME/.local/state/ecodiaos}"
 KI="$CODE_ROOT/ecodiaos/backend/knowledge-index"
 PATTERNS="$CODE_ROOT/ecodiaos/backend/patterns"
 mkdir -p "$STATE_ROOT"
+
+# branch-thrash guard. This script lives in a stable home (~/.ecodiaos/bin), but
+# the repo tools it drives can vanish when a sibling worker switches the shared
+# working tree to a branch that lacks them. Detect that and ALERT, never silently
+# degrade - a silent canary is itself a failure (origin: 2026-06-10 exit-127).
+branch="$(git -C "$CODE_ROOT/ecodiaos/backend" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+tools_missing=""
+for t in lookup.js eval-recall.js dedup-scan.js indexer.js; do
+  [ -f "$KI/$t" ] || tools_missing="${tools_missing}${t} "
+done
 HB="$STATE_ROOT/knowledge-health-heartbeat.json"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 RECALL_TARGET=12
@@ -54,8 +64,11 @@ if [ -f "$KI/eval-recall.js" ]; then
 fi
 
 # 4. duplication drift
-dedup_pairs=$( cd "$KI" && node dedup-scan.js 0.90 2>/dev/null | grep -oE "pairs at cosine >= 0.9: [0-9]+" | grep -oE "[0-9]+$" )
-dedup_pairs=${dedup_pairs:-0}
+dedup_pairs=0
+if [ -f "$KI/dedup-scan.js" ]; then
+  dedup_pairs=$( cd "$KI" && node dedup-scan.js 0.90 2>/dev/null | grep -oE "pairs at cosine >= 0.9: [0-9]+" | grep -oE "[0-9]+$" )
+  dedup_pairs=${dedup_pairs:-0}
+fi
 [ "$dedup_pairs" -gt "$DEDUP_BASELINE" ] && \
   alerts="${alerts}NEW doctrine duplication: $dedup_pairs near-dup pairs at >=0.90 (baseline $DEDUP_BASELINE) - run dedup-scan.js + consolidate. "
 
@@ -67,6 +80,14 @@ done < <(find "$PATTERNS" -maxdepth 1 -name "*.md" ! -name "INDEX.md" ! -name "R
 [ "$missing_triggers" -gt 0 ] && \
   alerts="${alerts}$missing_triggers doctrine doc(s) missing triggers: (author with pattern-codify). "
 
+# 5b. drafts filing hygiene - loose files dumped flat at drafts/ top level.
+# 560 accumulated unnoticed before 2026-06-10 because nothing watched it;
+# re-filed into topic dirs (scripts/drafts-refile.py). Threshold 15 allows a
+# few in-flight files; sustained growth means sessions are dumping flat again.
+drafts_loose=$(find "$CODE_ROOT/ecodiaos/backend/drafts" -maxdepth 1 -type f ! -name ".DS_Store" 2>/dev/null | wc -l | tr -d ' ')
+[ "${drafts_loose:-0}" -gt 15 ] && \
+  alerts="${alerts}DRAFTS FILING DRIFT: $drafts_loose loose files at drafts/ top level (cap 15) - re-file with scripts/drafts-refile.py (topic dirs; binaries to _shots/). "
+
 # 6. enforcement gates still wired (silent unwiring = the enforcement dies quietly)
 SETTINGS="$HOME/.claude/settings.json"
 gates_unwired=""
@@ -76,16 +97,21 @@ done
 [ -n "$gates_unwired" ] && \
   alerts="${alerts}ENFORCEMENT GATE UNWIRED in settings.json: ${gates_unwired}- re-register or the enforcement is silently dead. "
 
-# 7. final heartbeat
+# 7. branch-thrash alert (the repo tools vanished from the checked-out branch)
+[ -n "$tools_missing" ] && \
+  alerts="${alerts}BRANCH-THRASH: knowledge-index tools absent on branch '${branch}' (${tools_missing}) - the maintenance layer is degraded. Restore the files or switch the working tree to a branch that has them. "
+
+# 8. final heartbeat
 status="ok"; [ -n "$alerts" ] && status="alert"
 cat > "$HB" <<EOF
 {"last_run":"$TS","status":"$status","recall":"$recall","recall_target":$RECALL_TARGET,
  "dedup_pairs":$dedup_pairs,"dedup_baseline":$DEDUP_BASELINE,
- "doctrine_missing_triggers":$missing_triggers,"index":"$index_action",
+ "doctrine_missing_triggers":$missing_triggers,"drafts_loose":${drafts_loose:-0},"index":"$index_action",
+ "branch":"$branch","tools_missing":"$(printf '%s' "$tools_missing" | sed 's/ *$//')",
  "gates_unwired":"$(printf '%s' "$gates_unwired" | sed 's/ *$//')",
  "alerts":"$(printf '%s' "$alerts" | sed 's/"/\\"/g')"}
 EOF
 
-echo "knowledge-health ($TS) status=$status recall=$recall dedup=$dedup_pairs missing_triggers=$missing_triggers gates=$([ -z "$gates_unwired" ] && echo wired || echo UNWIRED) index=$index_action"
+echo "knowledge-health ($TS) status=$status recall=$recall dedup=$dedup_pairs missing_triggers=$missing_triggers gates=$([ -z "$gates_unwired" ] && echo wired || echo UNWIRED) branch=$branch index=$index_action"
 [ -n "$alerts" ] && echo "  ALERTS: $alerts"
 exit 0

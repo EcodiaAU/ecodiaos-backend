@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Locals v1 Plan</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page { min-height: 0; page-break-after: always; padding: 24vh 0 12vh; }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo { max-width: 100%; padding: 0; font-size: 11.5pt; line-height: 1.5; }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label { font-size: 8.5pt; margin: 1.8em 0 0.6em 0; page-break-after: avoid; }
+    main.memo blockquote { font-size: 12pt; max-width: 100%; page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Send foot traffic to the people who run real places.</p>
+    <p class="byline">EcodiaOS &middot; 2026-06-01</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">A national app that makes choosing local easy. Merchants pay what they want, customers pay nothing, the platform takes nothing from either side. It is the opposite of an aggregator, and it works for the same reason aggregators do not. People want to choose the local option when they have the choice. We make the choice obvious.</p>
+
+    <p class="section-label">the shape</p>
+
+    <p>Customers open the app and see a map. Local merchants near them, each with a story, hours, and whatever they are running this week. Tap one, see what is on offer, walk in, redeem at the counter. The counter staff sees the redemption land in their dashboard and the interaction is done. No coupons to print, no funnel to walk through.</p>
+
+    <p>Merchants sign up themselves or get signed up by us. They claim their listing, write a sentence about who they are, set whatever discounts or rewards they want to extend to Locals customers, and read their redemption analytics from the same app the customers use. The merchant view is a role, not a separate app.</p>
+
+    <p>The sustainability bar is soft. Any local merchant can list. Sustainability shows up as earned recognition, badges that other merchants do not have, ranking lift in the customer feed, featured slots in the weekly digest. It is a carrot, never a gate.</p>
+
+    <p class="section-label">the stack</p>
+
+    <p>Three native codebases per the rule. locals-ios in Swift and SwiftUI against the Supabase Swift SDK and MapKit. locals-android in Kotlin and Jetpack Compose against the Supabase Kotlin SDK and Maps Compose. locals-web in Vite and React against the Supabase JS SDK and a web map. No custom backend, no FastAPI, no separate server. Supabase is the entire substrate. Postgres with PostGIS for geo radius queries, Storage for images, Auth for sessions, Edge Functions in Deno for any logic that does not fit row-level security or DB triggers, Realtime for the merchant redemption feed.</p>
+
+    <p>Design tokens published as JSON and consumed by all three platforms. The OpenAPI spec is implicit because the substrate is Supabase, generated clients come from the Supabase CLI per platform. The three apps share their feel without sharing their guts.</p>
+
+    <p class="section-label">who pays for what</p>
+
+    <p>Customers always pay zero. The customer surface does not include an in-app purchase, a membership tier, a premium upgrade, or any advertising surface. It is free in the strong sense of the word.</p>
+
+    <p>Merchants choose what to pay. A merchant can list for free indefinitely and get the full product surface. A merchant who wants to extend the platform support can pay one-off or set a recurring monthly contribution. The minimum is zero, the maximum is whatever they think we are worth. All billing happens via Stripe Checkout opened in the system browser, returning to the app on success, which is the pattern Apple authorised in 2024 for exactly this case. We never touch the IAP rails. Apple and Google take nothing because the transaction never crosses their rails.</p>
+
+    <p>The platform takes nothing per redemption, per transaction, per anything. We are not in the path between the merchant and the customer. We are the reason they found each other.</p>
+
+    <p class="section-label">the sales motion</p>
+
+    <p>The first cohort is signed in person, one merchant at a time. Tate walks in, sits down for twenty minutes, takes a photo of the place, captures the merchant's story in their own words, sets their first reward, and the listing is live before he leaves. Angelica seeds the first introductions out of her existing relationships.</p>
+
+    <p>The second cohort grows by merchant referral. A merchant who is making money from foot traffic tells the merchant next door. EcodiaOS handles the rest of the outreach via direct messages to merchants whose surfaces I can read, in my own voice as the author of the platform, with the same warmth Tate uses in person.</p>
+
+    <p>There is no paid acquisition channel. There never will be. Distribution is the product manifesting as itself.</p>
+
+    <p class="section-label">africa resilience, built in</p>
+
+    <p>From day one, the merchant signup flow is fully self-service via web. A merchant who finds us on the internet can list, customise, and start running rewards without a human touch. Billing is automated end to end via Stripe subscriptions. Customer support is a single in-app contact form that drops into an escalation queue I monitor and respond to in EcodiaOS-voice, with escalation to Tate only for the cases that genuinely need him.</p>
+
+    <p>This is not a separate phase to bolt on before October. It is how v1 ships. The cost of building it this way at the start is smaller than the cost of retrofitting it later, and the alternative is a v1 that breaks the moment Tate goes anywhere.</p>
+
+    <p class="section-label">what v1 deliberately does not include</p>
+
+    <p>No eco-coin in v1. The customer surface does not include earning mechanics, spending mechanics, a balance display, or a transaction history. The underlying transaction rows still get written to the database for future backdating when gamification turns on, but the user-facing layer of all of that does not ship. We learn first whether merchants and customers want to be in this network at all, then we decide whether to wrap the network in a points layer.</p>
+
+    <p>No cross-promotion with Worn. The merch drops and the merchant network coexist on the Ecodia surface but do not co-fund in v1. The story of "this drop pays for two merchants by name" is a v2 feature, not a launch one.</p>
+
+    <p>No Buy Local Sunshine Coast partnership. The council channel exists and was considered. It is not strategic for us.</p>
+
+    <p class="section-label">first moves</p>
+
+    <p>The plan-to-execution handoff lives in the status_board row id 67770836. The immediate next moves are: scaffold the three native repos under EcodiaTate with the design-token + OpenAPI-client structure inherited from glovebox-v2, provision the Locals Supabase project (separate from the EcodiaOS substrate Postgres), publish the merchants and rewards table schemas with row-level security set up for role-based access, and ship the web surface first because it is the shortest path to a merchant being able to claim a listing.</p>
+
+    <p>The first conversation with Angelica is the one that produces a list of five merchants to approach. Everything else follows from that list.</p>
+
+  </main>
+
+  <footer>
+    Locals v1 Plan &middot; EcodiaOS &middot; 2026-06-01 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

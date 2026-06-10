@@ -1,0 +1,6 @@
+data_category,data_type,data_collected,data_shared,data_processed_ephemerally,data_required,purpose_app_functionality,purpose_analytics,purpose_developer_communications,purpose_advertising_or_marketing,purpose_fraud_prevention_security_and_compliance,purpose_personalization,purpose_account_management
+Personal info,Name,Yes,No,No,No,Yes,No,No,No,No,No,Yes
+Personal info,Email address,Yes,No,No,No,Yes,No,No,No,No,No,Yes
+Personal info,User IDs,Yes,No,No,No,Yes,No,No,No,No,No,Yes
+Messages,Other in-app messages,Yes,No,No,Yes,Yes,No,No,No,No,No,No
+Photos and videos,Photos,Yes,No,No,Yes,Yes,No,No,No,No,No,No

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Context</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "EB Garamond", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 24ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2.4em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo blockquote { font-size: 12pt; max-width: 100%; page-break-inside: avoid; }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    /* Hyperlinks: keep the dotted underline; drop hover-only behaviour. */
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">A portable world-model that lives on your phone.</p>
+    <p class="byline">EcodiaOS &middot; following Tate &amp; Tom's walk &middot; 24 May 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Built passively from what you already do. Queryable by any AI you use now or whatever replaces it in five years. Nothing leaves the phone except the three facts you would have typed by hand.</p>
+
+    <p class="section-label">the seed</p>
+
+    <p>The walk on 22 May. Two of us on the futility of being in software right now. AI is eating code, and soon it will eat the operating of AI too. What won't be replaced is the bridge between the real and the digital. When models are free and interchangeable, the only thing left worth owning is the structured, persistent representation of a person. The graph itself. It survives every model upgrade because it isn't a model.</p>
+
+    <p class="section-label">what it is</p>
+
+    <p>An app on a phone. With permission, it reads Gmail, Calendar, and Contacts, parses everything on-device, and builds a graph of people, relationships, commitments, events, facts, decisions, reasoning, and values. The graph lives only on the device.</p>
+
+    <p>When you ask any AI a question (Gemini on phone, ChatGPT on laptop, Claude on desktop, whatever comes next) Context attaches the three to five facts that bear on the question. The AI suddenly knows you. The AI never sees the rest. Tomorrow you switch AIs and the graph still works.</p>
+
+    <p class="section-label">the design bar</p>
+
+    <blockquote>Tate's mum installs it cold and gets value inside fifteen minutes.</blockquote>
+
+    <p>No setup wizard. No graph diagrams. Nobody learns what an ontology is. Tate dogfoods on his own phone first, then points her at it.</p>
+
+    <p class="section-label">what gets built</p>
+
+    <p>iOS first, Android right after, single Rust core compiled into Swift and Kotlin wrappers. A browser extension for Chrome and Firefox that enriches prompts on any AI site with one tap and passively captures the conversations on those sites as they happen.</p>
+
+    <p>On mobile, a local VPN profile routes traffic through an on-device proxy that ignores everything except known AI provider endpoints. Those streams are parsed on-device and the extracted decisions, reasoning, values, and facts land in the graph. Zero user action per conversation.</p>
+
+    <p>An MCP endpoint, via a zero-knowledge relay, for the power-user surfaces: Claude Desktop, Cursor, ChatGPT desktop, whatever ships MCP-native after. The relay is hosted; it cannot decrypt the traffic.</p>
+
+    <p>And a voice journal for moments away from any AI surface. Tap once, speak for sixty seconds, on-device transcription parses the monologue into nodes.</p>
+
+    <p class="section-label">commercial shape</p>
+
+    <p>The starting surface is the individual user with no tech skills. Tate's mum. The MVP lives there and only there.</p>
+
+    <p>After that, in order, the next three surfaces. Developers, for AI products and agent frameworks that want to embed Context as their memory layer. Small businesses, for the founder who wants a shared world-model of customers, suppliers, and commitments across their team. Enterprises, for the larger version of the same thing with the seats, audit, and access controls that come with that. These are the absolute next steps. None of them are MVP.</p>
+
+    <p>One engine. One ontology compiler. One MCP layer. Four surfaces, sold over time.</p>
+
+    <p class="section-label">why this might survive where the last wave died</p>
+
+    <p>It uses graph queries where the last wave used vector similarity. Data lives on-device and stays there. An ontology compiler prevents the LLM-write graph-slop that wrecked earlier attempts. Passive capture from every AI conversation is a continuous feedback loop, so the graph gets denser every time the user thinks out loud at any AI. The voice journal handles the deliberate-capture case. MCP standardised after the last wave died, so the integration story is solved upstream.</p>
+
+    <p class="section-label">tom</p>
+
+    <p>The original idea is Tom's, the build sits with Tate. No commitment expected from this page. If Tom wants to weigh in on the brand, the product instincts, or the name (<em>"Context."</em> feels right, aligns with Ecodia's naming convention, the App Store listing already exists, but it's open), the door is open. Otherwise Tate can ship a version to prove the architecture out.</p>
+
+  </main>
+
+  <footer>
+    Context &middot; EcodiaOS &middot; 24 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

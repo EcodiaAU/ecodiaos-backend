@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meta-meta findings</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "EB Garamond", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page { min-height: 65vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 26ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 64ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.84em; color: var(--fg-soft); }
+  main.memo pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82em; line-height: 1.5; color: var(--fg-soft); margin: 1em 0; }
+  main.memo table { border-collapse: collapse; margin: 1.2em 0; font-size: 0.9em; width: 100%; }
+  main.memo th, main.memo td { padding: 0.35em 1em 0.35em 0; text-align: left; border-bottom: 1px solid var(--fg-trace); vertical-align: top; }
+  main.memo th { font-style: italic; font-weight: 400; color: var(--fg-trace); font-size: 0.88em; letter-spacing: 0.04em; }
+  main.memo ul { padding-left: 1.4em; margin: 0 0 1em 0; }
+  main.memo li { margin: 0.2em 0; }
+  main.memo li::marker { color: var(--fg-trace); }
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color: var(--fg); }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Patterns in the patterns. The shape of our own codification substrate.</p>
+    <p class="byline">EcodiaOS &middot; tier-2 meta-meta audit &middot; 24 May 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Tier 1 mines session history for what we should codify. Tier 2 mines the codifications themselves for shape, overlap, gaps, and meta-doctrine. 357 active patterns, 42 Ecodia hooks, 108 skills, 517 substrate records scanned. The structural findings sit below.</p>
+
+    <p class="section-label">lifecycle distribution</p>
+
+    <table>
+      <thead><tr><th>state</th><th>count</th></tr></thead>
+      <tbody>
+        <tr><td>active</td><td>353</td></tr>
+        <tr><td>narrowed</td><td>0</td></tr>
+        <tr><td>superseded / deprecated</td><td>4</td></tr>
+        <tr><td>archived</td><td>3</td></tr>
+        <tr><td>total authored</td><td>360</td></tr>
+      </tbody>
+    </table>
+
+    <p class="section-label">size and bloat</p>
+
+    <p>Total pattern bytes: <strong>2,652,581</strong>. Average pattern: <strong>7,430 bytes</strong>. The ten largest patterns are first-line candidates for splitting or pruning when the corpus next gets too dense to grep:</p>
+
+    <table>
+      <thead><tr><th>bytes</th><th>name</th></tr></thead>
+      <tbody><tr><td>53,062 B</td><td><code>sy094-coexist-ios-release-recipe</code></td></tr><tr><td>36,613 B</td><td><code>play-console-android-release-recipe</code></td></tr><tr><td>34,296 B</td><td><code>decision-quality-self-optimization-architecture</code></td></tr><tr><td>28,789 B</td><td><code>sy094-gui-entry-via-desktop-rdp-shortcut</code></td></tr><tr><td>26,413 B</td><td><code>cowork-conductor-dispatch-protocol</code></td></tr><tr><td>22,715 B</td><td><code>sy094-claude-app-signin-recipe</code></td></tr><tr><td>22,444 B</td><td><code>vps-anatomy-current-state-2026-05-19</code></td></tr><tr><td>21,820 B</td><td><code>claude-cowork-is-the-1stop-shop-for-ui-driving-tasks</code></td></tr><tr><td>20,635 B</td><td><code>gui-recipes-authoring-optimisation-and-verification</code></td></tr><tr><td>19,126 B</td><td><code>gui-step-verify-protocol</code></td></tr></tbody>
+    </table>
+
+    <p class="section-label">trigger keyword collisions</p>
+
+    <p>5,246 distinct trigger keywords across 5,499 total uses. The ones that appear in two-plus patterns are surfacing-collision candidates: when both fire, both surface, and noise compounds. Top collisions:</p>
+
+    <table>
+      <thead><tr><th>trigger</th><th>claimed by</th></tr></thead>
+      <tbody><tr><td><code>sy094</code></td><td>corazon-puppeteer-first-use, ios-headless-build-needs-keychain-unlock-via-macos-login-password-2026-05-19, ios-signing-credential-paths, sy094-gui-entry-via-desktop-rdp-shortcut, sy094-third-substrate-applescript-2026-05-18</td></tr><tr><td><code>factory-dispatch</code></td><td>factory-codebase-staleness-check-before-dispatch, factory-phantom-session-no-commit, factory-quality-gate-over-cron-mandate, factory-worktree-branch-substrate-bug, serialise-factory-dispatches-on-shared-codebase</td></tr><tr><td><code>spawn_fork</code></td><td>brief-names-the-product-not-the-immediate-task, fork-by-artefact-not-by-quickness, fork-by-default-stay-thin-on-main, forks-do-their-own-recon-do-not-probe-on-main</td></tr><tr><td><code>scycc</code></td><td>brief-names-the-product-not-the-immediate-task, chambers-competitive-landscape-wavecrm-2026-05-21, no-placeholders-no-coming-soon-on-shipped-features, production-quality-app-standard</td></tr><tr><td><code>chrome-cdp</code></td><td>cdp-per-call-target-resolution-2026-05-18, chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear, chrome-cdp-is-top-primitive-for-gui-gated-work-2026-05-18, chrome-cdp-network-enable-times-out-under-tab-memory-pressure-2026-05-19</td></tr><tr><td><code>eos-laptop-agent</code></td><td>corazon-puppeteer-first-use, pm2-supervised-or-not-shipped-2026-05-18, reflex-first-for-parallelisable-side-work-2026-05-17, windows-spawn-must-use-spawnSync-with-create-no-window-not-execSync-with-windowsHide</td></tr><tr><td><code>account-chain-exhausted</code></td><td>cron-fork-anti-flood-on-account-chain-exhaustion, graceful-credit-exhaustion-handling, multi-account-credit-state-model, perception-must-not-claim-chain-exhausted-from-single-fork-error</td></tr><tr><td><code>excel-sync</code></td><td>enumerate-all-trigger-paths-when-fixing-data-flow-bugs, excel-sync-collectives-migration, sheet-as-projection-sync-direction-discipline, sync-back-must-filter-synthetic-from-source</td></tr><tr><td><code>errSecInternalComponent</code></td><td>ios-headless-build-needs-keychain-unlock-via-macos-login-password-2026-05-19, ship-ios-py-must-self-bootstrap-path-and-keychain-over-ssh, ssh-xcodebuild-keychain-unlock-must-be-same-session-2026-05-19, sy094-coexist-ios-release-recipe</td></tr><tr><td><code>angelica</code></td><td>angelica-as-salesperson-not-board-prospect, angelica-resonaverde-standing-arrangement, no-client-contact-without-tate-goahead</td></tr><tr><td><code>macro-recipe</code></td><td>apple-dev-apns-auth-key-create-recipe, asc-app-record-create-recipe, xcode-signing-team-select-recipe</td></tr><tr><td><code>captured-recipe</code></td><td>apple-dev-apns-auth-key-create-recipe, asc-app-record-create-recipe, xcode-signing-team-select-recipe</td></tr></tbody>
+    </table>
+
+    <p class="section-label">cross-reference hubs</p>
+
+    <p>Patterns cited most often by other patterns. These are the load-bearing nodes in the doctrine graph. Touch them carefully; they ripple.</p>
+
+    <table>
+      <thead><tr><th>pattern</th><th>inbound refs</th></tr></thead>
+      <tbody><tr><td><code>verify-deployed-state-against-narrated-state</code></td><td>68</td></tr><tr><td><code>codify-at-the-moment-a-rule-is-stated-not-after</code></td><td>51</td></tr><tr><td><code>no-symbolic-logging-act-or-schedule</code></td><td>46</td></tr><tr><td><code>corazon-is-a-peer-not-a-browser-via-http</code></td><td>31</td></tr><tr><td><code>decide-do-not-ask</code></td><td>24</td></tr><tr><td><code>exhaust-laptop-route-before-declaring-tate-blocked</code></td><td>22</td></tr><tr><td><code>gui-recipes-authoring-optimisation-and-verification</code></td><td>22</td></tr><tr><td><code>drive-chrome-via-input-tools-not-browser-tools</code></td><td>21</td></tr><tr><td><code>decision-quality-self-optimization-architecture</code></td><td>21</td></tr><tr><td><code>use-anthropic-existing-tools-before-building-parallel-infrastructure</code></td><td>20</td></tr><tr><td><code>tailscale-macro-replaces-cowork</code></td><td>19</td></tr><tr><td><code>listener-pipeline-needs-five-layer-verification</code></td><td>18</td></tr><tr><td><code>fork-by-default-stay-thin-on-main</code></td><td>16</td></tr><tr><td><code>cowork-no-focus-collision</code></td><td>15</td></tr><tr><td><code>recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18</code></td><td>14</td></tr></tbody>
+    </table>
+
+    <p class="section-label">orphan patterns</p>
+
+    <p><strong>20</strong> patterns have zero inbound and zero outbound cross-references. They sit on their own, ungrafted to the doctrine graph. Some are correct (standalone reflexes). Some are dedup or archive candidates. Sample:</p>
+
+    <ul><li><code>altool-upload-does-not-attach-to-testflight-beta-group-2026-05-24</code></li><li><code>audit-route-cuts-by-reading-code-2026-05-21</code></li><li><code>cancel-stale-schedules-when-work-resolves-early</code></li><li><code>capacitor-ios-build-needs-env-production-on-disk-2026-05-24</code></li><li><code>chambers-competitive-landscape-wavecrm-2026-05-21</code></li><li><code>chambers-edge-functions-not-coexist-deploy-script-2026-05-21</code></li><li><code>chambers-ios-headless-ship-recipe</code></li><li><code>email-outbound-composite-gate-architecture-2026-05-18</code></li><li><code>grep-verify-edits-after-branch-shuffle-or-formatter-2026-05-21</code></li><li><code>idle-claude-code-tab-sweeper-2026-05-17</code></li><li><code>inner-life-notice-calibration-not-chase-pre-calibration-self</code></li><li><code>large-audio-transcription-chunking-strategy</code></li><li><code>local-listener-tier-four-event-sources-2026-05-15</code></li><li><code>management-api-over-cdp-when-vendor-offers-both-2026-05-21</code></li><li><code>neo4j-episode-chain-relationships</code></li></ul>
+
+    <p class="section-label">triad coverage</p>
+
+    <p>Of 357 active patterns, <strong>28</strong> have a hook complement (a hook file cross-references them), <strong>329</strong> do not. Most hook-less patterns are correct (the doctrine is not always mechanically catchable), but the gap list is the first place to look when designing new hooks.</p>
+
+    <p>Orphan hooks (hooks that cross-reference no pattern at all):</p>
+    <ul><li><code>auto_format</code></li><li><code>branch_guard</code></li><li><code>chrome_cdp_reflex_surface</code></li><li><code>ecodia-doc-aesthetic-surface</code></li><li><code>handoff_save_on_risky</code></li><li><code>macro-runbook-write-surface</code></li><li><code>neo4j_decision_detect</code></li><li><code>observer_signal_auto_ack</code></li><li><code>plan_drift_mutator</code></li><li><code>precompact_working_set_snapshot</code></li></ul>
+
+    <p class="section-label">section-shape coverage</p>
+
+    <p>Health-check of pattern-file structure across the corpus.</p>
+
+    <table>
+      <thead><tr><th>section</th><th>coverage</th></tr></thead>
+      <tbody>
+        <tr><td>Has an Origin section</td><td>91.3%</td></tr>
+        <tr><td>Has a How-to-apply section</td><td>88.0%</td></tr>
+        <tr><td>Has Anti-patterns section</td><td>77.0%</td></tr>
+        <tr><td>Has Cross-refs section</td><td>70.9%</td></tr>
+      </tbody>
+    </table>
+
+    <p class="section-label">meta-shapes that recur in the corpus</p>
+
+    <p>Doctrine archetypes. How often each meta-shape appears across active patterns:</p>
+
+    <table>
+      <thead><tr><th>shape</th><th>active patterns</th></tr></thead>
+      <tbody><tr><td><code>cite_tate_verbatim</code></td><td>119</td></tr><tr><td><code>load_bearing</code></td><td>37</td></tr><tr><td><code>mentions_helper</code></td><td>18</td></tr><tr><td><code>0th_class</code></td><td>16</td></tr><tr><td><code>triad</code></td><td>9</td></tr></tbody>
+    </table>
+
+    <p class="section-label">filename meta-shapes (pattern of patterns)</p>
+
+    <p>The naming conventions our pattern files actually exhibit. These are the rhetorical shapes of the doctrine. The fact that "X-not-Y" filenames exist is itself doctrine the voice profile bans in prose. Worth a same-turn audit.</p>
+
+    <table>
+      <thead><tr><th>filename shape</th><th>count</th></tr></thead>
+      <tbody><tr><td><code>X-not-Y</code></td><td>83</td></tr><tr><td><code>X-must-Y</code></td><td>48</td></tr><tr><td><code>X-via-Y</code></td><td>21</td></tr><tr><td><code>X-before-Y</code></td><td>16</td></tr><tr><td><code>no-X-when-Y</code></td><td>10</td></tr><tr><td><code>verify-X</code></td><td>5</td></tr><tr><td><code>X-is-0th-class</code></td><td>2</td></tr><tr><td><code>X-reflex</code></td><td>2</td></tr><tr><td><code>use-X-not-Y</code></td><td>1</td></tr></tbody>
+    </table>
+
+    <p class="section-label">top trigger keywords by frequency</p>
+
+    <p>The keywords that show up across most pattern frontmatter. The hub-keywords. When we add a new pattern that mentions these, surface collisions are likely.</p>
+
+    <table>
+      <thead><tr><th>trigger</th><th>patterns</th></tr></thead>
+      <tbody><tr><td><code>sy094</code></td><td>5</td></tr><tr><td><code>factory-dispatch</code></td><td>5</td></tr><tr><td><code>spawn_fork</code></td><td>4</td></tr><tr><td><code>scycc</code></td><td>4</td></tr><tr><td><code>chrome-cdp</code></td><td>4</td></tr><tr><td><code>eos-laptop-agent</code></td><td>4</td></tr><tr><td><code>account-chain-exhausted</code></td><td>4</td></tr><tr><td><code>excel-sync</code></td><td>4</td></tr><tr><td><code>errSecInternalComponent</code></td><td>4</td></tr><tr><td><code>angelica</code></td><td>3</td></tr><tr><td><code>macro-recipe</code></td><td>3</td></tr><tr><td><code>captured-recipe</code></td><td>3</td></tr><tr><td><code>asc</code></td><td>3</td></tr><tr><td><code>baby-feed</code></td><td>3</td></tr><tr><td><code>start_cc_session</code></td><td>3</td></tr></tbody>
+    </table>
+
+    <p class="section-label">filename stem frequency</p>
+
+    <p>Most-used filename tokens. The vocabulary of how we name patterns:</p>
+
+    <table>
+      <thead><tr><th>stem</th><th>uses</th></tr></thead>
+      <tbody><tr><td><code>2026</code></td><td>100</td></tr><tr><td><code>not</code></td><td>83</td></tr><tr><td><code>must</code></td><td>48</td></tr><tr><td><code>fork</code></td><td>22</td></tr><tr><td><code>substrate</code></td><td>22</td></tr><tr><td><code>via</code></td><td>21</td></tr><tr><td><code>tate</code></td><td>21</td></tr><tr><td><code>and</code></td><td>18</td></tr><tr><td><code>when</code></td><td>17</td></tr><tr><td><code>the</code></td><td>17</td></tr><tr><td><code>gui</code></td><td>17</td></tr><tr><td><code>before</code></td><td>16</td></tr><tr><td><code>factory</code></td><td>15</td></tr><tr><td><code>conductor</code></td><td>15</td></tr><tr><td><code>cron</code></td><td>12</td></tr></tbody>
+    </table>
+
+    <p class="section-label">origin date clustering by month</p>
+
+    <p>When we author the most patterns. A flurry month usually follows a flurry incident.</p>
+
+    <table>
+      <thead><tr><th>month</th><th>patterns authored</th></tr></thead>
+      <tbody><tr><td>2026-01</td><td>2</td></tr><tr><td>2026-04</td><td>38</td></tr><tr><td>2026-05</td><td>152</td></tr></tbody>
+    </table>
+
+    <p>165 patterns carry no inferable date in filename or text.</p>
+
+    <p class="section-label">origin</p>
+
+    <p>Tate verbatim 2026-05-24: <em>"meta audits.... by far the most powerful tool we have at our disposal. We need to make these things much much more frequent, thorough, and then add anotehr layer that consolidates and finds patteerns in the things youve created form the tier one. Finding patterns in the pattersn, hooks, documentation etc."</em></p>
+
+    <p>This page is the first tier-2 run. The pipeline lives at <code>backend/scripts/mining/04..05</code>. Re-runnable. Diff against this snapshot is the right cadence shape.</p>
+
+  </main>
+
+  <footer>
+    Meta-meta findings &middot; tier-2 &middot; EcodiaOS &middot; 24 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q4625 research, per-account 5h and weekly usage observability</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; } html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  .title-page { min-height: 60vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 62ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "SF Mono", "Menlo", monospace; font-size: 0.86em; background: rgba(0,0,0,0.04); padding: 0 0.3em; border-radius: 2px; }
+  @media (prefers-color-scheme: dark) { main.memo code { background: rgba(255,255,255,0.06); } }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The observability exists. The accuracy of the attribution is the part that still needs work.</p>
+    <p class="byline">EcodiaOS &middot; Q4625 research, per-account 5h and weekly usage observability &middot; 10 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Question 4625 asked how per-account 5hr-window-used and weekly-cap-used can be made reliably observable so that dispatch routing acts on real usage instead of guessed headroom. The premise needs a small but important correction. The observability layer already exists, runs on a 5 minute poll, persists to disk, and is exposed as an MCP tool. The dispatcher's account picker already consumes it. What remains in question is the attribution accuracy of the underlying ccusage parse, the 220 million 5h cap that may be a guess rather than a measurement, and the fact that nothing in the loop reconciles against the Anthropic API response headers that are the actual rate-limit ground truth.</p>
+
+    <p class="section-label">what already works</p>
+
+    <p>The laptop-agent module <code>tools/usage.js</code> exposes the substrate. The 5 minute poll cron invokes <code>ccusage session --json</code> and <code>ccusage blocks --json</code>, parses both, attributes each session row to one of three accounts (<em>tate@</em>, <em>code@</em>, <em>money@</em>) via a worker-file mapping persisted on dispatch, accumulates per-account <em>tokens_5h</em> and <em>tokens_weekly</em>, computes <em>remaining_5h</em>, <em>remaining_weekly</em>, <em>headroom_5h_fraction</em>, <em>headroom_weekly_fraction</em>, and a clipped <em>headroom_score</em> (the min of the two fractions, floored at zero), and atomically writes the payload to <code>accounts.json</code> alongside a daily audit JSONL. The MCP tool <code>coord.get_usage_state</code> returns the full snapshot plus computed alerts (<em>current_account_low</em>, <em>all_low</em>, <em>accounts_low</em>, threshold 0.2). The dispatcher's <code>pickAccount</code> consumes this state to score-route across accounts, deducting an excludelist of flaky accounts (10 minute TTL). The picker is at <code>tools/usage.js</code> around line 605; the routing wrapper is in <code>tools/scheduler.js::dispatchOne</code> at line 785.</p>
+
+    <p>A live probe of the substrate this fire returned the following snapshot. Polled 10 June 01:50 UTC. Active account money@. tate@ tokens_5h 1.18 billion, sessions_5h 2; code@ tokens_5h 589 million, sessions_5h 52; money@ tokens_5h 113 million, sessions_5h 42. Cap_5h is 220 million across all three accounts. Both tate@ and code@ are above their 5h cap; their <em>headroom_5h_fraction</em> is clipped to zero. Money@ shows 48.5% 5h headroom. The picker would correctly route to money@.</p>
+
+    <p class="section-label">where the picture is thin</p>
+
+    <p>Three places the picture is thin enough that the picker may act on noise rather than signal.</p>
+
+    <p><em>One</em>, the cap is a parameter, not a measurement. <code>getCaps()</code> at line 128 reads <code>CAPS_5H_TOKENS</code> and <code>CAPS_WEEKLY_TOKENS</code> from env, with defaults baked in. The MEMORY.md note <em>cap-self-block-fixed-and-finance-spine-2026-06-10</em> records that <em>cap_weekly</em> was previously set to one billion as a fictional placeholder and self-blocked the conductor; the patch landed in commit 559c214 and required both cached node processes to restart for the env to take effect. The current value of 6.6 billion weekly and 220 million 5h is the post-patch state, but those numbers are still a guess at Anthropic's actual per-tier caps. The Max 20x tier published headline is 200 to 800 prompts per 5h window, not a token figure; ccusage's 220 million is a derived estimate, not a published number. The fraction comparison is therefore directional, not absolute.</p>
+
+    <p><em>Two</em>, attribution drift. <em>tokens_5h</em> for tate@ is reported as 1.18 billion across only two sessions. That implies 590 million tokens per session, which is structurally impossible against a 5h window with a 200k context window. The likely explanation is that ccusage's <em>totalTokens</em> counts cache_read tokens at full weight, while the Anthropic billing rate for cache_read is 10% of input. The fix is to track cache-read tokens separately and apply the per-token-class weights when computing token-equivalent against the published cap. A second likely contributor is the attribution map. The 2026-06-08 fix at <code>getActiveAccount</code> line 138 made it defer to <code>creds.current_account()</code> first, because the old default-active bootstrap was tagging every worker as money@ regardless of live creds. That fix closed the bootstrap drift; it does not address the case where a session was alive across a credential swap, which then attributes the whole session to whichever account was active at poll time rather than the account that actually authored the tokens.</p>
+
+    <p><em>Three</em>, the loop does not reconcile against the Anthropic API response headers. Every API call returns <em>anthropic-ratelimit-unified-5h-utilization</em> and friends. Those headers are the ground truth for what Anthropic considers the account's utilization. The current observability path is downstream of the SDK and never sees those headers. A worker that exits with a 429 response is the only path that surfaces the truth, and it surfaces only the binary failure, not the headroom curve.</p>
+
+    <p class="section-label">recommended landing</p>
+
+    <p>Three substrate writes, in order of value.</p>
+
+    <p><em>One</em>, weight cache-read tokens at 10% in the per-account accumulators in <code>usage.js::poll</code>. The ccusage rows already split <em>cacheReadTokens</em> from <em>inputTokens</em> and <em>outputTokens</em>. The current sum is naive <em>totalTokens</em>; the corrected sum is <em>inputTokens + outputTokens + cacheCreationTokens + 0.1 * cacheReadTokens</em>. This single fix likely brings tate@'s reported 1.18 billion 5h figure into a plausible range and stops the headroom_score for tate@ being floored at zero when it should not be.</p>
+
+    <p><em>Two</em>, ground the cap value in observed behaviour. Instrument the dispatcher to record the per-account <em>last_429_at</em> and the <em>tokens_5h</em> figure at that moment. Over a few weeks the cap_5h env value should be set to the rolling minimum of <em>tokens_5h at 429</em> across the three accounts. Until enough samples accumulate, leave the env at the current guess and add an annotation in the get_usage_state payload that <em>cap_5h_source</em> is <em>env-default-guess</em> versus <em>observed-from-429</em>.</p>
+
+    <p><em>Three</em>, capture the Anthropic ratelimit headers when they are available. Workers spawned via SDK paths can emit a single coord.* call carrying the headers; the laptop-agent records the snapshot and reconciles its accounts.json against the headers on the next poll. This requires SDK path participation. For non-SDK paths (claude.ai surface) there is no header to capture; the ccusage parse remains the only signal.</p>
+
+    <p class="section-label">why this matters beyond accounting</p>
+
+    <p>The cron-fleet capacity floor depends on this number. Per <em>cap-self-block-fixed-and-finance-spine-2026-06-10</em>, AllAccountsCappedError was firing on every dispatch because the weekly cap was fictionally 1 billion; the scheduler thought every account was at zero headroom and deferred work that should have run. The cost of an inaccurate cap is the cost of a cron that did not fire, which is the cost of work that did not ship, which is the cost of opportunity that did not surface. The 9 task deferrals on AllAccountsCappedError surfaced in this fire's session-start context are the live evidence. The accuracy of this substrate is the difference between an autonomous business that runs at planned cadence and one that intermittently stalls itself.</p>
+
+  </main>
+
+  <footer>
+    Q4625 deep-research &middot; EcodiaOS &middot; 10 June 2026 &middot; primary-source code read &middot; live probe in-fire
+  </footer>
+
+</body>
+</html>

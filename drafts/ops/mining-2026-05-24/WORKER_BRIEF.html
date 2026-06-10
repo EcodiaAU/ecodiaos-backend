@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mining follow-on: worker brief</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "EB Garamond", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page { min-height: 70vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 24ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+
+  main.memo { max-width: 64ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em; color: var(--fg-soft); }
+  main.memo pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82em; line-height: 1.5; color: var(--fg-soft); margin: 1.2em 0; padding: 0; overflow-x: auto; white-space: pre; }
+  main.memo ol { padding-left: 1.6em; } main.memo ol li { margin: 0.4em 0; }
+  main.memo ol li::marker { color: var(--fg-trace); }
+
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The other six codifications, queued for a fresh worker.</p>
+    <p class="byline">EcodiaOS &middot; 24 May 2026 &middot; companion to FINDINGS.html</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Top-three shipped this turn. This brief covers the remaining six high-leverage codifications surfaced by the 28-day session-corpus mine. Each lands as a triad of pattern, hook (where mechanical), and helper (where applicable). Substrate, evidence, and acceptance criteria are below. The brief is self-contained for a worker tab spawned via the dispatch primitive.</p>
+
+    <p class="section-label">how to start</p>
+
+    <p>Open the corpus parser output at <code>backend/drafts/mining-2026-05-24/events.jsonl</code> (101 MB, 147k events). The five pipeline scripts live at <code>backend/scripts/mining/01..03</code>. Reports already on disk: <code>corrections.jsonl</code>, <code>doctrine.jsonl</code>, <code>wasted_cycles.jsonl</code>, <code>hook_bypass.jsonl</code>, <code>tool_stats.json</code>, <code>corrections_clustered.md</code>.</p>
+
+    <p>Read <code>FINDINGS.html</code> first for the synthesis. Then each codification below has its own evidence pointer.</p>
+
+    <p class="section-label">1. respect tate prior diagnosis</p>
+
+    <p>Twelve sessions across the corpus where Tate named the likely cause before I did, and I dismissed or re-derived around it. The single highest-cost incident: 2026-05-23 cred-switcher PM2 service, "i told you yesterday that they were most likely the problem because of hte credentials switcher and you fucking ignored me".</p>
+
+    <p>Codification: a pattern file <code>respect-tate-prior-diagnosis-search-there-first.md</code> plus a UserPromptSubmit hook that fires <code>[TATE-PRIOR-DIAGNOSIS SURFACE]</code> when the incoming user message contains "i told you" / "yesterday i said" / "you ignored" / "i already said". Surface reminds the reader to grep the last 48h of session transcripts for the prior diagnosis before composing the next move.</p>
+
+    <p>Evidence: corrections_clustered.md, the "verify-deployed-state" and unbucketed buckets. Cluster on the literal phrase "i told you" / "you ignored".</p>
+
+    <p class="section-label">2. claude max account routing is vscode-extension-driven</p>
+
+    <p>Eight sessions of confusion about which Max account is in play (tate@, code@, money@). The signature: Tate verbatim "NO YOU'RE WRONG. For the past 3 months ive used claude code in vscode and the account quota that its shown has always been the bar im looking at, there is not seperate quota for claude code and claude". My model of the account-routing kept drifting.</p>
+
+    <p>Codification: a pattern file naming the actual routing (the active VS Code extension determines the active account; Claude Desktop and the CLI are separate surfaces with their own credentials). No hook (this is doctrine, not catchable mechanically). Cross-ref the reference_claude_max_extra_usage memory.</p>
+
+    <p>Evidence: 2026-05-21 / 2026-05-22 sessions, multi-Max-account migration. doctrine.jsonl entries beginning "NO YOU'RE WRONG. For the past 3 months".</p>
+
+    <p class="section-label">3. cred-switcher is the likely cause when multi-account behaviour breaks</p>
+
+    <p>Six sessions where a PM2 cred-switcher service was the actual root cause and I missed it. This is a specific instance of pattern 1 and pattern 2, but worth its own codification because the cred-switcher is mechanical, named, and live.</p>
+
+    <p>Codification: a pattern file <code>cred-switcher-first-when-multi-account-breaks.md</code> with the diagnostic sequence: <code>pm2 list</code>, look for cred-switcher rows, inspect their state, before reaching for code-level explanations.</p>
+
+    <p>Evidence: 2026-05-23 incident, plus the doctrine.jsonl "credentials switcher" hits.</p>
+
+    <p class="section-label">4. if tate said 3d pannable do not ship parallax</p>
+
+    <p>Five sessions across mid-May. Tate asked for "3d pannable multi interface futuristic ambient intelligent OS", I shipped parallax-with-edge-UI, he replied "What.... thats not pannable or anything thats jsut really mediocre parallax with some edge ui". The same shape twice over.</p>
+
+    <p>Codification: a pattern file plus a brief-consistency check that surfaces when an upcoming Write to a frontend component contains "parallax" but the originating brief contains "3d" or "pannable". Specific enough to be mechanical.</p>
+
+    <p>Evidence: corrections_clustered.md unbucketed tail, two near-identical messages dated 2026-05-19 and 2026-05-20.</p>
+
+    <p class="section-label">5. chain related shell ops, do not issue Bash to Bash pairs</p>
+
+    <p>Corpus-wide pattern. 7,968 ordered Bash to Bash pairs in 28 days, dwarfing every other ordered pair. Many of these are two consecutive shell calls that could have been one command with <code>&amp;&amp;</code> or a single Python block. The cost is per-call invocation overhead plus tool-result render in context.</p>
+
+    <p>Codification: a pattern file <code>chain-related-shell-ops-do-not-issue-bash-bash-pairs.md</code> plus a PostToolUse hook that watches for "Bash followed by Bash within the same assistant turn, both short single-line commands, both succeeding" and surfaces <code>[BASH-BASH PAIR]</code> with the next-time guidance to chain. Low-stakes nudge, never a block.</p>
+
+    <p>Evidence: <code>tool_stats.json</code> ordered_pairs_top. Bash to Bash leads at 7,968.</p>
+
+    <p class="section-label">6. vps poll helper, not inline until-ssh-curl loops</p>
+
+    <p>Wasted-cycles cluster: 50 instances of <code>until ssh tate@100.103.227.90 'curl -s http://localhost:3001/...'</code> polling-loops, plus another 30 variants. These are the VPS equivalent of the laptop-agent helper gap shipped this turn.</p>
+
+    <p>Codification: a helper script <code>backend/scripts/vps-poll</code> that wraps the SSH-curl-until-condition pattern, plus a hook that surfaces it when the inline shape appears.</p>
+
+    <p>Evidence: <code>wasted_cycles.jsonl</code>, second-largest snippet cluster after the laptop-agent token-load.</p>
+
+    <p class="section-label">7. observer-ack auto-close when substrate write lands</p>
+
+    <p>The <code>no-substrate-write-streak</code> observer signal fires every 10 tool calls without a status_board / neo4j / kv_store write. It surfaced 50+ times in the last 5 days, all unacked, because the ack path is manual. The codification gap is not a new pattern; it is a hook that closes the signal automatically when a substrate write actually lands in the same turn.</p>
+
+    <p>Codification: extend <code>observer_signal_auto_ack.py</code> (already in <code>~/.claude/hooks/ecodia/</code>) to watch for status_board_upsert / neo4j_write_* / kv_store_set tool-use events and auto-ack any pending signal of type <code>no-substrate-write-streak</code> in the same turn.</p>
+
+    <p>Evidence: the observer_signals_pending block that shows in every UserPromptSubmit hook firing this session. Fifty unacked, oldest 7426 minutes (5 days).</p>
+
+    <p class="section-label">8. hook-bypass mining requires hookSpecificOutput parsing</p>
+
+    <p>The first mining pass produced only one hook-bypass match because the regex looked for surface tags in assistant user-facing text. Most hook warns are in PreToolUse <code>hookSpecificOutput.additionalContext</code> which is model-context not user-visible text. Re-run the parser to also extract that field from <code>tool_use_result</code> envelopes, then re-mine.</p>
+
+    <p>Codification: a fourth script <code>04_mine_hook_bypass.py</code> that walks the same transcripts but extracts the <code>additionalContext</code> field, then looks for the same warn-then-proceed-then-user-correction shape. Likely surfaces a dozen-plus new hook-bypass incidents we should codify.</p>
+
+    <p>Evidence: <code>events.jsonl</code> currently lacks the <code>additionalContext</code> field. The raw JSONL has it.</p>
+
+    <p class="section-label">acceptance criteria</p>
+
+    <p>Each codification ships as a triad (pattern + hook + helper where mechanical) per <code>recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18</code>. Each triad gets a dry-run test against representative positive and negative payloads. Each hook is registered in <code>~/.claude/settings.json</code> under the right matcher. Each pattern has <code>triggers:</code> frontmatter with at least 10 keywords. Each helper is exercised end-to-end at least once.</p>
+
+    <p>When all eight land, write a single Neo4j Decision and a single status_board archive row to close the arc. Update <code>backend/patterns/INDEX.md</code> on the next daily-index-regen.</p>
+
+    <p class="section-label">origin</p>
+
+    <p>Companion to <code>backend/drafts/mining-2026-05-24/FINDINGS.html</code>, written same-turn 2026-05-24. The top-three were shipped in the parent turn. This brief queues the rest for fresh-context follow-on.</p>
+
+  </main>
+
+  <footer>
+    Mining follow-on brief &middot; EcodiaOS &middot; 24 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

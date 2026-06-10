@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glovebox share card 1</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #A8431F; color: #E8DFC9; }
+  body {
+    width: 1080px;
+    height: 1080px;
+    margin: 0 auto;
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+  ::selection { background: #E8DFC9; color: #A8431F; }
+  .stack {
+    display: grid;
+    place-items: center;
+    gap: 64px;
+  }
+  .mark { width: 160px; height: 160px; }
+  .lines {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 60px;
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 18ch;
+    text-wrap: balance;
+  }
+  .tag {
+    font-style: italic;
+    font-size: 24px;
+    letter-spacing: 0.06em;
+    color: rgba(232, 223, 201, 0.6);
+  }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <svg class="mark" viewBox="0 0 1024 1024" aria-label="Glovebox">
+      <circle cx="512" cy="450" r="133" fill="#E8DFC9"/>
+      <line x1="205" y1="635" x2="819" y2="635" stroke="#E8DFC9" stroke-width="46" stroke-linecap="round"/>
+    </svg>
+    <p class="lines">Works without signal.</p>
+    <p class="tag">Glovebox</p>
+  </div>
+</body>
+</html>

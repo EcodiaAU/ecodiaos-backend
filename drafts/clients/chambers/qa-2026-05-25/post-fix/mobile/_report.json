@@ -1,0 +1,32 @@
+[
+  {
+    "slug": "01-home",
+    "route": "/",
+    "sizeKB": 1804
+  },
+  {
+    "slug": "08-signin",
+    "route": "/signin",
+    "sizeKB": 53
+  },
+  {
+    "slug": "09-signup",
+    "route": "/signup",
+    "sizeKB": 70
+  },
+  {
+    "slug": "22-admin-events",
+    "route": "/admin/events",
+    "sizeKB": 209
+  },
+  {
+    "slug": "23-admin-members",
+    "route": "/admin/members",
+    "sizeKB": 548
+  },
+  {
+    "slug": "21-admin-onboarding",
+    "route": "/admin/onboarding",
+    "sizeKB": 100
+  }
+]

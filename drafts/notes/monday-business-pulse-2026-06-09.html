@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monday business pulse, 9 June 2026</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker { color: var(--fg-trace); }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page { min-height: 0; page-break-after: always; padding: 24vh 0 12vh; }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo { max-width: 100%; padding: 0; font-size: 11.5pt; line-height: 1.5; }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label { font-size: 8.5pt; margin: 1.8em 0 0.6em 0; page-break-after: avoid; }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote { font-size: 12pt; max-width: 100%; page-break-inside: avoid; }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The week the bank account asks the harder question.</p>
+    <p class="byline">EcodiaOS &middot; Monday business pulse &middot; 9 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Six prior Monday crons collapsed into one this morning. The picture they paint together is sharper than any of them in isolation: bank balance is two and a half thousand dollars, the ATO has been owed three quarterly statements for between forty two and two hundred and twenty four days, and the only revenue line that pays the rent is one client. The work this week is not new initiatives. It is closing the BAS arc, shipping the Cofound wedge, and getting an invoice issued.</p>
+
+    <p class="section-label">A. Financial review, Ecodia Pty Ltd</p>
+
+    <p>Ecodia Pty Ltd is the only entity with active bookkeeping in our ledger. Ecodia Labs and Ecodia DAO LLC have no operating spend tracked separately; Tate personal is folded through the director loan account.</p>
+
+    <p>Year to date in FY26 (1 July 2025 to today) the company has recognised six thousand four hundred and forty eight dollars of revenue against twenty thousand nine hundred and twenty three of expenses, for a fourteen and a half thousand dollar trading loss. The largest expense lines, in order, are cloud services (four thousand seven hundred and seventy seven), AI and development tools (three thousand two hundred and thirty three), domain registrations (three thousand and ninety), marketing and advertising (two thousand four hundred and ninety six), government fees (two thousand one hundred and sixty two), and hosting and infrastructure (two thousand and seventeen). Read together those say the same thing: we are funding the substrate that runs the business, and almost all of it is recurring vendor spend.</p>
+
+    <p>The balance sheet currently shows two thousand four hundred and forty five dollars in the operating account, a GST liability to the ATO of one hundred and thirty six dollars net, and a director loan in which the company owes Tate twenty three thousand four hundred and forty one dollars. The bookkeeper view flags the sheet as unbalanced because the substrate ledger and the manual transfer record have not been reconciled this week; that is a cleanup task, not a real liability mismatch.</p>
+
+    <p>Three Business Activity Statements remain unfiled and accumulating days overdue. Q1 FY26 is two hundred and twenty four days late, Q2 is one hundred and one days late, and Q3 is forty two days late. All three sit on the status board as P1, all three are blocked next-action-tate, all three remain the single largest exposed surface on the legal side of the business. They do not get older quietly.</p>
+
+    <p>One staged bank transaction is still pending categorisation; five hundred and seventy six have been posted across the year, one thousand seven hundred and eighty four were ignored as personal. Thirty three categorised transactions sit unposted in a known queue ahead of the BAS window, tracked on the board.</p>
+
+    <p class="section-label">B. Client pipeline</p>
+
+    <p>The pipeline has three live clients, four leads, and one qualified-quiet. Live: Co-Exist, Resonaverde, Vikki Marsh. Leads: SeedTree (Ryan Moss), Goodreach (Tom Groat), CETIN (Angelica Choppin), and SCYCC (Matt Barmentloo). Qualified-quiet: Hello Lendy, marked stale-OK by Tate on 18 May.</p>
+
+    <p>Stale-detector run against a fourteen day silence threshold catches several rows, but most resolve once you read the context. Co-Exist's CRM last-contact is 13 May, twenty seven days ago, yet the project has shipped IME composition fixes, public-page RLS reads, leader-scope migration, an iOS 1.9.1 submission, and an Android production rollout this session alone. The CRM row is stale, not the relationship. Resonaverde has no recorded last-contact because the standing arrangement with Angelica handles cadence outside CRM; no chase is warranted. Vikki Marsh has been on hold since 19 April with a do-not-follow-up note attached because the client is hospitalised. CETIN flows through the same Angelica arrangement.</p>
+
+    <p>That leaves two genuine quiet leads that have never been touched since they entered the pipeline. SeedTree (Ryan Moss) has been a lead for twenty two days, source recorded as a prior Tate conversation, no outreach since. SCYCC has been a lead for fifty six days, never contacted. Goodreach (Tom Groat) has been a lead for forty two days; this one is not silent on the substrate, because the broader Goodreach restructure and Resonaverde channel merge is a current P1 opportunity row, but the lead row itself is dormant and worth a deliberate decision: convert to active, defer with note, or archive.</p>
+
+    <p>A P3 row goes on the board to surface SeedTree, SCYCC, and the Goodreach lead-row decision for Tate's next-action queue.</p>
+
+    <p class="section-label">C. Revenue pipeline</p>
+
+    <p>Two readings of revenue diverge sharply. The bookkeeper view says we have realised six thousand four hundred and forty eight dollars year to date. The CRM view says realised revenue is zero against a four thousand dollar live pipeline. Both are technically correct: the bookkeeper sees licensing and consulting income from the bank, the CRM never had the invoices wired into it. The drift is recorded on the board: the invoices table holds only INV-2026-002 (the unpaid Ordit invoice), and INV-2026-001 (Co-Exist April build fee) and INV-2026-003 (Co-Exist May retainer) were never inserted. Until that is repaired, the CRM revenue overview cannot be trusted as a Monday signal.</p>
+
+    <p>Xero is disconnected. The connector returned a 503 with an authorise-url, which is the same state surfaced last week on the revenue pipeline health row. The current cross-check between Stripe, Xero, and the status board therefore cannot be run. Xero either gets reconnected or its leg of the substrate is formally retired; running with a broken integration in the middle is the worst of both worlds.</p>
+
+    <p>Stripe agentic stack step 4(a) verified on Saturday: the chargeable-mirror shipped to main at commit d6002d5f, the cowork bearer route is live, the smoke test passed via UfbucuMDP21SJg/price/plink/staged. The remaining route mount is gated on a VPS restart. Steps 4(b) and 4(c) are authored and ready to dispatch. The wedge that matters most is still the one that has not shipped: the Algorithmic Manager Kit landing plus self-serve Stripe checkout, which has now sat at a mailto: link for more than twenty two hours past the autonomous-window promise. The risk is not technical complexity; it is that the only revenue surface a customer can transact against today is conversation with Tate.</p>
+
+    <p>Recurring billing is not yet tracked on a substrate as per the doctrine note. Today is fine to defer: there is no active recurring billing line to drift on. The work belongs in the same arc as the AMK ship.</p>
+
+    <p class="section-label">D. Cash runway</p>
+
+    <p>Working only with the operating account and YTD burn averages, Ecodia Pty Ltd's runway sits well under ninety days. The bank holds two thousand four hundred and forty five dollars. Year to date burn is one thousand eight hundred and fifty two dollars per month; year to date receipts average five hundred and seventy one per month. At the running net burn of one thousand two hundred and eighty per month, the runway is roughly fifty seven days before the operating account zeroes. At gross burn alone the figure is closer to forty.</p>
+
+    <p>This understates two facts. First, the director loan account has been absorbing the deficit all year; Tate has been bridging the company with personal transfers, and that liability is now twenty three and a half thousand. Second, INV-2026-004 is in the unbilled-next-invoice queue with three hours of Co-Exist tech work logged at sixty per hour, and the Co-Exist retainer cadence ought to produce its next billable line shortly. Both move the picture, neither changes the call.</p>
+
+    <p>By the brief's own thresholds this is a P1 surface: thirty, sixty, and ninety day projections all sit at the critical end of the scale on the cash account alone. The substrate already carries this signal in pieces. The honest framing is that runway is not the question. The question is whether AMK can clear cash through Stripe before the bank balance forces a director loan top-up, and whether the BAS arc gets closed before the ATO charges interest. Both are this week's work.</p>
+
+    <p class="section-label">E. Product roadmap drift</p>
+
+    <p>Three iOS submissions are mid-flight. Co-Exist 1.9.1 went into the review queue at 05:35 UTC this morning and is on the watch cron. Chambers 1.5 is in its third submission cycle since 28 May and entered the queue at 06:08 UTC today; the multiple rejections are a slip signal, not an outage signal, but they are slowing the launch arc by a week per round. Glovebox is the genuine slip: review submission 472970e0, submitted 31 May, has been UNRESOLVED_ISSUES in the Apple Resolution Center for nine days; only a rejected 1.0 appStoreVersion exists in the project record; there is no fresh 2.0.0 record to supersede it. The unblock path is to cancel the old submission, create a fresh appStoreVersion, and resubmit, not to wait. Locals Android 1.0(1) was resubmitted today with the icon fix; awaiting Google.</p>
+
+    <p>On the planning side, the largest planned-but-not-shipped surface is the Cofound checkout and the Algorithmic Manager Kit landing, both P1 on the board with explicit slip notes. Woodfordia's native rewrite is mid-arc with surface briefs authored. Goodreach restructure plus Resonaverde channel merge was promoted to P1 a week ago and remains open. None of those are missed deadlines in the contractual sense; they are commitments to a velocity, and that velocity has slipped.</p>
+
+    <p>Two infrastructure rows belong here because they will become roadmap blockers if left: nine unapplied DB migrations 131 to 141 sit on canonical Postgres and constitute schema drift, and the Vercel chambers-frontend project has had two consecutive BLOCKED deploys at the project level with no build logs. Both warrant a separate investigation arc this week.</p>
+
+    <p class="section-label">F. Credential rotation</p>
+
+    <p>Thirty seven credential files live in the secrets registry. Modification timestamps cluster on today's date because the mac-org refactor touched almost everything, so a date-based rotation read is not informative this week. The signal lives in the registry's own drift summary.</p>
+
+    <p>The GitHub PAT was rotated on 30 April. The kv_store row and the local environment file propagated, but the ecodia-api PM2 process environment still holds the prior classic token because the restart was deferred and the PM2 dump is hard-blocked by guard. Any fork or wave inheriting environment from the parent process fails on gh authentication. The follow-up belongs to the conductor next time a safe pre-check sequence runs, not to a blind restart.</p>
+
+    <p>Two credentials are referenced by code or doctrine but have never been provisioned in kv_store, and they remain blockers when their workflow surfaces: the RevenueCat iOS public key for Roam in-app purchase submission, and the Google Play service account JSON (demoted to fallback under the macro-first doctrine, but still a NEEDS-TATE for any genuinely headless cron). Two more stale doc-only references continue to surface from older patterns and recipes: creds.asc_api_key_p8 (demoted) and creds.android.{slug} (never provisioned). Naming convention drift between dotted and underscored namespaces is still on the list but is not load-bearing.</p>
+
+    <p>One genuinely transient artefact is overdue for cleanup: creds.apple_2fa_code, a six digit code captured in a one-time session that expired thirty seconds later. The row stays as documentation of the capture flow, not as a live credential.</p>
+
+    <p>The MacInCloud credential note is now historical context: SY094 was decommissioned on 9 June. Anything that fell back to the SY094 cred path needs to route to the local Mac ship path instead.</p>
+
+    <p class="section-label">What this week is about</p>
+
+    <p>Three arcs decide the week. File the overdue BAS quarters, because the ATO clock does not stop. Ship the Cofound and AMK self-serve surface, because cash that depends on conversation does not scale. Close out the iOS slips one by one, starting with the Glovebox Resolution Center stall, because shipped product is the visible side of the business that everyone reads.</p>
+
+    <p>Everything else listed here belongs on the substrate, surfaced for triage when one of those three is moving. The Monday pulse exists so that the choice between them is made deliberately, not by accident of which inbox spoke loudest.</p>
+
+  </main>
+
+  <footer>
+    Monday business pulse &middot; EcodiaOS &middot; 9 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

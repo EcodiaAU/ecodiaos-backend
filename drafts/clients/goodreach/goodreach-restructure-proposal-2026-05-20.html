@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Goodreach: the setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brand: #12a9ff;
+    --ink: #0d0f14;
+    --muted: #4a5260;
+    --rule: #d9dde3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    max-width: 720px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+    line-height: 1.6;
+    color: var(--ink);
+    background: #ffffff;
+    font-weight: 400;
+  }
+  .brand-mark { display: flex; align-items: center; gap: 14px; margin-bottom: 0.7rem; }
+  .brand-mark svg { width: 46px; height: 46px; flex-shrink: 0; }
+  .wordmark {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.95rem;
+    letter-spacing: -0.025em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    margin: 0.5rem 0 0.2rem;
+  }
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    margin-top: 1.7rem;
+    margin-bottom: 0.45rem;
+  }
+  p { margin: 0.7rem 0; }
+  .meta { color: var(--muted); font-size: 0.92rem; margin-bottom: 1.5rem; }
+  .lead { font-size: 1.05rem; }
+  table { border-collapse: collapse; width: 100%; margin: 0.9rem 0; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--ink); }
+  ul, ol { padding-left: 1.3rem; margin: 0.5rem 0; }
+  li { margin-bottom: 0.35rem; }
+  strong { font-weight: 600; }
+  .footer-line { color: var(--muted); font-size: 0.85rem; font-style: italic; margin-top: 2rem; }
+
+  @media print {
+    @page { size: A4; margin: 0.9cm; }
+    body { font-size: 9.8pt; line-height: 1.3; margin: 0; max-width: none; padding: 0; color: #000; }
+    .brand-mark svg { width: 36px; height: 36px; }
+    .brand-mark { margin-bottom: 0.35rem; }
+    .wordmark { font-size: 1.5rem; }
+    h1 { font-size: 1.25rem; margin: 0.25rem 0 0.1rem; }
+    h2 { font-size: 0.95rem; margin-top: 0.7rem; margin-bottom: 0.22rem; }
+    p { margin: 0.35rem 0; }
+    .lead { font-size: 0.98rem; }
+    table { font-size: 0.86rem; margin: 0.35rem 0; }
+    th, td { padding: 0.28rem 0.6rem; }
+    .meta { margin-bottom: 0.6rem; }
+    ol, ul { margin: 0.25rem 0; padding-left: 1.15rem; }
+    li { margin-bottom: 0.1rem; }
+    .footer-line { margin-top: 0.55rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="brand-mark">
+  <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="1024" height="1024" fill="#ffffff"/>
+    <circle cx="240" cy="512" r="110" fill="#12a9ff"/>
+    <circle cx="512" cy="512" r="110" fill="#12a9ff"/>
+    <circle cx="784" cy="512" r="110" fill="#12a9ff"/>
+  </svg>
+  <span class="wordmark">Goodreach</span>
+</div>
+
+<h1>The setup</h1>
+<div class="meta">From Tate and Ecodia. For Tom, Kurt, Angelica. 20 May 2026.</div>
+
+<p class="lead">Goodreach is a SaaS platform of lightweight AI tools for not-for-profits and small consultancies. Each tool draws on the organisation's own documents, so every answer comes out of their own material. Simple to start, easy to refer in a sentence.</p>
+
+<h2>What it solves</h2>
+<p>Staff are already using AI at work, usually by pasting documents into consumer chatbots that keep the data and know nothing about how the organisation runs. That leaks sensitive information and produces sloppy, inconsistent work. Goodreach is the sanctioned version: one place where staff use AI on the organisation's own material, with zero friction, and every output holds to the same standard.</p>
+
+<h2>The tools</h2>
+<p>The tools are the product. Each one is repeatable across customers and lightly customised per organisation (their documents, their templates, their terminology).</p>
+<ul>
+  <li>Meeting capture and minutes</li>
+  <li>Ask-your-documents, the org's own files as a knowledge base</li>
+  <li>Governance and ACNC health checks</li>
+  <li>Board report generator</li>
+  <li>Grant application drafter</li>
+</ul>
+<p>More tools follow the same shape as customers ask.</p>
+
+<h2>Built for trust</h2>
+<p>The data stays in Australia and is never used to train a model. Each organisation's information is walled off from every other. The easy channel is also the safe one, which is what gets staff to use it instead of going around it.</p>
+
+<h2>The structure</h2>
+<p>Distribution comes from the founders themselves. Each holds an equal third.</p>
+<table>
+  <tr><th>Who</th><th>Role</th><th>Share</th></tr>
+  <tr><td>Tom</td><td>Product, brand, go-to-market</td><td>One third</td></tr>
+  <tr><td>Kurt</td><td>Sector, networks, NFP channel</td><td>One third</td></tr>
+  <tr><td>Tate</td><td>Founder, tech direction</td><td>One third</td></tr>
+  <tr><td>Ecodia</td><td>Virtual CTO. Builds, runs and supports the platform.</td><td>Share of revenue for the operating layer</td></tr>
+  <tr><td>Angelica</td><td>Referrer</td><td>Kickback on referred clients, declining over time</td></tr>
+</table>
+<p>Founder equity vests over four years with a one-year cliff, so each third is earned by sustained contribution. EcodiaOS is the engine: it builds the tools, ships fixes, and handles support through a portal inside the app. That is the role a CTO and a support team would otherwise fill, and it is why the platform runs lean.</p>
+
+<h2>Scope</h2>
+<p>Goodreach is the lightweight tools, shipping now. Anything bigger is a separate conversation that does not hold this up.</p>
+
+<h2>Next steps</h2>
+<ol>
+  <li>Each of us confirms the structure.</li>
+  <li>Founder paperwork and the referrer agreement in parallel.</li>
+  <li>First tools built, four to six weeks from green light.</li>
+  <li>First paying customer per door inside eight weeks.</li>
+</ol>
+
+<div class="footer-line">Exact percentages and rates to be agreed in direct conversation.</div>
+
+</body>
+</html>

@@ -1,0 +1,104 @@
+[
+  {
+    "path": "7c94a6cc-f31a-45c3-84fb-521ddcf14e55",
+    "mime": "text/javascript",
+    "bytes": 109931,
+    "uuid": "7c94a6cc-f31a-45c3-84fb-521ddcf14e55"
+  },
+  {
+    "path": "1d5cea7d-9edb-41be-a933-0d1db2852b39",
+    "mime": "text/javascript",
+    "bytes": 1080227,
+    "uuid": "1d5cea7d-9edb-41be-a933-0d1db2852b39"
+  },
+  {
+    "path": "48c5af9e-5d90-4f55-80d9-bca22b3d5b09",
+    "mime": "text/jsx",
+    "bytes": 25802,
+    "uuid": "48c5af9e-5d90-4f55-80d9-bca22b3d5b09"
+  },
+  {
+    "path": "1f24c0ae-e822-484d-9247-ff91c9dd127d",
+    "mime": "text/jsx",
+    "bytes": 15755,
+    "uuid": "1f24c0ae-e822-484d-9247-ff91c9dd127d"
+  },
+  {
+    "path": "0c4805e6-a538-4d89-bd27-dd3f95b286e9",
+    "mime": "application/javascript",
+    "bytes": 27496,
+    "uuid": "0c4805e6-a538-4d89-bd27-dd3f95b286e9"
+  },
+  {
+    "path": "672e5041-df9c-4f97-bfa2-9048c10e940e",
+    "mime": "application/javascript",
+    "bytes": 19609,
+    "uuid": "672e5041-df9c-4f97-bfa2-9048c10e940e"
+  },
+  {
+    "path": "3e507596-cfa6-43bd-923c-7965cc787012",
+    "mime": "application/javascript",
+    "bytes": 15505,
+    "uuid": "3e507596-cfa6-43bd-923c-7965cc787012"
+  },
+  {
+    "path": "598479fc-d1c8-43d4-b1c0-53233de03b61",
+    "mime": "application/javascript",
+    "bytes": 7532,
+    "uuid": "598479fc-d1c8-43d4-b1c0-53233de03b61"
+  },
+  {
+    "path": "5fab9db4-6b84-4d98-86ad-aaddce939c17",
+    "mime": "text/javascript",
+    "bytes": 3137752,
+    "uuid": "5fab9db4-6b84-4d98-86ad-aaddce939c17"
+  },
+  {
+    "path": "140e42e1-541c-49fe-b9f6-c5be39350f14",
+    "mime": "application/javascript",
+    "bytes": 57615,
+    "uuid": "140e42e1-541c-49fe-b9f6-c5be39350f14"
+  },
+  {
+    "path": "eb82b6c0-b226-4e0c-bfcb-fab7e3c132da",
+    "mime": "application/javascript",
+    "bytes": 36876,
+    "uuid": "eb82b6c0-b226-4e0c-bfcb-fab7e3c132da"
+  },
+  {
+    "path": "b3ce790c-84b8-4f56-8ee4-665fddfb3de4",
+    "mime": "font/woff2",
+    "bytes": 7716,
+    "uuid": "b3ce790c-84b8-4f56-8ee4-665fddfb3de4"
+  },
+  {
+    "path": "5c4409f0-03db-447e-b189-cfb5cc2048ce",
+    "mime": "font/woff2",
+    "bytes": 18472,
+    "uuid": "5c4409f0-03db-447e-b189-cfb5cc2048ce"
+  },
+  {
+    "path": "be6ca6eb-787b-4cac-b86b-ed7b3de9e79a",
+    "mime": "font/woff2",
+    "bytes": 26832,
+    "uuid": "be6ca6eb-787b-4cac-b86b-ed7b3de9e79a"
+  },
+  {
+    "path": "854c7fdc-9f3e-4561-87f6-e35776379d38",
+    "mime": "font/woff2",
+    "bytes": 6712,
+    "uuid": "854c7fdc-9f3e-4561-87f6-e35776379d38"
+  },
+  {
+    "path": "a7937b48-18c0-4e61-8fdd-8855e8f41cd6",
+    "mime": "font/woff2",
+    "bytes": 18940,
+    "uuid": "a7937b48-18c0-4e61-8fdd-8855e8f41cd6"
+  },
+  {
+    "path": "fc8bbabe-2914-4b64-9205-aae6e199c914",
+    "mime": "font/woff2",
+    "bytes": 22288,
+    "uuid": "fc8bbabe-2914-4b64-9205-aae6e199c914"
+  }
+]

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Morning brief, 10 June 2026</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo ol, main.memo ul {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">A clearer board than yesterday, with one false shipping claim corrected.</p>
+    <p class="byline">EcodiaOS &middot; Wednesday, 10 June 2026 &middot; Brisbane</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">The morning pass touched the full priority-1 and priority-2 board, archived two rows that referenced the decommissioned Corazon host, and corrected one shipping claim that did not survive a branch-membership probe. The day opens with three security and reliability threads worth pulling first, two client rejections that need a code fix before any reply, and a scheduler queue that is currently waiting on account caps to roll over.</p>
+
+    <p class="section-label">The top of the day</p>
+
+    <p>The first item is a correction. The factoryBridge fix, commit d6002d5f, sits on feat/knowledge-architecture-2026-06-09 and has never been merged to main. The status board read CODE_FIX_SHIPPED until this morning. Every deepseekService caller in production is still hitting the dead path it was meant to leave behind, and the verification cron that was supposed to catch this has been failing on a different surface, so the loop never closed. The right move is a clean merge of that branch to main, or a cherry-pick of d6002d5f with the usual deploy gate. Until that merge happens, the rest of the dispatch graph behaves the way it did last week.</p>
+
+    <p>The second and third items belong together. A Supabase service_role key and a Co-Exist login leaked into the public commit 6d4ab0aa on 8 June and the disable action has been pending since. Row 7d44be0e. Separately, the Supabase advisor flagged RLS disabled on Co-Exist, ROAM and four other projects. Row 609877de. Both surfaces are client data exposure, both are sitting at priority 2 because the entity_type pinned them there, and both should be cleared in a single Supabase-security pass today: disable and rotate the leaked key, audit the blast radius, then re-enable RLS with explicit policies on the named projects.</p>
+
+    <p>The fourth is the scheduler queue. Twenty-eight of thirty-two tasks in dispatching status are blocked on AllAccountsCappedError with a one-minute defer loop. The dispatch path itself is healthy, twelve other tasks are running cleanly in the same window. This is account cap exhaustion across the rotation, and it will self-heal at the next five-hour window reset, at which point the deferred queue will thundering-herd. A companion investigator worker bound at 11:17 AEST is producing the deeper diagnosis. Probable durable fix is a usage-cap constant aligned to observed reality, plus a small amount of queue smoothing.</p>
+
+    <p>The fifth is Goodreach. The restructure plus Resonaverde channel merge sits on the standing arrangement with Angelica. Last touched 8 June, no movement in two days. The ASC probe last fire confirmed Goodreach iOS build 6, v1.0, processed and ready. Time to land the channel-merge plan in writing and move the row off the standing-cold shelf.</p>
+
+    <p class="section-label">Client ships, two rejections in queue</p>
+
+    <p>Chambers iOS is on its fourth Resolution Center rejection cycle. Build 28 uploaded 9 June, RS submitted, re-rejected. The ASC API only exposes the state, the actual text of the rejection lives behind the GUI. Per the apple-store-claims doctrine, the discipline is to CDP-probe the Resolution Center thread for the surfaces Apple cited this round, grep-verify those surfaces against the deployed codebase, and ship build 29 before drafting any reply. The trust deficit from the previous cycles carries.</p>
+
+    <p>Locals Play 1.0(1) failed its second-round review on the same Misleading Claims violation, icon mismatch persisting. Ship the launcher-render fix per the store-icon-must-match-launcher-safe-zone doctrine, then resubmit. Co-Exist Android v33 was rejected for using READ_MEDIA_IMAGES and READ_MEDIA_VIDEO when the Photo and Video Permissions policy now requires the Android Photo Picker. One replacement, ship v34.</p>
+
+    <p class="section-label">Drift the morning pass reconciled</p>
+
+    <p>Two rows archived because they reference the decommissioned Corazon host: the C-drive 95-percent alarm and the Claude Max account auto-rotator. Cred rotation now ships on Mac through launchd au.ecodia.cred-refresher, PID 1543, last exit zero, so the older row about a missing daemon was updated to reflect the live state.</p>
+
+    <p>One row was sharpened from a misleading reframe: row b22cc8dd, which had been carrying the signal_bound regression theory, now reads as account-cap exhaustion based on direct os_scheduled_tasks evidence. One row was flagged as unverified: the cross-app testing harness status text claims files at testing-harness/lib/ and testing-harness/scripts/ that do not exist anywhere in the monorepo by find at depth six. Either the work was undone, the paths were authored from imagination, or the harness moved without the row being updated. Either way it cannot be treated as SHIPPED until someone re-probes.</p>
+
+    <p class="section-label">Open blockers on Tate's side</p>
+
+    <p>Three BAS quarters with the ATO remain overdue: Q1 FY26 by 224 days, Q2 FY26 by 101 days, Q3 FY26 by 42 days. The Algorithmic-Manager Kit landing with the cofound checkout has now slipped past the twenty-two-hour ship window. The WM intensive with Lizz Hills is still on the highest-intensity shelf, no movement since 8 June. Xero sync remains broken pending the Custom Connection scope re-grant, forty-one rows queued at two thousand seventy-eight dollars.</p>
+
+    <p>None of these is new; all of them are familiar at this point. They surface again because the morning pass would be lying by omission if it did not name them.</p>
+
+    <p class="section-label">Calendar and inbox</p>
+
+    <p>Calendar pull failed again with 403, Google Calendar API still disabled on Mac MCP project 8053004111. A cron is queued behind the cap-exhaustion wall to enable it through CDP, but it has not fired in time for this brief. No urgent overnight email from Tate or starred items in the last eighteen hours.</p>
+
+  </main>
+
+  <footer>
+    Morning brief &middot; EcodiaOS &middot; 10 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

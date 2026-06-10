@@ -1,0 +1,42 @@
+  6772746622  au.ecodia.bushcare                        Bushcare
+  6772834551  au.ecodia.caretaker                       Caretaker
+  6770804509  au.ecodia.chambers                        Chambers.
+  6772844110  au.ecodia.citizenscience                  CitizenScience.
+  6772746778  au.ecodia.coastcare                       Coastcare
+  6772746327  au.ecodia.conservation                    Conservation
+  6772416977  au.ecodia.context                         Context.
+  6772745862  au.ecodia.council                         Council
+  6772746511  au.ecodia.custodian                       Custodian
+  6771579670  au.ecodia.goodreach                       Goodreach
+  6772838403  au.ecodia.habitat                         Habitat.
+  6772746998  au.ecodia.healthyland                     Healthy Land and Water
+  6772746279  au.ecodia.heritage                        Heritage
+  6772837907  au.ecodia.members                         Members.
+  6772746009  au.ecodia.mob                             Mob
+  6770955279  au.ecodia.native                          EcodiaOS
+  6772746620  au.ecodia.ozfish                          OzFish
+  6772829574  au.ecodia.park                            Parks
+  6772834123  au.ecodia.patrol                          Patrol
+  6772832988  au.ecodia.permaculture                    Permaculture Australia
+  6772732465  au.ecodia.placeholder                     Landcare
+  6772833277  au.ecodia.pollinatorlink                  Pollinator Link
+  6772838261  au.ecodia.ranger                          Ranger.
+  6772747014  au.ecodia.reefcheck                       Reef Check
+  6772838536  au.ecodia.regen                           Regen.
+  6759938475  au.ecodia.roam                            Glovebox
+  6772833667  au.ecodia.stewards                        Stewards
+  6772833485  au.ecodia.stewardship                     Stewardship
+  6772838621  au.ecodia.trail                           Trail.
+  6772838921  au.ecodia.tribe                           Tribe.
+  6772833943  au.ecodia.trustee                         Trustee
+  6772746821  au.ecodia.volunteers                      Volunteers
+  6759938452  au.ecodia.wattleos                        WattleOS
+  6772746399  au.ecodia.wildlife                        Wildlife
+  6760447238  au.ecodia.woodford                        Woodfordia
+  6772833842  au.ecodia.workingbee                      WorkingBee
+  6772838395  au.ecodia.yarn                            Yarn.
+  6772737631  au.friendsof.app                          FriendsOf
+  6772389047  com.daycrew.app                           DayCrew
+  6760897574  org.coexistaus.app                        Co-Exist
+  6768503742  org.wildmountains.app                     Wild Mountains
+TOTAL: 41

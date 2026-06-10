@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scope of Work - LostMe iOS and Android Build - Ecodia Pty Ltd to SeedTree Earth</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    font-family: "Times New Roman", Times, Georgia, serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 48px 48px 48px;
+    background: #fff;
+  }
+
+  .doc-head {
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #000;
+  }
+  .doc-head h1 {
+    margin: 0;
+    font-size: 20pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .doc-head .ref {
+    margin-top: 6px;
+    font-size: 10.5pt;
+    letter-spacing: 0.02em;
+  }
+  .doc-head .ref strong { font-weight: 700; }
+
+  h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 22px 0 6px 0;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 12px 0 4px 0;
+    page-break-after: avoid;
+  }
+  p {
+    margin: 0 0 8px 0;
+    text-align: justify;
+  }
+  ul {
+    margin: 4px 0 8px 0;
+    padding-left: 22px;
+  }
+  ul li { margin: 0 0 2px 0; }
+
+  .parties {
+    display: flex;
+    gap: 32px;
+    margin: 16px 0 4px 0;
+    font-size: 10.5pt;
+  }
+  .parties .block { flex: 1 1 0; }
+  .parties h4 {
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 4px 0;
+  }
+  .parties .name { font-weight: 700; margin-bottom: 2px; }
+
+  .pay-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 4px 0;
+    font-size: 10.5pt;
+    font-variant-numeric: tabular-nums;
+  }
+  .pay-table td {
+    border: 1px solid #000;
+    padding: 6px 10px;
+    vertical-align: top;
+  }
+  .pay-table td.num { text-align: right; white-space: nowrap; }
+  .pay-table th {
+    background: #f0f0f0;
+    font-weight: 700;
+    font-size: 9.5pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid #000;
+    padding: 6px 10px;
+    text-align: left;
+  }
+
+  .signatures {
+    margin-top: 28px;
+    display: flex;
+    gap: 40px;
+  }
+  .signatures .block { flex: 1 1 0; font-size: 10.5pt; }
+  .signatures .block h4 {
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 0 0 14px 0;
+  }
+  .signatures .line {
+    border-bottom: 1px solid #000;
+    height: 30px;
+    margin-bottom: 4px;
+  }
+  .signatures .label {
+    font-size: 9pt;
+    color: #000;
+  }
+
+  .footer {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid #000;
+    text-align: center;
+    font-size: 9pt;
+    letter-spacing: 0.04em;
+  }
+
+  .draft-note {
+    background: #fffbe6;
+    border: 1px dashed #999;
+    padding: 10px 14px;
+    font-size: 9.5pt;
+    margin: 12px 0;
+    border-radius: 0;
+  }
+  .draft-note strong { font-weight: 700; }
+
+  @media print {
+    body { padding: 32px 40px; }
+    .draft-note { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <h1>SCOPE OF WORK</h1>
+  <div class="ref">
+    Reference <strong>SOW-2026-06-03</strong> &middot; LostMe iOS and Android build &middot; Effective on signed acceptance
+  </div>
+</div>
+
+<div class="draft-note">
+  <strong>Draft, internal review.</strong> Default values marked with a leading hash (#) await Tate sign-off. The yellow box is hidden when printed.
+</div>
+
+<div class="parties">
+  <div class="block">
+    <h4>Supplier</h4>
+    <div class="name">Ecodia Pty Ltd</div>
+    <div>ABN 89 693 123 278</div>
+    <div>code@ecodia.au</div>
+  </div>
+  <div class="block">
+    <h4>Customer</h4>
+    <div class="name">Ryan Moss, trading as SeedTree Earth</div>
+    <div>ABN 18 303 367 364</div>
+  </div>
+</div>
+
+<h2>1. Scope of work</h2>
+
+<h3>Phase 1 (collaborative, approximately 22 hours over 2 weeks)</h3>
+<ul>
+  <li>Audit of the existing LostMe build and user flows.</li>
+  <li>UX redesign delivering wireframes and a shared design system, run collaboratively via video call.</li>
+  <li>Data model and Supabase schema specification migrating from the current MongoDB setup.</li>
+  <li>Native iOS and Android build scoping covering state, authentication, and offline sync.</li>
+</ul>
+<p>Phase 1 deliverables: wireframes, refined product specification, reworked repository skeletons, and a fixed Phase 2 commencement date.</p>
+
+<h3>Phase 2 (build, approximately 2 to 3 weeks)</h3>
+<ul>
+  <li>Native iOS build (Swift / SwiftUI).</li>
+  <li>Native Android build (Kotlin / Compose).</li>
+  <li>Shared design system across both platforms.</li>
+  <li>Supabase migration covering schema, data, authentication, and Row Level Security.</li>
+  <li>API layer and backend wiring.</li>
+  <li>Push notifications and offline sync.</li>
+  <li>App Store and Play Store submission packages including screenshots, listings, privacy questionnaires, and content ratings.</li>
+  <li>QA, polish passes, debugging.</li>
+  <li>Publishing to the SeedTree Earth Apple Developer and Google Play accounts.</li>
+</ul>
+
+<h2>2. Fee and payment terms</h2>
+
+<table class="pay-table">
+  <thead>
+    <tr>
+      <th style="width: 50%">Description</th>
+      <th style="width: 16%; text-align: right;">Ex GST</th>
+      <th style="width: 17%; text-align: right;">GST 10%</th>
+      <th style="width: 17%; text-align: right;">Incl GST</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Combined Phase 1 + Phase 2 fee</td>
+      <td class="num">$6,000.00</td>
+      <td class="num">$600.00</td>
+      <td class="num">$6,600.00</td>
+    </tr>
+    <tr>
+      <td>50% deposit (INV-2026-005)</td>
+      <td class="num">$3,000.00</td>
+      <td class="num">$300.00</td>
+      <td class="num">$3,300.00</td>
+    </tr>
+    <tr>
+      <td>50% balance (invoiced on completion)</td>
+      <td class="num">$3,000.00</td>
+      <td class="num">$300.00</td>
+      <td class="num">$3,300.00</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The combined fee reflects a $500 ex GST discount on the standalone Phase 1 ($1,500) plus Phase 2 ($5,000) sum, in exchange for upfront commitment to both phases.</p>
+<p>Deposit invoice INV-2026-005 issued 3 June 2026, due 10 June 2026. Phase 1 work commences on cleared funds.</p>
+<p><strong>Completion</strong> is defined as both submissions accepted into review by Apple App Store Connect and Google Play Console respectively. The balance invoice issues on completion and is due 7 days from issue.</p>
+<p>Bank: Bank Australia, BSB 313-140, Account 12579148, account name Ecodia Pty Ltd.</p>
+
+<h2>3. Intellectual property</h2>
+<p>All deliverables produced under this SOW (designs, wireframes, source code, schema, documentation, configuration) transfer to SeedTree Earth in full upon receipt of the corresponding payment. The transfer is unconditional and exclusive within the LostMe product context.</p>
+<p>Pre-existing Ecodia tooling, internal pipelines, reusable components, and proprietary methodology developed by Ecodia independent of this engagement remain Ecodia property. Where any such tooling is incorporated into a SeedTree Earth deliverable, it is licensed to SeedTree Earth on a perpetual, royalty-free, non-exclusive basis for use within the LostMe product. No transfer of the underlying Ecodia tooling itself occurs.</p>
+<p>Ecodia confirms that no Ecodia client work, third-party confidential material, or open-source code under incompatible licence is or will be incorporated into the LostMe deliverables without prior written notice and consent.</p>
+
+<h2>4. Out-of-scope work and overflow</h2>
+<p>Anything outside the named scope (additional features, third-party integrations beyond those listed, redesign of work already delivered, support for additional platforms) is billed at <strong>$80/hr ex GST</strong> in 30-minute increments, invoiced at the end of the calendar month in which the work was performed. Out-of-scope requests are confirmed in writing (email is sufficient) before work begins.</p>
+
+<h2>5. Optional post-launch retainer</h2>
+<p>On request from SeedTree Earth, Ecodia will provide a monthly maintenance retainer at <strong>$100/mo ex GST ($110/mo incl GST)</strong>, commencing on the later of the Apple App Store live date and the Google Play Console live date. The retainer covers, with no monthly hours ceiling:</p>
+<ul>
+  <li>Operating system update compatibility patches as Apple and Google release iOS and Android major versions.</li>
+  <li>Dependency upgrades and security patches.</li>
+  <li>Store re-submissions when Apple or Google force version bumps.</li>
+  <li>Small bug fixes reported by SeedTree Earth or surfaced through store review.</li>
+</ul>
+<p>Most calendar months are expected to require little or no work; the retainer is structured as continuity cover rather than a metered allowance. Work outside the maintenance category (new features, redesign of shipped functionality, additional platforms, scope expansion) is billed at the $80/hr ex GST overflow rate per section 4. The retainer is cancellable by either side on <strong>#30 days written notice</strong>. Without an active retainer, post-launch work from SeedTree Earth is billed ad-hoc at $80/hr ex GST.</p>
+
+<h2>6. Term and termination</h2>
+<p>This SOW takes effect on signed acceptance and runs until completion of Phase 2 (and any active retainer that follows). Either party may terminate on <strong>#7 days written notice</strong>. On termination during an active build phase, Ecodia invoices for work in progress through the termination date at the $80/hr ex GST overflow rate against the deposit balance; any unspent portion of the deposit is refunded to SeedTree Earth within 14 days; any spent portion above the deposit is invoiced and due within 7 days.</p>
+
+<h2>7. Confidentiality</h2>
+<p>Each party will treat the other's non-public business and technical information as confidential and will not disclose it without consent, save as required by law. This obligation survives termination.</p>
+
+<h2>8. Governing law</h2>
+<p>This SOW is governed by the laws of Queensland, Australia. Each party submits to the non-exclusive jurisdiction of the Queensland courts.</p>
+
+<div class="signatures">
+  <div class="block">
+    <h4>For and on behalf of Ecodia Pty Ltd</h4>
+    <div class="line"></div>
+    <div class="label">Tate Donohoe, Director</div>
+    <div style="margin-top: 12px;">
+      <div class="line" style="height: 22px;"></div>
+      <div class="label">Date</div>
+    </div>
+  </div>
+  <div class="block">
+    <h4>For and on behalf of SeedTree Earth</h4>
+    <div class="line"></div>
+    <div class="label">Ryan Moss</div>
+    <div style="margin-top: 12px;">
+      <div class="line" style="height: 22px;"></div>
+      <div class="label">Date</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Ecodia Pty Ltd &middot; ABN 89 693 123 278 &middot; code@ecodia.au &middot; The World We Build Next
+</div>
+
+</body>
+</html>

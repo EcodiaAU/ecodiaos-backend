@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CLAUDE.md trio gap audit - 2026-06-09 evening sweep</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&display=swap');
+  body { font-family: 'EB Garamond', Georgia, serif; font-style: italic; background: #ffffff; color: #1a1a1a; max-width: 760px; margin: 3em auto; padding: 0 2em; line-height: 1.55; font-size: 1.05em; }
+  h1, h2, h3 { font-style: italic; font-weight: normal; }
+  h1 { font-size: 1.6em; border-bottom: 1px solid #333; padding-bottom: 0.4em; }
+  h2 { font-size: 1.25em; margin-top: 2em; }
+  h3 { font-size: 1.1em; margin-top: 1.4em; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-style: normal; background: #f3f1ec; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.92em; }
+  pre { background: #f3f1ec; padding: 1em; border-radius: 4px; overflow-x: auto; font-size: 0.88em; }
+  .meta { color: #555; font-size: 0.95em; }
+  .finding { border-left: 2px solid #888; padding: 0.4em 1em; margin: 1em 0; }
+  .resolved { border-left-color: #3a7a3a; }
+  .open { border-left-color: #a06030; }
+  ul { padding-left: 1.5em; }
+</style>
+</head>
+<body>
+
+<h1>CLAUDE.md trio gap audit, evening sweep</h1>
+
+<p class="meta">2026-06-09 18:00 AEST. Cron: evening-doctrine-pass, sub-pass A. Worker tab tab_1780991931858_502764aa, task e12c26d8-d90c-4b97-8985-cc17ae161ea2.</p>
+
+<h2>Scope</h2>
+
+<p>Walked the three always-loaded CLAUDE.md files against live substrate truth and today's recent sessions. Source files in scope:</p>
+
+<ul>
+  <li><code>/Users/ecodia/.claude/CLAUDE.md</code>, user-global bootstrap, 53 lines, lean-core since this morning.</li>
+  <li><code>/Users/ecodia/.code/ecodiaos/CLAUDE.md</code>, workspace CEO bootstrap, 74 lines, last meaningfully edited 2026-05-15.</li>
+  <li><code>/Users/ecodia/.code/ecodiaos/backend/CLAUDE.md</code>, technical operations core, 89 lines, lean-core since this morning.</li>
+</ul>
+
+<p>The user-global and backend cores were both rewritten this morning during the knowledge-architecture-lookup-first cutover, so they already reflect Mac-canonical posture and the dead-substrate deprecations. The workspace file in the middle had not been touched in three weeks and carried three concrete staleness items.</p>
+
+<h2>Findings, resolved same-turn</h2>
+
+<div class="finding resolved">
+  <h3>1. Workspace line 16, interactive conductor named on Corazon, not Mac</h3>
+  <p>The text claimed the interactive conductor runs on Corazon over Tailscale. Contradicts the user-global substrate map ("HOST: Mac (<code>MacBookPro.lan</code>) canonical since 2026-06-08") and the auto-memory entry <code>mac-canonical-autonomy-architecture-2026-06-08</code>. Fixed: now names Mac as canonical and cites the superseding doctrine file.</p>
+</div>
+
+<div class="finding resolved">
+  <h3>2. Workspace line 23, "Interactive conductor = local Claude Code on Corazon"</h3>
+  <p>Same drift as finding 1, in the Conductor Architecture section. The "Tailscale into Corazon's local services" clause was the load-bearing wrong fragment because it implied a Corazon-side service mesh that no longer exists. Fixed: now says Mac with full filesystem access to the backend, MCP via the narrow ecodia-* connectors.</p>
+</div>
+
+<div class="finding resolved">
+  <h3>3. Workspace line 34, Factory routine named as the cloud-isolation ship path</h3>
+  <p>"Code shipping that needs cloud isolation -> Factory routine (POST /fire to the factory-cloud routine on a dedicated account)" is dead. Backend CLAUDE.md explicitly lists <code>ecodia-factory</code> under "DEAD - do not route new work here", and <code>cowork.dispatch_worker</code> with worktree isolation has been the canonical worker-spawn primitive since 2026-05-26. Fixed: points at <code>cowork.dispatch_worker</code> + <code>dispatch-worker-worktree-hygiene-2026-05-26</code> and explicitly notes the Factory path is dead.</p>
+</div>
+
+<h2>Findings, deferred</h2>
+
+<div class="finding open">
+  <h3>4. GUI-macro discovery-protocol hook over-matches on "cowork"</h3>
+  <p>The PreToolUse hook fires "cowork-deprecated" on any tool input containing the substring <code>cowork</code>, including the live <code>cowork.dispatch_worker</code> MCP primitive. The hook redirects to a doctrine file that was correctly pruned in tonight's skill-mirror sync. Not a CLAUDE.md gap per se; surfaces as a doctrine-hook precision finding for the next hooks-audit sweep. Not codified this turn because the hook itself is the artefact to fix, not the doctrine.</p>
+</div>
+
+<div class="finding open">
+  <h3>5. Mechanical-retry-guard hook session-scope leak</h3>
+  <p>The <code>mechanical_retry_guard.py</code> hook fired "edit-before-Read" on three Edits in this worker session despite each Edit being preceded by a Read in the same session. The hook appears to inspect a different session id, not the current worker's. Not a doctrine gap; surfaces as a hook-substrate finding. Edits landed regardless because the hook is PostToolUse-blocking-on-warning, not blocking-on-error.</p>
+</div>
+
+<h2>Cross-references that are CURRENT</h2>
+
+<p>Spot-checked every path referenced in the trio. All resolve:</p>
+
+<ul>
+  <li><code>/Users/ecodia/.code/ecodiaos/.claude/SELF.md</code></li>
+  <li><code>backend/docs/MIGRATION_FULL_ARCHITECTURE_2026-05-15.md</code></li>
+  <li><code>backend/docs/reference/global-bootstrap-full.md</code></li>
+  <li><code>backend/docs/operational-manual.md</code></li>
+  <li><code>backend/knowledge-index/lookup.js</code></li>
+  <li><code>backend/voice/</code> and <code>backend/brand/ecodia-doc-template.html</code></li>
+  <li><code>backend/routines/</code> and <code>backend/drafts/</code></li>
+  <li>The Supabase storage path for the founding-docs signed PDFs (file-existence not probed; cross-referenced against the 26 May 2026 Decision).</li>
+</ul>
+
+<h2>Sub-pass companion results</h2>
+
+<p>The evening sweep ran four sub-passes in sequence. The other three:</p>
+
+<ul>
+  <li><strong>Sub-pass B, codification scan.</strong> 30 most-recent session JSONLs scanned (today is heavily Mac-canonical session traffic). Targeted-corrective scan returned zero hits. Broader directive-shape scan returned seven raw hits, all already codified in patterns shipped today (the cron-fleet-dedupe, knowledge-architecture, parallel-chat-collision, mac-canonical-autonomy patterns are all 2026-06-09 dated). The day was unusually thorough on same-turn codification; missed-captures = 0 is a real result, not a scan miss.</li>
+  <li><strong>Sub-pass C, patterns INDEX regen.</strong> 423 files, zero missing triggers, INDEX.md changed (one new pattern landed earlier today and was not yet in the table).</li>
+  <li><strong>Sub-pass D, skill mirror sync.</strong> 61 created, 6 updated, 356 unchanged, 8 pruned (matching this morning's archival of the cowork/conductor duo doctrine), 1 kept standalone (<code>ecodia-accountant</code>, correctly not mirror-shaped).</li>
+</ul>
+
+<h2>Substrate writes from this fire</h2>
+
+<ul>
+  <li>Three line edits in <code>/Users/ecodia/.code/ecodiaos/CLAUDE.md</code> (findings 1-3).</li>
+  <li>This draft file at <code>backend/drafts/claude-md-gaps-audit-2026-06-09.html</code>.</li>
+  <li><code>backend/patterns/INDEX.md</code> regenerated.</li>
+  <li>61 + 6 = 67 SKILL.md mirrors written under <code>backend/.claude/skills/&lt;slug&gt;/</code>, 8 pruned.</li>
+  <li>One status_board P3 row pointing at this draft.</li>
+  <li>One Neo4j Episode of type <code>conductor_observed</code> capturing the evening pass.</li>
+</ul>
+
+</body>
+</html>

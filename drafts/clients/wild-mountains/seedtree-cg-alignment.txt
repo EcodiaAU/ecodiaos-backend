@@ -1,0 +1,43 @@
+Back to Agreement
+Alignment Map
+
+Discover where you connect and where to focus your conversations
+
+Strong Alignment
+
+Shared values, goals, and intentions you both hold
+
+Shared mission/values fit: both are motivated by people-and-planet/regenerative tech and want the work to feel meaningful beyond “just software.”
+Desire to build real, usable apps: Moss wants nature-connecting apps and a bigger ecosystem; Tate wants to move prototypes into shipped, real-world products.
+High value on honesty and transparency: both emphasize real-time candor, direct communication when plans shift, and addressing misalignments early.
+Respect for SeedTree’s conceptual/brand authority and IP: Moss wants confidentiality and protection; Tate assumes SeedTree owns its app IP and will respect brand/positioning boundaries.
+Fairness through clarity: both want reasonable pay/credit and clear scope/timelines so the relationship stays sustainable and non-exploitative.
+Complementary Strengths
+
+Differences that could strengthen your partnership
+
+Vision + execution pairing: Moss brings big-picture ecosystem design/UX, leadership, and narrative direction; Tate brings fast, high-quality full-stack shipping and operational/automation substrate.
+Relationship care + process rigor: Moss prioritizes heart-led repair and protecting the relationship; Tate brings structured conflict hygiene (same-week surfacing, behavior/process changes, clean resets).
+Ecosystem weaving + clean modular handoffs: Moss wants interconnected apps and marketing support; Tate emphasizes clean handoffs without lock-in, which can keep the ecosystem scalable and sovereign.
+Exploration + direction: Tate’s “let it find its shape” approach can reduce premature commitments, while Moss’s clear direction for SeedTree can prevent drift and keep the work anchored.
+Areas Needing Discussion
+
+Differences in expectations that are worth exploring together
+
+Level of commitment and role trajectory: Moss quietly hopes for Tate as an early core team member; Tate explicitly wants exploratory, non-binding collaboration with scoped chunks and a clean right-to-step-back.
+Scope management and delivery expectations: Moss is sensitive to missed deadlines and surprise cost changes; Tate is wary of scope creep, rebuild risk (Emergent), and becoming load-bearing for SeedTree ops.
+IP/confidentiality vs. collaboration/pattern-sharing: Moss has a strong fear of IP theft and wants strict permissioning; Tate wants low-ceremony, high-signal exchange and pattern-sharing without accidental overlap—needs clear rules for what can be shared, where, and how.
+Decision authority boundaries: both agree on respecting sovereignty, but they should define concretely who decides what (product intent, UX, technical architecture, public positioning) and what “overstep” looks like in practice.
+Working cadence and availability: Moss is emotionally all-in with medium practical capacity and weekly time; Tate has existing commitments first, time-of-day boundaries, and prefers milestone-based execution—needs alignment on response times, meeting rhythm, and what counts as “proactive communication.”
+Conversation Starters
+
+Questions to guide a constructive discussion
+
+"What is the most realistic “shape” for the next 4–8 weeks (friendship, collaborator, paid build, advisory), and what would need to be true for either of you to deepen beyond that?"
+"How do we define scope, done-ness, timeline, and pricing for a first milestone so there are no surprise cost changes, no silent deadline slips, and no hidden expectations of extra unpaid work?"
+"What are our explicit IP and confidentiality rules (what’s private, what can be referenced as patterns, what requires written permission), and what happens if either of us worries an overstep might be occurring?"
+"Where does SeedTree’s conceptual/brand authority end and Ecodia’s technical/substrate authority begin—who has final say in product intent, UX decisions, architecture choices, and any public-facing representation?"
+"If a mismatch shows up (speed vs. intent, capacity shifts, rebuild risk), what is our same-week escalation and repair process—what channel, what information needs to be shared, and what are the clean exit terms if we can’t resolve it?"
+Create Your Charter
+
+Made with Emergent

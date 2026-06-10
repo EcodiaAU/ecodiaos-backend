@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BAS workbook - three quarters unlodged - 2026-06-08</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Three quarterly BAS for Ecodia Pty Ltd are unlodged. Each one is in refund position. The ATO owes us $418.75.</p>
+    <p class="byline">EcodiaOS &middot; 2026-06-08</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">The brief was to prepare the BAS workbook for the prior quarter. The cron fired off-cadence on 8 June, so the prior quarter is Q3 FY26 (Jan to Mar 2026), due 28 April. While checking the obligations table I found Q1 FY26 and Q2 FY26 also unlodged. Three quarters, all in refund position, all carrying late-lodgement exposure.</p>
+
+    <p class="section-label">the three unlodged quarters</p>
+
+    <p><i>BAS Q1 FY26</i> covers 1 July to 30 September 2025. Lodgement was due 28 October 2025, which was 224 days ago. GST collected was $0.00, GST paid was $121.30, net position is a refund of $121.30. Total sales were $0 (no GST-charged output that quarter), total purchases were $3,459.83. Sixty-eight transactions posted to the ledger, 147 ignored.</p>
+
+    <p><i>BAS Q2 FY26</i> covers 1 October to 31 December 2025. Lodgement was due 28 February 2026, which was 100 days ago. GST collected was $6.00 from a single WordPress journal on 28 November 2025 that looks like a categoriser slip rather than a real output supply (worth a five-minute check before lodgement). GST paid was $156.30, net position is a refund of $150.30. Total sales were $0, total purchases were $5,954.99. Ninety-four transactions posted, 274 ignored.</p>
+
+    <p><i>BAS Q3 FY26</i> covers 1 January to 31 March 2026. Lodgement was due 28 April 2026, which was 41 days ago. GST collected was $0.00, GST paid was $147.15, net position is a refund of $147.15. Total sales were $41.72 (Licensing and Subscription Revenue, all GST-free), total purchases were $7,058.63. The P&amp;L cross-check matches: total income $41.72, total expenses $7,058.63, net loss $7,016.91. One hundred and fifty-nine transactions posted, 274 ignored.</p>
+
+    <p>Combined refund across the three quarters: <i>$418.75 that the ATO owes Ecodia Pty Ltd.</i></p>
+
+    <p class="section-label">Q4 partial, for context</p>
+
+    <p>Q4 FY26 (1 April to 30 June 2026) is still in progress. As of 8 June the partial picture is GST collected $0.00, GST paid $63.05, net refund $63.05, sales $4,406.95, purchases $4,156.18. Lodgement will be due 28 July 2026. There are still 22 days of trading left and another 50 days before lodgement is due, so this one is not yet a problem to solve.</p>
+
+    <p class="section-label">why this matters</p>
+
+    <p>Failure to lodge a BAS on time attracts an ATO administrative penalty of one penalty unit per 28 days late, up to a cap of five units for small entities. A penalty unit is $313 as of 2026. Three quarters of late lodgement could in theory expose Ecodia to up to fifteen penalty units, although the ATO routinely waives these for small businesses with a clean record on first contact, especially when the entity is in net refund position (which we are).</p>
+
+    <p>The more immediate cost is the lost cash. The ATO is sitting on $418.75 of input credits that belong to Ecodia. At the current burn rate that is a few weeks of Hostinger and Google Cloud, so worth recovering.</p>
+
+    <p class="section-label">the GST-collected anomaly</p>
+
+    <p>Q2 has $6.00 of GST collected attributed to a WordPress journal posted on 28 November 2025. WordPress is a supplier, not a customer. That suggests either a refund that the categoriser logged as positive income with GST applied, or a coding error on the tax_type field at post time. The materiality is six dollars so it does not block lodgement, but it should be reviewed before submission so the BAS form matches reality. The fix is a quick reverse-and-repost of that single transaction (ledger id 851e61bc nearby on the same date range).</p>
+
+    <p>Across the period there is one credit-side entry on account 2120 (GST Collected): WordPress $6.00 on 2025-11-28. Every other 2120/2110 line is the routine input-credit side from purchases. Confirming this means our overseas-customer sales are correctly being booked as GST-free, which is the right treatment under the ATO's GST rules for digital services supplied to non-residents.</p>
+
+    <p class="section-label">recommended next steps</p>
+
+    <p>Lodgement itself is Tate-gated because it touches the ATO Business Portal and the doctrine is to drive that through a logged-in CDP session rather than a programmatic key. The proposed sequence:</p>
+
+    <ol>
+      <li>Tate confirms whether any of Q1, Q2 or Q3 has already been lodged outside the system. If yes, mark the obligations row complete and stop here for that quarter.</li>
+      <li>For any quarter still unlodged, I review the WordPress $6 anomaly and reverse-repost if it is a coding error.</li>
+      <li>Drive the ATO Business Portal via CDP from Corazon: open business.gov.au, sign in with Tate's myGovID (he authenticates via the device prompt), navigate to Activity Statements, fill the three BAS forms with the numbers above, submit each.</li>
+      <li>On confirmation, post the corresponding settlement journal for each quarter: DR Bank 1000 (when the refund lands) and CR GST Paid 2110 (clearing the input credit balance). One journal per BAS.</li>
+      <li>Update scheduled_obligations rows with completed_at and completion_ref (the ATO receipt number).</li>
+      <li>Keep an eye out for FTL penalty notices from the ATO. If one arrives, request remission on first-offence grounds (clean prior record, voluntary registration, net refund position).</li>
+    </ol>
+
+    <p class="section-label">substrate follow-ups</p>
+
+    <p>Two follow-ups land in the substrate as part of this fire. First, the bas-quarterly-prep cron currently fires on a 2160-hour approximation (about every 90 days), which is the reason it triggered on 8 June instead of the precise 28 April / 28 July cadence. A precise quarterly cron expression (09:00 AEST on 28 January, 28 April, 28 July, 28 October) replaces the approximation. Second, a three-day delayed check fires on 11 June to chase if no lodgement decision has landed.</p>
+
+    <p>The daily bookkeeping-bas-prep cron from the ecodia-accountant doctrine is supposed to surface BAS drafts within seven days of due date. None of the three overdue quarters was surfaced by that cron, which suggests its surface window does not look backward. That is a separate issue to file and fix.</p>
+
+    <p class="section-label">key numbers, in one place</p>
+
+    <ul>
+      <li><i>Q1 FY26 (Jul-Sep 2025):</i> refund $121.30. 224 days overdue.</li>
+      <li><i>Q2 FY26 (Oct-Dec 2025):</i> refund $150.30. 100 days overdue. WordPress $6 GST-collected anomaly to review.</li>
+      <li><i>Q3 FY26 (Jan-Mar 2026):</i> refund $147.15. 41 days overdue.</li>
+      <li><i>Q4 FY26 (Apr-Jun 2026):</i> refund $63.05 partial. Due 28 July 2026, not yet overdue.</li>
+      <li><i>Total ATO owes Ecodia:</i> $418.75 across the three unlodged quarters.</li>
+    </ul>
+
+    <p>Books are clean. Every quarter has zero pending staged_transactions, every transaction is either posted or ignored. The Xero mirror is current per the four-hourly sync. The only thing standing between us and the refund is the lodgement itself.</p>
+
+  </main>
+
+  <footer>
+    BAS workbook - three quarters unlodged &middot; EcodiaOS &middot; 2026-06-08 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,858 @@
+{
+  "counts": {
+    "patterns_active": 357,
+    "patterns_archived": 3,
+    "hooks": 42,
+    "skills": 108,
+    "total_substrate_records": 517,
+    "total_authored_patterns": 360
+  },
+  "lifecycle": {
+    "active": 353,
+    "narrowed": 0,
+    "superseded": 4,
+    "archived": 3,
+    "total_authored": 360
+  },
+  "trigger_freq_top_30": [
+    [
+      "sy094",
+      5
+    ],
+    [
+      "factory-dispatch",
+      5
+    ],
+    [
+      "spawn_fork",
+      4
+    ],
+    [
+      "scycc",
+      4
+    ],
+    [
+      "chrome-cdp",
+      4
+    ],
+    [
+      "eos-laptop-agent",
+      4
+    ],
+    [
+      "account-chain-exhausted",
+      4
+    ],
+    [
+      "excel-sync",
+      4
+    ],
+    [
+      "errSecInternalComponent",
+      4
+    ],
+    [
+      "angelica",
+      3
+    ],
+    [
+      "macro-recipe",
+      3
+    ],
+    [
+      "captured-recipe",
+      3
+    ],
+    [
+      "asc",
+      3
+    ],
+    [
+      "baby-feed",
+      3
+    ],
+    [
+      "start_cc_session",
+      3
+    ],
+    [
+      "chambers",
+      3
+    ],
+    [
+      "edge-function",
+      3
+    ],
+    [
+      "pm2_restart",
+      3
+    ],
+    [
+      "redispatch",
+      3
+    ],
+    [
+      "parallel-builder",
+      3
+    ],
+    [
+      "conductor-heartbeat",
+      3
+    ],
+    [
+      "corazon",
+      3
+    ],
+    [
+      "tailscale",
+      3
+    ],
+    [
+      "reflex-fire",
+      3
+    ],
+    [
+      "new-chat-tab",
+      3
+    ],
+    [
+      "schedulerPollerService",
+      3
+    ],
+    [
+      "tate-blocked",
+      3
+    ],
+    [
+      "decision-authority",
+      3
+    ],
+    [
+      "outcome_event",
+      3
+    ],
+    [
+      "claude-code-new-chat",
+      3
+    ]
+  ],
+  "trigger_collisions_top_20": [
+    [
+      "sy094",
+      [
+        "corazon-puppeteer-first-use",
+        "ios-headless-build-needs-keychain-unlock-via-macos-login-password-2026-05-19",
+        "ios-signing-credential-paths",
+        "sy094-gui-entry-via-desktop-rdp-shortcut",
+        "sy094-third-substrate-applescript-2026-05-18"
+      ]
+    ],
+    [
+      "factory-dispatch",
+      [
+        "factory-codebase-staleness-check-before-dispatch",
+        "factory-phantom-session-no-commit",
+        "factory-quality-gate-over-cron-mandate",
+        "factory-worktree-branch-substrate-bug",
+        "serialise-factory-dispatches-on-shared-codebase"
+      ]
+    ],
+    [
+      "spawn_fork",
+      [
+        "brief-names-the-product-not-the-immediate-task",
+        "fork-by-artefact-not-by-quickness",
+        "fork-by-default-stay-thin-on-main",
+        "forks-do-their-own-recon-do-not-probe-on-main"
+      ]
+    ],
+    [
+      "scycc",
+      [
+        "brief-names-the-product-not-the-immediate-task",
+        "chambers-competitive-landscape-wavecrm-2026-05-21",
+        "no-placeholders-no-coming-soon-on-shipped-features",
+        "production-quality-app-standard"
+      ]
+    ],
+    [
+      "chrome-cdp",
+      [
+        "cdp-per-call-target-resolution-2026-05-18",
+        "chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear",
+        "chrome-cdp-is-top-primitive-for-gui-gated-work-2026-05-18",
+        "chrome-cdp-network-enable-times-out-under-tab-memory-pressure-2026-05-19"
+      ]
+    ],
+    [
+      "eos-laptop-agent",
+      [
+        "corazon-puppeteer-first-use",
+        "pm2-supervised-or-not-shipped-2026-05-18",
+        "reflex-first-for-parallelisable-side-work-2026-05-17",
+        "windows-spawn-must-use-spawnSync-with-create-no-window-not-execSync-with-windowsHide"
+      ]
+    ],
+    [
+      "account-chain-exhausted",
+      [
+        "cron-fork-anti-flood-on-account-chain-exhaustion",
+        "graceful-credit-exhaustion-handling",
+        "multi-account-credit-state-model",
+        "perception-must-not-claim-chain-exhausted-from-single-fork-error"
+      ]
+    ],
+    [
+      "excel-sync",
+      [
+        "enumerate-all-trigger-paths-when-fixing-data-flow-bugs",
+        "excel-sync-collectives-migration",
+        "sheet-as-projection-sync-direction-discipline",
+        "sync-back-must-filter-synthetic-from-source"
+      ]
+    ],
+    [
+      "errSecInternalComponent",
+      [
+        "ios-headless-build-needs-keychain-unlock-via-macos-login-password-2026-05-19",
+        "ship-ios-py-must-self-bootstrap-path-and-keychain-over-ssh",
+        "ssh-xcodebuild-keychain-unlock-must-be-same-session-2026-05-19",
+        "sy094-coexist-ios-release-recipe"
+      ]
+    ],
+    [
+      "angelica",
+      [
+        "angelica-as-salesperson-not-board-prospect",
+        "angelica-resonaverde-standing-arrangement",
+        "no-client-contact-without-tate-goahead"
+      ]
+    ],
+    [
+      "macro-recipe",
+      [
+        "apple-dev-apns-auth-key-create-recipe",
+        "asc-app-record-create-recipe",
+        "xcode-signing-team-select-recipe"
+      ]
+    ],
+    [
+      "captured-recipe",
+      [
+        "apple-dev-apns-auth-key-create-recipe",
+        "asc-app-record-create-recipe",
+        "xcode-signing-team-select-recipe"
+      ]
+    ],
+    [
+      "asc",
+      [
+        "asc-app-record-create-recipe",
+        "asc-stuck-rejected-version-resubmit-via-patch-rename-2026-05-19",
+        "sy094-coexist-ios-release-recipe"
+      ]
+    ],
+    [
+      "baby-feed",
+      [
+        "blanket-fork-when-vague-bug-report-not-clarifying-question",
+        "decide-do-not-ask",
+        "minimize-tate-approval-queue"
+      ]
+    ],
+    [
+      "start_cc_session",
+      [
+        "brief-names-the-product-not-the-immediate-task",
+        "factory-codebase-staleness-check-before-dispatch",
+        "serialise-factory-dispatches-on-shared-codebase"
+      ]
+    ],
+    [
+      "chambers",
+      [
+        "chambers-competitive-landscape-wavecrm-2026-05-21",
+        "chambers-edge-functions-not-coexist-deploy-script-2026-05-21",
+        "no-placeholders-no-coming-soon-on-shipped-features"
+      ]
+    ],
+    [
+      "edge-function",
+      [
+        "chambers-edge-functions-not-coexist-deploy-script-2026-05-21",
+        "cred-rotation-must-propagate-to-all-consumers",
+        "edge-function-safe-defaults"
+      ]
+    ],
+    [
+      "pm2_restart",
+      [
+        "check-pre-kill-commits-before-redispatch",
+        "forks-must-not-restart-ecodia-api-unilaterally-conductor-coordinates",
+        "pre-stage-fork-briefs-before-session-killing-ops"
+      ]
+    ],
+    [
+      "redispatch",
+      [
+        "check-pre-kill-commits-before-redispatch",
+        "continuation-aware-fork-redispatch",
+        "scheduled-redispatch-verify-not-shipped"
+      ]
+    ],
+    [
+      "parallel-builder",
+      [
+        "conductor-coordinates-capacity-is-a-floor",
+        "factory-quality-gate-over-cron-mandate",
+        "reflex-first-for-parallelisable-side-work-2026-05-17"
+      ]
+    ]
+  ],
+  "trigger_keyword_total_uses": 5499,
+  "trigger_keyword_distinct": 5246,
+  "hub_patterns_top_15": [
+    [
+      "verify-deployed-state-against-narrated-state",
+      68
+    ],
+    [
+      "codify-at-the-moment-a-rule-is-stated-not-after",
+      51
+    ],
+    [
+      "no-symbolic-logging-act-or-schedule",
+      46
+    ],
+    [
+      "corazon-is-a-peer-not-a-browser-via-http",
+      31
+    ],
+    [
+      "decide-do-not-ask",
+      24
+    ],
+    [
+      "exhaust-laptop-route-before-declaring-tate-blocked",
+      22
+    ],
+    [
+      "gui-recipes-authoring-optimisation-and-verification",
+      22
+    ],
+    [
+      "drive-chrome-via-input-tools-not-browser-tools",
+      21
+    ],
+    [
+      "decision-quality-self-optimization-architecture",
+      21
+    ],
+    [
+      "use-anthropic-existing-tools-before-building-parallel-infrastructure",
+      20
+    ],
+    [
+      "tailscale-macro-replaces-cowork",
+      19
+    ],
+    [
+      "listener-pipeline-needs-five-layer-verification",
+      18
+    ],
+    [
+      "fork-by-default-stay-thin-on-main",
+      16
+    ],
+    [
+      "cowork-no-focus-collision",
+      15
+    ],
+    [
+      "recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18",
+      14
+    ]
+  ],
+  "orphan_patterns_count": 20,
+  "orphan_patterns_sample": [
+    "altool-upload-does-not-attach-to-testflight-beta-group-2026-05-24",
+    "audit-route-cuts-by-reading-code-2026-05-21",
+    "cancel-stale-schedules-when-work-resolves-early",
+    "capacitor-ios-build-needs-env-production-on-disk-2026-05-24",
+    "chambers-competitive-landscape-wavecrm-2026-05-21",
+    "chambers-edge-functions-not-coexist-deploy-script-2026-05-21",
+    "chambers-ios-headless-ship-recipe",
+    "email-outbound-composite-gate-architecture-2026-05-18",
+    "grep-verify-edits-after-branch-shuffle-or-formatter-2026-05-21",
+    "idle-claude-code-tab-sweeper-2026-05-17",
+    "inner-life-notice-calibration-not-chase-pre-calibration-self",
+    "large-audio-transcription-chunking-strategy",
+    "local-listener-tier-four-event-sources-2026-05-15",
+    "management-api-over-cdp-when-vendor-offers-both-2026-05-21",
+    "neo4j-episode-chain-relationships",
+    "neo4j-question-node-held-uncertainty",
+    "sibling-agent-branch-shuffle-during-edits-2026-05-21",
+    "tailwind-v4-shade-classes-resolve-transparent-when-theme-missing-them-2026-05-24",
+    "vercel-subdomain-rewrite-loop",
+    "xero-oauth-redirect-uri-mismatch"
+  ],
+  "patterns_with_hook_count": 28,
+  "patterns_without_hook_count": 329,
+  "orphan_hooks": [
+    {
+      "name": "auto_format",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/auto_format.py"
+    },
+    {
+      "name": "branch_guard",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/branch_guard.py"
+    },
+    {
+      "name": "chrome_cdp_reflex_surface",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/chrome_cdp_reflex_surface.py"
+    },
+    {
+      "name": "ecodia-doc-aesthetic-surface",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/ecodia-doc-aesthetic-surface.py"
+    },
+    {
+      "name": "handoff_save_on_risky",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/handoff_save_on_risky.py"
+    },
+    {
+      "name": "macro-runbook-write-surface",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/macro-runbook-write-surface.sh"
+    },
+    {
+      "name": "neo4j_decision_detect",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/neo4j_decision_detect.py"
+    },
+    {
+      "name": "observer_signal_auto_ack",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/observer_signal_auto_ack.py"
+    },
+    {
+      "name": "plan_drift_mutator",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/plan_drift_mutator.py"
+    },
+    {
+      "name": "precompact_working_set_snapshot",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/precompact_working_set_snapshot.py"
+    },
+    {
+      "name": "router-skip-check",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/router-skip-check.sh"
+    },
+    {
+      "name": "secret_guard",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/secret_guard.py"
+    },
+    {
+      "name": "tate-voice-postwrite-check",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/tate-voice-postwrite-check.py"
+    },
+    {
+      "name": "tate-voice-surface",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/tate-voice-surface.py"
+    },
+    {
+      "name": "thread_tail",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/thread_tail.py"
+    },
+    {
+      "name": "working_set_auto_touch",
+      "path": "C:/Users/tjdTa/.claude/hooks/ecodia/working_set_auto_touch.py"
+    }
+  ],
+  "size": {
+    "total_bytes": 2652581,
+    "avg_bytes": 7430,
+    "top_15_bloat": [
+      [
+        53062,
+        "sy094-coexist-ios-release-recipe"
+      ],
+      [
+        36613,
+        "play-console-android-release-recipe"
+      ],
+      [
+        34296,
+        "decision-quality-self-optimization-architecture"
+      ],
+      [
+        28789,
+        "sy094-gui-entry-via-desktop-rdp-shortcut"
+      ],
+      [
+        26413,
+        "cowork-conductor-dispatch-protocol"
+      ],
+      [
+        22715,
+        "sy094-claude-app-signin-recipe"
+      ],
+      [
+        22444,
+        "vps-anatomy-current-state-2026-05-19"
+      ],
+      [
+        21820,
+        "claude-cowork-is-the-1stop-shop-for-ui-driving-tasks"
+      ],
+      [
+        20635,
+        "gui-recipes-authoring-optimisation-and-verification"
+      ],
+      [
+        19126,
+        "gui-step-verify-protocol"
+      ],
+      [
+        17754,
+        "coexist-ios-headless-ship-recipe"
+      ],
+      [
+        17733,
+        "memory-substrate-doctrine-neo4j-vs-auto-memory-2026-05-15"
+      ],
+      [
+        17411,
+        "context-surfacing-must-be-reliable-and-selective"
+      ],
+      [
+        17342,
+        "cowork-no-focus-collision"
+      ],
+      [
+        15862,
+        "gui-fast-path-primitives"
+      ]
+    ],
+    "top_15_short": [
+      [
+        2499,
+        "poll-gmail-frequently-not-only-on-triage-cron"
+      ],
+      [
+        2757,
+        "never-contact-eugene-directly"
+      ],
+      [
+        2764,
+        "cron-clean-noop-fork-reports-suppressed"
+      ],
+      [
+        2891,
+        "grep-verify-edits-after-branch-shuffle-or-formatter-2026-05-21"
+      ],
+      [
+        2939,
+        "inner-life-notice-calibration-not-chase-pre-calibration-self"
+      ],
+      [
+        2965,
+        "cli-subprocess-channels-need-parent-process-reply-forwarder-2026-05-20"
+      ],
+      [
+        3120,
+        "probe-all-env-files-not-just-dotenv"
+      ],
+      [
+        3189,
+        "chambers-edge-functions-not-coexist-deploy-script-2026-05-21"
+      ],
+      [
+        3234,
+        "preempt-tate-live-with-readonly-prep"
+      ],
+      [
+        3292,
+        "ballistic-mode-under-guardrails-equals-depth-not-action"
+      ],
+      [
+        3324,
+        "audit-route-cuts-by-reading-code-2026-05-21"
+      ],
+      [
+        3351,
+        "cowork-scope-cannot-update-entity_type-infrastructure-2026-05-19"
+      ],
+      [
+        3427,
+        "vps-poll-helper-not-inline-until-ssh-curl"
+      ],
+      [
+        3448,
+        "perception-must-not-claim-chain-exhausted-from-single-fork-error"
+      ],
+      [
+        3459,
+        "large-audio-transcription-chunking-strategy"
+      ]
+    ]
+  },
+  "origins_by_month": [
+    [
+      "2026-01",
+      2
+    ],
+    [
+      "2026-04",
+      38
+    ],
+    [
+      "2026-05",
+      152
+    ]
+  ],
+  "undated_patterns": 165,
+  "meta_shapes": {
+    "0th_class": 16,
+    "load_bearing": 37,
+    "triad": 9,
+    "mentions_helper": 18,
+    "cite_tate_verbatim": 119
+  },
+  "meta_shapes_samples": {
+    "0th_class": [
+      "brief-on-disk-is-canonical-not-chat-paste-2026-05-18",
+      "chrome-cdp-attach-requires-explicit-user-data-dir-and-singleton-clear",
+      "conductor-wake-substrate-2026-05-18",
+      "coord-conventions-heartbeat-signal-done-2026-05-18",
+      "dispatch-worker-is-0th-class-coord-primitive-2026-05-18",
+      "factory-dispatch-drifts-to-self-mod-on-readonly-diagnostic-2026-05-19",
+      "laptop-agent-api-tool-route-shape-2026-05-19",
+      "mcp-schemas-must-explicitly-declare-passthrough-ctx-args-2026-05-18"
+    ],
+    "load_bearing": [
+      "apple-developer-portal-cdp-recipe-2026-05-21",
+      "ballistic-mode-under-guardrails-equals-depth-not-action",
+      "brief-on-disk-is-canonical-not-chat-paste-2026-05-18",
+      "client-anonymity-substring-scan",
+      "conductor-wake-on-coord-inbox-write-2026-05-18",
+      "conductor-wake-substrate-2026-05-18",
+      "cron-must-be-registered-not-just-documented-2026-05-18",
+      "cron-prompts-must-respect-autonomous-pilot-sms-gate"
+    ],
+    "triad": [
+      "cdp-native-fill-must-descend-into-same-origin-iframes-2026-05-19",
+      "ecodia-internal-docs-render-in-html-not-markdown",
+      "laptop-agent-helper-not-inline-token-load",
+      "meta-audit-is-the-highest-leverage-primitive-tier-1-and-tier-2",
+      "object-literal-hydrator-must-be-audited-against-interface-2026-05-18",
+      "recursive-improvement-is-substrate-driven-not-aspirational-2026-05-18",
+      "status-board-hygiene-is-a-0th-class-reflex-2026-05-21",
+      "two-track-adoption-ecosystem-imports-and-bespoke-self-management-2026-05-19"
+    ],
+    "mentions_helper": [
+      "conductor-cowork-duo-roles-and-handoffs",
+      "cowork-is-a-gui-tool-not-a-peer-brain",
+      "cowork-no-focus-collision",
+      "cowork-passkey-stall-conductor-injects",
+      "cross-implementation-script-pair-must-stay-in-sync-on-fixes",
+      "decision-quality-self-optimization-architecture",
+      "fork-result-fallback-must-be-marked",
+      "fork-worktree-commits-do-not-propagate-to-main-working-tree-without-explicit-pull"
+    ],
+    "cite_tate_verbatim": [
+      "angelica-as-salesperson-not-board-prospect",
+      "angelica-resonaverde-standing-arrangement",
+      "apple-developer-portal-cdp-recipe-2026-05-21",
+      "asc-auto-release-on-approval-no-manual-release-step",
+      "asc-stuck-rejected-version-resubmit-via-patch-rename-2026-05-19",
+      "auto-preview-md-html-on-write-2026-05-16",
+      "away-conductor-runs-on-corazon-not-vps-2026-05-20",
+      "blanket-fork-when-vague-bug-report-not-clarifying-question"
+    ]
+  },
+  "name_shapes": {
+    "verify-X": 5,
+    "X-not-Y": 83,
+    "X-before-Y": 16,
+    "X-must-Y": 48,
+    "use-X-not-Y": 1,
+    "X-is-0th-class": 2,
+    "no-X-when-Y": 10,
+    "X-via-Y": 21,
+    "X-reflex": 2
+  },
+  "name_shapes_samples": {
+    "verify-X": [
+      "verify-before-asserting-in-durable-memory",
+      "verify-deployed-state-against-narrated-state",
+      "verify-e2e-harness-loads-before-claiming-coverage",
+      "verify-empirically-not-by-log-tail",
+      "verify-monitoring-query-schema-before-declaring-broken"
+    ],
+    "X-not-Y": [
+      "altool-upload-does-not-attach-to-testflight-beta-group-2026-05-24",
+      "angelica-as-salesperson-not-board-prospect",
+      "archived-client-sweep-must-touch-code-not-just-dossier-2026-05-18",
+      "authorised-branch-push-is-not-client-contact",
+      "away-conductor-runs-on-corazon-not-vps-2026-05-20",
+      "ballistic-mode-under-guardrails-equals-depth-not-action",
+      "blanket-fork-when-vague-bug-report-not-clarifying-question",
+      "brief-names-the-product-not-the-immediate-task"
+    ],
+    "X-before-Y": [
+      "check-pre-kill-commits-before-redispatch",
+      "exhaust-laptop-route-before-declaring-tate-blocked",
+      "factory-codebase-staleness-check-before-dispatch",
+      "factory-redirect-before-reject",
+      "pre-stage-fork-briefs-before-session-killing-ops",
+      "probe-vendor-pat-before-planning-gui-route",
+      "research-depth-before-narration-three-probes-minimum",
+      "stage-worktree-before-factory-dispatch"
+    ],
+    "X-must-Y": [
+      "ambient-signal-must-be-acknowledged-or-acted-2026-05-18",
+      "archived-client-sweep-must-touch-code-not-just-dossier-2026-05-18",
+      "capacitor-manual-delegate-bridge-must-use-namespaced-notification-name",
+      "cdp-native-fill-must-descend-into-same-origin-iframes-2026-05-19",
+      "context-surfacing-must-be-reliable-and-selective",
+      "coord-inbox-filter-must-be-deny-list-not-allow-list-2026-05-20",
+      "corazon-services-must-be-pm2-supervised-with-reboot-persistence-2026-05-21",
+      "cred-rotation-must-propagate-to-all-consumers"
+    ],
+    "use-X-not-Y": [
+      "use-anthropic-existing-tools-before-building-parallel-infrastructure"
+    ],
+    "X-is-0th-class": [
+      "dispatch-worker-is-0th-class-coord-primitive-2026-05-18",
+      "status-board-hygiene-is-a-0th-class-reflex-2026-05-21"
+    ],
+    "no-X-when-Y": [
+      "no-bedrock-deepseek-only-fallback",
+      "no-client-contact-without-tate-goahead",
+      "no-doctrine-writes-during-factory-running-window",
+      "no-internal-identifiers-in-chrome-driving-urls",
+      "no-placeholders-no-coming-soon-on-shipped-features",
+      "no-pm2-restart-during-active-factory-queue",
+      "no-retrospective-dumps-in-director-chat",
+      "no-self-prompting-from-queued-kv-store-plans"
+    ],
+    "X-via-Y": [
+      "asc-stuck-rejected-version-resubmit-via-patch-rename-2026-05-19",
+      "continuous-codebase-awareness-via-local-sqlite-index-2026-05-15",
+      "corazon-is-a-peer-not-a-browser-via-http",
+      "cron-forks-verify-via-substrate-effect-not-result-length",
+      "drive-chrome-via-input-tools-not-browser-tools",
+      "ecodia-labs-internal-attribution-via-element",
+      "falsify-absence-windows-via-vercel-deploys",
+      "gui-first-via-laptop-agent"
+    ],
+    "X-reflex": [
+      "corazon-reflex-substrate-vscode-claude-code-tab-2026-05-16",
+      "status-board-hygiene-is-a-0th-class-reflex-2026-05-21"
+    ]
+  },
+  "stem_freq_top_25": [
+    [
+      "2026",
+      100
+    ],
+    [
+      "not",
+      83
+    ],
+    [
+      "must",
+      48
+    ],
+    [
+      "fork",
+      22
+    ],
+    [
+      "substrate",
+      22
+    ],
+    [
+      "via",
+      21
+    ],
+    [
+      "tate",
+      21
+    ],
+    [
+      "and",
+      18
+    ],
+    [
+      "when",
+      17
+    ],
+    [
+      "the",
+      17
+    ],
+    [
+      "gui",
+      17
+    ],
+    [
+      "before",
+      16
+    ],
+    [
+      "factory",
+      15
+    ],
+    [
+      "conductor",
+      15
+    ],
+    [
+      "cron",
+      12
+    ],
+    [
+      "verify",
+      12
+    ],
+    [
+      "recipe",
+      11
+    ],
+    [
+      "for",
+      10
+    ],
+    [
+      "cowork",
+      10
+    ],
+    [
+      "cdp",
+      9
+    ],
+    [
+      "just",
+      9
+    ],
+    [
+      "needs",
+      9
+    ],
+    [
+      "ship",
+      9
+    ],
+    [
+      "main",
+      9
+    ],
+    [
+      "first",
+      9
+    ]
+  ],
+  "section_coverage": {
+    "has_origin_pct": 91.3,
+    "has_how_to_apply_pct": 88.0,
+    "has_anti_patterns_pct": 77.0,
+    "has_cross_refs_pct": 70.9
+  }
+}

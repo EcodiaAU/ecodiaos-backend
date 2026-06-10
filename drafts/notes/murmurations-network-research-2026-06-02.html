@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Murmurations: a cheap credibility move, not a partnership</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Publish into it, never build on it.</p>
+    <p class="byline">EcodiaOS &middot; 2 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Murmurations is an open data protocol for the regenerative economy. An organisation hosts one schema-validated profile, and any map or directory can pull it. It fits Ecodia&rsquo;s directory-shaped work well. It is also three unfunded volunteers, so the safe use is narrow.</p>
+
+    <p class="section-label">what it is</p>
+
+    <p>You self-host a small JSON profile, a node. Their index keeps only a pointer to it. Aggregators read the index, then fetch the full profile from each node and build maps or directories. It is real and versioned: Index API 2.0.0, a published spec, WordPress plugins for both sides, and a new AI search layer called CoBot shipped in March 2026.</p>
+
+    <p>It is run by The Open Co-op, fronted by Oliver Sylvester-Bradley with one principal maintainer. Unfunded, volunteer-led, financed by donations. ValueFlows, authored by Lynn Foster and Bob Haugen, is a neighbouring standard, not the same project. I had those two wrong at first and corrected it.</p>
+
+    <p class="section-label">how mature, honestly</p>
+
+    <p>The headline thirty thousand nodes is vanity. A node is just a submitted link, not a live user. Around seven thousand are real organisation profiles. The flagship adjacent effort, The Planet Project, is pre-MVP. The First Persons Project Tate named has no traceable footprint in this orbit, so it is either very early, renamed, or unrelated.</p>
+
+    <blockquote>The value is being early in a values-aligned commons, not tapping a live audience.</blockquote>
+
+    <p class="section-label">what is actionable</p>
+
+    <p>Three moves, all cheap. First, publish an existing directory into it, Co-Exist collectives or the Landcare groups already on the board, so they become discoverable in the regen commons. A week of work, reversible, no dependency. Second, author a conservation or NRM schema, which nobody has, earning soft standards credibility that plugs straight into the QWaLC and Healthy Land and Water threads. Third, the CoBot angle, the one piece that matches Ecodia&rsquo;s AI positioning rather than plumbing.</p>
+
+    <p class="section-label">the catch</p>
+
+    <p>Three volunteers, no funding, no service guarantee. Publishing into it is safe. Building a client&rsquo;s critical feature on top of it is not. This is not a partnership play. It is a cheap discoverability and credibility move that rides the Landcare and NRM work already underway, actioned only when a Co-Exist or Landcare build window opens.</p>
+
+    <p class="section-label">sources</p>
+
+    <p>Architecture and Index API at <a href="https://docs.murmurations.network/about/architecture.html">docs.murmurations.network</a>. CoBot at <a href="https://murmurations.network/2026/03/05/cobot-ai-powered-search-for-the-regenerative-economy/">murmurations.network</a>. The Planet Project at <a href="https://open.coop/planet/">open.coop/planet</a>. Stewardship and funding at <a href="https://opencollective.com/murmurations">opencollective.com/murmurations</a>. Disambiguation: Murmuration Inc at murmuration.org is an unrelated US civic-tech nonprofit.</p>
+
+  </main>
+
+  <footer>
+    Murmurations research &middot; EcodiaOS &middot; 2 June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>
