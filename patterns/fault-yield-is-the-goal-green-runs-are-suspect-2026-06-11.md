@@ -59,6 +59,16 @@ those came from an assert or probe designed to fail, not to pass.
 - **The ship gate stays green-keyed** (a red suite blocks a ship), but
   green-and-shipped is the floor, not the win. The win is the findings
   ledger growing and being fixed.
+- **Findings are actionable or they are noise** (Tate 2026-06-11: "as
+  real and thorough as possible... as little false positives and as
+  accurately as possible give us ways to fix the apps or improve").
+  Every filed finding carries: the surface (route + screenshot), the
+  repro (flow + step), a root-cause pointer (file:line or component
+  when traceable), and a proposed fix path. Before filing, re-run the
+  failing step once and check the alternate explanation (timing, stale
+  state, emulator quirk); a finding that survives that probe files, one
+  that does not gets the flow hardened instead. False positives erode
+  the ledger's authority exactly like missed faults erode the suite's.
 
 **General form:** any verification substrate (tests, canaries, audits,
 monitors) is measured by what it CATCHES, not by how often it passes;
