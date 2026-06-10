@@ -149,35 +149,13 @@ function toolError(message, code, httpStatus, details) {
 
 // ── chain normalisation (write-side AND verify-side, see header note) ───
 
-function _isoOrNull(value) {
-  if (value == null) return null
-  if (value instanceof Date) return value.toISOString()
-  return new Date(value).toISOString()
-}
-
-function _dateStrOrNull(value) {
-  if (value == null) return null
-  if (value instanceof Date) return value.toISOString().slice(0, 10)
-  return String(value).slice(0, 10)
-}
-
 /**
  * normaliseForChain(row) -> the canonical JS representation of an evidence
  * row's CONTENT_COLUMNS, applied identically before hashing at write time and
  * before verifyChain over DB-fetched rows (postgres.js returns bigint/numeric
  * as strings, date as 'YYYY-MM-DD' string, timestamptz as Date).
  */
-function normaliseForChain(row) {
-  return {
-    ...row,
-    seq: row.seq == null ? null : Number(row.seq),
-    classification_confidence:
-      row.classification_confidence == null ? null : Number(row.classification_confidence),
-    period_start: _dateStrOrNull(row.period_start),
-    period_end: _dateStrOrNull(row.period_end),
-    captured_at: _isoOrNull(row.captured_at),
-  }
-}
+const normaliseForChain = evidenceChain.normaliseFetchedRow
 
 /**
  * Append one row to an engagement's evidence chain: fetch the chain tail,

@@ -74,6 +74,36 @@ function normaliseValue(value) {
 }
 
 /**
+ * normaliseFetchedRow(row) -> the canonical JS representation of a DB-fetched
+ * evidence row, the SINGLE implementation (engagement-zero live finding,
+ * 2026-06-10: postgres.js returns bigint seq and numeric
+ * classification_confidence as strings, and date columns as UTC-midnight Date
+ * objects, so verifyChain over raw driver rows reads a healthy chain as
+ * corrupt at seq 1). Apply identically before hashing at write time and
+ * before verifyChain over fetched rows. Idempotent on JS-native rows.
+ * captured_at (timestamptz -> Date) is hash-neutral either way because
+ * normaliseValue renders Date as toISOString(); converted here anyway so the
+ * returned row is plain-JSON throughout.
+ */
+function normaliseFetchedRow(row) {
+  if (!row || typeof row !== 'object') {
+    throw new TypeError('normaliseFetchedRow expects an evidence row object')
+  }
+  const out = { ...row }
+  if (row.seq != null) out.seq = Number(row.seq)
+  if (row.classification_confidence != null) {
+    out.classification_confidence = Number(row.classification_confidence)
+  }
+  for (const col of ['period_start', 'period_end']) {
+    const v = row[col]
+    if (v instanceof Date) out[col] = v.toISOString().slice(0, 10)
+    else if (typeof v === 'string' && v.length > 10) out[col] = v.slice(0, 10)
+  }
+  if (row.captured_at instanceof Date) out.captured_at = row.captured_at.toISOString()
+  return out
+}
+
+/**
  * canonicalise(row) -> stable sorted-key JSON string over the content columns.
  * Two rows with the same content always canonicalise identically, regardless of key
  * order, extra non-content fields, or undefined-vs-null representation.
@@ -246,6 +276,7 @@ function confirmEvidence(pendingRow, priorRows) {
 module.exports = {
   CONTENT_COLUMNS,
   canonicalise,
+  normaliseFetchedRow,
   hashRow,
   verifyChain,
   buildAnchorDigest,

@@ -45,7 +45,7 @@ const postgres = require(path.join(BACKEND, 'node_modules', 'postgres'))
 const { PDFParse } = require(path.join(BACKEND, 'node_modules', 'pdf-parse'))
 const { classifyDocument } = require(path.join(BACKEND, 'src/services/climate/ingest/classify'))
 const { buildEvidenceRow, confirmEvidence } = require(path.join(BACKEND, 'src/services/climate/ingest/commitEvidence'))
-const { verifyChain, buildAnchorDigest } = require(path.join(BACKEND, 'src/services/climate/evidenceChain'))
+const { verifyChain, buildAnchorDigest, normaliseFetchedRow } = require(path.join(BACKEND, 'src/services/climate/evidenceChain'))
 
 const ENV_PATH = '/Users/ecodia/PRIVATE/ecodia-creds/climate-zero.env'
 const ZOO_RAW = path.join(BACKEND, 'climate-testing', 'zoo', 'raw')
@@ -236,17 +236,8 @@ function sha256Hex(buf) {
  * payload (jsonb -> object) needs nothing: canonicalise sorts keys, and payload values
  * are strings/integers by construction here.
  */
-function normaliseFetchedRow(row) {
-  const out = { ...row }
-  out.seq = Number(row.seq)
-  if (row.classification_confidence != null) {
-    out.classification_confidence = Number(row.classification_confidence)
-  }
-  for (const col of ['period_start', 'period_end']) {
-    if (row[col] instanceof Date) out[col] = row[col].toISOString().slice(0, 10)
-  }
-  return out
-}
+// normaliseFetchedRow now lives in evidenceChain (W2.1 consolidation, 2026-06-10);
+// the live findings above are documented on the library implementation.
 
 async function extractText(filePath) {
   const buf = fs.readFileSync(filePath)
