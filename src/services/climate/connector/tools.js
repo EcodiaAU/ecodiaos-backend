@@ -387,6 +387,10 @@ const TOOLS = [
       classification_confidence: z.number().min(0).max(1).optional(),
       payload: JSON_OBJECT.optional(),
       captured_at: ISO_TIMESTAMP.optional(),
+      // Structural refusal flag from classify (zoo pass-1 defect 4). Declared so the
+      // handler can refuse it with the proper envelope instead of a generic zod
+      // unknown-key error; it is classify metadata, never a row column.
+      is_evidence: z.boolean().optional(),
       ...CTX_ARGS,
     }).strict().superRefine((val, ctx) => {
       const hasNewEvidence = val.doc_sha256 != null || val.storage_path != null || val.source_channel != null
@@ -411,12 +415,23 @@ const TOOLS = [
         engagement_id: { type: 'string', description: 'Engagement UUID' },
         confirm_evidence_id: { type: 'string', description: 'UUID of a pending_confirmation row to confirm (append-as-supersede). Mutually exclusive with the new-evidence fields.' },
         ...EVIDENCE_CONTENT_JSON_PROPS,
+        is_evidence: { type: 'boolean', description: 'Structural classify flag; false (a not_evidence refusal) is refused with 422, refusals never commit' },
         ...CTX_JSON_PROPS,
       },
       required: ['engagement_id'],
       additionalProperties: false,
     },
     async handler({ args, db }) {
+      // Structural refusal guard (zoo pass-1 defect 4): is_evidence:false classify
+      // results (and the 'not_evidence' type they derive from) never enter the
+      // evidence register. Mirrors commitEvidence.buildEvidenceRow's throw;
+      // migration 012's CHECK is the DB-side last line.
+      if (args.is_evidence === false || args.document_type === 'not_evidence') {
+        throw toolError(
+          'is_evidence:false (not_evidence) classifications never commit to the evidence register; stage for review instead',
+          'not_evidence_refused', 422
+        )
+      }
       if (args.confirm_evidence_id == null) {
         // New auto commit: ordinary chain append, confirmation_status 'auto'.
         const row = await appendEvidenceRow(db, args.engagement_id, args, 'auto', null)

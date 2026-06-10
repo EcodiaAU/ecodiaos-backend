@@ -33,6 +33,13 @@ const CONFIRMATION_STATUSES = ['auto', 'pending_confirmation', 'confirmed']
  * must NOT be supplied. priorRows is the engagement's full existing chain ([] for
  * genesis); it is verified first, because appending to a broken chain would extend
  * corruption.
+ *
+ * Refusal guard (zoo pass-1 defect 4): a classify result carrying the STRUCTURAL
+ * is_evidence:false flag (or the 'not_evidence' document_type it derives from) is a
+ * refusal, never evidence; this layer THROWS rather than letting a refusal enter the
+ * hash chain. The connector's cd_evidence_commit carries the same guard as a 4xx, and
+ * migration 012's CHECK is the DB-side last line. is_evidence itself is classify-result
+ * metadata, not a content column; it never lands on the row.
  */
 function buildEvidenceRow(input, priorRows) {
   if (!input || typeof input !== 'object') {
@@ -49,6 +56,11 @@ function buildEvidenceRow(input, priorRows) {
   }
   if (!input.doc_sha256) {
     throw new Error('buildEvidenceRow requires doc_sha256 (hash the document before committing)')
+  }
+  if (input.is_evidence === false || input.document_type === 'not_evidence') {
+    throw new Error(
+      'buildEvidenceRow refused: is_evidence:false (not_evidence) classifications never enter the evidence register; stage for review instead'
+    )
   }
   if (!SOURCE_CHANNELS.includes(input.source_channel)) {
     throw new Error(

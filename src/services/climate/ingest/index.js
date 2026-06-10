@@ -10,7 +10,15 @@
  */
 
 const { ingestEmail } = require('./emailIngest')
-const { classifyDocument, DEFAULT_CONFIDENCE_THRESHOLD } = require('./classify')
+const {
+  classifyDocument,
+  isIsoFullDate,
+  DEFAULT_CONFIDENCE_THRESHOLD,
+  DEFAULT_MAX_TEXT_BYTES,
+  DOCUMENT_TYPES,
+  SCOPE_CATEGORIES,
+  FAILURE_CODES,
+} = require('./classify')
 const {
   buildEvidenceRow,
   confirmEvidence,
@@ -22,7 +30,12 @@ const { ingestWorkbook } = require('./workbookIngest')
 module.exports = {
   ingestEmail,
   classifyDocument,
+  isIsoFullDate,
   DEFAULT_CONFIDENCE_THRESHOLD,
+  DEFAULT_MAX_TEXT_BYTES,
+  DOCUMENT_TYPES,
+  SCOPE_CATEGORIES,
+  FAILURE_CODES,
   buildEvidenceRow,
   confirmEvidence,
   SOURCE_CHANNELS,

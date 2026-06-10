@@ -134,8 +134,10 @@ describe('classifyDocument', () => {
       period_start: '2026-06-01',
       period_end: '2026-06-30',
       scope_category: 'scope2',
+      is_evidence: true,
       confidence: 0.96,
       staged_for_review: false,
+      failure_code: null,
       reason: null,
     })
   })
@@ -144,7 +146,7 @@ describe('classifyDocument', () => {
     const stub = async () => ({ ...(await highConfidenceStub()), confidence: 0.55 })
     const result = await classifyDocument(docMeta, text, stub)
     expect(result.staged_for_review).toBe(true)
-    expect(result.reason).toMatch(/below threshold 0\.8/)
+    expect(result.reason).toMatch(/at or below threshold 0\.8/)
     // classification is still carried so the review queue sees the best guess
     expect(result.document_type).toBe('electricity_invoice')
     expect(result.confidence).toBe(0.55)
