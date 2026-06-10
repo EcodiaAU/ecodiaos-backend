@@ -358,6 +358,15 @@ app.use('/api/hands', require('./routes/hands'))
     app.use('/api/mcp/' + connector.mountPath, mountConnector(connector))
   }
 })()
+// ecodia-climate (climate-disclosure W7) - INERT until provisioning day.
+// Self-contained connector (manifest + zod cd_* tools + dedicated DB client
+// at src/services/climate/connector/), client-gated per W10: the dedicated
+// ecodia-climate Supabase project, the bearer at
+// kv_store.creds.ecodia_climate_mcp_bearer and CLIMATE_DATABASE_URL do not
+// exist before a signed engagement. To mount: uncomment the next line AND add
+// /^\/api\/mcp\/ecodia-climate(\/|$)/ to the public-discovery exempt list
+// beside the sibling connectors (~line 210).
+//   app.use('/api/mcp/ecodia-climate', require('./routes/mcp/ecodiaClimate')())
 // /api/stream/* - streaming substrate (Phase 2 Lane 06, 2026-05-15). SSE
 // channel hub complementing MCP. Channel registry at backend/streaming/channels.json.
 app.use('/api/stream', require('./routes/streaming'))
