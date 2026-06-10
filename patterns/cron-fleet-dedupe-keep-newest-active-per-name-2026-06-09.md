@@ -3,6 +3,7 @@ triggers: cron-duplicate-rows, os-scheduled-tasks-dedupe, duplicate-active-cron,
 category: doctrine
 facet: scheduler
 canonical: true
+binding: script=~/.ecodiaos/bin/scheduler-health.sh + cron=daily-cron-corpus-health-audit
 ---
 
 # Cron fleet dedupe: keep newest+most-run active per name, reset stale-lease failures
@@ -37,9 +38,9 @@ UPDATE os_scheduled_tasks SET status='active', leased_by=NULL, leased_at=NULL, r
 - Both operations are reversible (status flips, no deletes).
 - Never blind-reset financial crons or never-fired (run_count 0) rows; those need intent review.
 
-## The durable guard (proposed, not yet shipped)
+## The durable guard (SHIPPED 2026-06-10)
 
-Dedupe regrows on the next install until the producer stops leaking. Two options, ship one: (a) make `cron_corpus_installer.py` cancel via Postgres-direct so the cancel cannot silently no-op; (b) add a partial unique index `(name) WHERE status='active' AND type='cron'` so a recreate-while-old-still-active fails loudly instead of duping (safe failure mode: the existing active row survives). Before adding the index, check every os_scheduled_tasks writer (installer, scheduler MCP, conductor.js, routes/scheduler.js) is cancel-before-create, or the index breaks a legitimate replace.
+Option (b) shipped: partial unique index `uq_os_scheduled_tasks_active_cron_name ON os_scheduled_tasks (name) WHERE status='active' AND type='cron' AND archived_at IS NULL`. Writer audit found only `cowork.js /scheduler.cron` inserts type=cron rows, so a recreate-while-old-still-active now fails loudly with a 23505 instead of duping (the existing active row survives). Probe: a duplicate insert of a live cron name died on the named constraint. The daily scheduler-health canary verifies the index still exists; full record at [[scheduler-health-canary-and-cron-dupe-guard-2026-06-10]].
 
 ## Origin
 
