@@ -112,6 +112,7 @@ def parse_nodes(blob, package):
             'key': f"{label}|{(x1 + x2) // 2 // 32}x{(y1 + y2) // 2 // 32}",
             'cx': (x1 + x2) // 2,
             'cy': (y1 + y2) // 2,
+            'area_frac': (w * h) / (1080 * 2400),
         })
     return out
 
@@ -220,8 +221,16 @@ def main():
             forward_trace = []
             continue
 
-        # X-left-app
+        # X-left-app. The OS permission controller is the app behaving
+        # correctly (it asked for a permission), not an escape; judged
+        # benign on runs 20260610T003209Z + 005504Z.
+        BENIGN_FOREGROUNDS = {'com.google.android.permissioncontroller',
+                              'com.android.permissioncontroller'}
         fg = foreground_package(serial)
+        if fg in BENIGN_FOREGROUNDS:
+            shell(serial, 'input', 'keyevent', '4')
+            settle(serial)
+            fg = foreground_package(serial)
         if fg and fg != package:
             shot = os.path.join(screens_dir, f'leftapp-{taps:03d}.png')
             screenshot(serial, shot)
@@ -238,8 +247,13 @@ def main():
         # X-dead-tap (once per element). Map canvases pan/zoom without
         # mutating the AX tree, so a signature-stable map tap is expected,
         # not dead (judged benign on run 20260610T003209Z: 'Google Map').
-        is_map_canvas = 'map' in (cand['label'] or '').lower()
-        if post_sig == sig and not is_map_canvas and cand['key'] not in fired_dead:
+        # Canvas-like targets legitimately absorb taps without tree
+        # mutation: anything labelled map, or an unlabeled container
+        # covering most of the screen (the full-bleed map FrameLayout
+        # fired false dead-taps on runs 003209Z + 005504Z).
+        is_canvas = ('map' in (cand['label'] or '').lower()
+                     or (not cand['label'] and cand.get('area_frac', 0) > 0.6))
+        if post_sig == sig and not is_canvas and cand['key'] not in fired_dead:
             fired_dead.add(cand['key'])
             finding('X-dead-tap', 'medium',
                     f'clickable "{cand["label"]}" changes the hierarchy',
