@@ -88,4 +88,5 @@ print(json.dumps({
     'flows': flat_flows,
     'persistence': persistence,
     'forms': forms,
+    'explore': spec.get('explore') or {},
 }, indent=2))

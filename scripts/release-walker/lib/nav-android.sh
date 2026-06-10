@@ -132,6 +132,27 @@ nav_tap_coord() {
   adb -s "$serial" shell input tap "$px" "$py"
 }
 
+# Swipe up until a text/desc anchor is present in a fresh dump, then tap
+# it. The below-the-fold answer that survives font_scale cells (a single
+# fixed swipe missed Privacy policy at 2.0 on glovebox run 044508Z).
+nav_scroll_tap() {
+  serial="$1"; workdir="$2"; target="$3"; cap="${4:-5}"
+  i=0
+  while [ "$i" -le "$cap" ]; do
+    nav_dump_hierarchy "$serial" "$workdir/_scroll.xml"
+    if nav_anchors_present "$workdir/_scroll.xml" "$target"; then
+      nav_tap_text "$serial" "$workdir/_scroll.xml" "${target#text:}"
+      return $?
+    fi
+    i=$((i + 1))
+    [ "$i" -gt "$cap" ] && break
+    adb -s "$serial" shell input swipe 540 1700 540 900 350
+    sleep 1.5
+  done
+  echo "[nav] FAIL: '$target' not found after $cap scroll(s)" >&2
+  return 7
+}
+
 nav_swipe() {
   serial="$1"; direction="$2"
   case "$direction" in

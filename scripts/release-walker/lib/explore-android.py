@@ -171,6 +171,10 @@ def main():
     os.makedirs(screens_dir, exist_ok=True)
     with open(parsed_path) as f:
         parsed = json.load(f)
+    # Spec-declared expected no-ops: controls that legitimately absorb
+    # taps in THIS environment (e.g. Restore purchases on a no-Play AVD,
+    # an already-active segmented chip that exposes no selected attr).
+    expected_noops = set((parsed.get('explore') or {}).get('expected_no_ops') or [])
 
     def finding(detector, severity, expected, observed, evidence):
         row = {'detector': detector, 'severity': severity, 'flow': '__explore',
@@ -278,7 +282,8 @@ def main():
         # theme chip; judged on glovebox run 20260610T040658Z).
         is_canvas = ('map' in (cand['label'] or '').lower()
                      or (not cand['label'] and cand.get('area_frac', 0) > 0.6)
-                     or cand.get('already_on'))
+                     or cand.get('already_on')
+                     or (cand['label'] or '') in expected_noops)
         if post_sig == sig and not is_canvas and cand['key'] not in fired_dead:
             fired_dead.add(cand['key'])
             if cand['label']:

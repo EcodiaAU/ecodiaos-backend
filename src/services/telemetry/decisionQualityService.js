@@ -394,12 +394,30 @@ async function computeDriftSignals() {
 
     // ── consumer_health_signal ─────────────────────────────────────
     // Detect when consumer event pipelines fall behind their producers.
-    // Two critical pairs:
-    //   1. outcomeInference: dispatch_event (parent) → outcome_event (child)
-    //   2. autoTags:         surface_event  (parent) → application_event (child)
+    // Per-pair config: lagThreshold null disables Rule 1 (lag) for pairs
+    // where the producer and consumer measure different units and a fixed
+    // ratio is structurally meaningless. Rule 2 (flatline) and Rule 3
+    // (attenuation) still apply.
+    //
+    // outcomeInference: dispatch_event -> outcome_event is a true 1:1
+    //   producer/consumer (one outcome inferred per dispatched action).
+    //   Lag <30% means the consumer fell behind producer activity.
+    //
+    // autoTags: surface_event -> application_event is NOT a 1:1 mapping.
+    //   surface_event is per-hook-call (90%+ comes from
+    //   hook:status-board-write firing on every matching write). app-
+    //   lication_event is per-pattern-per-Stop-scan (one row per pattern
+    //   detected in transcript at end of conductor turn). A turn with 20
+    //   hook surfaces detecting 5 unique patterns yields ratio 0.25,
+    //   below the 0.3 threshold while the consumer is healthy. Rule 1
+    //   disabled for this pair 2026-06-10 by decision-quality-pass cron
+    //   49d9ffe2 after the autoTags row flagged for 4+ consecutive fires
+    //   with no underlying regression. Rule 2 (flatline) remains the
+    //   honest discriminator: 0 application_event with >10 surface_event
+    //   in 24h means the Stop scanner drain is genuinely dead.
     const CONSUMER_PAIRS = [
-      { name: 'outcomeInference', parent: 'dispatch_event', child: 'outcome_event' },
-      { name: 'autoTags',         parent: 'surface_event', child: 'application_event' },
+      { name: 'outcomeInference', parent: 'dispatch_event', child: 'outcome_event', lagThreshold: 0.3 },
+      { name: 'autoTags',         parent: 'surface_event',  child: 'application_event', lagThreshold: null },
     ]
 
     for (const pair of CONSUMER_PAIRS) {
@@ -416,12 +434,14 @@ async function computeDriftSignals() {
       const ratio = pc > 0 ? Math.round((cc / pc) * 10000) / 10000 : 1
 
       // Rule 1: Consumer lag (P2) - parent produced >50 events,
-      //          child consumed <30% of them.
-      if (pc > 50 && ratio < 0.3) {
+      //          child consumed less than lagThreshold of them.
+      //          lagThreshold null suppresses the rule for pairs whose
+      //          parent/child do not share a unit of measurement.
+      if (pair.lagThreshold !== null && pc > 50 && ratio < pair.lagThreshold) {
         flags.push({
           flag_type: 'consumer_health_signal',
           name: `Consumer lag: ${pair.name}`,
-          context: `${pair.name} processed ${cc} events from ${pc} produced in 24h (ratio: ${ratio}). Rule: consumer_lag - child consumed <30% of parent output.`,
+          context: `${pair.name} processed ${cc} events from ${pc} produced in 24h (ratio: ${ratio}). Rule: consumer_lag - child consumed <${pair.lagThreshold * 100}% of parent output.`,
           next_action: 'Investigate consumer pipeline for regression',
         })
       }

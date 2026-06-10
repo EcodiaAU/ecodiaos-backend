@@ -104,6 +104,13 @@ for FLOW_ID in $FLOW_IDS; do
         DIR="${ENTER_VIA#swipe:}"
         nav_swipe "$SERIAL" "$DIR"
         ;;
+      scroll_tap:*)
+        TARGET="${ENTER_VIA#scroll_tap:}"
+        if ! nav_scroll_tap "$SERIAL" "$SURFACE_DIR" "$TARGET" 5; then
+          echo "[enumerate-android] FAIL: scroll_tap '$TARGET' did not resolve" >&2
+          FLOW_SUCCESS=false; break
+        fi
+        ;;
       back)
         nav_back "$SERIAL"
         ;;
