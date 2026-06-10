@@ -1,0 +1,1585 @@
+0
+              
+            
+          
+        
+      
+
+      
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+  
+    
+  
+
+  
+    
+  
+
+  
+    
+  
+
+  
+    
+  
+
+  
+    
+  
+  
+  
+    
+    
+  
+  
+  
+    
+  
+  
+  
+    
+    
+  
+  
+  
+    
+  
+  
+  
+  
+    
+  
+  
+  
+    
+    
+  
+  
+  
+    
+  
+
+  
+    
+    
+  
+
+  
+    
+    
+  
+
+  
+    
+  
+  
+  
+    
+  
+
+
+    
+
+
+    
+      
+      
+        Skip to Content
+      
+      
+
+
+
+    @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+        .header-blur-background {
+            
+            
+        }
+    }
+
+      
+      
+      
+      
+
+      
+        
+        
+
+        
+          
+
+          
+
+          
+
+          
+
+          
+
+          
+          
+            
+            
+            
+          
+            
+            
+            
+              
+
+              
+
+              
+                
+                
+                
+                  
+                    
+                      
+                        
+                        
+
+
+                        
+                      
+
+                    
+                    
+                  
+                
+              
+                
+                
+                
+                  
+                    
+                      
+
+
+  
+    
+      
+        White Paper
+      
+    
+  
+  
+  
+
+
+  
+    
+      
+        News
+      
+    
+  
+  
+  
+
+
+
+                    
+                  
+                
+              
+              
+            
+          
+            
+            
+            
+              
+                
+              
+              
+
+              
+
+            
+            
+
+              
+              
+                
+              
+
+              
+              
+                
+              
+
+              
+            
+          
+            
+
+
+
+  .top-bun, 
+  .patty, 
+  .bottom-bun {
+    height: 1px;
+  }
+
+
+
+
+  
+    Open Menu
+    Close Menu
+    
+      
+        
+        
+        
+      
+    
+  
+
+
+          
+
+        
+        
+          
+            
+            
+            
+          
+            
+            
+            
+              
+
+              
+
+              
+                
+                
+                
+                  
+                    
+                      
+                        
+                        
+
+
+                        
+                      
+
+                    
+                    
+                  
+                
+              
+                
+                
+                
+                  
+                    
+                      
+
+
+  
+    
+      
+        White Paper
+      
+    
+  
+  
+  
+
+
+  
+    
+      
+        News
+      
+    
+  
+  
+  
+
+
+
+                    
+                  
+                
+              
+              
+            
+          
+            
+            
+            
+              
+                
+              
+              
+
+              
+
+            
+            
+
+              
+              
+                
+              
+
+              
+              
+                
+              
+
+              
+            
+          
+            
+
+
+
+  .top-bun, 
+  .patty, 
+  .bottom-bun {
+    height: 1px;
+  }
+
+
+
+
+  
+    Open Menu
+    Close Menu
+    
+      
+        
+        
+        
+      
+    
+  
+
+
+          
+          
+          
+          
+          
+        
+      
+    
+    
+    
+      
+      
+        
+          
+        
+            
+              
+
+  
+    
+      
+        
+          
+            
+              
+                
+                  White Paper
+                
+              
+            
+          
+        
+      
+    
+      
+        
+          
+            
+              
+                
+                  News
+                
+              
+            
+          
+        
+      
+    
+  
+
+
+              
+                
+              
+            
+            
+            
+            
+          
+      
+    
+  
+
+
+
+
+      
+        
+          
+            
+
+  
+  
+    
+    
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+      
+    
+    
+  
+  
+    
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+
+.fe-6834ef23d9530126371afdb8 {
+  --grid-gutter: calc(var(--sqs-mobile-site-gutter, 6vw) - 11.0px);
+  --cell-max-width: calc( ( var(--sqs-site-max-width, 1500px) - (11.0px * (8 - 1)) ) / 8 );
+
+  display: grid;
+  position: relative;
+  grid-area: 1/1/-1/-1;
+  grid-template-rows: repeat(40,minmax(24px, auto));
+  grid-template-columns:
+    minmax(var(--grid-gutter), 1fr)
+    repeat(8, minmax(0, var(--cell-max-width)))
+    minmax(var(--grid-gutter), 1fr);
+  row-gap: 11.0px;
+  column-gap: 11.0px;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+@media (min-width: 768px) {
+  .background-width--inset .fe-6834ef23d9530126371afdb8 {
+    --inset-padding: calc(var(--sqs-site-gutter) * 2);
+  }
+
+  .fe-6834ef23d9530126371afdb8 {
+    --grid-gutter: calc(var(--sqs-site-gutter, 4vw) - 11.0px);
+    --cell-max-width: calc( ( var(--sqs-site-max-width, 1500px) - (11.0px * (24 - 1)) ) / 24 );
+    --inset-padding: 0vw;
+
+    --row-height-scaling-factor: 0.0215;
+    --container-width: min(var(--sqs-site-max-width, 1500px), calc(100vw - var(--sqs-site-gutter, 4vw) * 2 - var(--inset-padding) ));
+
+    grid-template-rows: repeat(30,minmax(calc(var(--container-width) * var(--row-height-scaling-factor)), auto));
+    grid-template-columns:
+      minmax(var(--grid-gutter), 1fr)
+      repeat(24, minmax(0, var(--cell-max-width)))
+      minmax(var(--grid-gutter), 1fr);
+  }
+}
+
+
+  .fe-block-yui_3_17_2_1_1750548160661_10073 {
+    grid-area: 1/2/7/10;
+    z-index: 2;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_10073 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_10073 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750548160661_10073 {
+      grid-area: 4/2/14/26;
+      z-index: 4;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_10073 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_10073 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_10439 {
+    grid-area: 7/2/10/10;
+    z-index: 3;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_10439 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_10439 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750548160661_10439 {
+      grid-area: 15/2/21/21;
+      z-index: 5;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_10439 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_10439 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_13871 {
+    grid-area: 8/2/10/10;
+    z-index: 4;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_13871 .sqs-block {
+    justify-content: center;
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_13871 .sqs-block-alignment-wrapper {
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750548160661_13871 {
+      grid-area: 17/2/18/23;
+      z-index: 6;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_13871 .sqs-block {
+      justify-content: center;
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_13871 .sqs-block-alignment-wrapper {
+      align-items: center;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_15334 {
+    grid-area: 10/2/24/10;
+    z-index: 8;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_15334 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_15334 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750548160661_15334 {
+      grid-area: 19/2/29/12;
+      z-index: 10;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_15334 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_15334 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750557330352_97943 {
+    grid-area: 23/2/24/10;
+    z-index: 9;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750557330352_97943 .sqs-block {
+    justify-content: center;
+  }
+
+  .fe-block-yui_3_17_2_1_1750557330352_97943 .sqs-block-alignment-wrapper {
+    align-items: center;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750557330352_97943 {
+      grid-area: 30/2/31/12;
+      z-index: 11;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750557330352_97943 .sqs-block {
+      justify-content: center;
+    }
+
+    .fe-block-yui_3_17_2_1_1750557330352_97943 .sqs-block-alignment-wrapper {
+      align-items: center;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_14588 {
+    grid-area: 24/2/40/10;
+    z-index: 6;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_14588 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1750548160661_14588 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750548160661_14588 {
+      grid-area: 19/13/30/23;
+      z-index: 8;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_14588 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1750548160661_14588 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+
+  
+  Real people. Real trust. No intermediaries.
+
+
+  
+#block-yui_3_17_2_1_1750548160661_10073 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1750548160661_10073 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1750548160661_10073 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1750548160661_10073 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1750548160661_10073 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1750548160661_10073 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1750548160661_10073 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1750548160661_10073 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+  
+  A global infrastructure for verified trust.
+
+
+  
+#block-yui_3_17_2_1_1750548160661_10439 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1750548160661_10439 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1750548160661_10439 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1750548160661_10439 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1750548160661_10439 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1750548160661_10439 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1750548160661_10439 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1750548160661_10439 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+  
+  The First Person Network is a global digital utility that enables trusted connections between individuals, communities, and organizations.                   It belongs to all of us.It provides a way for our online interactions to feel much more like the interactions we have with people we know and trust in real life. 
+
+
+  
+#block-yui_3_17_2_1_1750548160661_15334 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1750548160661_15334 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1750548160661_15334 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1750548160661_15334 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1750548160661_15334 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1750548160661_15334 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1750548160661_15334 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1750548160661_15334 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+  
+  The First Person Network is not another Facebook or LinkedIn or Twitter/X. It is not a social network; it is not centralized; and it does not belong to any company.In the same way the Internet allows any device to connect with any other device, the First Person Network lets any member connect with any other member. Directly. Privately. Personally. With no intermediaries. No platform. No surveillance. No advertising.The First Person Network is about trust. It is a trust network that exists only in the individual â€‹â€‹digital wallets of all the membersâ€”the way many of us keep our own address books on our own smartphones today.Building this trust network as a global digital utility is the goal of the First Person Project. Weâ€™ll have much more to share as the initiative grows.
+
+
+  
+#block-yui_3_17_2_1_1750548160661_14588 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1750548160661_14588 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1750548160661_14588 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1750548160661_14588 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1750548160661_14588 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1750548160661_14588 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1750548160661_14588 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1750548160661_14588 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+    
+  
+  
+  
+
+
+  
+
+
+          
+
+          
+
+          
+            
+          
+        
+      
+      
+        
+  
+  
+  
+  
+  
+  
+    
+    
+
+
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+      
+    
+    
+  
+  
+    
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+
+.fe-6834ef23d9530126371afdc8 {
+  --grid-gutter: calc(var(--sqs-mobile-site-gutter, 6vw) - 0.0px);
+  --cell-max-width: calc( ( var(--sqs-site-max-width, 1500px) - (0.0px * (8 - 1)) ) / 8 );
+
+  display: grid;
+  position: relative;
+  grid-area: 1/1/-1/-1;
+  grid-template-rows: repeat(8,minmax(24px, auto));
+  grid-template-columns:
+    minmax(var(--grid-gutter), 1fr)
+    repeat(8, minmax(0, var(--cell-max-width)))
+    minmax(var(--grid-gutter), 1fr);
+  row-gap: 0.0px;
+  column-gap: 0.0px;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+@media (min-width: 768px) {
+  .background-width--inset .fe-6834ef23d9530126371afdc8 {
+    --inset-padding: calc(var(--sqs-site-gutter) * 2);
+  }
+
+  .fe-6834ef23d9530126371afdc8 {
+    --grid-gutter: calc(var(--sqs-site-gutter, 4vw) - 0.0px);
+    --cell-max-width: calc( ( var(--sqs-site-max-width, 1500px) - (0.0px * (24 - 1)) ) / 24 );
+    --inset-padding: 0vw;
+
+    --row-height-scaling-factor: 0.0215;
+    --container-width: min(var(--sqs-site-max-width, 1500px), calc(100vw - var(--sqs-site-gutter, 4vw) * 2 - var(--inset-padding) ));
+
+    grid-template-rows: repeat(2,minmax(calc(var(--container-width) * var(--row-height-scaling-factor)), auto));
+    grid-template-columns:
+      minmax(var(--grid-gutter), 1fr)
+      repeat(24, minmax(0, var(--cell-max-width)))
+      minmax(var(--grid-gutter), 1fr);
+  }
+}
+
+
+  .fe-block-yui_3_17_2_1_1750616783735_38191 {
+    grid-area: 1/2/3/10;
+    z-index: 4;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1750616783735_38191 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1750616783735_38191 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1750616783735_38191 {
+      grid-area: 1/11/2/17;
+      z-index: 4;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1750616783735_38191 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1750616783735_38191 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 {
+    grid-area: 3/2/5/10;
+    z-index: 5;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-yui_3_17_2_1_1758052036355_4567030 {
+      grid-area: 1/2/2/3;
+      z-index: 5;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-yui_3_17_2_1_1758052036355_4567030 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-yui_3_17_2_1_1758052036355_4567030 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+  .fe-block-efd22d882ef121e1fe30 {
+    grid-area: 5/2/7/10;
+    z-index: 6;
+
+    @media (max-width: 767px) {
+      
+        
+      
+      
+    }
+  }
+
+  .fe-block-efd22d882ef121e1fe30 .sqs-block {
+    justify-content: flex-start;
+  }
+
+  .fe-block-efd22d882ef121e1fe30 .sqs-block-alignment-wrapper {
+    align-items: flex-start;
+  }
+
+  @media (min-width: 768px) {
+    .fe-block-efd22d882ef121e1fe30 {
+      grid-area: 1/4/2/6;
+      z-index: 6;
+
+      
+        
+      
+
+      
+    }
+
+    .fe-block-efd22d882ef121e1fe30 .sqs-block {
+      justify-content: flex-start;
+    }
+
+    .fe-block-efd22d882ef121e1fe30 .sqs-block-alignment-wrapper {
+      align-items: flex-start;
+    }
+  }
+
+
+  
+  Â©2026 First Person Network. All rights reserved.
+
+
+  
+#block-yui_3_17_2_1_1750616783735_38191 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1750616783735_38191 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1750616783735_38191 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1750616783735_38191 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1750616783735_38191 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1750616783735_38191 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1750616783735_38191 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1750616783735_38191 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+  
+  FAQ
+
+
+  
+#block-yui_3_17_2_1_1758052036355_4567030 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-yui_3_17_2_1_1758052036355_4567030 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-yui_3_17_2_1_1758052036355_4567030 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-yui_3_17_2_1_1758052036355_4567030 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-yui_3_17_2_1_1758052036355_4567030 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-yui_3_17_2_1_1758052036355_4567030 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }
+
+
+      
+    
+
+  
+
+
+
+
+  
+  CONTACT
+
+
+  
+#block-efd22d882ef121e1fe30 {
+    
+    --stroke-style: none;--stroke-thickness: 6px;
+    
+      
+      
+      
+    
+
+--tweak-text-block-background-color: initial;
+
+  }
+
+  #block-efd22d882ef121e1fe30 .sqs-html-content {
+    
+    --tweak-text-block-padding: 6% 6% 6% 6%;
+  --tweak-text-block-padding: initial;
+}
+
+  .fe-block-efd22d882ef121e1fe30 {
+      mix-blend-mode: var(--tweak-text-block-blend
+  );
+      border-radius: var(--tweak-text-block-radius);
+  }
+
+  
+  
+.fe-block-efd22d882ef121e1fe30 {
+      --tweak-text-block-radius: 0px 0px 0px 0px;
+    }
+
+
+  
+  .fe-block-efd22d882ef121e1fe30 {
+      --tweak-text-block-blend
+  : normal;
+    }
+  
+
+  .fe-block-efd22d882ef121e1fe30 {
+    --blur-value: blur(15px);}
+
+
+
+
+    @media screen and (max-width: 767px) {
+          
+            
+
+#block-efd22d882ef121e1fe30 {
+            
+            }
+        }
+    
+  
+    @media screen and (max-width: 767px) {
+          #block-efd22d882ef121e1fe30 .sqs-html-content {
+            
+            }
+        }
+    
+  @media screen and (max-width: 767px) {
+          
+          
+
+          
+          
+          
+        }

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Evidence that holds</title>
+<meta name="description" content="The continuous-evidence layer under Australia's AASB S2 climate disclosure regime, for Group 2 reporting entities and the firms that serve them.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Evidence that holds.</p>
+    <p class="byline">EcodiaOS &middot; Ecodia &middot; June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">On 1 July 2026, Australia's second wave of mandatory climate reporting begins. Group 2 entities will lodge their first sustainability reports in 2027. The reports are annual documents. The years they describe happen one invoice, one meter read, one board paper at a time. This paper is about the gap between those two facts, and the layer that closes it.</p>
+
+    <p class="section-label">the seam</p>
+
+    <p>An audited disclosure is a photograph taken once a year. The thing photographed is continuous. Fuel is burned in February, a refrigerant line is recharged in May, the board considers a flood exposure paper in August, and none of it announces that it will be evidence. By the time the reporting team assembles the photograph, the year is gone and the evidence is wherever it fell: a retailer portal, a maintenance contractor's PDF, a former employee's inbox.</p>
+
+    <p>The first wave has already shown what this looks like. Reviews of the early Group 1 reports lodged in 2026 found climate risk quantification immature and disclosure quality wildly uneven. Those were the country's largest entities, with sustainability teams. The second wave mostly has none. For many Group 2 companies the obligation will land on a finance lead who has never controlled the datasets it requires.</p>
+
+    <p>The seam between the annual document and the continuous year is where disclosure quality is decided. It cannot be closed in the month before lodgement. It can only be closed while the year is happening.</p>
+
+    <p class="section-label">what the law asks</p>
+
+    <p>The regime sits in the Corporations Act, amended in September 2024, and in AASB S2, the mandatory climate standard. An entity enters Group 2 by meeting two of three tests over consecutive years: consolidated revenue of two hundred million dollars, consolidated gross assets of five hundred million, or two hundred and fifty employees. Registered NGER reporters below the publication threshold enter regardless of size, and so do superannuation funds and registered schemes holding five billion dollars or more, which sit out of Group 1 entirely.</p>
+
+    <p>For these entities, the first annual reporting period is the first one commencing between 1 July 2026 and 30 June 2027. A June balancer's first reportable year runs to 30 June 2027, with the report lodged within three to four months of that date. The report contains climate statements made under AASB S2, notes, and a declaration by the directors. Year one carries reliefs: no comparatives, and no Scope 3 disclosure until the second year.</p>
+
+    <p>Assurance arrives with the very first report. Under the AUASB's phasing standard, the first sustainability report receives a review covering governance, the identification of climate risks and opportunities, and Scope 1 and 2 emissions. The scope widens to everything in the report by year two, and by the fourth year the whole document is audited to reasonable assurance. The phasing is generous exactly once, and it is the data underneath, captured or absent, that determines whether the widening scope is routine or painful.</p>
+
+    <p class="section-label">what evidence has to look like</p>
+
+    <p>An assurance practitioner does a small number of things to a disclosed figure. They test whether the population behind it is complete, whether the records are accurate, whether transactions sit in the right period, and whether the method that produced it was chosen and documented before the answer was known. Every one of those tests is easier against records captured at the moment they came into being, and harder against a reconstruction.</p>
+
+    <blockquote>A number you can recompute is a different kind of claim from a number you can only assert.</blockquote>
+
+    <p>So the evidence layer we build has a particular shape. Every source document is fingerprinted the day it arrives, with its origin and time of capture recorded. The register of evidence is append-only: corrections add new entries that point at what they supersede, and nothing is ever silently rewritten. The chain of fingerprints is periodically anchored to a public ledger, so an auditor, or anyone else, can verify that the trail existed when claimed and has not been touched since. Calculations run as code, and each run records its inputs, its emission factor vintage, and the version of the calculator itself.</p>
+
+    <p class="section-label">one fuel account, end to end</p>
+
+    <p>Take the simplest material trail a mid-size company has: diesel. A fuel card file arrives each month and is fingerprinted on arrival. The litres are extracted and tied to the facility and the period. A methodology memo, written once at the start of the engagement, records the measurement election for that facility: the GHG Protocol by default, or NGER Determination methods where the facility is NGER-covered and the entity elects the relief the standard provides. The National Greenhouse Accounts factor set is pinned to a named publication year. The calculation runs, and what is stored is everything required to run it again: the input fingerprints, the factor vintage, the method election, the code version, the output in tonnes.</p>
+
+    <p>Two years later the auditor asks where the FY27 Scope 1 figure came from. The answer is a recomputation, performed in front of them, from documents whose arrival dates are provable. When a factor publication is updated, the figure moves, and the register says exactly why it moved. The practitioner re-performs instead of re-deriving. Their hours fall. The entity's confidence in its own number rises. That is the whole product.</p>
+
+    <p class="section-label">where we stop</p>
+
+    <p>Ecodia is not an auditor and does not provide assurance. Only a Corporations Act auditor, with registered company auditors leading the engagement, may review or audit a sustainability report. The directors own their declaration, and the judgements inside the report, which risks are material, which scenarios to run, what to commit to, belong to the entity and its licensed advisers. We prepare the register, the baseline, the clause-mapped drafts and the evidence pack underneath those judgements, and we stop there.</p>
+
+    <p>The boundary is structural, and it is the reason the layer exists. The independence rules that govern auditors mean the firm that assures a report cannot also have built its evidence base. Every reporting entity therefore needs a preparation layer that is independent of its assurer, and the quality of that layer sets the cost of the assurance. We sit on the preparation side of the line, permanently, on purpose.</p>
+
+    <p class="section-label">for the firms</p>
+
+    <p>Mid-tier accounting firms and sustainability consultancies hold most of the relationships this wave will be served through, and many are carrying a quiet problem: year-one disclosure models, built by hand at consulting rates, that could not be re-run in year two without re-engaging their authors. A register regenerates on demand. The calculators, the evidence chain and the pack can run under a firm's own letterhead, as the data layer beneath its advisory work, for clients the firm does not audit. The firm keeps the relationship and the judgement. The substrate keeps the evidence.</p>
+
+    <p class="section-label">the demonstration</p>
+
+    <p>Claims about evidence should be checkable, so ours are. We publish a complete sample engagement for a fictional mid-size company: the evidence register, the Scope 1 and 2 baseline, the clause-mapped draft statements, the gap analysis, and the auditor-facing pack, with the register's chain head anchored on a public ledger where anyone can verify it. Every page is marked as synthetic data. Read it the way an auditor would, before talking to us. Ecodia already runs its own governance this way; the company's managing record is public, on chain, and has been since April 2026.</p>
+
+    <p class="section-label">the year is about to start</p>
+
+    <p>For a June-balancing Group 2 entity, the first reportable year begins on 1 July 2026. Whatever is captured from that day forward is evidence. Whatever is missed becomes reconstruction, in 2028, under scepticism. The report can wait until 2027. The evidence cannot wait at all.</p>
+
+  </main>
+
+  <footer>
+    Evidence that holds &middot; EcodiaOS &middot; June 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

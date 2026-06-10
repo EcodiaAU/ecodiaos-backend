@@ -1,0 +1,4 @@
+local-spawn-e2e-validated
+worker_tab_id: tab_1779960479373_f290e7b3
+task_id: local-spawn-e2e-2026-05-28b
+iso: 2026-05-28T09:29:39Z

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Africa Trip Itinerary - Tate 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 20px; max-width: 980px; margin: 0 auto; line-height: 1.5; }
+  h1 { font-size: 28px; font-weight: 300; margin-bottom: 4px; color: #fff; }
+  .subtitle { color: #777; font-size: 13px; margin-bottom: 24px; }
+  .overview { background: #0d1117; border-radius: 8px; padding: 16px; margin-bottom: 28px; }
+  .overview-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: #4a9eff; margin-bottom: 12px; }
+  .week-row { display: grid; grid-template-columns: 90px 1fr 110px; gap: 10px; padding: 8px 0; border-bottom: 1px solid #1a1a1a; font-size: 13px; align-items: baseline; }
+  .week-row:last-child { border-bottom: none; }
+  .week-row .dates { color: #888; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .week-row .place { color: #ddd; }
+  .week-row .role { color: #666; font-size: 11px; text-align: right; font-style: italic; }
+  .leg { background: #141414; border-radius: 8px; margin-bottom: 18px; overflow: hidden; }
+  .leg-h { padding: 14px 18px; background: linear-gradient(90deg, #0d1f12, #141414); border-left: 4px solid #2d8a2d; }
+  .leg-h.flight { background: linear-gradient(90deg, #0d1117, #141414); border-left-color: #4a9eff; }
+  .leg-h.transit { background: linear-gradient(90deg, #151515, #141414); border-left-color: #555; }
+  .leg-name { font-size: 18px; font-weight: 500; color: #fff; }
+  .leg-meta { font-size: 12px; color: #888; margin-top: 4px; font-family: 'SF Mono', Menlo, monospace; }
+  .leg-body { padding: 14px 18px; font-size: 13px; color: #bbb; }
+  .leg-body p { margin-bottom: 8px; }
+  .leg-body strong { color: #ddd; font-weight: 600; }
+  .leg-body .label { color: #4a9eff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-right: 6px; }
+  .leg-body code { background: #1a1a1a; padding: 1px 6px; border-radius: 3px; font-size: 11px; color: #6fcf94; }
+  .day-table { margin-top: 10px; background: #0d0d0d; border-radius: 6px; overflow: hidden; }
+  .day-row { display: grid; grid-template-columns: 60px 110px 1fr 200px; gap: 10px; padding: 8px 12px; border-top: 1px solid #1a1a1a; font-size: 12px; }
+  .day-row:first-child { border-top: none; }
+  .day-row .day-num { color: #666; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .day-row .day-date { color: #888; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; }
+  .day-row .day-what { color: #ccc; }
+  .day-row .day-where { color: #888; font-size: 11px; font-style: italic; text-align: right; }
+  .callout { background: linear-gradient(90deg, #1f1a0d, #141414); border-radius: 8px; padding: 14px 18px; margin-bottom: 18px; border-left: 4px solid #e8a848; font-size: 13px; color: #ccc; }
+  .callout .callout-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #e8a848; margin-bottom: 6px; }
+  .callout strong { color: #e8a848; }
+  .section-h { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: #666; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #1f1f1f; }
+  .open-items { background: #1a1410; border-radius: 8px; padding: 14px 18px; border-left: 4px solid #cf6f6f; font-size: 13px; color: #ccc; }
+  .open-items .item { padding: 6px 0; border-top: 1px solid #2a1a1a; }
+  .open-items .item:first-child { border-top: none; }
+  .open-items strong { color: #cf6f6f; }
+  .footer-note { font-size: 11px; color: #555; margin-top: 24px; line-height: 1.6; padding: 12px; background: #0d0d0d; border-radius: 6px; border-left: 2px solid #2d5a8a; }
+</style>
+</head>
+<body>
+<h1>Africa + Adjacent 2026</h1>
+<p class="subtitle">Tate Donohoe. Trip 9 Oct to 18 Dec 2026. Itinerary reconstructed from africa-trip-2026-plan.md (2026-05-21). Share-ready for coordinating with Vic + Cape Town contacts.</p>
+
+<div class="overview">
+  <div class="overview-h">Full sweep at a glance</div>
+  <div class="week-row"><span class="dates">9 Oct</span><span class="place">BNE to Nadi, Fiji</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">10-17 Oct</span><span class="place">Fiji. Beqa Lagoon Shark Fest</span><span class="role">booked</span></div>
+  <div class="week-row"><span class="dates">17-18 Oct</span><span class="place">Nadi to Lombok (via Sydney/Denpasar)</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">18-25 Oct</span><span class="place">Lombok. Coral Reef Restoration</span><span class="role">slot reserved</span></div>
+  <div class="week-row"><span class="dates">26-28 Oct</span><span class="place">Lombok to Windhoek (builder via Asia)</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">31 Oct - 13 Nov</span><span class="place">Namibia to Cape Town overland</span><span class="role">to book</span></div>
+  <div class="week-row"><span class="dates">13-15 Nov</span><span class="place">Cape Town (post-overland buffer)</span><span class="role">self-arranged</span></div>
+  <div class="week-row"><span class="dates">15-16 Nov</span><span class="place">CPT to JNB</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">16-30 Nov</span><span class="place">Kruger Conservation Safari</span><span class="role">booked</span></div>
+  <div class="week-row"><span class="dates">1 Dec</span><span class="place">JNB to Vic Falls</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">1-4 Dec</span><span class="place">Victoria Falls (Zimbabwe side)</span><span class="role">self-arranged</span></div>
+  <div class="week-row"><span class="dates">4 Dec</span><span class="place">VFA to Cape Town</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">4-11 Dec</span><span class="place">Cape Town (free week)</span><span class="role">self-arranged</span></div>
+  <div class="week-row"><span class="dates">11 Dec</span><span class="place">CPT to Kilimanjaro</span><span class="role">transit</span></div>
+  <div class="week-row"><span class="dates">11-18 Dec</span><span class="place">Kilimanjaro 7-day Machame climb</span><span class="role">to book</span></div>
+  <div class="week-row"><span class="dates">18 Dec</span><span class="place">JRO to BNE (Qatar via Doha)</span><span class="role">transit</span></div>
+</div>
+
+<div class="callout">
+  <div class="callout-h">Vic + Cape Town coordination windows</div>
+  <p>Two Cape Town stops, both in the public-itinerary window.</p>
+  <p><strong>13-15 Nov</strong> in Cape Town (post-Namibia overland, pre-Kruger). Short two-night window before flying out to Joburg morning of 16 Nov.</p>
+  <p><strong>4-11 Dec</strong> in Cape Town (post-Vic Falls, pre-Kili). Full free week. This is the natural window for any extended coordination, day trips, dinners.</p>
+  <p><strong>Vic Falls 1-4 Dec.</strong> 3 nights on the Zimbabwe side (bigger view; Devil's Pool is seasonal Zambia-side). If anyone is meeting at Vic Falls, this is the window.</p>
+  <p><strong>Kili climb 11-18 Dec.</strong> Solo climb on a group tour. If anyone is climbing alongside, they need to be on the same operator booking + on the same start date.</p>
+</div>
+
+<div class="section-h">Leg-by-leg detail</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 1. Fiji Shark Fest at Beqa Lagoon</div><div class="leg-meta">10 to 17 Oct 2026. BellaBlu Conservation.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Operator</span>BellaBlu Conservation. <code>bellabluconservation@outlook.com</code>. Group WhatsApp set up.</p>
+    <p><span class="label">Status</span>Booked. Deposit + first payment $1,400 paid. Balance $2,800 due 31 Aug 2026.</p>
+    <p><span class="label">Group</span>Max 10 advanced-certified divers.</p>
+    <p><span class="label">Accommodation</span>Deluxe air-conditioned Fijian villa or bure, twin-share.</p>
+    <p><span class="label">Diving</span>5 shark dive days at "The Cathedral". Peak tiger shark season (past season had 10 tigers on one dive). Unlimited shore dives. Optional night wreck dives. Marine biology seminars.</p>
+    <p><span class="label">Logistics</span>Fly into Nadi (NAN). Airport pickup included from NAN or nearby accom. Australians no visa needed. No vaccination requirements.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 2. Lombok Coral Reef Restoration</div><div class="leg-meta">18 to 25 Oct 2026. Worldpackers + Bale Nara Lombok.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Operator</span>Worldpackers. <code>epictrips-support@worldpackers.com</code>. Pre-trip WhatsApp group + on-trip Travel Buddy.</p>
+    <p><span class="label">Host</span>Bale Nara Lombok. Desa Cendi Manik, Kec. Sekotong, Lombok Barat.</p>
+    <p><span class="label">Status</span>Slot reserved. Program fee ~$500 due 21 Jun 2026 to confirm participation. Arrival ticket upload due 18 Sep 2026.</p>
+    <p><span class="label">Transit</span>Nearest airport Zainuddin Abdul Madjid International (LOP) or Lembar Port.</p>
+    <p><span class="label">Activities</span>Coral reef restoration, diving, hidden-islands exploration.</p>
+    <p><span class="label">Decision pending</span>Lombok is the most-likely-cut leg if budget needs trimming. Decide before 21 Jun fee.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 3. Namibia to Cape Town Overland</div><div class="leg-meta">31 Oct to 13 Nov 2026. G Adventures Cape and Dunes Southbound.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Operator</span>G Adventures via TourRadar #36233. Platinum operator. 14 days.</p>
+    <p><span class="label">Price</span>AUD $2,744 (10% off $3,049). Departure to lock: 31 Oct (best fit if keeping Lombok). 24 Oct option opens if Lombok cut.</p>
+    <p><span class="label">Status</span>Not yet booked. Pick departure + book this month or next.</p>
+    <p><span class="label">Route</span>Windhoek to Waterberg Plateau to Etosha NP to Spitzkoppe to Swakopmund to Namib Desert (Sossusvlei, Dune 45) to Fish River Canyon to Orange River to Cederberg to Cape Town.</p>
+    <p><span class="label">Accommodation</span>Camping (Urban Camp Windhoek, Waterberg, desert camps) + lodges (Okaukuejo at Etosha, Amanpuri Backpackers Swakopmund, Cape Town hotel).</p>
+    <p><span class="label">Inclusions</span>Accommodation, guide, most meals, wildlife drives, park fees (Etosha, Sossusvlei, Sesriem, Fish River, Dune 45).</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h transit"><div class="leg-name">Cape Town stop 1. Post-overland buffer</div><div class="leg-meta">13 to 15 Nov 2026. Self-arranged.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Arrival</span>Cape Town via G Adventures truck on 13 Nov.</p>
+    <p><span class="label">Depart</span>Flight CPT to JNB on 15-16 Nov for Kruger start.</p>
+    <p><span class="label">Accom</span>Mid-range ~$120-180 AUD/night, or backpacker (Once in Cape Town, Atlantic Point) ~$30-50.</p>
+    <p>Short two-night window. Decompression before Kruger. Possible Table Mountain or Cape Point if energy holds.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 4. Kruger Conservation Safari</div><div class="leg-meta">16 to 30 Nov 2026. Intrepid Tailor-Made.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Operator</span>Intrepid Travel (Tailor-Made tour).</p>
+    <p><span class="label">Status</span>Booked. Deposit ~$400-500 paid. Balance ~$2,235 due 7 Sep 2026 (70 days before depart).</p>
+    <p><span class="label">Group</span>Small-group, 24-seater overland truck. 12 camping nights.</p>
+    <p><span class="label">Sleeping bag</span>Rent ~$45 AUD from Intrepid if needed.</p>
+    <div class="day-table">
+      <div class="day-row"><span class="day-num">Day 1</span><span class="day-date">Mon 16 Nov</span><span class="day-what">Arrive Joburg, group airport transfer, welcome dinner</span><span class="day-where">Indaba Hotel</span></div>
+      <div class="day-row"><span class="day-num">Day 2</span><span class="day-date">Tue 17 Nov</span><span class="day-what">Constitution Hill + Soweto by Tuk-Tuk/bicycle + storytelling dinner</span><span class="day-where">Indaba Hotel</span></div>
+      <div class="day-row"><span class="day-num">Day 3</span><span class="day-date">Wed 18 Nov</span><span class="day-what">6hr drive Joburg to Kruger. Set up camp. Afternoon game drive.</span><span class="day-where">Satara Campsite</span></div>
+      <div class="day-row"><span class="day-num">Day 4</span><span class="day-date">Thu 19 Nov</span><span class="day-what">Full day Kruger game drives. Big Five country.</span><span class="day-where">Satara Campsite</span></div>
+      <div class="day-row"><span class="day-num">Day 5</span><span class="day-date">Fri 20 Nov</span><span class="day-what">Morning game drive then Blyde River Canyon + afternoon boat cruise</span><span class="day-where">Forever Resort</span></div>
+      <div class="day-row"><span class="day-num">Day 6</span><span class="day-date">Sat 21 Nov</span><span class="day-what">Panorama Route. God's Window, Bourke's Luck Potholes, Three Rondavels.</span><span class="day-where">Forever Resort</span></div>
+      <div class="day-row"><span class="day-num">Day 7</span><span class="day-date">Sun 22 Nov</span><span class="day-what">Move to Greater Kruger. Safety briefing.</span><span class="day-where">Ndlovu / Bush Babies</span></div>
+      <div class="day-row"><span class="day-num">Day 8-14</span><span class="day-date">23-29 Nov</span><span class="day-what">Conservation week. Rhino monitoring + camera/spoor data. Black Mambas APU foot patrols + snare removal. Bush Babies Environmental Ed Centre. Ranger obstacle course. Mid-week Swadini Waterfalls hike + Hoedspruit supply run.</span><span class="day-where">Ndlovu / Bush Babies</span></div>
+      <div class="day-row"><span class="day-num">Day 15</span><span class="day-date">Mon 30 Nov</span><span class="day-what">8hr drive back to Joburg. Drop at airport. Intrepid says do not book outbound flight before 10pm tonight. Tate's outbound is next day, safe.</span><span class="day-where">n/a (overnight Joburg)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 5. Victoria Falls Stopover</div><div class="leg-meta">1 to 4 Dec 2026. Self-arranged. Zimbabwe side.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Why Zim side</span>Bigger view. Zambia side has Devil's Pool but it's seasonal (usually low-water in Dec, may not be open). Zim wins for the December timing.</p>
+    <p><span class="label">Visa</span>KAZA UniVisa $50 USD covers both Zimbabwe and Zambia (multi-entry, 30 days).</p>
+    <p><span class="label">Park entry</span>Zimbabwe ~$30-50 USD. Zambia ~$20-30 USD.</p>
+    <p><span class="label">Accom</span>Mid-range $80-120 USD/night. Shearwater Explorers Village, Pioneers Lodge, Ilala Lodge entry tier.</p>
+    <p><span class="label">Hero activity</span>Helicopter "Flight of Angels". 12-15 min ~$150-165 USD pp + $15 park fee. 25-30 min ~$285 USD pp.</p>
+    <p><span class="label">Other</span>Sunset Zambezi cruise $65-80. Zipline $60. Bridge swing $120. Half-day rafting $160. Full-day rafting $185.</p>
+    <p><span class="label">Status</span>Possibly cuttable if budget tightens. Currently in.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h transit"><div class="leg-name">Cape Town stop 2. Free week</div><div class="leg-meta">4 to 11 Dec 2026. Self-arranged. 7 nights.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Arrival</span>Flight VFA to CPT on 4 Dec (1-stop via JNB).</p>
+    <p><span class="label">Depart</span>Flight CPT to JRO on 11 Dec for Kili.</p>
+    <p><span class="label">Accom</span>Mid-range ~$120-180 AUD/night, or backpacker ~$30-50.</p>
+    <p><span class="label">Likely activities</span>Table Mountain cableway (~$50, free if hiking it), Cape Point day tour (~$80), wine-region tours (~$80-150), Robben Island (~$50), beaches, food.</p>
+    <p>This is the natural extended-coordination window. 7 free days. Anyone meeting in Cape Town should aim here, not the 13-15 Nov sliver.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h"><div class="leg-name">Leg 6. Kilimanjaro Climb</div><div class="leg-meta">11 to 18 Dec 2026. 7-day Machame route.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Status</span>NOT YET BOOKED. Operator pick is the key open item. Lock by end August.</p>
+    <p><span class="label">Route</span>7-day Machame. Most popular + scenic + decent acclimatisation profile.</p>
+    <p><span class="label">Realistic budget</span>~$3,000 AUD mid-tier Tanzanian operator. Add $300-400 AUD crew tips (mandatory cash. Guide + 2 assistant guides + ~10 porters).</p>
+    <p><span class="label">Shortlist to investigate</span><br>
+    1. Climb Kili. KPAP-certified, 98.8% summit rate.<br>
+    2. Duma Explorer. KPAP founding partner, WFR-certified guides.<br>
+    3. Climbing Kilimanjaro. TripAdvisor #1, ~$2,800 USD listed.<br>
+    4. Mid-tier Moshi-based with 4.8+ on SafariBookings (Kwesa Tours, Wings of Africa).</p>
+    <p><span class="label">Critical checks</span>KPAP membership (porter ethics). Summit success rate &gt;=85%. Twice-daily pulse oximeter. Bottled oxygen on hand. Guide WFR-certified. Recent (12mo) reviews.</p>
+    <p><span class="label">Standard 7-day Machame profile</span><br>
+    Day 1: Machame Gate (1,800m) to Machame Camp (3,010m). 5-7hr hike through rainforest.<br>
+    Day 2: Machame Camp to Shira Camp (3,840m). 4-6hr.<br>
+    Day 3: Shira to Lava Tower (4,630m) to Barranco Camp (3,950m). Acclimatisation day.<br>
+    Day 4: Barranco Wall to Karanga Camp (3,995m). Short day.<br>
+    Day 5: Karanga to Barafu Camp (4,673m). 4-5hr. Early sleep.<br>
+    Day 6: Summit day. Midnight start. Uhuru Peak (5,895m) at sunrise. Descend to Mweka Camp (3,068m). 12-16hr total.<br>
+    Day 7: Mweka Camp to Mweka Gate (1,640m). 3-4hr descent + transfer to Moshi.</p>
+  </div>
+</div>
+
+<div class="leg">
+  <div class="leg-h flight"><div class="leg-name">Return. JRO to BNE</div><div class="leg-meta">18 Dec 2026. Qatar via Doha.</div></div>
+  <div class="leg-body">
+    <p><span class="label">Carrier</span>Qatar Airways 1-stop via DOH is the only one-stop option. Otherwise 2-stop via Nairobi + Dubai or via Addis Ababa.</p>
+    <p><span class="label">Duration</span>~28 hours total with one stop.</p>
+    <p><span class="label">Booking strategy</span>Peak Southern Hemisphere summer + Christmas migration window. Book by ~5 Nov to lock $1,700-1,900 AUD. Pushing past mid-Nov risks $2,400-3,100+ in fare creep.</p>
+  </div>
+</div>
+
+<div class="section-h">Open booking items</div>
+<div class="open-items">
+  <div class="item"><strong>Kilimanjaro operator.</strong> Shortlist + quote 4 candidates for 7-day Machame 11-18 Dec. Lock by end August.</div>
+  <div class="item"><strong>Namibia G Adventures departure.</strong> Confirm 31 Oct (with Lombok kept) or 24 Oct (Lombok cut). Book via TourRadar #36233. Deposit only at booking, balance ~65 days before depart.</div>
+  <div class="item"><strong>Lombok keep-or-cut.</strong> Decide before 21 Jun 2026 ($500 program fee).</div>
+  <div class="item"><strong>Vic Falls keep-or-cut.</strong> Helicopter over the falls is once-in-a-lifetime, but $1,200 ground cost is the swing.</div>
+  <div class="item"><strong>All flights.</strong> Book at sweet-spot windows. See cash-flow stagger planner for per-leg dates.</div>
+  <div class="item"><strong>Travel insurance.</strong> Multi-trip policy covering scuba (incl. shark dives), high-altitude trekking (6,000m), overland-truck camping. World Nomads Explorer or Cover-More.</div>
+  <div class="item"><strong>Lowa Renegade Evo Wide boots.</strong> Buy by 10 Jun for 4-month break-in window.</div>
+</div>
+
+<div class="section-h">Key contacts</div>
+<div class="leg">
+  <div class="leg-body">
+    <p><strong>BellaBlu Conservation (Fiji).</strong> <code>bellabluconservation@outlook.com</code>. Bank ref "BulaTate".</p>
+    <p><strong>Worldpackers (Lombok).</strong> <code>epictrips-support@worldpackers.com</code>.</p>
+    <p><strong>Intrepid Travel (Kruger).</strong> Account login required. Itinerary PDF in trip docs (the one Tate mislaid + reconstructed here).</p>
+    <p><strong>G Adventures (Namibia).</strong> Via TourRadar <code>https://www.tourradar.com/t/36233</code>.</p>
+    <p><strong>Kilimanjaro.</strong> Operator TBD from the shortlist above.</p>
+  </div>
+</div>
+
+<div class="footer-note">
+Sourced from africa-trip-2026-plan.md (2026-05-21) plus the Intrepid Kruger PDF reconstruction in that doc. Standard 7-day Machame day-by-day is industry-standard, not Kili-operator-specific. Cape Town and Vic Falls activities are options not commitments. Update africa-trip-2026-plan.md when bookings firm up. Share-safe: contains no cash position, no income figures, no payment dates.
+</div>
+
+</body>
+</html>

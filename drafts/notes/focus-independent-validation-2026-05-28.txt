@@ -1,0 +1,5 @@
+focus-independent-spawn-close-validated
+worker_tab_id: tab_1779968626910_709e793e
+task_id: scheduling-focus-independent-validation-2026-05-28
+iso: 2026-05-28T11:45:33.090Z
+chain: VPS scheduler -> dispatch_worker -> ide.command(claude-vscode.newConversation) viewColumn 1 -> ide.tabs diff -> setWorkerTabHandle -> brief paste -> worker -> signal_done -> coord.close_my_tab -> ide.tabs_close({label, viewColumn, viewType})

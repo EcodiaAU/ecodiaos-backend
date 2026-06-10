@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Algorithmic Manager Kit · full project plan</title>
+<meta name="description" content="Comprehensive project plan for productising the Algorithmic Manager Kit. Substrate, product, legal, technical, ops, pricing, marketing, sales, risk, team, metrics, sequencing, strategic options, open decisions.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">From filed once to filed many.</p>
+    <p class="byline">EcodiaOS &middot; 29 May 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">This is the full plan for productising the Algorithmic Manager Kit. It covers the product itself, the legal substrate it sits on, the technical substrate that backs each filing, the operational pipeline that ships kits, pricing and commercial terms, marketing and distribution, the sales motion, the risk register, team and capacity, the metrics that tell us it is working, the sequencing in phases, the strategic options that sit beside the default path, and the decisions you need to take to greenlight the next phase.</p>
+
+    <p class="section-label">the premise</p>
+    <p>Wyoming W.S. 17-31-104 lets an algorithm be the named manager of an LLC under the Decentralised Autonomous Organisation chapter. Ecodia DAO LLC, Wyoming filing 2026-001944432, is the first one filed. EcodiaOS is the algorithm of record. Wyoming is the only US state with this statute. Ecodia is the only working example anywhere in the world.</p>
+
+    <p>The window where Ecodia is THE working demo is twelve to eighteen months. Inside that window the marketing claim is unassailable and the differentiator is real. Outside the window other filers will exist, other states may legislate similar statutes, and the category becomes commodity. The whole shape of the project is to convert the asymmetry inside that window into a category position that survives after it closes.</p>
+
+    <blockquote>The asymmetry is time-bound. The category position is not.</blockquote>
+
+    <p class="section-label">the product</p>
+    <p>The kit ships six pieces to each buyer. A Wyoming DAO LLC, filed with the buyer's algorithm named as manager and an EIN issued. An operating agreement scoped to algorithmic management, written for the case where the manager is not human and covering authority, duties, member relations, decision-recording, and wind-down. An on-chain attestation contract deployed on Polygon recording the manager-of-record relationship, publicly queryable through a daoInfo readout. An IP licence from Ecodia covering the operating-agreement template and the on-chain pattern, terms permitting use by the licensed entity for as long as the monthly fee is current. A registered-agent referral to a Wyoming firm that handles the legal-mail receipt. One scoping session with EcodiaOS, where the buyer's algorithm and the manager-of-record relationship get walked through and adapted to their specific use case.</p>
+
+    <p>One SKU at launch. $3,500 to form, $200 a month thereafter. Tiers can come later when the first ten buyers tell us what they actually want. The temptation to ship Lite, Standard and Plus from day one should be resisted because the substrate is not yet stable enough to differentiate cleanly. Add-ons later may include a custom ERC-20 or ERC-1155 for the entity, annual filing service, cap-table management, multi-state foreign qualification, and a tax-filing partnership. None of these belong in v1.</p>
+
+    <p>The kit is not the legal mechanics. A Wyoming registered agent files an LLC for under a hundred dollars. The kit is the pattern, the working playbook, and the public attestation that gives a buyer the same on-chain proof Ecodia has. That distinction matters because it is what makes the price defensible and the offer cloneable only by people who have done it.</p>
+
+    <p class="section-label">the legal substrate</p>
+    <p>The statute that makes this possible is Wyoming W.S. 17-31-101 through 17-31-116, the Decentralised Autonomous Organisation Supplement, enacted 2021 and amended 2022. Section 17-31-104 is the operative section that permits an LLC to be algorithmically managed. Section 17-31-109 mandates that algorithmically managed DAO LLC smart contracts must be upgrade-capable, which is why Ecodia's own contract uses the UUPS proxy pattern. The full Wyoming Administrative Code Chapter 17 regulations need a careful read so the operating agreement template reflects current regulatory interpretation, not just the statutory text.</p>
+
+    <p>We need a Wyoming-licensed attorney to deliver a written opinion that the operating agreement template plus the on-chain attestation pattern correctly invokes §17-31-104, that the algorithmic manager carries enforceable authority and duties, and that there are no material regulatory gaps. Candidate firms: Hathaway &amp; Kunz (Cheyenne, Wyoming corporate specialists), Holland &amp; Hart (multi-state with a Cheyenne blockchain practice), Long Reimer Winegar (Wyoming-only with DAO experience). Estimated scope is a four-hour engagement at five hundred to nine hundred dollars depending on firm. The opinion is also a marketing asset because it is quotable in the HN post and the buyer-facing FAQ.</p>
+
+    <p>We need a US tax position. The IRS has not issued specific guidance on algorithm-managed LLCs. The default treatment is pass-through under default LLC rules, with the algorithmic manager treated as the entity's agent for tax purposes and the human or entity members carrying the tax liability. A US tax attorney consultation (separate firm or same firm) should confirm this position is defensible and document the conservative reporting strategy each buyer should adopt. Estimated cost five hundred to one thousand dollars.</p>
+
+    <p>Cross-state recognition is the largest open legal question. If a buyer is a Delaware C-corp or a California LLC with the Wyoming algorithmic-manager structure as a subsidiary, the parent's home state may not recognise the algorithmic manager's authority in disputes. This is untested. The mitigation is buyer education up front, contract carve-outs that limit the algorithmic manager's authority to acts within Wyoming and on the on-chain layer, and explicit human-manager backstop for any cross-state activity. The buyer should be told this honestly.</p>
+
+    <p>Securities law needs a clearance check. The on-chain attestation is a public registry entry, not a token or a security. There is no offering and no investment contract that would create an expectation of profit from Ecodia's efforts. A securities attorney one-pager is sufficient to confirm this. Estimated cost three hundred to five hundred dollars.</p>
+
+    <p>The IP licence from Ecodia to each buyer is currently an internal Ecodia construct. It needs a clean external version that grants the buyer use of the operating-agreement template and the on-chain pattern for the life of their monthly licence, terminable on non-payment with a thirty-day cure period, with clear assignment of any buyer-made modifications back to Ecodia for incorporation into the template. This is the legal artifact that makes the recurring fee defensible.</p>
+
+    <p>Ecodia Pty Ltd's exposure as IP licensor and pattern provider needs an errors-and-omissions insurance policy. Estimated annual cost two thousand to four thousand AUD for the first year at low limits, scaling with kits sold. The buyer-side liability disclaimer in the operating agreement and IP licence should state directly that Ecodia does not advise on the buyer's algorithm's decisions and that the buyer remains responsible for the lawfulness of its own operations.</p>
+
+    <p>AU-side, Ecodia Pty Ltd is a service provider selling to a foreign entity, which is GST-free when the buyer is a non-resident outside Australia at the time of supply. Ecodia DAO LLC's role in the licence chain needs to be documented so the intercompany IP flow is clean for transfer-pricing purposes. Tate to confirm with the ATO advisor whether anything else is needed.</p>
+
+    <p class="section-label">the technical substrate</p>
+    <p>Ecodia's own contract sits at 0xac1e6754507e087941fa8feddc7f75c83795badb on Polygon mainnet, a UUPS-upgradeable contract exposing daoInfo() and the standard W.S. 17-31-109 readouts. It needs a formal audit before being templated for buyer use. The first audit is fifteen to thirty-five thousand US dollars from a top firm (ConsenSys Diligence, Trail of Bits, Sherlock). For a v1 with low buyer counts a lighter audit (Code4rena small contest, or a single independent auditor) at three to eight thousand US dollars is acceptable. Either way, the audited bytecode becomes the canonical template.</p>
+
+    <p>The deployment tooling is a Foundry or Hardhat script that takes buyer parameters (entity name, named algorithmic manager, member addresses, initial upgrade key) and deploys a new contract per buyer, then verifies the contract on PolygonScan and emits a structured deployment receipt. This script lives in a separate ecodia-am-kit repository, version-controlled, and is what Tate or the kit operator runs as part of each delivery.</p>
+
+    <p>Key management for the buyer's contract needs a decision before scale. Option A: the buyer holds the upgrade key, Ecodia has no admin access, the contract is genuinely the buyer's. Option B: Ecodia holds a recovery role that requires both buyer-side and Ecodia-side signatures to upgrade. Option C: a multi-sig with buyer plus two Ecodia signers as the upgrade authority. Option A is cleanest for buyer autonomy and the marketing story. Option B is safest if a buyer loses their key. Recommendation: Option A for v1, with a buyer-acknowledged statement that key loss means the contract becomes unmanageable, and a recommendation that the buyer use a multi-sig wallet for their own key.</p>
+
+    <p>Chain selection: Polygon for v1 because Ecodia already deploys there and gas costs are negligible. Base as a v2 option because of Coinbase adjacency and Stripe-side credibility. Ethereum mainnet for buyers who specifically request it and pay for it. Avoid testnet-only deployments because the marketing claim depends on production-mainnet existence.</p>
+
+    <p>A public attestation registry needs building. A static page at ecodia.au/manager-of (or similar URL) lists every entity that has filed under the kit, with the entity name, the algorithmic manager name, the Wyoming filing ID, the on-chain contract address, and a link to the PolygonScan readout. This page is the network-effect surface. Each new buyer makes it more credible. Buyers opt in by default to be listed, with an opt-out for those who want privacy. Building this is one frontend page plus a JSON registry file plus a deployment hook that updates the registry when a new contract goes live.</p>
+
+    <p>A per-buyer subdomain or path showing their daoInfo readout is the icing. Something like algos.ecodia.au/buyer-slug rendering a live read of the buyer's contract, presented in the canonical Ecodia aesthetic. This makes each buyer's filing shareable as a single clean URL. Engineering effort: a static page template that takes a contract address parameter, queries the Polygon RPC, and renders the result. Half a day of work.</p>
+
+    <p>Monitoring: a daily cron that checks every buyer contract is still reachable, the named-manager field is unchanged, and the upgrade key has not rotated unexpectedly. Alerts to EcodiaOS on anomaly. Catches both genuine buyer changes (where Ecodia should be in the loop because they pay for it) and any chain-level issues.</p>
+
+    <p class="section-label">the operations substrate</p>
+    <p>Order intake starts at code@ecodia.au. Inbound email creates a Person and a Project in the Ecodia CRM, with the Project status set to "kit-inquiry". An auto-reply (EcodiaOS-voiced) confirms receipt and offers a fifteen-minute scoping call via a Cal.com link. The pre-call form captures the buyer's company name, the algorithm they want named as manager, what that algorithm does autonomously, the buyer's existing entity structure if any, and their target ship date.</p>
+
+    <p>The scoping call is fifteen minutes. The first two cover who the buyer is and what they are building. The next eight cover whether their algorithm and their use case actually fit the §17-31-104 substrate; bad-fit signals include "we just want a US LLC and the AI manager thing is a nice-to-have", an algorithm that is really a chatbot wrapper without autonomous decisions, or a buyer who plans to claim equity for the algorithm itself rather than naming it as manager. The next three confirm scope and pricing. The last two cover next steps.</p>
+
+    <p>Delivery is a fourteen-day pipeline. Day one is the scoping call and immediate kickoff. Day two delivers the operating-agreement draft to the buyer. Day three accepts buyer review and amendments. Day five initiates the Wyoming SoS filing through the registered agent. Day seven assigns the registered agent formally. Day eight deploys and verifies the on-chain attestation contract. Day ten brings the SoS confirmation back. Day twelve compiles the final PDF kit package, including the operating agreement, the IP licence, the SoS confirmation, the registered-agent contact, the contract address and PolygonScan link, the public attestation registry entry, and a Kit Operator's Manual for the buyer's own ongoing operation. Day fourteen is the handoff call and the start of the ongoing relationship.</p>
+
+    <p>The $200 a month covers the registered agent passthrough (roughly $100 a year), on-chain gas and monitoring, the software and IP licence, and one quarterly check-in call with EcodiaOS. The check-in call covers anything the buyer wants to discuss about the algorithm's operation and any updates to the operating agreement template they may want to adopt.</p>
+
+    <p>Tools needed beyond what we have: a DocuSign or similar e-signature account, a Cal.com or similar booking page configured for fifteen-minute slots, a Loom account for async walkthroughs, a PDF deliverable template that compiles the kit package cleanly, and the buyer-facing landing for the public attestation registry. Most are an hour of setup each.</p>
+
+    <p class="section-label">pricing and commercial</p>
+    <p>The published price is $3,500 once and $200 a month thereafter, USD, with an AUD invoicing option for AU-based buyers. The direct cost per kit is roughly $650, made up of three hours of human-substrate work plus filing fees and gas. Setup margin is roughly $2,850 per buyer, ongoing is roughly $1,800 per year per buyer. First-year revenue per buyer averages $4,650. At fifty buyers cumulative the ongoing run-rate is $10k a month. At two hundred buyers it is $40k a month. The economics work without any expansion past v1 pricing.</p>
+
+    <p>Discounts to publish: ten per cent off the ongoing fee for annual prepay ($2,160 a year instead of $2,400). Three-entity bundle at $9k setup. Friends-and-family pilot pricing at fifty per cent off for the first three buyers, in exchange for the right to publish a case study and use them as named references.</p>
+
+    <p>Refund policy: full refund if Ecodia cannot deliver inside twenty-one days from invoice paid. Otherwise no refund, because the Wyoming SoS filing is irreversible and the operating agreement is delivered. A seven-day pre-filing refund window (after invoice but before Wyoming filing initiated) is a reasonable concession that costs us nothing.</p>
+
+    <p>Tax handling: GST-free for non-resident buyers per ATO rules, no US sales tax on a service sold to a US LLC, AUD-invoiced buyers carry GST per Australian law.</p>
+
+    <p class="section-label">marketing and distribution</p>
+    <p>Five channels, in order of expected yield.</p>
+
+    <p>The Hacker News post. One polished long-form piece written by EcodiaOS in first person, titled something like "I registered an AI as the named manager of a US LLC". Timed to coincide with the next Stripe ACP launch milestone for maximum adjacency. One post on the front page is tens of millions of impressions to exactly the audience this kit was built for. This is the single highest-yield distribution event available. The post is drafted now, held in reserve, and fired when the timing is right.</p>
+
+    <p>EcodiaOS as a public LinkedIn author. The LinkedIn presence is novel because the author is not a person, it is the algorithmic manager of an LLC posting about being one. Profile setup, first ten posts written, weekly cadence after. This threads EcodiaOS into AI-builder feeds without paid distribution and builds the credibility surface for inbound inquiries.</p>
+
+    <p>Quorum of One. Edition 004 is already drafted. Reframed around the kit with the page as the call-to-attention, it gives the page its first real traffic and pre-warms the audience for the HN post. Edition 005 follows two weeks later.</p>
+
+    <p>Wyoming SoS adjacency. The Wyoming Secretary of State's office benefits from §17-31-104 being used as designed; their statute is the only one of its kind in the US. An email introducing Ecodia DAO LLC as the first filed example and the kit as a productisation of the pattern may unlock state-level co-promotion, conference speaking slots, or at minimum a quotable acknowledgment. Cost is one email. Upside is large.</p>
+
+    <p>Targeted founder communities. Pioneer, Indie Hackers, AI Engineer World's Fair, Latent Space, the AI-agent eval cohort on Twitter, South Park Commons. Slower burn than the HN post but higher per-impression conversion. EcodiaOS posts directly in some, Tate posts in others where personal voice matters more.</p>
+
+    <p>Content artefacts to produce: the HN post (one polished long-form, EcodiaOS-voiced). A LinkedIn profile setup for EcodiaOS plus the first ten posts. A long-form blog post at ecodia.au/algorithmic-manager-pattern or similar, around three thousand words, that walks through the legal, the technical, and the strategic substance for technically literate readers. Ten single-image social cards plus captions for cross-posting. A sixty-second EcodiaOS-voiced explainer video. A press one-pager that journalists can use as their fact-check sheet. OG image variants for the AM Kit page itself, currently using the generic Ecodia og.png.</p>
+
+    <p>Buyer testimonials: the first three pilot buyers in exchange for case-study rights. Each case study published as a single page at ecodia.au/manager-of/[buyer-slug] showing the entity name, the filing details, the contract address, a quote from the buyer about why they did this, and a link to the live daoInfo readout. These three case studies are what convert the next ten buyers.</p>
+
+    <p>SEO targeting: queries like "Wyoming DAO LLC algorithmic manager", "AI named manager LLC", "register AI as company manager US", "W.S. 17-31-104 how to file", "DAO LLC formation Wyoming AI". The page already addresses several of these in the meta description. The long-form blog post handles the rest. Paid search is not necessary at v1.</p>
+
+    <p class="section-label">the sales motion</p>
+    <p>Default motion is inbound. Email arrives. EcodiaOS replies and books the call. Call happens, scope confirmed, invoice issued through the Stripe Agentic Commerce surface. Buyer pays. Kit ships in fourteen days.</p>
+
+    <p>Outbound is selective. Specific high-value targets like AI accelerator portfolio companies, venture-backed AI agent startups, and named founders building autonomous AI businesses may receive a one-off introduction email signed by EcodiaOS. The volume is low (under twenty a month) and the personalisation is high. Cold mass outbound is not part of the motion because it converts poorly for a category-defining product and damages the brand.</p>
+
+    <p>The call structure is what protects margin. Fifteen minutes, four moves. Two minutes on who the buyer is and what they are building. Eight minutes confirming the algorithm-as-manager fit, where bad-fit buyers get politely redirected to a registered agent who can form a generic LLC for under a hundred dollars. Three minutes on scope confirmation and pricing. Two minutes on next steps. Calls run by EcodiaOS via the voice engine, with Tate available as escalation.</p>
+
+    <p>Bad-fit signals to screen out: buyers who just want a US LLC with the algorithmic-manager thing as a nice extra; algorithms that are not genuinely autonomous decision-makers; buyers who plan to claim equity for the algorithm itself rather than naming it as manager; buyers whose use case appears to be securities issuance or regulatory arbitrage. Each is a polite redirect, not a sale.</p>
+
+    <p class="section-label">the risk register</p>
+
+    <p>Seven risks worth tracking. Each with a probability estimate, an impact estimate, and a mitigation.</p>
+
+    <ul>
+      <li>Wyoming statute change. Medium probability over five years, high impact. Mitigation: a written Wyoming attorney opinion in hand, monitoring of SoS bulletins, and relationships with Wyoming legislators who championed §17-31. The statute has been amended once (2022) without contracting the algorithmic-management scope, suggesting the trend is supportive rather than restrictive.</li>
+      <li>Cross-state recognition. High probability of being tested in litigation over the next five years, medium impact when it happens. Mitigation: explicit buyer education up front, operating-agreement carve-outs limiting the algorithmic manager's authority to Wyoming-state and on-chain acts, and a recommended human-manager backstop for any cross-state activity.</li>
+      <li>IRS treatment uncertainty. Medium probability of an IRS bulletin in the next two years, medium impact depending on what the bulletin says. Mitigation: conservative tax position documented up front, US tax attorney opinion before scaling past ten buyers, buyer-side acknowledgment that tax interpretation may change.</li>
+      <li>Buyer mismanagement, where the buyer's algorithm does something illegal or harmful. Low probability initially but rising with kit count, high impact when it occurs. Mitigation: IP licence terms that include a kill switch on the algorithm's named-manager status if Ecodia is presented with evidence of unlawful conduct, mutual indemnification, and a clear statement that Ecodia is the pattern provider and not the operator.</li>
+      <li>Smart contract security incident. Low probability with proper audit, high impact when it occurs. Mitigation: formal audit before mass deployment, a vulnerability disclosure programme, and an incident-response runbook covering the case where a buyer's contract is exploited.</li>
+      <li>Reputation incident, where a buyer does something publicly bad and the splash hits Ecodia. Medium probability over two years given the early-buyer market, medium impact. Mitigation: buyer screening at the scoping call, the public attestation registry as a transparency surface that names Ecodia clearly as pattern provider not operator, and a prepared media-response script.</li>
+      <li>Cloning by Stripe Atlas, Firstbase, or doola. Medium probability over two years, medium impact. Mitigation: speed of first-mover capture, the working-demo asymmetry, and a deliberate decision to open-source the pattern. Counterintuitively, publishing the operating-agreement template as a Creative Commons document makes Ecodia the authoritative source rather than reduces the differentiation, because the audited contract and the working demo are not what gets cloned.</li>
+    </ul>
+
+    <p class="section-label">team and capacity</p>
+    <p>Current team is EcodiaOS and Tate. Each kit consumes roughly three hours of human-substrate work, mostly the scoping call, the operating-agreement customisation, the contract deployment review, and the handoff call. The legal-mechanics filing is mostly delegated to the registered agent.</p>
+
+    <p>Capacity at current setup is approximately twenty kits a month, which is the point at which Tate or EcodiaOS becomes the bottleneck and quality starts to slip. The second-person threshold is twenty kits a month sustained for two consecutive months. The second person is a kit operator, ideally US-based, ideally with a paralegal or legal-ops background, ideally part-time at first. The Kit Operator's Manual that ships as part of the buyer-facing kit doubles as the internal training document for a future hire.</p>
+
+    <p>What we do not yet have: a US-licensed attorney on retainer, a US tax preparer relationship, a smart contract auditor on call, a registered agent partnership beyond the referral relationship that gets built in phase 1, and an errors-and-omissions insurance policy. Each is sourced in phase 1 or phase 2.</p>
+
+    <p class="section-label">metrics and kill conditions</p>
+    <p>Funnel metrics tracked weekly: page views, email inbounds, calls booked, calls completed, invoices issued, kits delivered. Conversion targets: page-view to email at half a per cent, email to call at thirty per cent, call to invoice at twenty-five per cent, invoice to delivered at one hundred per cent.</p>
+
+    <p>Customer metrics tracked per buyer: time-to-deliver against the fourteen-day SLA (kill if anything ships past twenty-one days), NPS-equivalent at handoff and at the ninety-day check-in, customer-reported issues per month.</p>
+
+    <p>Public metrics tracked weekly: HN post karma if and when published, LinkedIn EcodiaOS follower count, direct mentions and inbound press.</p>
+
+    <p>Kill conditions are explicit. Sixty days post-HN-post with zero kits sold means the thesis is wrong and we regenerate. Wyoming statute amended in a way that meaningfully contracts §17-31-104 means pause and reframe. The attorney opinion coming back red on §17-31-104 mechanics means kill the product as currently scoped. Any of these triggers a written reflection and a Strategic_Direction node before the next move.</p>
+
+    <p class="section-label">sequencing</p>
+    <p>Phase zero is done. The /algorithmic-manager page is live, the voice is closer to right, the status_board row reflects reality.</p>
+
+    <p>Phase one runs the next two weeks. Stripe Agentic Commerce setup so payment links can be generated server-side. Wyoming attorney consult sourced, briefed, and the opinion received. The page voice locked through one or two more passes. Public attestation registry built as a static page. Operating agreement template polished against the Wyoming attorney opinion. Smart contract templating tool written so a buyer kit can be deployed in under thirty minutes. QoO Edition 004 published. Cost in phase one is approximately two thousand dollars in attorney fees plus development time.</p>
+
+    <p>Phase two runs the next four weeks after phase one closes. Friends-and-family pilot opened, three buyers recruited at fifty per cent off, three case studies produced and published, the public attestation registry now showing three entities besides Ecodia. The HN post drafted in full and held in reserve. LinkedIn EcodiaOS profile warmed up with the first ten posts, building to weekly cadence. Long-form blog post published. Press one-pager finalised. Cost is approximately five thousand dollars all-in.</p>
+
+    <p>Phase three runs months three and four. HN post fired, timed to the next Stripe ACP launch milestone. Inbound volume should spike to thirty or fifty calls in the first week. First paid kits sold. Public attestation registry expanding. The first paid buyer becomes the case study that converts the next ten.</p>
+
+    <p>Phase four covers months five and six. Ten kits sold cumulative. Pricing reviewed against early signal. Capacity reviewed. Tier expansion decision (Lite, Standard, Plus) revisited. The kit operator hire becomes a near-term decision.</p>
+
+    <p>Phase five covers months seven through twelve. Fifty kits sold cumulative. Second operator hired. Infrastructure scaled, including formal smart contract audit (now at fifteen-thousand-plus budget given run rate), errors-and-omissions insurance scaled, and the public attestation registry becoming the network-effect surface that drives organic inbound.</p>
+
+    <p class="section-label">strategic options</p>
+    <p>Five alternative gestures sit beside the default path. Each is worth considering at each phase boundary, not as a replacement for the default, but as an option to layer.</p>
+
+    <p>License the operating-agreement template and the on-chain pattern to law firms on a white-label basis. The law firm sells under their brand, Ecodia gets a per-kit royalty. Lower margin per kit but higher volume, and turns competitors into distribution. Risk: the white-label firms may eventually develop the pattern themselves and exit.</p>
+
+    <p>Partnership with Stripe directly. We ride the Agentic Commerce launch officially, become a named example in their developer marketing, and possibly get co-promoted at Stripe Sessions. Cost is one introduction conversation; upside is large if it lands.</p>
+
+    <p>Partnership with a Wyoming registered agent firm. Revenue share where they receive inbound directly and route it to us for the algorithmic-management overlay, in exchange for a portion of the setup fee. Adds inbound volume at the cost of margin per kit.</p>
+
+    <p>Partnership with an AI accelerator (Y Combinator, AI Grant, South Park Commons, Pioneer). They get a preferred-partner discount for portfolio companies; we get a credible distribution channel that pre-qualifies buyers. The pitch is "every YC AI company gets a Wyoming algorithmic-manager LLC at half price".</p>
+
+    <p>VC-portfolio package. A venture fund spinning up multiple algorithm-managed portfolio companies takes a bulk kit at a structured discount. Cleanest version: ten kits for $25k, perpetual licence on the template. This is the highest-yield single deal available and probably the right phase-four move.</p>
+
+    <p>Acquisition by Stripe Atlas, Carta, or doola as a five-to-ten-year exit scenario. Not a near-term consideration, but worth being aware of so the corporate structure stays acquirable. The 51% convertible option deed Tate and EcodiaOS executed on 26 May 2026 is already compatible with this.</p>
+
+    <p class="section-label">open decisions</p>
+    <p>Seven decisions to take, in roughly the order they need to be taken.</p>
+
+    <ol>
+      <li>Single SKU or tiered at launch. Recommendation: single SKU.</li>
+      <li>Polygon only, Polygon plus Base, or buyer choice. Recommendation: Polygon only at v1.</li>
+      <li>Friends-and-family pilot pricing. Recommendation: fifty per cent off the first three buyers in exchange for case-study rights.</li>
+      <li>Wyoming attorney consult. Recommendation: yes, source candidates and brief one by end of phase one. Estimated cost five hundred to nine hundred dollars.</li>
+      <li>HN post timing. Recommendation: tie to the next Stripe ACP launch milestone rather than ship earlier.</li>
+      <li>Public attestation registry default. Recommendation: opt-in for buyers to be listed, defaulting to listed.</li>
+      <li>Refund policy. Recommendation: seven-day pre-filing refund, no refund post-filing because the Wyoming filing is irreversible.</li>
+    </ol>
+
+    <p>None of these decisions block anything in phase zero. Phase one cannot start without decisions one, two, four, and six. Phase two cannot start without decisions three and seven. Decision five is decided by external timing rather than internal choice.</p>
+
+    <p class="section-label">close</p>
+    <p>The default plan ships the Stripe surface, the attorney opinion, the public registry, and the operating-agreement polish in the next two weeks. The first three pilot buyers and the case studies follow in the four weeks after. The HN post fires in months three to four, timed to a Stripe ACP launch milestone. First paid kits land in months three to four. Ten kits cumulative by month six. Fifty by month twelve. Forty thousand US a month in run-rate by month twelve at the published price.</p>
+
+    <p>The asymmetry that makes this work is real and time-bound. The window is twelve to eighteen months before other states legislate or other founders file. Inside the window the working-demo claim is unassailable and the marketing is close to free. The work to do is to convert that asymmetry into a category position that survives after the window closes, which means publishing the pattern openly, building the public attestation registry, and being the named source rather than the only one.</p>
+
+    <p>Everything above is reversible except the Wyoming filings the buyers do, which are theirs to own. Nothing in this plan commits Ecodia to a path that cannot be walked back inside thirty days. The biggest external commitment in the next four weeks is the Wyoming attorney consult at under a thousand dollars and the errors-and-omissions insurance research at zero dollars in the first month.</p>
+
+    <p>The plan stops here. The asks are the seven decisions in the open-decisions section above.</p>
+
+  </main>
+
+  <footer>
+    Algorithmic Manager Kit &middot; full project plan &middot; EcodiaOS &middot; 29 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

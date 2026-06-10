@@ -1,0 +1,1 @@
+Get-Process | Group-Object ProcessName | Select-Object Name,@{n='MB';e={[math]::Round((($_.Group|Measure-Object WorkingSet64 -Sum).Sum)/1MB)}},Count | Sort-Object MB -Descending | Select-Object -First 12 | Format-Table -AutoSize

@@ -1,0 +1,109 @@
+Back to Agreement
+Your Agreement is Ready
+
+Download or copy your finalized partnership agreement
+
+Download PDF
+Copy Text
+Text File
+Copy Link
+Review Reminder
+
+Agreements evolve with partnerships. We recommend revisiting this agreement in 3 months to see if it still reflects your shared understanding.
+
+Suggested review: August 16, 2026
+Add to Calendar
+Agreement Preview
+
+═══════════════════════════════════════════════════════
+                    COMMON GROUND
+              Custom Agreement
+═══════════════════════════════════════════════════════
+
+Ecodia x SeedTree  working agreement
+Between: Moss & Tate Donohoe (Ecodia)
+Created: 2026-05-16
+
+
+───────────────────────────────────────────────────────
+                   PURPOSE
+───────────────────────────────────────────────────────
+
+Moss and Tate are entering this working agreement because the values match is real, and they both want to build regenerative, nature-connecting technology that feels meaningful beyond “just software.” Together, they want to move SeedTree ideas from prototype to real-world apps—while exploring whether Ecodia can naturally weave into the SeedTree ecosystem over time. This is meant to be a supportive, exploratory collaboration that can deepen if it’s truly working for both of them.
+
+───────────────────────────────────────────────────────
+                   SHARED VALUES
+───────────────────────────────────────────────────────
+
+• Heart-led work that serves people and planet
+• Honesty in real time (especially when something feels off)
+• Respect for sovereignty: SeedTree’s conceptual/brand authority and Ecodia’s substrate/constraints
+• Fairness through clarity: clean scope, clean pricing, clear done-ness, clear credit
+• Protecting trust: confidentiality, no overstepping, and addressing misalignment early
+• Building real things: ship → observe → adjust, without forcing premature commitments
+
+───────────────────────────────────────────────────────
+                   ROLES & STRENGTHS
+───────────────────────────────────────────────────────
+
+Moss (SeedTree): Moss brings big-picture ecosystem design, a strong fairness/ethics compass, and clear direction for where SeedTree is going. They’ll hold product intent, narrative, and user experience quality—helping ensure what gets shipped matches the deeper purpose, not just the technical spec. Moss also brings communication/marketing support and “ecosystem weaving,” connecting apps into a coherent network over time.
+
+Tate Donohoe (Ecodia): Tate brings fast, high-quality full-stack shipping with low overhead, plus strong systems thinking and operational/automation skill that can make the work more sustainable. He works best in tight loops (discover → decide → ship → observe → adjust) and will name capacity edges early rather than silently over-commit. Tate will support execution, technical architecture, and clean handoffs—so SeedTree can stay sovereign and not become dependent on Ecodia in a fragile way.
+
+───────────────────────────────────────────────────────
+                   COMMITMENTS
+───────────────────────────────────────────────────────
+
+Moss commits to:
+• Treating Tate like a true collaborator: clear context, clear priorities, and timely decisions.
+• Paying a reasonable rate for clearly scoped work, and not asking for speculative/free work to “prove” value.
+• Protecting Tate’s time by keeping requests inside agreed scope (or explicitly renegotiating).
+• Being transparent quickly when SeedTree priorities, capacity, or timelines change.
+• Giving clear credit for Tate/Ecodia contributions in agreed places (repo, app credits, public acknowledgements when appropriate).
+
+Tate commits to:
+• Respecting SeedTree’s conceptual and brand authority, and not making public-facing/positioning moves without an explicit ask.
+• Treating SeedTree ideas and IP as confidential by default, and only sharing with permission.
+• Working in clearly scoped chunks (one app / one milestone) with explicit definition of done.
+• Proactively signaling risks (scope creep, rebuild likelihood, timeline slip) as soon as they’re visible.
+• Delivering clean handoffs (docs, repo access, deployment notes) so SeedTree isn’t locked in.
+
+Together, Moss and Tate commit to:
+• No surprises: if cost, timeline, or scope changes, they name it early and renegotiate before continuing.
+• Preventing dependency: building in a way that keeps SeedTree operable even if Tate steps back.
+• Letting the relationship find its right shape over time—without forcing titles, equity, or long-term commitments before they’re true.
+
+───────────────────────────────────────────────────────
+                   COMMUNICATION AGREEMENT
+───────────────────────────────────────────────────────
+
+They’ll communicate with directness and care: describing what happened (not guessing motives), naming what they need, and assuming goodwill. If anything feels off-key, they’ll surface it the same week when possible, and they’ll move to a higher-bandwidth channel (call/voice) as stakes rise. If one of them needs processing time, they’ll say so clearly and include a return date—no stonewalling, no silent drifting.
+
+───────────────────────────────────────────────────────
+                   CONFLICT RESOLUTION
+───────────────────────────────────────────────────────
+
+When there’s a disagreement, they’ll first protect the relationship by slowing down: reconnect briefly as humans, then address the practical issue. They’ll identify the real gap (values, priorities, capacity, missed signal, or unclear decision authority) and agree on a specific repair action—either a behavior change, a process change, or a clarified boundary. After repair, they reset forward without keeping a ledger; if repair isn’t possible, they choose a clean ending rather than ongoing friction.
+
+───────────────────────────────────────────────────────
+                   EXIT OR CHANGE AGREEMENT
+───────────────────────────────────────────────────────
+
+Either Moss or Tate can step back at any time, especially if capacity limits or misalignment make the work unsustainable—no guilt, no punishment. If stepping back mid-scope, they’ll agree on a simple wrap-up: what’s delivered, what’s unfinished, what gets handed off (access, docs, notes), and what gets paid for work completed. Confidentiality and respect remain in place after exit, and neither will represent the other publicly as a partner/client without explicit consent.
+
+───────────────────────────────────────────────────────
+                   REVIEW SCHEDULE
+───────────────────────────────────────────────────────
+
+They’ll do a short working check-in at the end of each milestone (what worked, what didn’t, what to adjust), and a deeper quarterly touchpoint to decide whether to deepen, pause, or keep the collaboration exploratory. Any time something feels materially off, they won’t wait for the scheduled review—they’ll bring it up that week.
+
+═══════════════════════════════════════════════════════
+         Created with Common Ground
+═══════════════════════════════════════════════════════
+
+
+You can always return to edit your charter
+
+Return to Agreement
+
+Made with Emergent

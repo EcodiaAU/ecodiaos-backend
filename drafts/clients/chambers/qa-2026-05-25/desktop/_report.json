@@ -1,0 +1,134 @@
+[
+  {
+    "slug": "01-home",
+    "route": "/",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\01-home.png",
+    "sizeKB": 641
+  },
+  {
+    "slug": "02-events",
+    "route": "/events",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\02-events.png",
+    "sizeKB": 308
+  },
+  {
+    "slug": "03-members",
+    "route": "/members",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\03-members.png",
+    "sizeKB": 238
+  },
+  {
+    "slug": "04-groups",
+    "route": "/groups",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\04-groups.png",
+    "sizeKB": 93
+  },
+  {
+    "slug": "05-resources",
+    "route": "/resources",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\05-resources.png",
+    "sizeKB": 78
+  },
+  {
+    "slug": "06-profile",
+    "route": "/profile",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\06-profile.png",
+    "sizeKB": 69
+  },
+  {
+    "slug": "07-feedback",
+    "route": "/feedback",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\07-feedback.png",
+    "sizeKB": 47
+  },
+  {
+    "slug": "08-signin",
+    "route": "/signin",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\08-signin.png",
+    "sizeKB": 40
+  },
+  {
+    "slug": "09-signup",
+    "route": "/signup",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\09-signup.png",
+    "sizeKB": 44
+  },
+  {
+    "slug": "10-privacy",
+    "route": "/privacy",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\10-privacy.png",
+    "sizeKB": 451
+  },
+  {
+    "slug": "11-terms",
+    "route": "/terms",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\11-terms.png",
+    "sizeKB": 442
+  },
+  {
+    "slug": "12-onboarding-chamber",
+    "route": "/onboarding/chamber",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\12-onboarding-chamber.png",
+    "sizeKB": 55
+  },
+  {
+    "slug": "20-admin",
+    "route": "/admin",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\20-admin.png",
+    "sizeKB": 88
+  },
+  {
+    "slug": "21-admin-onboarding",
+    "route": "/admin/onboarding",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\21-admin-onboarding.png",
+    "sizeKB": 56
+  },
+  {
+    "slug": "22-admin-events",
+    "route": "/admin/events",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\22-admin-events.png",
+    "sizeKB": 107
+  },
+  {
+    "slug": "23-admin-members",
+    "route": "/admin/members",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\23-admin-members.png",
+    "sizeKB": 31
+  },
+  {
+    "slug": "24-admin-committees",
+    "route": "/admin/committees",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\24-admin-committees.png",
+    "sizeKB": 62
+  },
+  {
+    "slug": "25-admin-groups",
+    "route": "/admin/groups",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\25-admin-groups.png",
+    "sizeKB": 88
+  },
+  {
+    "slug": "26-admin-branding",
+    "route": "/admin/branding",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\26-admin-branding.png",
+    "sizeKB": 314
+  },
+  {
+    "slug": "27-admin-notifications",
+    "route": "/admin/notifications",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\27-admin-notifications.png",
+    "sizeKB": 81
+  },
+  {
+    "slug": "28-admin-privacy",
+    "route": "/admin/privacy",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\28-admin-privacy.png",
+    "sizeKB": 81
+  },
+  {
+    "slug": "29-admin-billing",
+    "route": "/admin/billing",
+    "file": "D:\\.code\\EcodiaOS\\backend\\drafts\\chambers-qa-2026-05-25\\desktop\\29-admin-billing.png",
+    "sizeKB": 66
+  }
+]

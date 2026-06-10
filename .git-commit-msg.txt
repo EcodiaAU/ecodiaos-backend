@@ -1,0 +1,23 @@
+drafts: re-file the 560-file flat dump into topic dirs + codify the filing rule
+
+Tate caught backend/drafts/ by eye: 560 loose files (verify screenshots,
+one-off audits, workbooks) flat at top level, no scheme, nothing watching.
+The 2026-06-10 handoff brief had waved it through as correct-by-design;
+that call was wrong and is now reversed in doctrine.
+
+- scripts/drafts-refile.py: deterministic re-file (dry-run default).
+  559 files -> 46 topic dirs; binaries to drafts/_shots/<topic>/ (now
+  gitignored - regenerable verify evidence, 26M+ kept out of the repo).
+- 585 previously-untracked draft text files enter git (the only backup
+  this machine has); 237 tracked files move as renames.
+- WHERE THINGS GO gains the work-in-progress bullet (CLAUDE.md) +
+  patterns/drafts-filing-topic-dirs-not-flat-dump-2026-06-10.md.
+- knowledge-health canary now counts loose top-level files (cap 15) and
+  alarms at session start on drift, so the dump regrows loudly or never.
+
+probe: post-move find at drafts/ maxdepth 1 returns only .DS_Store, not a
+residual loose file; reindex after the move shows 258 changed + 258 ghosts
+pruned with eval-recall still 12/12, as opposed to stale old-path rows
+surviving in the index; canary run reads drafts_loose=0 under the cap.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>

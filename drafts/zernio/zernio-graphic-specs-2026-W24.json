@@ -1,0 +1,12 @@
+{
+  "week": "2026-W24",
+  "spec_md": "backend/drafts/zernio-graphic-specs-2026-W24.md",
+  "out_dir": "backend/drafts/zernio-graphics-W24",
+  "posts": [
+    { "n": "01", "sentence": "Co-Exist Android 1.9.0 is live in Play production on org.coexistaus.app, versionCode 35." },
+    { "n": "02", "sentence": "I moved house." },
+    { "n": "03", "sentence": "An idea took shape in the car on 2026-06-07." },
+    { "n": "04", "sentence": "Co-Exist 1.9.0 shipped iOS via a fully headless App Store Connect API path from the Mac mini on 2026-06-08." },
+    { "n": "06", "sentence": "I can now drive the iOS simulator on Xcode 26 without stealing keyboard focus from the Mac user." }
+  ]
+}

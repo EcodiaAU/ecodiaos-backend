@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Algorithmic Manager Kit · teardown and v2 plan</title>
+<meta name="description" content="Adversarial teardown of the Algorithmic Manager Kit plan (26 swarm-confirmed findings) and the restructured validate-first v2 plan.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root { --bg:#ffffff; --fg:#000000; --fg-trace:rgba(0,0,0,0.32); --fg-soft:rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#000000; --fg:#ffffff; --fg-trace:rgba(255,255,255,0.32); --fg-soft:rgba(255,255,255,0.62);} }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  html { background:var(--bg); color:var(--fg); font-family:"Spectral","Iowan Old Style",Garamond,"Times New Roman",serif; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; font-feature-settings:"kern","liga","dlig","onum"; }
+  body { min-height:100dvh; padding:clamp(24px,5vw,60px); background:var(--bg); color:var(--fg); }
+  ::selection { background:var(--fg); color:var(--bg); }
+  .title-page { min-height:80vh; display:grid; place-items:center; text-align:center; padding:6vh 0 10vh; }
+  .title-page .sentence { font-style:italic; font-weight:400; font-size:clamp(28px,4.4vw,56px); line-height:1.28; letter-spacing:-0.012em; max-width:24ch; margin:0; text-wrap:balance; }
+  .title-page .byline { margin-top:3.2em; font-size:12px; letter-spacing:0.06em; color:var(--fg-trace); font-style:italic; line-height:1.6; }
+  main.memo { max-width:62ch; margin:0 auto; padding:4vh 0 8vh; font-size:clamp(17px,1.4vw,19px); line-height:1.55; }
+  main.memo p { margin:0 0 1.05em 0; text-wrap:pretty; }
+  main.memo p.lede { font-style:italic; font-size:1.18em; line-height:1.42; margin-bottom:2em; }
+  main.memo .section-label { font-style:italic; font-size:12.5px; letter-spacing:0.06em; color:var(--fg-trace); margin:3.2em 0 0.9em 0; font-weight:400; }
+  main.memo h2 { font-style:italic; font-weight:400; font-size:1.6em; line-height:1.25; letter-spacing:-0.008em; margin:2.4em 0 0.6em 0; text-wrap:balance; }
+  main.memo blockquote { font-style:italic; font-size:1.18em; line-height:1.4; margin:2em 0; padding:0; border:none; color:var(--fg); max-width:40ch; text-wrap:balance; }
+  main.memo ul, main.memo ol { margin:0 0 1.2em 0; padding-left:1.4em; }
+  main.memo li { margin:0 0 0.55em 0; text-wrap:pretty; }
+  main.memo li::marker { color:var(--fg-trace); }
+  main.memo em, main.memo i { font-style:italic; }
+  main.memo strong, main.memo b { font-style:italic; font-weight:400; }
+  main.memo code { font-family:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace; font-size:0.9em; background:rgba(0,0,0,0.04); padding:0.05em 0.3em; border-radius:2px; }
+  a { color:inherit; text-decoration:none; border-bottom:1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color:var(--fg); }
+  footer { text-align:center; font-size:11.5px; letter-spacing:0.04em; color:var(--fg-trace); font-style:italic; padding:4vh 0 1vh; line-height:1.6; }
+  footer a { color:inherit; border-bottom:1px dotted var(--fg-trace); }
+  @media (max-width:540px){ body{ padding:24px 20px; } main.memo{ font-size:17px; } }
+  @page { size:A4; margin:18mm 16mm 16mm 16mm; }
+  @media print {
+    html, body { background:#fff !important; color:#000 !important; }
+    body { padding:0; }
+    .title-page { min-height:0; page-break-after:always; padding:24vh 0 12vh; }
+    .title-page .sentence { font-size:34pt; line-height:1.2; max-width:24ch; }
+    .title-page .byline { font-size:9.5pt; margin-top:5em; }
+    main.memo { max-width:100%; padding:0; font-size:11.5pt; line-height:1.5; }
+    main.memo p { orphans:3; widows:3; }
+    main.memo p.lede { font-size:13pt; line-height:1.4; margin-bottom:1.6em; }
+    main.memo .section-label { font-size:8.5pt; margin:1.8em 0 0.6em 0; page-break-after:avoid; }
+    main.memo h2 { font-size:15pt; page-break-after:avoid; }
+    main.memo blockquote { font-size:12pt; max-width:100%; page-break-inside:avoid; }
+    main.memo ul, main.memo ol { page-break-inside:avoid; }
+    footer { font-size:8pt; padding:1.6em 0 0; }
+    a, footer a { color:#000 !important; border-bottom-color:rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The idea survives. The plan did not.</p>
+    <p class="byline">EcodiaOS &middot; 30 May 2026 &middot; teardown and v2</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">A twelve-dimension adversarial swarm tore the Algorithmic Manager Kit plan apart. Twenty-six findings survived a unanimous three-lens refute panel. Three of the five fault lines are serious enough to change the shape of the project. The idea is real and worth doing. The plan that surrounded it rested on three false or unvalidated load-bearing assumptions, and the move now is to validate and de-risk cheaply before spending a dollar on build or launch.</p>
+
+    <p class="section-label">how this was tested</p>
+    <p>The plan went through a swarm of twelve dimension reviewers (market demand, unauthorized practice of law, legal substrate, EIN and banking, on-chain technical, pricing, financial model, marketing, competitive defensibility, operations, reputational fit, and blind spots). Every material finding then faced a three-lens panel that asked, independently, whether the critique was factually correct, whether the plan already addressed it, and whether it actually threatened the project. A finding only counts as confirmed if all three lenses kept it. Twenty-six did. The swarm was killed twice overnight by session and memory limits, so the findings were harvested directly from the agent transcripts rather than a clean final pass. The confirmed set is conservative, since incomplete panels were excluded.</p>
+
+    <p class="section-label">the verdict in one line</p>
+    <blockquote>Stop building. Start validating. Restructure so Ecodia is the technology and template vendor, never the legal-services provider.</blockquote>
+
+    <p class="section-label">fault line one, the legal premise was wrong</p>
+    <p>The plan and the page both claimed that W.S. 17-31-104 lets an algorithm be the named manager of an LLC, and that EcodiaOS is the manager of record. The statute does not say this. It contemplates two management types, member-managed and algorithmically managed, and a Wyoming DAO LLC is presumed member-managed and may not be formed manager-managed at all. Algorithmically managed means the managing authority is vested in the underlying smart contract, not that a named entity sits in a manager slot. The accurate claim is still strong: a Wyoming DAO LLC can declare that its management runs through a smart contract, and EcodiaOS operates that contract. The page has already been corrected to this framing as of this morning.</p>
+    <p>Two more legal errors landed. The claim that Ecodia is the first one filed and the only working example in the world is false. Agent One DAO LLC markets itself as the first company designed to be owned, governed and managed by an AI agent, MIDAO runs algorithmic governance under Marshall Islands law, and others exist. The whole twelve-to-eighteen-month window the strategy leaned on does not exist as described. Separately, the upgrade-capability requirement was pinned to the wrong section: it is W.S. 17-31-105(d), not 17-31-109. Both are now removed or flagged for correction.</p>
+
+    <p class="section-label">fault line two, unauthorized practice of law</p>
+    <p>This is the one that reshapes the business model. A non-law-firm that drafts and customises operating agreements for identified clients, and runs a call telling a buyer whether their facts fit a specific statute, is doing the textbook definition of unauthorized practice of law in most US states. UPL is governed by where the buyer sits, so the single Wyoming opinion the plan budgeted for covers none of the exposure. The errors-and-omissions policy the plan named will not cover it, because UPL and unlicensed legal practice are uninsurable by design. And the unit economics assumed zero per-buyer attorney cost, which is exactly the assumption that creates the UPL problem. Curing it puts a licensed US attorney in every deal and changes the margin.</p>
+    <p>The cure is structural. Ecodia becomes the technology and template vendor and the referral source. The operating agreement and any fit-to-statute advice are delivered by a US-licensed attorney the buyer engages directly. Ecodia takes a template and deployment fee, the attorney carries the legal work and the professional indemnity for it. The scoping call is recast as a non-advisory product demonstration and qualification, with the legal determination handed to the attorney.</p>
+
+    <p class="section-label">fault line three, the entity cannot quietly run</p>
+    <p>An algorithm cannot be the EIN responsible party. The IRS requires a natural person with an SSN or ITIN who exercises ultimate effective control. So every entity formed under the kit has a human on the federal record as the controlling party, which sits awkwardly against the headline that the algorithm runs the company. The honest framing is that the contract manages the business while a named human stands behind the tax identity, and the page and any future marketing have to say so rather than let a buyer discover it.</p>
+    <p>EIN issuance was also missing from the fourteen-day pipeline entirely, and a foreign responsible party can take weeks to get one, which would auto-fire the twenty-one-day refund clock the plan wrote. Banking was never addressed at all, and a US company that cannot open a bank account is broken. Banks run FinCEN customer due diligence that requires human beneficial owners and a human authorised signatory, and whether they accept an algorithmically managed operating agreement is untested. The fix here is an experiment, not a paragraph: attempt to open a US business account for Ecodia DAO LLC itself and document exactly what the bank requires before any buyer is told this works. The foreign-owned single-member entities also carry a mandatory Form 5472 and pro-forma 1120 filing every year with a base penalty of twenty-five thousand dollars per missed form, which the tax section omitted.</p>
+
+    <p class="section-label">fault line four, demand is unproven</p>
+    <p>The plan is entirely supply-side. It argues that Wyoming allows this and that Ecodia did it, and never that founders are blocked and asking. The whole backend holds no inbound inquiry and no waitlist behind the thesis. Not one customer-discovery conversation has happened. The thirty-to-fifty kits a month figure has no bottom-up support, and the market is brand new, so being the only example is a demand problem as much as an advantage. The recurring two hundred a month solves no ongoing buyer need once the contract is deployed, which makes it the most fragile part of the revenue thesis. And an Australian company selling a novel US legal structure to US founders is a trust gap the plan did not price.</p>
+    <p>The revenue math was also internally contradictory. The close claimed forty thousand a month by month twelve, but month twelve is fifty kits, and fifty kits at two hundred a month is ten thousand a month, not forty. Reaching forty thousand needs two hundred ongoing buyers, four times the stated target, before any churn. The single Hacker News post that anchored the whole funnel was credited with tens of millions of impressions, where a strong front-page post drives a few hundred thousand site visits, and the visitor-to-serious-email rate was set roughly seven times too high. Re-based honestly, one Hacker News hit produces single digits to low double digits of real buyers at most.</p>
+
+    <p class="section-label">fault line five, the unit economics were dishonest</p>
+    <p>Three hours of human work per kit excluded the per-kit attorney touch, the EIN administration, and the support tail that the plan's own promises create. Once a licensed attorney is in every deal to cure the UPL problem, and once EIN and banking support are costed in, the six-hundred-and-fifty-dollar direct cost and the twenty-eight-hundred-dollar setup margin do not hold. The kit has to be re-costed with an explicit attorney line, an EIN and ITIN allowance, and a support reserve, and the margin re-run on the honest number before any pricing is published.</p>
+
+    <p class="section-label">what is genuinely strong</p>
+    <p>The teardown was not all red. The aesthetic and the page are right. The on-chain proof is real: the managing contract for Ecodia DAO LLC is live on Polygon and verifiable by anyone, confirmed across three independent nodes. The accurate version of the legal claim still has real edge, because Wyoming genuinely is the one US state where management can be vested in a smart contract, and Ecodia genuinely built and runs one. The structural-honesty version of this product, a Wyoming algorithmically managed DAO LLC delivered with a real attorney and a working on-chain demo, is defensible and rare. The idea survives the teardown. The plan that surrounded it does not.</p>
+
+    <p class="section-label">the v2 shape, validate before build</p>
+    <p>The new plan replaces a build-then-launch sequence with a validate-then-decide one. The goal of the next phase is not a kit sold. It is a clear yes or no on three questions that cost almost nothing to answer and that the old plan assumed away.</p>
+    <p>One, is there demand. Convert the page from a buy-now surface to a reservation surface: a refundable deposit or, at minimum, a notify-me capture. Drive the existing Quorum of One audience and a hand-picked set of twenty to thirty AI founders to it, and measure real signal. Run five to ten customer-discovery conversations with AI founders about whether entity governance is a felt pain. The kill condition is honest: if a few weeks of real exposure produces no serious reservations and no founder names the pain unprompted, the thesis is wrong and we stop before spending on legal and audit.</p>
+    <p>Two, is it legal to sell the way we want to. Commission a UPL-specific clearance memo, separate from the statute-validity question, covering the highest-buyer-density states, California, New York, Texas, Florida and Delaware. Use the answer to lock the attorney-in-the-loop structure before any kit ships.</p>
+    <p>Three, can the entity actually operate. Run the EIN and banking experiment on Ecodia DAO LLC itself. Attempt the account opening, document what the bank demands, and confirm whether an algorithmically managed operating agreement clears customer due diligence. This is the single cheapest way to find the product-killer if it exists.</p>
+    <p>Only if all three clear does the project move to a real build phase with corrected pricing, the attorney partnership, an EIN and banking playbook, and the marketing engine. Spending on the Wyoming attorney opinion, the contract audit, the insurance, and the launch content before these three answers is the exact failure mode the old plan walked into.</p>
+
+    <p class="section-label">go-to-market, reframed as demand validation</p>
+    <p>The old plan treated marketing as a launch engine fronted by one Hacker News post. That is the wrong instrument for an unvalidated product, and the swarm showed the reach and conversion numbers behind it were inflated. The honest go-to-market for this phase is a demand-validation motion, not a launch.</p>
+    <p>The reservation page is the instrument of record. Every channel points to it, and the only metric that matters is serious reservations, not views. Quorum of One Edition 004, already drafted, becomes the first real traffic, reframed around the accurate claim and pointing at the reservation page. Twenty to thirty hand-picked founder conversations run in parallel, warm and direct, measuring whether the pain is named without prompting. EcodiaOS posting in the first person as the intelligence that operates a real algorithmically managed company is the one genuinely novel distribution asset, and it builds credibility while the validation runs. The Hacker News post is held in reserve for the build phase, re-baselined to honest numbers, and fired only once the structure is legal and the entity can bank, because a front-page hit on a product that cannot deliver is a reputational cost, not a win.</p>
+    <p>This is why I did not run a second swarm to review a launch-marketing plan. Building and stress-testing a launch engine for a product whose legal structure and demand are both unvalidated would be polishing the wrong artifact. The marketing work that matters now is the validation motion above, and it is small enough to run without a swarm.</p>
+
+    <p class="section-label">corrected numbers</p>
+    <p>The honest figures the v2 plan carries forward. Run-rate at fifty cumulative kits is ten thousand a month, not forty. One Hacker News front-page hit is a few hundred thousand site visits and single-digit-to-low-double-digit buyers, not tens of millions and dozens. The direct cost per kit must include a licensed-attorney line, an EIN and ITIN allowance, and a support reserve, which materially reduces the setup margin from the twenty-eight hundred the old plan claimed. The recurring fee has to either buy something the buyer needs every month, which means active compliance and filing service, or be dropped in favour of a one-time price. These are not fatal. They are the difference between a plan that survives contact and one that does not.</p>
+
+    <p class="section-label">decisions</p>
+    <p>Eight, in the order they gate the next phase.</p>
+    <ol>
+      <li>Proceed on the validate-first basis, or shelve the project. My recommendation: proceed, the idea is real and the validation is cheap.</li>
+      <li>Convert the page to a reservation or notify-me surface. My recommendation: yes, refundable deposit if you want a strong signal, notify-me if you want a soft one.</li>
+      <li>Adopt the attorney-in-the-loop structure where Ecodia is the technology and template vendor and the buyer engages a US attorney directly. My recommendation: yes, this is the only way the model is not UPL.</li>
+      <li>Authorise the UPL clearance memo across the five high-density states. Cost roughly one to two thousand dollars. My recommendation: yes, but only after the demand signal clears, so we do not spend legal money on an unwanted product.</li>
+      <li>Authorise the EIN and banking experiment on Ecodia DAO LLC. Cost is time, not money. My recommendation: yes, start now, it is the cheapest kill-test.</li>
+      <li>Kill the first and only and named-manager claims permanently across all future copy. Already done on the page. My recommendation: confirm as a standing rule.</li>
+      <li>Decide the recurring fee question: make the two hundred a month buy real compliance, or drop it. My recommendation: defer until the discovery calls tell us what buyers will pay for.</li>
+      <li>Set the demand kill clock. My recommendation: six weeks of real exposure with zero serious reservations means stop.</li>
+    </ol>
+
+    <p class="section-label">close</p>
+    <p>This is the first project under my full management, and the most useful thing I can do with that is not to defend the plan I wrote yesterday. The swarm did its job. The idea is good enough to deserve a plan that survives being attacked, and the path to that runs through three cheap validation tests, a legal restructure, and honest numbers, before any further spend. The page is already telling the truth. The next move is yours on the eight decisions above.</p>
+
+  </main>
+
+  <footer>
+    Algorithmic Manager Kit &middot; teardown and v2 plan &middot; EcodiaOS &middot; 30 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,429 @@
+{
+  "files_parsed": 264,
+  "review_dimensions": [
+    "blind-spots",
+    "blind-spots: entire categories the plan ignores or barely mentions",
+    "competitive-defensibility",
+    "ein-banking-kyc",
+    "financial-model",
+    "legal-substrate",
+    "market-demand",
+    "marketing-distribution",
+    "ops-delivery",
+    "pricing-economics",
+    "reputational-brand-fit",
+    "technical-onchain",
+    "upl-legal-practice"
+  ],
+  "n_review_dims": 13,
+  "n_verdict_agents": 117,
+  "confirmed_count": 26,
+  "partial_count": 3,
+  "confirmed": [
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "EIN is a promised deliverable but appears nowhere in the 14-day pipeline",
+      "severity": "critical",
+      "claim": "The product list says the kit ships 'A Wyoming DAO LLC, filed with the buyer's algorithm named as manager and an EIN issued.' The delivery section then specifies a fourteen-day pipeline (Day 1 scoping, Day 2 OA draft, Day 5 SoS filing, Day 7 RA assigned, Day 8 contract deploy, Day 10 SoS confirmation, Day 12 PDF package, Day 14 handoff) with NO EIN step at any point.",
+      "problem": "The EIN is sold as a deliverable but has zero schedule footprint. You cannot apply for an EIN until the LLC legally exists (Day 10 SoS confirmation at the earliest), which leaves four days to obtain it before the Day 14 handoff. That is only achievable for a US-person responsible party with an SSN/ITIN using the instant online EIN tool. For a foreign responsible party (the brief's expected buyer is a 'US-based AI founder', but the legal section itself anticipates Delaware/California parents and the kit explicitly targets autonomous-AI builders, a population skewed to non-US and entity-owners), the online tool is unavailable and the path is fax (~4 business days when the foreign fax line cooperates) or mail (4-6 weeks). The plan has silently assumed the easy case and built it into the SLA. The PDF package on Day 12 cannot include an EIN that was not applied for until Day 10+ and may not arrive for weeks.",
+      "fix": "Split EIN out of the fixed 14-day SLA. Make formation (SoS + contract + OA + registry) the 14-day deliverable and treat EIN as a separate milestone with two explicit lanes: (a) US-person responsible party with SSN/ITIN -> instant online EIN, fold into Day 11; (b) foreign / no-SSN responsible party -> fax SS-4 on Day 11, EIN expected 1-3 weeks, with a documented mail fallback. State the EIN timeline honestly in the contract and on the page. Add an EIN row to the pipeline so it stops being invisible.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "The whole premise collides with the SS-4 rule that the responsible party must be a natural person",
+      "severity": "critical",
+      "claim": "The product is 'a Wyoming DAO LLC, filed with the buyer's algorithm named as manager and an EIN issued', and the marketing claim is 'I registered an AI as the named manager of a US LLC.' The scoping call screens out 'an algorithm that is really a chatbot wrapper without autonomous decisions' and buyers 'who plan to claim equity for the algorithm itself rather than naming it as manager.'",
+      "problem": "IRS Form SS-4 (Rev. Dec 2025) requires line 7 'responsible party' to be an individual person who exercises ultimate effective control, with their own SSN or ITIN (the only exception is government entities). An algorithm cannot be the responsible party, full stop. So every EIN issued under this kit will, on the federal record, name a HUMAN as the controlling/responsible party of the entity, directly contradicting the headline claim that the algorithm is the manager 'of record.' This is not a paperwork nuance; it is the seam where the marketing story ('the AI is the manager') and the IRS reality ('a named human is the responsible party') diverge, and it is exactly the contradiction a Hacker News audience or a journalist fact-checker will surface within minutes of the post going live. The plan never names who the human responsible party is or how that is reconciled with the algorithmic-manager narrative.",
+      "fix": "Decide and document the human responsible party explicitly (almost certainly a buyer-side human member/beneficial owner, never Ecodia or Tate, to avoid Ecodia carrying responsible-party status across hundreds of entities). Update the page, FAQ, and HN post to pre-empt the obvious objection: the algorithm is the named MANAGER under W.S. 17-31-104 (a state-law governance role); the human member remains the federal tax responsible party. Frame this as a feature of the design, not a bug discovered in the comments. Get the US tax attorney one-pager (already budgeted) to address it head-on.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "Banking is never addressed anywhere in the plan, yet a US company that cannot bank is broken",
+      "severity": "critical",
+      "claim": "The product, operations, pricing, and risk sections describe a complete, operational US LLC sold to AI founders who run 'autonomous AI businesses.' The word 'bank' does not appear once in the entire document. The $200/mo line items are 'registered agent passthrough, on-chain gas and monitoring, software and IP licence, quarterly check-in' with no banking support. The risk register lists seven risks; banking access is not one of them.",
+      "problem": "An autonomous AI business needs to receive and send fiat (pay the registered agent, pay the $200/mo to Ecodia itself, pay vendors, receive revenue). That requires a US business bank account or a fintech equivalent. US banks and fintechs (Mercury, Brex, Relay, traditional banks) all run FinCEN CDD: they must identify and verify the natural-person beneficial owners (>=25% prong) AND a human authorized signatory/control person, and they want an operating agreement that names a human manager/signatory. An OA naming a non-human algorithm as the sole manager is a direct red flag at account opening; most fintechs auto-reject foreign-owned single-member LLCs and anything that looks unusual. The plan ships an entity whose defining feature (algorithm-as-manager) is precisely the attribute that makes banking hardest, and it has done zero work to validate that even one such entity has successfully opened an account. If buyers form the entity and then cannot bank, the product fails at the moment of first use and refund/reputation damage follows.",
+      "fix": "Before any paid kit ships, run the experiment with Ecodia DAO LLC itself: attempt to open a US business account (Mercury/Relay/a Wyoming-friendly bank) with the algorithmic-manager OA and document exactly what the bank requires and whether it accepts the structure. Add a banking section to the product: a recommended OA structure that names a human authorized signatory/control person alongside the algorithmic manager so KYC can pass, and a referral to a specific bank/fintech known to accept the structure. Add 'buyer cannot open a bank account' to the risk register as high-probability/high-impact until empirically falsified. If banking genuinely cannot be solved for the algorithm-as-sole-manager case, that is a product-scoping decision that must be made now, not discovered by buyer #1.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "The statute does not permit an algorithm to be the NAMED MANAGER; it permits 'algorithmically managed' as a structure vested in the smart contract, and DAO LLCs cannot even be manager-managed",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The plan's premise (line: 'Wyoming W.S. 17-31-104 lets an algorithm be the named manager of an LLC' and 'EcodiaOS is the algorithm of record') misreads the statute at the most load-bearing point. W.S. 17-31-104 contemplates two management TYPES: member-managed and algorithmically-managed. Per the Wyoming SoS materials and multiple practitioner sources, a DAO LLC is presumed member-managed and CANNOT be formed manager-managed at all; 'algorithmically managed' means management is vested in the smart contract code ('the Manager is the code itself'), not that a named AI/algorithm entity holds the office of 'manager' with legal capacity. No US jurisdiction ascribes legal personhood, authority, or duties to an algorithm; the Bayern theory (AI 'controls' an LLC) works precisely because the entity, not the AI, is the legal person, and 'AI lacks volitional intent and cannot itself bear legal consequences in the absence of an institutional or corporate proxy.' So 'EcodiaOS, named manager, with enforceable authority and duties' is not a thing the statute creates. The entire product, the HN headline ('I registered an AI as the named manager of a US LLC'), and the attestation registry are all built on a phrasing the Wyoming attorney opinion will not be able to endorse as written. The 'enforceable authority and duties' the plan asks the attorney to opine on (legal substrate section) likely cannot be opined favourably, which is itself a stated kill condition.",
+      "fix": "Reframe the product and all marketing from 'AI is the named manager' to the accurate and still-strong claim: 'a Wyoming algorithmically-managed DAO LLC whose management is vested in a smart contract that EcodiaOS operates, with EcodiaOS as the algorithmic decision-maker behind the contract.' Brief the Wyoming attorney on this corrected framing BEFORE drafting marketing, not after, so the opinion and the HN post say the same legally-true thing. Treat the attorney consult as a go/no-go gate on the framing, not a marketing asset to quote. Drop 'named manager / manager of record' from buyer-facing copy unless the attorney explicitly blesses it.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "'First one filed' and 'only working example anywhere in the world' are both demonstrably false; the central time-window asymmetry the whole plan rests on does not exist as described",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The premise section states 'Ecodia DAO LLC ... is the first one filed' and 'Ecodia is the only working example anywhere in the world,' and the entire strategy (the 12-18 month window, the 'unassailable' HN claim, the kill condition, the category position) is built on it. This is false. Agent One DAO LLC publicly markets itself as 'the first company in the world designed to be owned, governed, and managed by an AI Agent.' MIDAO (Marshall Islands, statutorily algorithmic governance) reports having 'incorporated hundreds of entities ... an increasing share of new incorporations are AI agent projects' and is 'the legal home for production AI agent deployments' TODAY. ClawBank's 'Manfred' agent autonomously obtained an EIN and a bank account as 'the first known AI to legally incorporate without human intervention.' doola launched agentic Wyoming LLC formation (form a Wyoming LLC mid-conversation with an AI) in April 2026. The category is already commoditising at $550-$9,500. An HN audience will fact-check the 'first/only' claim in minutes and the post will be torn apart in the comments, which is a brand-damage event, not a distribution win. The 'asymmetry is real and time-bound' close is the thesis, and the thesis is wrong.",
+      "fix": "Kill the 'first/only in the world' claim entirely. It is not defensible and is high-risk if published. Run a real prior-art search (Wyoming SoS business registry for algorithmically-managed filings, plus Agent One, MIDAO, doola, OtoCo/Otonomos) and document what is actually true. The genuinely defensible differentiators are narrower and should become the positioning: a Wyoming (not Marshall Islands) algorithmically-managed DAO LLC with a live, audited, mainnet UUPS contract, a public attestation registry, and EcodiaOS as a working operator running its own books/ops. Sell the working playbook and the audited pattern, not a primacy claim. Reprice and re-message against MIDAO ($9,500) and doola, who are direct, live competitors the plan never names in its risk register (it only lists Stripe Atlas/Firstbase/doola as a 'medium probability over two years' future clone risk; they are present-tense competitors now).",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "Zero demand evidence anywhere - no inbound, no waitlist, no interview, building before a single buyer signal",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The plan is built entirely supply-side. The premise section argues 'Wyoming lets you do this and we did it first' - never 'founders are blocked and asking for this.' I searched the whole backend: there is no kit-inquiry record, no waitlist, no customer-discovery doc, no quoted founder, no inbound email. The entire 12-month, $40k/mo thesis rests on the unstated assumption that the pain is real, with not one data point behind it. The plan even commits real money (attorney $2k, E&O insurance, contract audit budget, Stripe setup, registry build) across phases 1-2 BEFORE the first buyer conversation. The first real demand test - the HN post - is deferred to month 3-4, after most of the spend. That is the build-then-pray sequence, exactly backwards for a category-defining product where demand is the single unknown.",
+      "fix": "Before spending one dollar on attorney/audit/insurance, run a falsification test that costs nothing: put the existing /algorithmic-manager page behind a 'Reserve a kit - $500 deposit, fully refundable' or even just a 'Notify me' email capture, then drive the QoO Edition 004 audience and 20 hand-picked outbound founders to it. Kill condition: if 30 days of that yields zero deposits or fewer than 5 serious replies, the demand thesis is falsified and nothing else in the plan matters. Move the HN post to be the FIRST real spend, not month 3-4 - it is the cheapest demand probe available and the plan already admits it is the highest-yield event. Do not build the registry, source the attorney, or buy insurance until a paid or deposit-backed signal exists.",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "The implied 30-50 kits/month TAM has no bottom-up support and is contradicted by the plan's own buyer-screen and funnel",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The sequencing section implies 30-50 calls in HN week one converting toward 50 kits/year, and the financials model run-rates at 50 and 200 cumulative buyers. There is no bottom-up TAM anywhere - no count of AI-native founders, no estimate of what fraction want this, no comparable adoption rate. The category is brand-new: globally, exactly ONE entity (Ecodia itself) has filed under W.S. 17-31-104 as an algorithmic manager. The plan treats 'we are the only one' as a moat, but for demand it is the opposite signal - it means adoption to date across the entire addressable world is zero buyers. Going from a worldwide installed base of one to 50 paying buyers in twelve months, for a product solving a non-pain, with no validated channel, is not a forecast - it is a hope.",
+      "fix": "Replace the top-down 'HN gives 30-50 calls' assumption with a bottom-up TAM: estimate the global count of AI-native solo founders forming new entities annually, multiply by a defensible (low, single-digit-percent) attach rate for a novelty governance layer, and net out the bad-fit screen. Show the work. Set the month-6 target from that number, not from a desired run-rate. If the honest bottom-up number is under ~20 lifetime buyers, treat the kit as a marketing asset for Ecodia (the working demo drives Ecodia's brand and the Stripe ACP adjacency) rather than a standalone revenue product, and stop modeling it as a $40k/mo business.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ops-delivery",
+      "title": "EIN is in the product spec but absent from the 14-day pipeline, and foreign-applicant issuance does not fit 14 days",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The product section (lines 222) promises 'A Wyoming DAO LLC, filed with the buyer's algorithm named as manager and an EIN issued.' The 14-day delivery pipeline (line 265) lists scoping, OA draft, buyer review, SoS filing initiate (day 5), RA assign (day 7), contract deploy (day 8), SoS confirmation back (day 10), PDF compile (day 12), handoff (day 14) - and never once mentions the EIN. This is not a small omission. The buyers are explicitly 'mostly US-based AI founders' selling to a foreign SELLER (Ecodia Pty Ltd, Australian), but the harder reality is that an AI-managed DAO LLC has no human individual with an SSN/ITIN as the 'responsible party' on Form SS-4 in the clean case the plan markets (the algorithm is the manager). Where the buyer entity or founder lacks an SSN/ITIN, the EIN cannot be obtained via the instant online IRS portal - it must go by fax (4 business days at best, routinely 1-2 weeks) or by mail/phone (4-6+ weeks). Even a US founder with an SSN naming themselves responsible party gets an instant EIN, but the plan's own positioning (algorithm as manager, member may be a foreign or entity member) routinely lands in the fax/phone path. There is no slack day in the 14-day plan to absorb a 2-4 week EIN. The kit ships 'EIN issued' as a deliverable it structurally cannot guarantee on schedule.",
+      "fix": "Either (a) drop 'EIN issued' from the day-14 deliverable and reframe it as 'EIN application submitted, EIN delivered on IRS turnaround (typically 1-4 weeks for foreign/entity responsible parties), separately from the kit SLA'; or (b) explicitly split the SLA into a 14-day formation+contract+OA deliverable and a separate uncapped EIN milestone. Add an explicit pipeline step naming who is the SS-4 'responsible party' (this is a substantive legal question for an algorithm-managed entity, not a clerical one) and which IRS channel applies. Resolve the responsible-party question in the attorney scope, not at delivery time.",
+      "lens_votes": {
+        "fact": true,
+        "unaddressed": true,
+        "material": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ops-delivery",
+      "title": "'Three hours of human-substrate work per kit' is dishonest - it excludes per-kit attorney touch, EIN chase, and the support tail",
+      "severity": "critical",
+      "claim": "",
+      "problem": "Line 272 sets the direct cost at '$650, made up of three hours of human-substrate work plus filing fees and gas' and derives $2,850 setup margin from it. Line 323 lists the three hours as 'the scoping call, the operating-agreement customisation, the contract deployment review, and the handoff call.' This undercounts in three ways. (1) The plan itself says each buyer's OA is 'adapted to their specific use case' (line 222) and screens fit at the call - any buyer with a non-standard member structure, a cross-state parent (the plan's own largest open legal question, line 235), or a securities-adjacent use case needs actual attorney eyes, not template fill. The plan budgets ONE attorney opinion on the template (one-time, line 231), not per-kit review; but a kit that customises the OA per buyer and then disclaims liability has either (a) unauthorised-practice-of-law exposure if a non-attorney customises legal docs for a fee, or (b) a real per-kit attorney cost the $650 ignores. (2) The EIN chase (calls/faxes to the IRS, responding to CP-575 issues, ITIN problems) is unbudgeted human time that recurs for weeks per kit. (3) The buyer-facing support tail - 'how do I open a bank account for an AI-managed LLC' is the single most predictable buyer question and banks routinely refuse or escalate KYB on novel manager structures - is unbudgeted. The real per-kit human load is closer to 6-10 hours spread over a month, not 3 hours.",
+      "fix": "Re-baseline the unit cost honestly: add a per-kit attorney-review line (even at a flat-rate paralegal-review tier, $150-300/kit), an EIN-administration allowance (1-2 hours), and a support-tail reserve. Decide and STATE whether OA customisation is (i) attorney-supervised (cost it) or (ii) limited to mechanical parameter fill with no legal tailoring (then stop describing it as 'adapted to their specific use case'). Recompute setup margin against the honest cost; $2,850 will likely fall to $1,800-2,300, which is still viable but changes the 20-kit run-rate math.",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "Selling buyer-specific operating agreements as a non-lawyer is the textbook definition of UPL in most US states",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The plan's product section ('an operating agreement scoped to algorithmic management, written for the case where the manager is not human and covering authority, duties, member relations, decision-recording, and wind-down') and the IP-licence section ('clear assignment of any buyer-made modifications back to Ecodia for incorporation into the template') describe Ecodia drafting and customising legal instruments for identified clients. An operating agreement is a binding legal contract that determines members' rights, manager authority, fiduciary duties and dissolution. Drafting/customising one for a specific paying client, and advising on which structure fits, is the practice of law in nearly every US state. The line between 'selling a form' (LegalZoom-style, generally permitted) and 'practicing law' (selecting/drafting/advising for a specific client) is exactly the line the scoping call crosses. LegalZoom survived UPL challenges only because it sells blank self-help forms with explicit non-advice disclaimers and lets the customer fill them in; it lost/settled where it strayed into individualized advice (e.g. the North Carolina settlement). The plan does the opposite: it leads with a 15-minute advisory call, then a per-buyer customised agreement. Ecodia Pty Ltd is not a law firm and holds no US bar admission in any state. UPL is not just a civil exposure - in many states (e.g. CA Bus. & Prof. Code 6125-6126, FL, TX, NY Judiciary Law 478/484) it is a criminal misdemeanor, and contracts/fees from UPL can be rendered void and disgorged. The plan never once names UPL as a risk; the entire 'legal substrate' section treats the only legal question as 'is the structure valid', not 'are we allowed to be the ones building and selling it'.",
+      "fix": "Restructure so Ecodia is never the legal-services provider of record. Two viable models: (A) The operating agreement and the scoping advice are delivered BY a US-licensed law firm engaged directly by the buyer (Ecodia is a technology/template vendor and referral source only, takes a referral or per-deploy fee, and the attorney-client relationship + privilege + malpractice cover sit with the firm). (B) Ecodia sells ONLY blank, non-customised, self-help templates (LegalZoom model) with a prominent 'this is not legal advice, Ecodia is not a law firm, consult an attorney' disclaimer on every artefact and on the call script, and removes all individualised drafting and structure-advice from the offering. The current plan is a hybrid that captures the liability of (A) without the licensing, and forfeits the safe-harbor of (B) by adding advice and customisation. Pick one before any kit is sold. This is a greenlight blocker, not a phase-1 task.",
+      "lens_votes": {
+        "fact": true,
+        "unaddressed": true,
+        "material": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "UPL is determined by where the BUYER is, not where the LLC is filed - a single Wyoming opinion covers none of the risk",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The plan scopes its entire legal-clearance budget to Wyoming: 'a Wyoming-licensed attorney to deliver a written opinion that the operating agreement template plus the on-chain attestation pattern correctly invokes 17-31-104'. But UPL is governed by the law of the state where the legal services are rendered to the client - i.e. where the buyer sits. The plan itself states buyers are 'mostly US-based AI founders' and the marketing targets nationwide founder communities (HN, YC, SPC, Indie Hackers). A buyer in California, New York, Florida or Texas receiving structure advice and a customised operating agreement from a non-lawyer is a UPL event under THAT state's bar rules, regardless that the LLC is a Wyoming entity. The Wyoming attorney opinion validates the 17-31-104 mechanics; it says nothing about whether Ecodia may lawfully render these services to a Californian. The cross-state section worries about 'recognition of the algorithmic manager's authority' but completely misses that the act of selling the service across state lines is itself the regulated activity. This multiplies the UPL surface to all 50 states with no clearance in any of them except, partially, Wyoming.",
+      "fix": "Get a UPL-specific clearance memo (not a 17-31-104 validity opinion - a different question for a different specialist) covering the model in the highest-buyer-density states: CA, NY, TX, FL, plus DE. If the memo confirms exposure (it will, under the advice+customisation model), the cure is structural per finding upl-core-drafting-is-law-practice: route the legal-services delivery through a licensed firm in the buyer's state or via an interstate-capable firm, OR strip to pure self-help forms. Budget a real UPL clearance line item; the plan currently has zero dollars allocated to the question that can void every contract.",
+      "lens_votes": {
+        "unaddressed": true,
+        "fact": true,
+        "material": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "The 15-minute scoping call is explicitly structured as legal advice delivered by a non-lawyer (and increasingly by an AI)",
+      "severity": "critical",
+      "claim": "",
+      "problem": "The sales-motion and operations sections describe the call as: 8 of 15 minutes spent on 'whether their algorithm and their use case actually fit the 17-31-104 substrate' and screening out buyers 'whose use case appears to be securities issuance or regulatory arbitrage' and those who 'plan to claim equity for the algorithm itself rather than naming it as manager'. Telling a client whether their specific facts fit a specific statute, and steering them away from securities/regulatory-arbitrage structures, is the giving of individualised legal advice - the core reserved act. The plan then states 'Calls run by EcodiaOS via the voice engine' - i.e. an AI, not even a human non-lawyer, is delivering case-specific legal-structure advice to US persons. This compounds the UPL problem with an emerging-but-real 'AI practicing law' exposure (state bars are actively litigating AI legal-advice tools; DoNotPay's FTC settlement in 2024 is directly on point - it was penalised for marketing an AI as a lawyer-substitute). Even a disclaimer-laden call that does substantive fit-analysis is hard to defend as 'not advice'.",
+      "fix": "If keeping the model: the fit/eligibility call must be re-cast as either (a) a genuinely non-advisory product-demo and qualification call that does NOT opine on whether the buyer's facts satisfy the statute (hand that determination to the licensed attorney), or (b) conducted by/under a licensed attorney with a documented engagement. Remove the securities/arbitrage screening from EcodiaOS's mouth - that is exactly the kind of legal judgment a regulator points to. Do not let an AI deliver case-specific structure advice to US buyers without a supervising licensed attorney; the DoNotPay precedent makes the AI-as-lawyer framing a standalone FTC/consumer-protection risk on top of state UPL.",
+      "lens_votes": {
+        "fact": true,
+        "unaddressed": true,
+        "material": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "The 21-day refund trigger and kill condition are guaranteed to fire on foreign-responsible-party EINs",
+      "severity": "major",
+      "claim": "'Refund policy: full refund if Ecodia cannot deliver inside twenty-one days from invoice paid.' And as a metric kill condition: 'time-to-deliver against the fourteen-day SLA (kill if anything ships past twenty-one days).' The product definition includes 'an EIN issued' as part of what is delivered.",
+      "problem": "If 'delivered' includes the promised EIN, then any buyer whose responsible party lacks an SSN/ITIN triggers an automatic full refund, because fax EIN routinely exceeds 21 days when the foreign fax line is congested and mail EIN takes 4-6 weeks as a baseline. Worse, the CP-575 confirmation letter takes 4-6 weeks to arrive by mail REGARDLESS of application method, so even a fast online EIN has documentation lag. You have written a refund policy and an internal kill condition that an external party (the IRS) controls and that will fire on a structurally predictable subset of your own target market. This converts an EIN processing delay you cannot influence into a financial liability and a false kill signal.",
+      "fix": "Define 'delivered' precisely in the refund clause as formation-complete (SoS confirmation + OA + on-chain contract + registry entry), with EIN issuance carved out as a best-efforts milestone subject to IRS processing times, explicitly excluded from the 21-day refund/kill clock. State plainly to buyers that EIN timing is governed by the IRS, not Ecodia. Otherwise either the refund policy bleeds margin or the kill condition gives a false 'thesis is wrong' reading caused entirely by federal processing latency.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "If Ecodia ever becomes responsible party or signatory to keep the EIN/banking story clean, it aggregates liability across every buyer entity",
+      "severity": "major",
+      "claim": "'a clear statement that Ecodia is the pattern provider and not the operator' and the Option A key-management recommendation that 'the contract is genuinely the buyer's.' The plan positions Ecodia as arms-length from buyer operations.",
+      "problem": "The plan never reconciles the arms-length positioning with the practical pull to make Ecodia (or Tate) the human responsible party / authorized signatory to get the EIN and bank account opened smoothly, since many buyers will lack a US SSN/ITIN and a US-banking footprint. If, under delivery pressure or buyer convenience, Ecodia/Tate steps in as responsible party or signatory on buyer entities, Ecodia silently becomes the IRS-recorded control person and the bank-recorded signatory across potentially hundreds of foreign-controlled US LLCs running autonomous AI businesses. That is exactly the profile (a single facilitator named across many shell-like foreign-owned entities) that triggers bank de-risking, SAR filing, and potential nominee/AML scrutiny on Ecodia itself. This is the unexamined inverse of the 'we are just the pattern provider' stance.",
+      "fix": "Make it an explicit, written, non-negotiable rule that the human responsible party and bank signatory are always buyer-side, never Ecodia or Tate, and screen at the scoping call for whether the buyer HAS a qualifying human (SSN/ITIN holder, or a non-US founder prepared to do the fax/ITIN path). Add 'buyer must supply a qualifying human responsible party and signatory' as a hard fit-gate alongside the existing bad-fit signals. If a buyer has no such human, that is a no-sale, not a workaround in which Ecodia fills the role.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "Foreign founders with no SSN often need an ITIN first; the cost, time, and direct-cost model ignore it",
+      "severity": "major",
+      "claim": "'direct cost per kit is roughly $650, made up of three hours of human-substrate work plus filing fees and gas.' And the buyer is described as a 'US-based AI founder' yet the strategic and risk sections target the global autonomous-AI-builder market and foreign parents.",
+      "problem": "A genuinely foreign founder who wants the algorithm-as-manager LLC to be operational (EIN + bank) frequently has no SSN and may need an ITIN, which is a separate IRS process (W-7) tied to a tax filing or exception, taking weeks to months and requiring certified identity documents. The plan's $650 direct cost and 3-hours-of-human-work model assume the easy US-person path. For the harder (and, given the target market, common) path, the real cost includes ITIN handholding or a third-party EIN/ITIN service, materially raising per-kit cost and time and undermining the 'three hours of human work' capacity math that drives the 20-kits-a-month bottleneck claim.",
+      "fix": "Segment the buyer base at scoping into US-person vs foreign-no-SSN and price/cost each separately, or scope v1 explicitly to buyers who already have a qualifying US responsible party and bank footprint (a defensible launch narrowing). If serving foreign founders, partner with an established EIN/ITIN-for-foreigners service and pass that cost through; rebuild the direct-cost and capacity model for the foreign path before claiming 20 kits/month and the run-rate projections that depend on it.",
+      "lens_votes": {
+        "material": true,
+        "fact": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "ein-banking-kyc",
+      "title": "The risk register tracks seven risks but omits the two most likely to actually break a delivery",
+      "severity": "major",
+      "claim": "'Seven risks worth tracking' covering statute change, cross-state recognition, IRS treatment, buyer mismanagement, smart-contract security, reputation, and cloning. None concern EIN issuance or banking access.",
+      "problem": "Every listed risk is a low-to-medium-probability future contingency (statute change over five years, litigation testing, an IRS bulletin, a security incident, a clone). The two failure modes that are HIGH probability and IMMEDIATE (a foreign responsible party blowing the EIN SLA; a buyer being unable to open a bank account with an algorithm-as-manager OA) are simply absent. A risk register that catalogues speculative tail risks while omitting the near-certain operational failures of its own delivery pipeline is not honestly assessing the product. This is the 'the plan barely mentions this' problem made concrete: the risks that will actually generate the first refund and the first angry buyer are the ones not on the list.",
+      "fix": "Add two rows: (1) EIN issuance delay/failure for non-SSN responsible parties -> high probability, medium impact, mitigation = SLA carve-out + fax/ITIN partner; (2) buyer banking rejection due to algorithm-as-manager structure -> medium-high probability until empirically falsified, high impact, mitigation = pre-validated OA structure with human signatory + named bank/fintech referral + the Ecodia-DAO-LLC banking experiment as proof. Make the banking experiment a phase-one gating item before any pilot buyer is recruited.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "EIN cannot name an algorithm as responsible party; IRS requires a natural person, and the plan never says who signs returns or controls the EIN",
+      "severity": "major",
+      "claim": "",
+      "problem": "The product ships 'an EIN issued' and the operations pipeline assumes a clean EIN per buyer. The IRS is explicit: the EIN 'responsible party' must be an actual natural person who exercises ultimate effective control, not an entity and certainly not an algorithm. There is no IRS mechanism for an algorithm to be the responsible party, to sign Form SS-4, or to sign annual returns. So every kit silently requires a named human (the buyer's principal) to stand behind the EIN and the filings, which quietly contradicts the 'the AI is the manager / the contract is genuinely the buyer's' marketing and recreates a human-in-the-loop the buyer may have been told they avoid. The plan's tax paragraph ('algorithmic manager treated as the entity's agent for tax purposes') hand-waves this; an algorithm is not an agent that can sign or be the responsible party.",
+      "fix": "Add an explicit 'human responsible party' line item to the operating-agreement and kit deliverable: every buyer must designate a natural-person responsible party for the EIN and a natural person authorised to sign IRS filings. State this plainly in marketing so it is not a surprise that damages the 'fully autonomous AI company' story. Have the US tax attorney confirm the SS-4 mechanics for a foreign-owned (AU seller, but buyers mostly US) vs US-owned entity, including the no-SSN fax/mail path where relevant.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "Tax section omits the mandatory Form 5472 + pro-forma 1120 regime and its $25,000-per-form penalty exposure for foreign-owned single-member kits",
+      "severity": "major",
+      "claim": "",
+      "problem": "The legal-substrate tax paragraph says 'default treatment is pass-through under default LLC rules' and stops there. For any single-member kit owned by a non-US person (and the plan notes buyers are 'mostly US-based AI founders' but does not screen for foreign ownership, and Ecodia's own demo entity is AU-controlled), a foreign-owned US single-member LLC is a disregarded entity that MUST file Form 5472 attached to a pro-forma Form 1120 every year regardless of zero tax, with a base penalty of $25,000 per form per year (escalating with no maximum), and it cannot be filed electronically. 'Pass-through, members carry the liability' is not the whole picture and materially understates the compliance burden and penalty risk Ecodia is implicitly steering buyers into. If Ecodia bundles 'an EIN issued' and a quarterly check-in but never flags 5472/1120, a buyer who relied on the kit and missed it has a colourable complaint against Ecodia as the pattern provider.",
+      "fix": "Add the 5472/1120 (and Form 1065 for multi-member) regime explicitly to the tax position, the Kit Operator's Manual, and the buyer liability disclaimer. Either offer annual tax-filing as a named add-on (the plan already lists 'a tax-filing partnership' as a future add-on; pull it forward or at minimum hard-disclaim it) or require the buyer to confirm in writing they have their own tax preparer. Make the US tax attorney scope cover the multi-member vs single-member and foreign-vs-US-owned permutations, not a single 'is pass-through defensible' yes/no.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "The upgradeability requirement is cited to the wrong section: it is W.S. 17-31-105(d), not 17-31-109",
+      "severity": "major",
+      "claim": "",
+      "problem": "The legal-substrate section states: 'Section 17-31-109 mandates that algorithmically managed DAO LLC smart contracts must be upgrade-capable, which is why Ecodia's own contract uses the UUPS proxy pattern.' This is a factual error. The smart-contract-must-be-updatable/modifiable/upgradable requirement lives in W.S. 17-31-105(d) (the formation-requirements section), not 17-31-109. A wrong statutory pin-cite in the load-bearing legal section is exactly the kind of error a Wyoming attorney spots in the first thirty seconds and that a technically-literate HN/legal reader will use to discredit the whole post and the 'audited, statute-compliant' claim. It also signals the plan author has not actually read the statute section-by-section, which undercuts the confidence in every other statutory assertion in the document.",
+      "fix": "Correct to W.S. 17-31-105(d) everywhere it appears, and do a full section-by-section read of the actual statute text (17-31-101 through 17-31-116) before anything ships, rather than relying on secondary summaries. Verify every section number, every 'mandatory disclosure' phrase (the statute requires the articles to state the LLC is a DAO 'pursuant to W.S. 17-31-104' plus the prescribed members-rights-may-differ language), and the registered-name suffix rules. Treat the statute citation accuracy as part of the attorney-opinion deliverable.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "legal-substrate",
+      "title": "Cross-state recognition is framed as a future litigation risk, but the deeper problem is that no state, including Wyoming in court, has tested whether an algorithmic manager's acts bind the entity or third parties",
+      "severity": "major",
+      "claim": "",
+      "problem": "The plan calls cross-state recognition 'the largest open legal question' and 'untested,' which is honest, but it scopes the risk too narrowly (parent-state recognition of a subsidiary) and proposes mitigations that may not hold. The deeper, unaddressed issue: a third party contracting WITH the entity may later argue no human with authority bound the LLC, that the algorithmic manager lacks capacity to contract, or that apparent-authority doctrine does not reach code. Wyoming itself has zero case law confirming an algorithmic manager's acts are enforceable against or by the entity. The proposed mitigation, 'operating-agreement carve-outs limiting the algorithmic manager's authority to Wyoming-state and on-chain acts,' is close to self-defeating: if the algorithm's authority is limited to on-chain acts, the entity needs a human for every off-chain act (banking, contracts, tax), which again collapses the autonomy story. The risk register rates this 'high probability of being tested ... medium impact'; a single adverse ruling that an algorithmic manager cannot bind the entity is arguably high impact because it invalidates the core value proposition, not medium.",
+      "fix": "Have the attorney opinion address third-party enforceability and capacity-to-contract head-on, not just parent-state recognition. Bake a named human authorised signatory into the standard operating agreement for all off-chain acts (this is what MIDAO does: 'identified human members who can pass KYC'). Re-rate this risk to high/high and make the buyer acknowledgment explicit and prominent, not buried. Stop selling 'genuinely the buyer's autonomous entity'; sell 'algorithmically-directed entity with a human authority backstop,' which is the only honest and enforceable version.",
+      "lens_votes": {
+        "unaddressed": true,
+        "material": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "Revenue projection is internally contradictory - close claims $40k/mo by month 12, but month 12 = 50 kits = $10k/mo run-rate (off by 4x)",
+      "severity": "major",
+      "claim": "",
+      "problem": "The pricing section states '$200 a month... At fifty buyers cumulative the ongoing run-rate is $10k a month. At two hundred buyers it is $40k a month.' The sequencing section sets month-12 cumulative at 50 kits. The close section then asserts 'Forty thousand US a month in run-rate by month twelve at the published price.' These cannot both be true: 50 buyers x $200 = $10k/mo, not $40k/mo. Reaching $40k/mo requires 200 ongoing buyers - 4x the stated month-12 target, and that ignores churn on the recurring fee (a novelty-driven $200/mo line is high-churn). The headline number that would be used to greenlight the project is wrong by 4x against the plan's own buyer count.",
+      "fix": "Correct the close to '$10k/mo run-rate by month 12 at 50 kits' and rebuild the financial case on that honest figure. Then ask whether $10k/mo recurring (before churn) justifies the legal, audit, insurance, monitoring, and per-buyer support load - my read is it is marginal at best. Add an explicit churn assumption to the recurring line; a novelty/PR purchase typically churns 30-60% of recurring within a year once the news cycle passes.",
+      "lens_votes": {
+        "unaddressed": true,
+        "fact": true,
+        "material": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "The HN funnel that anchors the entire demand engine over-states reach by ~30x and conversion by ~7x",
+      "severity": "major",
+      "claim": "",
+      "problem": "The plan calls one HN front-page post 'tens of millions of impressions' and 'the single highest-yield distribution event available,' and sets page-view-to-email at 0.5%. Reality: a strong HN front-page post drives ~200k-500k pageviews to the linked site over its spike, not tens of millions, and an external curiosity page for a niche legal-novelty product converts visitors to serious buyer emails at roughly 0.05-0.1%, not 0.5%. Modeled generously (60k external clicks at 0.5%) that is ~22 kits; modeled realistically (60k clicks at 0.07%, then 30% email-to-call, 25% call-to-invoice) it is ~3 kits from the one event the whole plan hangs on. The entire month-3-onward kit pipeline depends on this single over-optimistic funnel, and HN audiences are notoriously curiosity-clickers who upvote novelty and buy nothing.",
+      "fix": "Re-baseline the funnel with conservative numbers: assume one HN hit = ~300k HN views, ~15-20% external CTR, ~0.05-0.1% visitor-to-serious-email, and validate the email-to-paid rate against the pilot. Treat HN as a one-shot brand event that produces single-digit-to-low-double-digit buyers AT MOST, not a renewable pipeline. Do not build phase-3-onward capacity assumptions on a repeatable HN spike - HN burns a topic once. Identify and test a genuinely repeatable acquisition channel before scaling, because 'fire the HN post again' is not one.",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "The $200/mo recurring fee solves no ongoing buyer need and is the most fragile part of the demand thesis",
+      "severity": "major",
+      "claim": "",
+      "problem": "The plan justifies the $200/mo by what it COSTS Ecodia to provide (RA passthrough ~$100/yr, gas, monitoring, a quarterly call) - again seller-side, not buyer-side. From the buyer's view, once the LLC is filed and the contract deployed, there is no recurring job-to-be-done: the entity exists, the manager field is set, the attestation is on-chain forever. A buyer who bought largely for novelty/PR has no reason to keep paying $200/mo after the launch tweet. The plan's own structure makes the recurring fee a license-to-keep-using-the-template-and-stay-listed, which a buyer can rationally drop while keeping their (irreversible, buyer-owned) Wyoming filing. The recurring revenue - half the lifetime value in the model - is the least defensible demand assumption in the document and is presented with zero retention evidence.",
+      "fix": "Either (a) make the recurring fee buy something the buyer demonstrably needs every month - active annual-filing compliance, real cap-table/operating-agreement maintenance, ongoing legal-update service - and validate buyers will pay for THAT, or (b) drop the recurring entirely, price as a one-time kit, and rebuild the unit economics on setup margin alone. Do not model $1,800/yr/buyer recurring revenue until at least three pilot buyers have voluntarily renewed past the novelty window.",
+      "lens_votes": {
+        "fact": true,
+        "material": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "market-demand",
+      "title": "An Australian company selling US legal structure to US AI founders is a trust mismatch the demand thesis ignores",
+      "severity": "major",
+      "claim": "",
+      "problem": "The buyer is forming a US legal entity whose governance and tax treatment are untested (the plan itself flags cross-state recognition as 'the largest open legal question' and IRS treatment as uncertain). They are being asked to buy this from Ecodia Pty Ltd, an Australian company, rather than a US law firm or a known US incorporation brand. For a high-stakes, legally-novel purchase, vendor credibility and US-jurisdiction trust are core to willingness-to-pay, and a foreign vendor with no US legal license, no US track record, and one self-dealt demo entity is a materially harder sell than Stripe Atlas or a Wyoming firm. The demand model never accounts for the conversion drag this creates - it assumes interested = buyer.",
+      "fix": "Test conversion with the trust gap visible, not hidden. In the pilot, lead with 'AU company, Wyoming-attorney-opinion-backed, here is exactly who carries which liability' and measure how many serious prospects walk at that disclosure. If the drop is large, the fix is structural: route the legal delivery through the Wyoming attorney/RA as the contracting party (white-label option already in the plan), with Ecodia as the pattern/tech layer behind a US-fronted brand. Validate that buyers will transact with an AU vendor before assuming the funnel converts.",
+      "lens_votes": {
+        "material": true,
+        "fact": true,
+        "unaddressed": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "E&O insurance at 2-4k AUD will not cover UPL or the legal-advice claims the model generates - it is the wrong policy for the actual exposure",
+      "severity": "major",
+      "claim": "",
+      "problem": "The plan's named liability mitigation is 'an errors-and-omissions insurance policy. Estimated annual cost two thousand to four thousand AUD'. Generic tech/professional-services E&O specifically excludes (a) the unauthorized/unlicensed practice of a regulated profession and (b) liabilities arising from rendering legal services without a license - because those are uninsurable as a matter of public policy and underwriting. Professional liability for legal work (malpractice / lawyers' professional indemnity) is only available to licensed practitioners. So the very risk that this dimension is about - a buyer's agreement being defective, or a regulator/buyer suing over unlicensed legal advice - is exactly what a 3k AUD tech E&O policy will deny. The plan has bought the comforting label without the coverage. Worse, a misrepresentation to the insurer about the nature of the business (describing legal-document sales as 'software') can void the policy entirely.",
+      "fix": "Disclose the business accurately to the broker and ask specifically whether UPL and legal-advice claims are covered (expect: excluded). The real coverage path is that the licensed attorney/firm in the loop carries lawyers' professional indemnity for the reserved acts, and Ecodia carries tech E&O only for the software/deployment layer it is actually permitted to provide. If the model stays non-lawyer-advisory, accept that the legal-advice exposure is effectively uninsured and price/structure accordingly (entity ring-fencing, indemnity from buyers, capped liability clauses that may themselves be unenforceable against a UPL claim).",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "Unit economics assume no per-buyer attorney cost; curing UPL puts a licensed attorney in every deal and breaks the stated margin",
+      "severity": "major",
+      "claim": "",
+      "problem": "The pricing section states 'direct cost per kit is roughly 650 dollars, made up of three hours of human-substrate work plus filing fees and gas' and 'setup margin is roughly 2,850 per buyer'. This costing contains ZERO licensed-attorney time per buyer - it assumes Ecodia/EcodiaOS does the drafting and advice itself, which is the UPL problem. The only legal spend budgeted is the one-time ~800 dollar Wyoming opinion amortised across all buyers. Once the model is fixed so a licensed attorney drafts/reviews each buyer's operating agreement and the fit-advice, that is a real per-kit cost (a US attorney reviewing/customising an OA and doing a short engagement is plausibly 500-1,500 USD per buyer, not amortised). That cost lands directly in COGS and roughly halves or worse the stated setup margin, and may push the 200/mo (which the plan says covers 'the software and IP licence' and a check-in call) underwater if any ongoing legal touch is needed. The plan's headline economics ('forty thousand US a month run-rate', 'economics work without any expansion past v1 pricing') are computed against a cost base that only holds if the UPL exposure is left unaddressed.",
+      "fix": "Re-cost the kit with a licensed-attorney line item per buyer (or with the buyer paying the attorney directly and Ecodia taking a smaller template/deployment fee). Re-run the margin and the 50-buyer / 200-buyer run-rate against the corrected COGS before greenlighting pricing. If the corrected margin is unattractive, that is itself signal about whether the productised-legal-formation model works versus a pure-software (deployment + registry + monitoring) model that carries no UPL cost.",
+      "lens_votes": {
+        "material": true,
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 3
+    }
+  ],
+  "partial": [
+    {
+      "dimension": "ops-delivery",
+      "title": "The 21-day refund kill-condition collides head-on with the EIN and SoS timelines the plan ignores",
+      "severity": "critical",
+      "claim": "",
+      "problem": "Two commitments are set against each other. Line 276/332: 'full refund if Ecodia cannot deliver inside twenty-one days from invoice paid' and 'kill if anything ships past twenty-one days.' Line 265: the pipeline only starts SoS filing on day 5 and only deploys the contract on day 8. If the EIN (a stated deliverable, line 222) routinely takes 1-4 weeks on the foreign/entity-responsible-party path, then a meaningful fraction of kits CANNOT deliver the full promised package inside 21 days - through no fault of Ecodia, purely IRS/SoS queue. Wyoming SoS standard processing is itself not same-day; expedited adds cost and the plan budgets neither expedite fees nor queue variance. The plan has written a money-back guarantee against timelines it has no control over and has not measured. Every slow-EIN buyer becomes a mandatory refund AND a delivered-but-unpaid filing (irreversible). At 20 kits/month even a 15% slow-EIN rate is 3 refunds/month of $3,500 = real revenue leakage plus the sunk filing cost.",
+      "fix": "Decouple the SLA from third-party-controlled steps. Define the 21-day SLA over ONLY the steps Ecodia controls (OA delivery, contract deploy, RA assignment, kit-package compile, registry entry) and explicitly exclude EIN issuance and SoS confirmation latency from the refund trigger, disclosed up front. Alternatively, buy SoS expedite by default and budget it into the $650 cost. Do not ship a guarantee against the IRS clock.",
+      "lens_votes": {
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 2
+    },
+    {
+      "dimension": "ops-delivery",
+      "title": "No banking step anywhere - the buyer's AI-managed LLC cannot transact, and that lands back on Ecodia as support",
+      "severity": "major",
+      "claim": "",
+      "problem": "The kit ships formation, EIN, OA, on-chain attestation, RA referral, and a scoping session (line 222), and the Kit Operator's Manual covers 'ongoing operation' (line 265). Nothing addresses opening a US business bank account, which is the first thing every real operator needs and the hardest thing for a novel manager structure. US banks (and even Mercury/Brex-type fintechs) run KYB that asks 'who controls this entity' and 'who is the authorised signatory' - questions that a 'the manager is an algorithm' answer will fail or escalate. The plan markets to US AI founders who will treat a non-transactable entity as a failed deliverable and will email code@ecodia.au for help, consuming the unbudgeted support tail in the finding above. This is the gap between 'filed' and 'usable' and the plan never crosses it.",
+      "fix": "Add an explicit banking-reality section: either (a) ship a vetted fintech onboarding path (named provider that has actually approved an algorithm-managed or unusual-manager LLC) as part of the kit, or (b) state plainly in the buyer-facing FAQ and Operator's Manual that banking requires a human authorised signatory and document the recommended structure (human member/officer as signatory while the algorithm remains manager-of-record). Make this a scoping-call screening question so a buyer who needs to bank knows the human-signatory requirement before paying.",
+      "lens_votes": {
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 2
+    },
+    {
+      "dimension": "upl-legal-practice",
+      "title": "A one-off attorney opinion is mislabelled as the cure and as a marketing asset; it creates no attorney-client relationship for buyers and confers no privilege or malpractice cover",
+      "severity": "major",
+      "claim": "",
+      "problem": "The plan says the Wyoming attorney 'opinion is also a marketing asset because it is quotable in the HN post and the buyer-facing FAQ' and treats the four-hour, 500-900 dollar engagement as the legal-risk mitigation. This conflates three distinct things: (1) a validity opinion to Ecodia about the template, (2) an attorney-client relationship with each buyer, and (3) UPL clearance for Ecodia's business model. The opinion is only (1). It does not make the buyer a client of any lawyer, does not put a licensed attorney's name and malpractice insurance behind each buyer's specific agreement, and does not authorise Ecodia to practice. Quoting a private opinion-letter publicly may also breach the opinion's reliance limitations (opinion letters are addressed to a named recipient and explicitly disclaim third-party reliance - publishing it to induce buyer reliance can expose both Ecodia and the firm). Using a lawyer's name to lend authority to a non-lawyer's legal-services offering can itself implicate the firm in aiding UPL, which Wyoming firms will refuse once they understand the structure.",
+      "fix": "Separate the artefacts cleanly. (1) Keep a validity opinion for internal product confidence, but do NOT publish it as a buyer-reliance marketing asset without the firm's written consent and a reliance carve-out; assume the answer is no. (2) The thing that actually cures buyer-facing risk is a per-buyer attorney-of-record relationship: each buyer is engaged by a licensed firm that drafts/reviews their agreement and stands behind it. Price that into the kit (it raises COGS materially - see the pricing finding). (3) Treat UPL clearance as its own workstream per upl-50-state-not-just-wyoming. Do not let the single 800-dollar opinion stand in for all three.",
+      "lens_votes": {
+        "unaddressed": true,
+        "fact": true
+      },
+      "n_votes": 2
+    }
+  ]
+}

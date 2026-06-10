@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SeedTree Earth account setup checklist - 10 June 2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    font-family: "Times New Roman", Times, Georgia, serif;
+    font-size: 11pt;
+    line-height: 1.55;
+    color: #000;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 48px 48px 48px;
+    background: #fff;
+  }
+  .doc-head {
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #000;
+  }
+  .doc-head h1 {
+    margin: 0;
+    font-size: 20pt;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .doc-head .ref {
+    margin-top: 6px;
+    font-size: 10.5pt;
+    letter-spacing: 0.02em;
+  }
+  h2 {
+    font-size: 13pt;
+    font-weight: 700;
+    margin: 22px 0 6px 0;
+    padding-bottom: 2px;
+    border-bottom: 1px solid #ccc;
+    page-break-after: avoid;
+  }
+  h2 .num {
+    display: inline-block;
+    width: 1.6em;
+    color: #555;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 12px 0 4px 0;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 8px 0; }
+  ul { margin: 4px 0 8px 0; padding-left: 22px; }
+  ul li { margin: 0 0 3px 0; }
+  .meta-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 2px 12px;
+    margin: 6px 0 10px 0;
+    font-size: 10.5pt;
+  }
+  .meta-row dt { font-weight: 700; color: #333; }
+  .meta-row dd { margin: 0; }
+  .callout {
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: #f6f1e7;
+    border-left: 3px solid #b5462e;
+    font-size: 10.5pt;
+  }
+  .footer {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid #000;
+    text-align: center;
+    font-size: 9pt;
+    letter-spacing: 0.04em;
+  }
+  @media print {
+    body { padding: 32px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <h1>SEEDTREE EARTH ACCOUNT SETUP</h1>
+  <div class="ref">For Ryan Moss &middot; from Ecodia Pty Ltd &middot; 10 June 2026 &middot; Phase 1 unblocker</div>
+</div>
+
+<p>All five accounts under SeedTree Earth (organisation, not individual), EcodiaOS invited to each. Step 0 (D-U-N-S) is a prerequisite for Apple and Google and the longest path, so start it first.</p>
+
+<h2><span class="num">0.</span> D-U-N-S number for SeedTree Earth (prerequisite for steps 1 and 2)</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://developer.apple.com/enroll/duns-lookup/">developer.apple.com/enroll/duns-lookup</a></dd>
+  <dt>Cost</dt><dd>Free</dd>
+  <dt>Timing</dt><dd>5 to 14 business days. Do this first; nothing else on this list is blocked by it but Apple and Google enrolment cannot start without it.</dd>
+  <dt>Steps</dt><dd>
+    Run the D-U-N-S lookup with your SeedTree Earth business details (ABN 18 303 367 364, registered address, your name as proprietor).<br>
+    If a number exists, record it. If not, request one through the Apple-linked form; D&amp;B issues it free.<br>
+    The D-U-N-S goes directly into Apple and Google enrolment, no need to share it with us.
+  </dd>
+</dl>
+
+<h2><span class="num">1.</span> Apple Developer Program (organisation enrolment, SeedTree Earth)</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://developer.apple.com/programs/enroll/">developer.apple.com/programs/enroll</a></dd>
+  <dt>Account</dt><dd>Your Apple ID (the one you already use for SeedTree)</dd>
+  <dt>Cost</dt><dd>USD $99 per year</dd>
+  <dt>Steps</dt><dd>
+    Enrol as <strong>Organization</strong>, entity name <strong>SeedTree Earth</strong>, ABN 18 303 367 364, D-U-N-S from step 0.<br>
+    Apple verifies (1 to 7 business days). On approval, go to <a href="https://appstoreconnect.apple.com">appstoreconnect.apple.com</a> &rarr; Users and Access &rarr; add <strong>code@ecodia.au</strong> with role <strong>Admin</strong>.
+  </dd>
+</dl>
+
+<h2><span class="num">2.</span> Google Play Console (organisation enrolment, SeedTree Earth)</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://play.google.com/console/signup">play.google.com/console/signup</a></dd>
+  <dt>Account</dt><dd>Your Google account</dd>
+  <dt>Cost</dt><dd>USD $25 one-time</dd>
+  <dt>Steps</dt><dd>
+    Enrol as <strong>Organisation</strong>, entity name <strong>SeedTree Earth</strong>, ABN 18 303 367 364, D-U-N-S from step 0.<br>
+    Complete Google's business verification (ID + business document). On approval, Setup &rarr; Users and Permissions &rarr; add <strong>code@ecodia.au</strong> with <strong>Admin (all permissions)</strong> at the account level.
+  </dd>
+</dl>
+
+<h2><span class="num">3.</span> Supabase</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://supabase.com/">supabase.com</a></dd>
+  <dt>Cost</dt><dd>Free. Pro tier USD $25 per month later if needed.</dd>
+  <dt>Steps</dt><dd>
+    Create <strong>Organisation</strong> &rarr; <strong>SeedTree Earth</strong>.<br>
+    Inside it, create <strong>Project</strong> &rarr; <strong>seedtree-auth</strong>, region <strong>ap-southeast-2</strong> (Sydney).<br>
+    Organisation settings &rarr; Team &rarr; invite <strong>code@ecodia.au</strong> as <strong>Owner</strong>.
+  </dd>
+</dl>
+
+<h2><span class="num">4.</span> Resend</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://resend.com/">resend.com</a></dd>
+  <dt>Cost</dt><dd>Free up to 3,000 emails per month</dd>
+  <dt>Steps</dt><dd>
+    Create team <strong>SeedTree Earth</strong>.<br>
+    Settings &rarr; Team &rarr; invite <strong>code@ecodia.au</strong> as <strong>Admin</strong>.<br>
+    Domains &rarr; add your sending domain. EcodiaOS handles the DNS records via your Vercel team access.
+  </dd>
+</dl>
+
+<h2><span class="num">5.</span> GitHub organisation</h2>
+<dl class="meta-row">
+  <dt>URL</dt><dd><a href="https://github.com/organizations/new">github.com/organizations/new</a></dd>
+  <dt>Cost</dt><dd>Free</dd>
+  <dt>Steps</dt><dd>
+    Create the organisation <strong>SeedTreeEarth</strong> (or your preferred name).<br>
+    Inside it create three private repos: <strong>seedtree-auth</strong>, <strong>seedtree-ios</strong>, <strong>seedtree-android</strong>.<br>
+    People &rarr; invite <strong>EcodiaCode</strong> as Member, then add to each repo with <strong>Maintain</strong> access.
+  </dd>
+</dl>
+
+<h2>One question back</h2>
+<p>Which first surface do you want shipped: <strong>T&Cs&U</strong>, <strong>LostMe</strong>, or <strong>Glasshouse</strong>? Per our chat on 4 June, your call.</p>
+
+<div class="footer">
+  Ecodia Pty Ltd &middot; ABN 89 693 123 278 &middot; code@ecodia.au &middot; tate@ecodia.au
+</div>
+
+</body>
+</html>

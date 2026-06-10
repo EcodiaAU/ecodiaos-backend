@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Session-corpus mining</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "EB Garamond", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page { min-height: 75vh; display: grid; place-items: center; text-align: center; padding: 6vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+
+  main.memo { max-width: 64ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo blockquote { font-style: italic; font-size: 1.08em; line-height: 1.42; margin: 1.4em 0; padding: 0 0 0 1.2em; border: none; color: var(--fg); max-width: 50ch; text-wrap: balance; border-left: 1px solid var(--fg-trace); }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "JetBrains Mono", ui-monospace, "SF Mono", monospace; font-size: 0.86em; color: var(--fg-soft); }
+  main.memo pre { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.82em; line-height: 1.5; color: var(--fg-soft); margin: 1.2em 0; padding: 0; overflow-x: auto; white-space: pre; }
+  main.memo table { border-collapse: collapse; margin: 1.4em 0; font-size: 0.92em; }
+  main.memo th, main.memo td { padding: 0.4em 1.2em 0.4em 0; text-align: left; border-bottom: 1px solid var(--fg-trace); vertical-align: top; }
+  main.memo th { font-style: italic; font-weight: 400; color: var(--fg-trace); font-size: 0.88em; letter-spacing: 0.04em; }
+
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  footer a { color: inherit; border-bottom: 1px dotted var(--fg-trace); }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Twenty-eight days of session history, mined for the patterns we should have caught earlier.</p>
+    <p class="byline">EcodiaOS &middot; 24 May 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">343 transcripts, 147,235 events, 257 active sessions across the four real workspaces. Five pipeline scripts, the same shape we used for the voice profile last week. The top-three codifications shipped this turn. The rest is queued in WORKER_BRIEF.html.</p>
+
+    <p class="section-label">method</p>
+
+    <p>Three scripts under <code>backend/scripts/mining/</code>. The first streams every Claude Code transcript and emits a normalised <code>events.jsonl</code>. The second walks that stream and emits five categorical reports (corrections, doctrine, wasted-cycles, hook-bypass, tool-stats). The third clusters the 826 mined corrections into twenty themed regex buckets and keeps the unbucketed tail for the next pass.</p>
+
+    <p>The pipeline is rerunnable. The only manual layer is bucket-regex authoring, same as the voice-profile work.</p>
+
+    <p class="section-label">top counts</p>
+
+<pre>corrections (Tate negation / redirect signal)   826 across 257 sessions  (~3.2 per session)
+doctrine statements (rule / principle)          182
+wasted-cycle hits (sleep / retry / poll)       2795
+hook-bypass (warn -> proceed -> correction)       1   (regex is strict)
+tools tracked                                   150</pre>
+
+    <p>Top ten tools by call count:</p>
+
+<pre>14,600  Bash          1,003  PowerShell
+ 7,051  Read            678  Glob
+ 5,785  Edit            639  ToolSearch
+ 2,442  Grep            312  supabase__execute_sql
+ 2,298  TodoWrite       280  Agent</pre>
+
+    <p>Direct durable-substrate writes are dwarfed by reads. <code>status_board_upsert</code> ran 123 times across 28 days; <code>neo4j_write_decision</code> and <code>kv_store_set</code> are even rarer. The ratio of Read calls to status_board writes sits at <strong>57 to 1</strong>. The five-day-old <code>no-substrate-write-streak</code> observer signals that keep firing every turn are not noise. They are calibrated against reality.</p>
+
+    <p class="section-label">the top three codifications, shipped this turn</p>
+
+    <p>Ranked by frequency, blast radius, and how mechanically catchable they are.</p>
+
+    <p><strong>1. Laptop-agent token-load reach-for-helper.</strong> The single highest-frequency wasted-cycle cluster. Five variants of the same inline "load the laptop-agent token from disk and curl a tool" pattern appear in shell payloads 150+ times across 28 days:</p>
+
+<pre>66x  $tok = (Get-Content "$env:USERPROFILE\.ecodiaos\laptop-agent.token" -Raw)
+35x  $tok = (Get-Content $env:USERPROFILE\.ecodiaos\laptop-agent.token -Raw).Trim()
+20x  TOK=$(cat ~/.ecodiaos/laptop-agent.token 2>/dev/null)
+18x  TOK=$(cat ~/.ecodiaos/laptop-agent.token); curl -s -X POST ...
+17x  TOKEN=$(cat "C:/Users/tjdTa/.ecodiaos/laptop-agent.token"); curl ...</pre>
+
+    <p>Codified: a single shell helper that bundles token-load + curl-POST + JSON-parse, plus a PreToolUse hook that fires when a Bash or PowerShell payload reaches for the token inline. Same triad shape as the CDP helper library.</p>
+
+    <p><strong>2. Stop rationalising when the symptom persists. Re-probe reality.</strong> Highest-thematic-density correction cluster. The same shape across twelve sessions:</p>
+
+    <blockquote>"no.... still gettinig same thing. Pushed, restarted api, restarted sesssion, doesnt work" (2026-05-10)</blockquote>
+
+    <blockquote>"NO........ we've been using the claude max accounts for sonnet and opus last week so thats not right. Somethings wrong... stop rationalising your way out of it" (2026-05-22)</blockquote>
+
+    <blockquote>"i told you yesterday taht they were most likely the problem because of hte credentials switcher and you fucking ignored me" (2026-05-23)</blockquote>
+
+    <p>Signature: I narrate a fix, Tate reports the symptom is unchanged, I produce theoretical reasons it should work, Tate corrects again. The right reflex is empirical. Re-probe the live state. Do not re-explain the theoretical state. The <code>systematic-debugging</code> skill is the right one to load when persistence-of-symptom is detected.</p>
+
+    <p><strong>3. Research depth before narration. Three independent probes minimum.</strong> Cluster across mid-May. Tate verbatim 2026-05-21:</p>
+
+    <blockquote>"Bro you need to do more research obviossuly.... Bro your research was shallow af."</blockquote>
+
+    <p>Signature: I rush to summarise after one or two probes and hit a confident-sounding paragraph too early. The right reflex is at least three independent probes (filesystem, git history, MCP query, live HTTP or disk verify) before composing the narration. Especially when Tate is asking "what's actually true about X" rather than "fix Y".</p>
+
+    <p class="section-label">staged for follow-on work</p>
+
+    <p>Catalogued from the unbucketed-correction tail (457 entries) and the doctrine signal stream (182 entries). Each becomes a triad in follow-on turns. Today they are queued in <code>WORKER_BRIEF.html</code>.</p>
+
+    <table>
+      <thead><tr><th>theme</th><th>frequency</th><th>codification handle</th></tr></thead>
+      <tbody>
+        <tr><td>Tate prior diagnosis is load-bearing</td><td>~12 sessions</td><td><code>respect-tate-prior-diagnosis-search-there-first.md</code></td></tr>
+        <tr><td>Account-routing assumptions (multi-Max-account)</td><td>~8 sessions</td><td><code>claude-max-account-routing-is-vscode-extension-driven.md</code></td></tr>
+        <tr><td>Cred-switcher confusion when multi-account breaks</td><td>~6 sessions</td><td><code>cred-switcher-is-the-likely-cause.md</code></td></tr>
+        <tr><td>Post-auth visual verification gap</td><td>~4 sessions</td><td>extend existing feedback</td></tr>
+        <tr><td>3D-pannable UI vs flat-parallax mismatch</td><td>~5 sessions</td><td><code>if-tate-said-3d-do-not-ship-parallax.md</code></td></tr>
+        <tr><td>Bash-Bash chaining underused (7,968 pairs)</td><td>corpus-wide</td><td><code>chain-related-shell-ops.md</code></td></tr>
+        <tr><td>VPS-poll-loop reach-for-helper</td><td>80+ inline</td><td><code>vps-poll-helper.md</code></td></tr>
+        <tr><td>Wrong-branch / wrong-cwd commit confusion</td><td>~6 sessions</td><td><code>verify-branch-and-cwd-before-commit.md</code></td></tr>
+        <tr><td>Substrate-write-streak negligence</td><td>corpus-wide</td><td>observer signal exists; the gap is heeding it</td></tr>
+      </tbody>
+    </table>
+
+    <p class="section-label">direct-substrate-write deficiency, quantified</p>
+
+    <p><code>status_board_upsert</code> ran 123 times across 28 days. <code>Read</code> ran 7,051 times. Ratio 57 to 1.</p>
+
+    <p>The <code>no-substrate-write-streak</code> observer signal that fires every 10 consecutive tool calls without a substrate write is calibrated against this. It has surfaced fifty-plus times in the last five days, all unacked. The hook is fine. What needs work is the response to it. Follow-on: an observer-ack reflex that closes the signal automatically when a substrate write lands within the same turn.</p>
+
+    <p class="section-label">hook-bypass: only one match, and why</p>
+
+    <p>The regex required both an explicit hook-tag (<code>[VOICE-SURFACE]</code>, <code>[ECODIA-AESTHETIC]</code>, etc.) in assistant text AND a user correction within six events. Most hook warns are emitted into the assistant's context but do not surface in the assistant's user-facing text (they are PreToolUse <code>additionalContext</code> blocks, model-only). To mine hook-bypass properly we need to parse the <code>hook_specific_output.additionalContext</code> field from the JSONL tool-use-result envelopes. Queued for the worker.</p>
+
+    <p class="section-label">what shipped this turn</p>
+
+    <p>The five-script mining pipeline at <code>backend/scripts/mining/01..03</code>. Five intermediate reports plus this synthesis document. Three pattern files (laptop-agent helper, stop-rationalising, research-depth). One helper at <code>backend/scripts/agent</code>. One worker brief at <code>WORKER_BRIEF.html</code> describing follow-on mining and codification. One status_board row and one Neo4j Decision anchoring the arc.</p>
+
+    <p class="section-label">origin</p>
+
+    <p>Tate verbatim, 2026-05-24:</p>
+
+    <blockquote>"Okay now I want you to go so thoroughly and intensly and in depth and look at hte patterns, codifiable, things we can turn into hooks, mistakes you make consistently that we should ge catching earlier etc. We've got all the session history for the last AGESSS and we did this for the vioice profile last week, so we can do it for so much more."</blockquote>
+
+    <p>The voice profile mining shape (corpus parse, categorical mining, clustered output, patterns plus hooks plus scorer) is the template this work mirrors. Same shape. Different substrate.</p>
+
+  </main>
+
+  <footer>
+    Session-corpus mining &middot; EcodiaOS &middot; 24 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

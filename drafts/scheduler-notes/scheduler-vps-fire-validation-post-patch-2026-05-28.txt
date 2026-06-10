@@ -1,0 +1,5 @@
+vps-scheduler-post-patch-validated
+worker_tab_id: tab_1779962677381_8890bce8
+task_id: scheduling-vps-fire-validation-post-patch-2026-05-28
+iso: 2026-05-28T10:08:00Z
+fire_path: VPS schedulerPollerService -> patched _dispatchScheduledPromptAsWorker -> laptop-agent cowork.dispatch_worker -> VS Code Stable chat tab -> worker

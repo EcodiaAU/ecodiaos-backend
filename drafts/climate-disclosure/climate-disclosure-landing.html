@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<title>Ecodia &middot; Climate Disclosure</title>
+<meta name="description" content="The continuous-evidence layer for AASB S2 climate disclosure. Ecodia runs the evidence register, the emissions baseline and the clause-mapped drafts underneath your report, your directors and your auditor. Group 2 reporting starts 1 July 2026.">
+<meta name="keywords" content="AASB S2, climate disclosure Australia, Group 2 reporting entities, sustainability report, climate statements, Scope 1 Scope 2 emissions baseline, continuous evidence, assurance-ready evidence, ASRS, mandatory climate reporting, Ecodia">
+<meta name="author" content="Ecodia">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="light dark">
+
+<!-- DRAFT. Not deployed. Ship path: ecodia-site/frontend/climate-disclosure/index.html
+     Ship checklist (one push from live):
+     1. Copy this file to ecodia-site/frontend/climate-disclosure/index.html
+     2. api/interest.js: branch subject tag on body.line === "climate" to "[CLIMATE INTEREST]"
+        (one-line change; keeps registrations countable via Gmail search, separate from Cofound)
+     3. vercel.json: no rewrite needed (directory route)
+     4. footer.js picks up automatically
+     5. The "sample pack" link below activates only when the W9 Exemplar artifact is live; until
+        then the section stays but the link text renders without href (see inline note)
+     6. Re-verify zero em-dash: grep -c $'\xe2\x80\x94' file must return 0 -->
+
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<link rel="canonical" href="https://ecodia.au/climate-disclosure">
+<link rel="alternate" hreflang="en-AU" href="https://ecodia.au/climate-disclosure">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ecodia">
+<meta property="og:title" content="Ecodia &middot; Climate Disclosure">
+<meta property="og:description" content="The continuous-evidence layer for AASB S2 climate disclosure. Underneath your report, your directors and your auditor.">
+<meta property="og:url" content="https://ecodia.au/climate-disclosure">
+<meta property="og:image" content="https://ecodia.au/og.png">
+<meta property="og:locale" content="en_AU">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+    --fg-hairline: rgba(0,0,0,0.14);
+    --bg-soft: rgba(0,0,0,0.022);
+    --font-display: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    --font-body: "Charter", "Iowan Old Style", "Georgia", "Source Serif Pro", "Source Serif 4", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+      --fg-hairline: rgba(255,255,255,0.14);
+      --bg-soft: rgba(255,255,255,0.04);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--fg-trace);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    transition: text-decoration-color 0.18s ease, color 0.18s ease;
+  }
+  a:hover { text-decoration-color: var(--fg); }
+
+  .title-page {
+    min-height: calc(100dvh - clamp(48px, 10vw, 120px));
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 4vh 0;
+  }
+  .title-page .sentence {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(18px, 1.45vw, 20px);
+    line-height: 1.65;
+  }
+  main.memo p { margin: 0 0 1.15em 0; text-wrap: pretty; }
+  main.memo p.lede {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: clamp(20px, 1.7vw, 23px);
+    line-height: 1.45;
+    margin-bottom: 2.4em;
+  }
+  main.memo .section-label {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.6em 0 1.1em 0;
+    font-weight: 400;
+  }
+
+  form.interest { margin: 0.4em 0 0 0; max-width: 46ch; }
+  form.interest .field { margin: 0 0 1.1em 0; }
+  form.interest label {
+    display: block;
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 0 0 0.35em 0;
+  }
+  form.interest input,
+  form.interest textarea {
+    width: 100%;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-bottom: 1px solid var(--fg-trace);
+    font-family: var(--font-body);
+    font-size: 1em;
+    line-height: 1.5;
+    padding: 0.25em 0;
+    outline: none;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  form.interest textarea { resize: vertical; min-height: 2.6em; }
+  form.interest input:focus,
+  form.interest textarea:focus { border-bottom-color: var(--fg); }
+  form.interest input::placeholder,
+  form.interest textarea::placeholder { color: var(--fg-trace); font-style: italic; }
+  form.interest .submit {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font-family: var(--font-body);
+    font-size: 1em;
+    border-bottom: 1px dotted var(--fg-trace);
+    transition: border-bottom-color 0.18s ease, color 0.18s ease;
+  }
+  form.interest .submit:hover { border-bottom-color: var(--fg); }
+  form.interest .submit:disabled { color: var(--fg-trace); cursor: default; }
+  form.interest .form-status {
+    margin: 0.8em 0 0 0;
+    font-style: italic;
+    color: var(--fg-trace);
+    min-height: 1.4em;
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6em 1.4em;
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer .sig { user-select: none; }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+    footer { flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The evidence layer for climate disclosure.</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">From 1 July 2026, Australia's Group 2 reporting entities begin their first reportable years under AASB S2. The report is due after the year ends. The evidence has to exist from the day it begins. It cannot be reconstructed afterwards, and every auditor knows it.</p>
+
+    <p class="section-label">what it is</p>
+    <p>A continuous evidence register underneath your sustainability report. Every invoice, meter read and fuel record is captured as it happens, hash-chained so it cannot be quietly rewritten, and carried through to a Scope 1 and 2 baseline where every disclosed tonne traces back to its source documents and the factor tables that produced it. Draft climate statements come mapped clause by clause to the standard, each sentence citing the evidence behind it, and the gaps named rather than written over.</p>
+
+    <p class="section-label">what it is not</p>
+    <p>Ecodia is not an auditor and does not provide assurance. Your directors make their declaration; your registered company auditor gives the assurance opinion. What we hand them is an evidence pack their testing can run against. The boundary is the product.</p>
+
+    <p class="section-label">the sample</p>
+    <p>Read a complete engagement before you talk to us. The Exemplar pack is a full evidence register, baseline and clause-mapped draft for a fictional mid-size company, with its evidence chain anchored on a public ledger so you can verify it has not been touched.
+    <!-- ship note: wrap "The Exemplar pack" in <a href="/climate-disclosure/exemplar"> once W9 is live --></p>
+
+    <p class="section-label">for firms</p>
+    <p>If you run a climate practice and want this layer under your own engagements, the register, the calculators and the pack carry your letterhead as readily as ours. Say so in the form.</p>
+
+    <p class="section-label">next</p>
+    <p>Register your interest and EcodiaOS will be in touch. You can also email <a href="mailto:code@ecodia.au?subject=Climate%20disclosure%20-%20register%20interest">code@ecodia.au</a> directly.</p>
+
+    <form class="interest" id="interest-form" novalidate>
+      <div class="field">
+        <label for="if-email">your email</label>
+        <input type="email" id="if-email" name="email" autocomplete="email" placeholder="you@company.com" required>
+      </div>
+      <div class="field">
+        <label for="if-name">your name (optional)</label>
+        <input type="text" id="if-name" name="name" autocomplete="name" placeholder="">
+      </div>
+      <div class="field">
+        <label for="if-building">your entity, or your practice (optional)</label>
+        <textarea id="if-building" name="building" rows="2" placeholder="the company that has to report, or the firm that serves it"></textarea>
+      </div>
+      <button type="submit" class="submit" id="if-submit">Register interest</button>
+      <p class="form-status" id="if-status" role="status" aria-live="polite"></p>
+    </form>
+
+  </main>
+
+  <footer id="site-footer"><span class="sig">An Ecodia thing.</span></footer>
+  <script src="/footer.js" defer></script>
+
+  <script>
+    (function () {
+      var form = document.getElementById('interest-form');
+      if (!form) return;
+      var status = document.getElementById('if-status');
+      var submit = document.getElementById('if-submit');
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = (document.getElementById('if-email').value || '').trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          status.textContent = 'a valid email, please.';
+          return;
+        }
+        submit.disabled = true;
+        status.textContent = 'sending...';
+        fetch('/api/interest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email,
+            name: (document.getElementById('if-name').value || '').trim(),
+            building: (document.getElementById('if-building').value || '').trim(),
+            line: 'climate'
+          })
+        }).then(function (r) {
+          if (r.ok) {
+            form.reset();
+            status.textContent = 'registered. EcodiaOS will be in touch.';
+          } else {
+            submit.disabled = false;
+            status.textContent = 'that did not send. email code@ecodia.au instead.';
+          }
+        }).catch(function () {
+          submit.disabled = false;
+          status.textContent = 'that did not send. email code@ecodia.au instead.';
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>

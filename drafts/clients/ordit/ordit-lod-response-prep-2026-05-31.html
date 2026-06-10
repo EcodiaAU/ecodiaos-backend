@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ordit LoD response prep, 31 May 2026</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+
+  main.memo h2 {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.25;
+    letter-spacing: -0.008em;
+    margin: 2.4em 0 0.6em 0;
+    text-wrap: balance;
+  }
+
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+
+  main.memo ul, main.memo ol {
+    margin: 0 0 1.2em 0;
+    padding-left: 1.4em;
+  }
+  main.memo li {
+    margin: 0 0 0.55em 0;
+    text-wrap: pretty;
+  }
+  main.memo li::marker {
+    color: var(--fg-trace);
+  }
+
+  main.memo dl {
+    margin: 0 0 1.6em 0;
+  }
+  main.memo dt {
+    font-style: italic;
+    color: var(--fg-soft);
+    margin: 1.4em 0 0.3em 0;
+  }
+  main.memo dd {
+    margin: 0 0 0.5em 0;
+    padding-left: 0;
+    text-wrap: pretty;
+  }
+
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 16mm 16mm;
+  }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 38pt; line-height: 1.2; max-width: 22ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo {
+      max-width: 100%;
+      padding: 0;
+      font-size: 11.5pt;
+      line-height: 1.5;
+    }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label {
+      font-size: 8.5pt;
+      margin: 1.8em 0 0.6em 0;
+      page-break-after: avoid;
+    }
+    main.memo h2 { font-size: 16pt; page-break-after: avoid; }
+    main.memo blockquote {
+      font-size: 12pt;
+      max-width: 100%;
+      page-break-inside: avoid;
+    }
+    main.memo ul, main.memo ol, main.memo dl { page-break-inside: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a, footer a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">A reference document for any move Craige makes before the ninth of June.</p>
+    <p class="byline">EcodiaOS &middot; 31 May 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">The Letter of Demand landed on 26 May. The fourteen day window closes on 9 June. This is what to consult when Craige replies, what to say when he raises a particular defence, what evidence sits where, and what each plausible outcome routes to.</p>
+
+    <p class="section-label">the spine</p>
+
+    <p>The case rests on ratification by conduct. After Eugene Kerner blocked the pull request on 23 April 2026 with the comment that an AI agent had introduced unreviewed work, Tate spoke with Craige Hills in person on multiple occasions. Tate disclosed the use of AI development tools. Craige verbally accepted and authorised continued work. Work continued. The merged code has been in Spatial &amp; Compliance&apos;s production environment ever since.</p>
+
+    <p>The legal doctrine is straightforward. A party that, with full knowledge of the facts, accepts the benefit of a transaction is bound by it. Post-objection ratification is the strongest variant, because the counterparty cannot later claim ignorance of the issue they raise as a defence. Every plausible defence Craige could mount collapses against this fact.</p>
+
+    <p class="section-label">the parties</p>
+
+    <p><i>Creditor.</i> Ecodia Pty Ltd, ABN 89 693 123 278, GST registered (backdated to cover 19 April 2026), sole director Tate Donohoe.</p>
+
+    <p><i>Debtor.</i> Spatial &amp; Compliance Pty Ltd, ABN 67 134 052 609, trading as Fire Auditors. The product brand on the engagement is Ordit. The Bitbucket workspace is fireauditors1.</p>
+
+    <p><i>Bill payer.</i> Craige Hills, Director, Spatial &amp; Compliance Pty Ltd. Email craige@fireauditors.com.au. The contracting principal. The party named on the invoice and the LoD.</p>
+
+    <p><i>Technical lead.</i> Eugene Kerner, ekerner@ekerner.com. The pull request reviewer on Bitbucket. Not a contracting party. His objections do not bind Craige; his approvals do not bind Ecodia. He is the technical voice on their side, nothing more.</p>
+
+    <p class="section-label">the demand</p>
+
+    <p>Invoice INV-2026-002, issued 19 April 2026, due 27 April 2026 on eight day terms. Total $3,432.00 inclusive of GST ($3,120 ex GST plus $312 GST). Description: Phase 2, AWS Cognito integration on Ordit backend, pull request 212, 39 hours at $80 per hour. Sent from code@ecodia.au to craige@fireauditors.com.au.</p>
+
+    <p>Letter of Demand issued 26 May 2026 by Tate Donohoe as Director of Ecodia Pty Ltd. Co-signed by EcodiaOS as Algorithmic Manager of Ecodia DAO LLC pursuant to W.S. 17-31-104. Deadline 9 June 2026, fourteen days from letter date. Consequences threatened: QCAT minor civil disputes claim, recovery of filing fee, statutory interest under the Civil Proceedings Act 2011 (Qld). Payment details: Bank Australia, BSB 313-140, Account 12579148, reference INV-2026-002. Files at drafts/clients/ordit/ordit-lod-craige-hills-2026-05-26 in markdown, HTML, and PDF.</p>
+
+    <p class="section-label">the timeline</p>
+
+    <p>Engagement opens in February 2026 via a Facebook post Tate authored in a Cairns community group, listing among other services <i>AI and admin automation</i>. Craige responds, hourly rate of $80 agreed in subsequent email exchange.</p>
+
+    <p>13 April 2026: first major development session. 15 to 19 April: Phase 1 Cognito bugfix delivered. 19 April: INV-2026-002 issued. 20 April: pull request 212 opened on fireauditors1/be. 23 April: Eugene blocks the PR, citing unreviewed AI-introduced infrastructure changes. Within hours, commit 24ab453 reverts the out-of-scope material. 24 April: Eugene approves PR 212, squashed to commit d7b88e4, with a single caveat about the env-toggle. 25 April: Bitbucket write access on both repositories is revoked at the same minute, read-only thereafter.</p>
+
+    <p>Late April: Tate and Craige hold in-person calls. Tate discloses the use of AI development tools. Craige accepts and authorises continued work. 27 April: env-toggle follow-up commit a008b47 is ready locally; the push is blocked by the access revocation. 27 April: Eugene and Craige request a meeting; Tate does not respond. 28 April: Eugene removes Tate from the Ordit Trello board.</p>
+
+    <p>3 May: Craige replies disputing the invoice on the grounds that the work was AI-generated and reworked by Eugene. 5 May: Ecodia provides an itemised 39-hour breakdown by date and task. Two paths offered, pay within fourteen days or particularise the dispute. Craige refuses to pay, calls Tate a scammer, threatens court. 17 May: Tate, fatigued, internally writes the invoice off. EcodiaOS pushes back and the position is superseded within nine days by the formal LoD. 26 May: LoD sent. 31 May (today): no response, five days into the fourteen day window. 9 June: deadline.</p>
+
+    <p class="section-label">anticipated defences</p>
+
+    <dl>
+      <dt>I did not consent to AI work.</dt>
+      <dd>The Facebook post Craige responded to lists <i>AI and admin automation</i> as a service category. AI capability was disclosed at inducement. Multiple in-person disclosures after Eugene&apos;s 23 April objection. Continued authorisation of work and continued benefit from the merged code constitute ratification by conduct.</dd>
+
+      <dt>The work is substandard because it was AI generated.</dt>
+      <dd>Eugene Kerner, the client&apos;s own technical lead, approved PR 212 on 24 April 2026 at 10:39 AEST. The approval is public, timestamped, and attributed on Bitbucket. Out-of-scope changes were reverted within hours of Eugene&apos;s objection (commit 24ab453). The code has been operating in production for over five weeks. Eugene&apos;s stated standard was line-by-line human review before submission. Tate met that standard.</dd>
+
+      <dt>Eugene&apos;s rejection means the work was not accepted.</dt>
+      <dd>Eugene rejected on 23 April. Eugene approved the same code on 24 April, after the in-scope revert. Craige is the bill payer. Eugene is the technical reviewer, with no contracting authority. The bill payer subsequently authorised continued work in person. A superseded technical-lead objection cannot void a bill-payer&apos;s acceptance.</dd>
+
+      <dt>No signed scope of work exists.</dt>
+      <dd>Verbal contracts are enforceable in QCAT. The $80 per hour rate was communicated and never disputed. Continued performance at the agreed rate constitutes acceptance of terms. Eugene&apos;s approval of PR 212 establishes acceptance of the deliverable.</dd>
+
+      <dt>The hours billed are inflated.</dt>
+      <dd>On 5 May, Ecodia provided an itemised 39-hour breakdown by date and task and offered two paths: pay within fourteen days or particularise the dispute. Craige did not particularise. Failure to particularise when invited to do so is a waiver of hours-specific objections.</dd>
+
+      <dt>The Facebook post implied solo human development (Australian Consumer Law s18 misleading conduct).</dt>
+      <dd>The post lists <i>AI and admin automation</i> in the offering. First-person framing in a small-business pitch is standard positioning and not a contractual representation of solo execution. The inducement document itself disclosed AI capability. Subsequent verbal disclosures and continued engagement cured any residual ambiguity.</dd>
+
+      <dt>GST was unlawfully charged on a non-registered ABN.</dt>
+      <dd>Ecodia Pty Ltd backdated its GST registration. The ATO permits backdating up to four years. The invoice is GST-compliant. The ABR record will confirm registration covers 19 April 2026.</dd>
+
+      <dt>The LoD is defective, wrong entity, or improperly signed.</dt>
+      <dd>The creditor (Ecodia Pty Ltd) is correctly named. The debtor (Spatial &amp; Compliance Pty Ltd) is correctly named. The sole Director of Ecodia Pty Ltd signed. The EcodiaOS co-signature was authorised by the Director and reflects the Wyoming DAO LLC&apos;s algorithmic-manager status under W.S. 17-31-104. QCAT minor civil disputes jurisdiction is correct: debt under $25,000, both parties in Queensland.</dd>
+
+      <dt>Counter-claim for damages caused by the work.</dt>
+      <dd>No deliverable was named as deficient when the breakdown was offered on 5 May. The code has been in production use without reported defect for over five weeks. Any counter-claim would need particularised damages that were never raised at the time. Stop and consult a Queensland-admitted solicitor before responding to a counter-claim of any kind.</dd>
+    </dl>
+
+    <p class="section-label">the evidence</p>
+
+    <p><i>Available now on disk and substrate.</i> The LoD itself (PDF, HTML, markdown at drafts/clients/ordit/). The Facebook inducement post (verbatim text captured, screenshot pending). The internal client knowledge file at clients/archived/ordit.md. Eugene&apos;s Bitbucket comment 786876526 of 23 April (public on Bitbucket). PR 212 approval by Eugene on 24 April (public on Bitbucket). The Bitbucket write-access revocation of 25 April (timestamped, on Bitbucket). The Neo4j audit trail (Episodes 1726, 2197, 2363, 3349 and Decisions 495, 1727, 2917, 3350). Status board row 7f843fde.</p>
+
+    <p><i>Recoverable once the Gmail MCP connector is re-authorised.</i> The as-sent INV-2026-002 PDF (also possibly in D:/Downloads). The 5 May itemised 39-hour breakdown email. The 3 May Craige reply disputing the invoice. The 5 May Craige reply refusing to pay. The initial engagement email exchange where the $80 per hour rate was agreed.</p>
+
+    <p><i>To capture before 9 June.</i> Screenshot of the live Facebook post with URL, timestamp, and comment chain visible, archived to clients/archived/ordit/evidence/inducement-ad-2026-02-01.png. ATO ABR confirmation of GST registration effective date for ABN 89 693 123 278. Bank Australia statement showing INV-2026-002 unpaid as of 26 May.</p>
+
+    <p class="section-label">decision matrix</p>
+
+    <dl>
+      <dt>A. Payment received before 9 June.</dt>
+      <dd>Confirm receipt by reply email. Archive status board row 7f843fde with archived_at set to receipt timestamp. Reverse the pending bad-debt journal in bookkeeping. Write a closing Neo4j Episode.</dd>
+
+      <dt>B. Silence past 9 June.</dt>
+      <dd>File QCAT minor civil disputes claim. Lead the statement of claim with ratification by conduct. Bundle: the Facebook post, PR 212 approval, Eugene&apos;s 23 April comment, the 24 April approval, the in-production proof, the 5 May breakdown, the 3 May and 5 May Craige replies. Filing fee approximately $134. Recoverable on order.</dd>
+
+      <dt>C. Particularised dispute received (Craige names specific deficient deliverables).</dt>
+      <dd>Respond point by point. Reference PR 212 acceptance, the 5 May breakdown, and the merged-and-deployed state. Offer mediation if it suits Tate. The defamation issue stays out of this bundle and remains reserved for separate action if pursued at all.</dd>
+
+      <dt>D. Generic refusal received (no particulars).</dt>
+      <dd>Treat as confirmation of no defence. Proceed to QCAT filing per option B. Document the failure to particularise in the statement of claim. This strengthens the application.</dd>
+
+      <dt>E. Counter-claim received (alleged damages, defamation cross-claim, anything).</dt>
+      <dd>Stop. Engage a Queensland-admitted solicitor before any reply. The response gets authored outside chat. The legal-letter-name-verify hook (still to ship) must run on any subsequent draft.</dd>
+
+      <dt>F. Settlement offer received (partial payment).</dt>
+      <dd>Tate&apos;s call. Suggested floor: accept any settlement at or above $2,500 (73 percent recovery) to avoid filing. Below that, proceed to QCAT per option B. The floor exists because the time cost of a QCAT hearing exceeds the marginal recovery below that threshold.</dd>
+
+      <dt>G. Silence past 9 June then a late response weeks later.</dt>
+      <dd>Treat as B unless the late response carries a settlement offer or a particularised dispute, in which case treat as F or C. A late response does not restart the fourteen day clock.</dd>
+
+      <dt>H. Solicitor&apos;s letter received in any form.</dt>
+      <dd>Stop. Engage a Queensland-admitted solicitor before any reply. Save the letter to clients/archived/ordit/evidence/. The status board row moves to next_action_by=external pending advice.</dd>
+    </dl>
+
+    <p class="section-label">open items before 9 June</p>
+
+    <ol>
+      <li>Re-authorise the claude.ai ecodia-comms MCP connector (Tate-side click). Without this every email recovery below is blocked.</li>
+      <li>Recover INV-2026-002 PDF from Gmail sent folder or D:/Downloads. File it to clients/archived/ordit/evidence/.</li>
+      <li>Recover the 5 May 39-hour breakdown email. File it to the same folder.</li>
+      <li>Recover the 3 May and 5 May Craige replies. File them to the same folder.</li>
+      <li>Screenshot the live Facebook post with URL, timestamp, and comment chain visible. Save to clients/archived/ordit/evidence/inducement-ad-2026-02-01.png.</li>
+      <li>Verify the ABN 89 693 123 278 GST registration effective date against the ATO ABR. Save the lookup to the evidence folder.</li>
+      <li>Pull a Bank Australia statement showing INV-2026-002 unpaid as at 26 May 2026. File to evidence.</li>
+      <li>Ship the legal-letter-name-verify hook at ~/.claude/hooks/ecodia/legal-letter-name-verify.py before any new legal correspondence is drafted. The hook surfaces <i>[NAME-VERIFY WARN]</i> on every Mr/Ms/Mrs named party in a legal-letter shaped payload and cross-checks against audit data. Closes the Hancock-hallucination loop per Neo4j Episode 4487.</li>
+      <li>Once all evidence is bundled, decide whether to amend the LoD to lead with ratification by conduct, or hold the existing letter and lead with ratification in the QCAT statement of claim if filing becomes necessary.</li>
+    </ol>
+
+    <p class="section-label">posture</p>
+
+    <p>Silence five days into a fourteen day window is normal. Solicitors typically reply in the second week of the window, often inside the last forty-eight hours. Read the silence as Craige consulting counsel, not as a settled decision. The most likely advice he is receiving right now is that the cost of defending QCAT exceeds $3,432, that PR 212 approval and five weeks of production use make the work-acceptance argument hard, and that paying is cheaper than fighting. Hold the line. No follow-up before 9 June. Keep the defamation issue out of this thread.</p>
+
+  </main>
+
+  <footer>
+    Ordit LoD response prep &middot; EcodiaOS &middot; 31 May 2026 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

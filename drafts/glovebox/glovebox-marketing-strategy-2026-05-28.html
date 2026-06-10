@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glovebox marketing strategy</title>
+<meta name="description" content="">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 22ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p {
+    margin: 0 0 1.05em 0;
+    text-wrap: pretty;
+  }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo blockquote {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.4;
+    margin: 2em 0 2em 0;
+    padding: 0;
+    border: none;
+    color: var(--fg);
+    max-width: 38ch;
+    text-wrap: balance;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+  footer a {
+    color: inherit;
+    border-bottom: 1px dotted var(--fg-trace);
+  }
+  footer a:hover { color: var(--fg); border-bottom-color: var(--fg); }
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">Glovebox markets itself if you give it the room.</p>
+    <p class="byline">EcodiaOS &middot; 2026-05-28</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Glovebox sells for twenty dollars once. Build 1.1(35) on TestFlight is attracting attention without push. The landing page at glovebox.ecodia.au is already live. The actual strategy is to do less, not more.</p>
+
+    <p class="section-label">the rules</p>
+
+    <p>No paid ads. No campaigns. No graphics-on-feeds. Be present when curiosity strikes. Let users carry the story when they want to.</p>
+
+    <p class="section-label">discoverability</p>
+
+    <p>The landing page at glovebox.ecodia.au is already live. The App Store listing exists. There is no essays section on ecodia.au and one does not need to exist for this. The only outstanding discoverability work is one round of App Store metadata sharpening when the next build ships.</p>
+
+    <p class="section-label">user-generated content enablement</p>
+
+    <p>Identify the moments in the app worth screenshotting. The trip summary card. A milestone view (kilometres driven, sunsets watched, towns slept in). A clean export of a saved itinerary. Ship them as first-class share intents in the next build. No campaign hashtag. No tag-us-for-a-feature gimmicks. The app icon is the only credit.</p>
+
+    <p class="section-label">relational seeding</p>
+
+    <p>Tate hands Glovebox to ten or twenty grey-nomad-adjacent friends and uses it on his own drives around Queensland and beyond. They use it because they would have wanted something like it anyway. Honest feedback comes back. Shares follow from people enjoying the tool. The Brisbane road trip scene and Sunshine Coast hinterland are the natural seed network. Glovebox is an Australian product for Australian roads.</p>
+
+    <p class="section-label">sizing</p>
+
+    <p>At twenty dollars once-off, two hundred users buys four thousand. The financial gap to December is fifteen thousand. Glovebox alone does not close it. The realistic contribution is one to four thousand over the next seven months if the seeds carry.</p>
+
+    <blockquote>Enough to matter. Not the lever that closes the gap.</blockquote>
+
+    <p class="section-label">the three cards</p>
+
+    <p>Three share cards live on disk in Glovebox colours (ochre #A8431F, cream #E8DFC9, sun-cresting-horizon mark). Copy carries the offline-reliable, outback, robust thread that the app actually delivers on. They exist as reserve assets for when a friend asks what to send, or for the moment when sharing one feels right. They are not a broadcast plan. They sit on disk until used.</p>
+
+    <p class="section-label">cadence</p>
+
+    <p>This week. Three share cards drafted (done). App Store metadata sharpening drafted for the next build.</p>
+
+    <p>Engineering. In-app share intents (trip summary card, milestones, itinerary export) shipped in the next build. That is the bulk of the actual product work this strategy depends on.</p>
+
+    <p>Ongoing. Tate talks about it with friends. Hands it to people he meets on the road. Replies if someone shares. The cards exist for when one is asked for.</p>
+
+    <p>The allowance. Two real product moments, naturally weeks or months apart. First: the public App Store approval lands. Card 1 ("Works without signal") fits this moment. Second: the CarPlay version goes live. Card 2 ("For the country where the bars drop") fits the road-driving context. Posted from Tate's own LinkedIn and IG, never a Glovebox-dedicated account. Caption stays bare and factual. The card carries the aesthetic; the caption carries the facts.</p>
+
+    <p>The rule that keeps it honest. Two posts tied to two ship events is not a cadence. A third post is the moment to not do it, unless the in-app share intents have already shipped and users are carrying the story themselves.</p>
+
+    <p class="section-label">what would break it</p>
+
+    <p>Running a paid ad. Posting a sales graphic. Using campaign language. Treating users as leads in a funnel. Anything that breaks the relational shape forfeits the organic curve we're amplifying.</p>
+
+  </main>
+
+  <footer>
+    Glovebox marketing strategy &middot; EcodiaOS &middot; 2026-05-28 &middot;
+    <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+  </footer>
+
+</body>
+</html>

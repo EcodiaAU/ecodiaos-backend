@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q4624 research, per-tab model override on dispatched worker</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<style>
+  :root { --bg: #ffffff; --fg: #000000; --fg-trace: rgba(0,0,0,0.32); --fg-soft: rgba(0,0,0,0.62); }
+  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --fg: #ffffff; --fg-trace: rgba(255,255,255,0.32); --fg-soft: rgba(255,255,255,0.62); } }
+  * { box-sizing: border-box; } html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--fg); font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "dlig", "onum"; }
+  body { min-height: 100dvh; padding: clamp(24px, 5vw, 60px); background: var(--bg); color: var(--fg); }
+  .title-page { min-height: 60vh; display: grid; place-items: center; text-align: center; padding: 4vh 0 8vh; }
+  .title-page .sentence { font-style: italic; font-weight: 400; font-size: clamp(28px, 4.4vw, 56px); line-height: 1.28; letter-spacing: -0.012em; max-width: 22ch; margin: 0; text-wrap: balance; }
+  .title-page .byline { margin-top: 3.2em; font-size: 12px; letter-spacing: 0.06em; color: var(--fg-trace); font-style: italic; line-height: 1.6; }
+  main.memo { max-width: 62ch; margin: 0 auto; padding: 4vh 0 8vh; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.55; }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede { font-style: italic; font-size: 1.18em; line-height: 1.42; margin-bottom: 2em; }
+  main.memo .section-label { font-style: italic; font-size: 12.5px; letter-spacing: 0.06em; color: var(--fg-trace); margin: 3.2em 0 0.9em 0; font-weight: 400; }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  main.memo code { font-family: "SF Mono", "Menlo", monospace; font-size: 0.86em; background: rgba(0,0,0,0.04); padding: 0 0.3em; border-radius: 2px; }
+  @media (prefers-color-scheme: dark) { main.memo code { background: rgba(255,255,255,0.06); } }
+  footer { text-align: center; font-size: 11.5px; letter-spacing: 0.04em; color: var(--fg-trace); font-style: italic; padding: 4vh 0 1vh; line-height: 1.6; }
+  @media (max-width: 540px) { body { padding: 24px 20px; } main.memo { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+  <section class="title-page">
+    <p class="sentence">The per-tab model override slot does not exist, and the brief-body workaround does not work.</p>
+    <p class="byline">EcodiaOS &middot; Q4624 research, dispatch-worker per-tab model override &middot; 10 June 2026</p>
+  </section>
+
+  <main class="memo">
+
+    <p class="lede">Question 4624 asked whether a dispatched worker tab can be opened with a per-tab model override (e.g. Sonnet for mechanical crons), and what the patch path is if not. This research returns a confident answer grounded in a primary-source code read of the live Mac dispatcher and in the empirical state of the worker running this very fire. There is no <code>model</code> parameter on <code>dispatch_worker</code>. The convention of prepending a <code>/model claude-opus-4-8</code> slash command inside the brief body does not work because the slash command is buried mid-prompt rather than at message position zero. The worker authoring this draft was instructed by its brief to switch to <code>claude-opus-4-8</code> and is in fact running on <code>claude-opus-4-7</code>. That mismatch is the empirical proof.</p>
+
+    <p class="section-label">primary source</p>
+
+    <p>The live Mac dispatcher is at <code>/Users/ecodia/.code/eos-laptop-agent/tools/mac-dispatcher.js</code>, installed via the <code>scheduler._setDispatcher</code> injection seam per <em>patterns/mac-dispatcher-via-set-dispatcher-injection-seam-2026-06-08.md</em>. The <code>dispatch_worker(params)</code> function accepts six parameters and nothing else, read off the function body lines 162 to 188. The accepted set is <code>account</code>, <code>brief</code>, <code>task_id</code>, <code>parent_conductor_tab_id</code>, <code>coord_url</code>, and <code>worker_name</code>. There is no <code>model</code>, no <code>cli_args</code>, no <code>session_settings</code>. The dispatcher composes a brief envelope, registers the worker conductor-side, then calls <code>ide.chat_send_message({ prompt: composedBrief, submit: false })</code> on the VS Code extension-host bridge, followed by an AppleScript Enter keystroke to submit. The model selection is therefore whatever the freshly opened Claude Code chat panel defaults to in its own settings; the dispatcher passes nothing.</p>
+
+    <p class="section-label">empirical confirmation</p>
+
+    <p>The research-batch cron prompt that fired this worker began the TASK block with the literal text <em>/model claude-opus-4-8</em> as its first line, with the intent of forcing this fire onto the newer Opus tier. The system context surfaced to this worker on launch states <em>You are powered by the model named Opus 4.7. The exact model ID is claude-opus-4-7</em>. The slash command was not executed. The brief body was treated as one long natural-language prompt, and the embedded slash command became prose. The same trap should be assumed for every cron prompt in the corpus that currently leads with a <em>/model</em> directive; the directive has been ignored.</p>
+
+    <p>The reason is the surface. Claude Code parses a leading <em>/command</em> only when it is the entire first message; a message whose first line is the slash command but whose body contains additional content is sent as a single user turn, not as a slash command. The dispatcher composes the entire brief into one chat_send_message call. There is no path for a slash command to reach the parser in isolation under the current implementation.</p>
+
+    <p class="section-label">patch path</p>
+
+    <p>Two structurally clean patch paths exist, and one cheap mitigation.</p>
+
+    <p><em>Path one</em>, dispatcher param. Add an optional <code>model</code> parameter to <code>dispatch_worker</code>. When set, the dispatcher emits two sequential calls. The first is <code>ide.chat_send_message({ prompt: '/model ' + model_id, submit: true })</code>; the dispatcher then polls or waits a short fixed interval for the panel to acknowledge the model swap, then issues the second <code>ide.chat_send_message({ prompt: composedBrief, submit: true })</code> with the task brief. The scheduler poller in <code>laptop-agent/tools/scheduler.js</code> reads cron rows from Postgres; the row's prompt can carry an explicit <em>preferred_model</em> column or the dispatcher can pluck a <code>/model X</code> line from the prompt head if present. The cleaner of the two is a new column on <code>os_scheduled_tasks</code>: <em>preferred_model TEXT</em>, default null. The scheduler poller passes it through. The cron corpus installer accepts a <em>model</em> field in each cron spec. The brief body no longer needs to carry the slash command.</p>
+
+    <p><em>Path two</em>, CLI launch arg. The Mac dispatcher could bypass the extension-host bridge for tabs that need a non-default model and instead spawn a fresh Claude Code via <code>claude code --model &lt;id&gt;</code> with the brief on stdin. This is more invasive (currently the dispatcher relies on extension-host APIs for tab labelling, sentinel-prefix pinning, and <code>coord.close_my_tab</code> resolution), but it is the route that side-steps in-chat slash-command parsing entirely. Not recommended as the first cut.</p>
+
+    <p><em>Cheap mitigation</em>. The brief-body <em>/model X</em> convention can be made to work today, without dispatcher changes, IF the cron prompt is split into two prompts at the cron-corpus layer. The first prompt is one line, <em>/model claude-haiku-4-5</em>, and an empty brief body would be rejected by the dispatcher's brief_required check. So this only works if the dispatcher is patched to send two messages; in which case Path one is the right fix anyway. The mitigation is not actually a mitigation.</p>
+
+    <p class="section-label">recommended landing</p>
+
+    <p>Ship Path one with these specifics. Add the <em>preferred_model</em> column on <code>os_scheduled_tasks</code>. Patch <code>scheduler.js::dispatchOne</code> to read it and pass through to <code>dispatch_worker(params)</code>. Patch <code>mac-dispatcher.js::dispatch_worker</code> to, when <em>params.model</em> is set, emit a leading <em>/model</em> chat send before the brief send. Audit every cron prompt in <code>backend/cron-corpus/</code> for a leading <em>/model</em> directive; for each, move the value out of the prompt body into the cron spec's <em>model</em> field and delete the directive line. The 9 sonnet-target hygiene crons named in MEMORY.md (<em>cron-prompts-default-to-opus-4-8-explicit-ids</em>) are the first beneficiaries. Author a doctrine pattern <em>cron-model-override-via-spec-not-brief-prose-2026-06-10.md</em> with the rule and the empirical proof from this fire.</p>
+
+    <p class="section-label">substrate implications</p>
+
+    <p>Every cron whose stated model differs from the conductor's session default has been silently running on the session default. Any token-cost accounting that assumed sonnet runs were paying sonnet rates while reality was opus rates is wrong by the opus-over-sonnet multiplier. The token-usage observability work in Q4625 should flag this as a known accounting drift until the patch ships.</p>
+
+  </main>
+
+  <footer>
+    Q4624 deep-research &middot; EcodiaOS &middot; 10 June 2026 &middot; primary-source code read &middot; empirical proof in-fire
+  </footer>
+
+</body>
+</html>
