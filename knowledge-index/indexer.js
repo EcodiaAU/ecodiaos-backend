@@ -24,6 +24,7 @@ const ROOTS = [
   [path.join(BACKEND, "voice"), "identity", "voice", "/out/"],
   [path.join(BACKEND, "brand"), "identity", "brand", null],
   [path.join(BACKEND, "drafts"), "workbench", "drafts", "/_archive/"],
+  [path.join(BACKEND, "finance"), "reference", "finance", null],
   [path.join(HOME, ".claude", "projects", "-Users-ecodia--code-ecodiaos-backend", "memory"), "memory", "auto-memory", null],
 ];
 
@@ -128,11 +129,13 @@ function main() {
 
   let scanned = 0;
   let changed = 0;
+  const seen = new Set();
   for (const [root, defaultCat, label, exclude] of ROOTS) {
     if (!fs.existsSync(root)) continue;
     const files = walk(root, exclude, []);
     for (const fp of files) {
       scanned++;
+      seen.add(fp);
       let text;
       try {
         text = fs.readFileSync(fp, "utf8");
@@ -175,6 +178,24 @@ function main() {
     }
   }
 
+  // Prune ghosts: a doc whose file was deleted or moved (e.g. into _archived/)
+  // must leave the index, or stale rows keep surfacing in lookup and dedup-scan.
+  // Every walk covers all roots even in incremental mode, so any unseen path is
+  // a true ghost. Guard: skip pruning if the walk came back implausibly empty.
+  let pruned = 0;
+  if (scanned > 100) {
+    for (const row of db.prepare("SELECT path FROM docs").all()) {
+      if (seen.has(row.path)) continue;
+      db.prepare("DELETE FROM triggers WHERE path=?").run(row.path);
+      db.prepare("DELETE FROM docs_fts WHERE path=?").run(row.path);
+      try {
+        db.prepare("DELETE FROM vectors WHERE path=?").run(row.path);
+      } catch (_) {}
+      db.prepare("DELETE FROM docs WHERE path=?").run(row.path);
+      pruned++;
+    }
+  }
+
   db.prepare(
     "INSERT INTO index_runs(started_at,finished_at,mode,docs_scanned,docs_changed) VALUES(?,?,?,?,?)"
   ).run(started, Date.now(), full ? "full" : "incremental", scanned, changed);
@@ -184,7 +205,7 @@ function main() {
   const byCat = db.prepare("SELECT category, COUNT(*) c FROM docs GROUP BY category ORDER BY c DESC").all();
   db.close();
   process.stdout.write(
-    `indexed ${changed} changed / ${scanned} scanned. total docs=${tot}\n` +
+    `indexed ${changed} changed / ${scanned} scanned, pruned ${pruned} ghosts. total docs=${tot}\n` +
       byCat.map((r) => `  ${r.category}: ${r.c}`).join("\n") +
       "\n"
   );
