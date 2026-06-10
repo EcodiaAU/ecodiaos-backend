@@ -1,0 +1,32 @@
+{
+  "format": "ecodia-climate-pack-manifest/v1",
+  "artifact_count": 5,
+  "artifacts": [
+    {
+      "name": "coverage-report.md",
+      "sha256": "d3cc3c5de8d67fd7ce102047cc51d6cac141acfafe0c24ee60b08f1780be26a5",
+      "bytes": 1689
+    },
+    {
+      "name": "draft-statements.html",
+      "sha256": "011002bdd9b4f764626be3c09739027ec0894c97ea4c4a73899801ea52367f43",
+      "bytes": 9764
+    },
+    {
+      "name": "methodology-memo.md",
+      "sha256": "c8866a1c5b062d7b131748692d1d7870084440cf4e798446214776b6cfc76b60",
+      "bytes": 6425
+    },
+    {
+      "name": "register.csv",
+      "sha256": "ee4614a8f170df6dc15e139ad442d364a319064075f31128991c8647c47b865f",
+      "bytes": 4979
+    },
+    {
+      "name": "register.json",
+      "sha256": "00d1ddba127984ab37d4850d1b06c3220c4f7ba6d9c95922dd6754ca7fc1b676",
+      "bytes": 8039
+    }
+  ],
+  "pack_sha256": "14bf4aa75b88d613e314ff6b0533cedb7bbdfc737cd9b570594f507ee0154d02"
+}

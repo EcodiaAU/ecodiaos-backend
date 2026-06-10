@@ -1,0 +1,6 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+REFRIGERANT SERVICE RECORD (synthetic)
+Site: QLD Office
+Equipment: split system AC
+Refrigerant: R410A, charge 3 kg, leakage-rate basis
+Technician: (synthetic record)

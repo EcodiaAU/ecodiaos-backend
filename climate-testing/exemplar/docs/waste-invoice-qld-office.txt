@@ -1,0 +1,5 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+WASTE SERVICES INVOICE (synthetic)
+Site: QLD Office
+General waste collected: 4.2 t over the period
+No emissions method elected for waste yet; expected to stage for review.

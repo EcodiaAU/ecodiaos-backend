@@ -1,0 +1,5 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+FUEL CARD ANNUAL STATEMENT (synthetic)
+Fleet: 6 diesel vehicles (post-2004)
+Diesel oil purchased: 10000 kL
+Segment: transport

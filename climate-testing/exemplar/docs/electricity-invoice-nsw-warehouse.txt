@@ -1,0 +1,8 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+TAX INVOICE (synthetic)
+Retailer: Exemplar Energy Co
+Site: NSW Warehouse, 2 Sample Rd, Sydney NSW
+NMI: SYN2220000
+Billing period: 1 July 2026 to 30 June 2027 (annualised synthetic statement)
+Electricity consumed: 11300000 kWh
+State grid: NSW. Power purchase agreement and LGC surrender per attached PPA statement.

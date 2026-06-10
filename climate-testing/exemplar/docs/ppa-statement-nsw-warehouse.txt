@@ -1,0 +1,6 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+POWER PURCHASE AGREEMENT ANNUAL STATEMENT (synthetic)
+Site: NSW Warehouse
+LGCs surrendered: 1300 MWh equivalent
+On-site generation certificates: 500 MWh
+Residual mix applies to the remainder per NGA 2025 market method.

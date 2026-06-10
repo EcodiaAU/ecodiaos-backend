@@ -1,0 +1,8 @@
+SYNTHETIC DATA: Exemplar Pty Ltd is a fictional company.
+TAX INVOICE (synthetic)
+Retailer: Exemplar Energy Co
+Site: QLD Office, 1 Example St, Brisbane QLD
+NMI: SYN1110000
+Billing period: 1 July 2026 to 30 June 2027 (annualised synthetic statement)
+Electricity consumed: 11300000 kWh
+State grid: QLD
