@@ -83,8 +83,16 @@ def settle(serial):
 
 
 def parse_nodes(blob, package):
-    """Tappable candidates belonging to the app, from a uiautomator dump."""
-    out = []
+    """Tappable candidates belonging to the app, from a uiautomator dump.
+
+    Compose puts the click handler on a container and the contentDescription
+    on a child Icon; TalkBack merges them but uiautomator does not. An
+    unlabeled clickable inherits the label of the smallest labeled node
+    spatially contained in its bounds (verified on Locals Discover: the
+    'unlabeled' action buttons wrap desc=Recenter/Favorites/etc children).
+    """
+    labeled = []
+    raw = []
     for m in re.finditer(r'<node\b[^>]*>', blob):
         s = m.group(0)
         def attr(name):
@@ -96,15 +104,28 @@ def parse_nodes(blob, package):
         if not bm:
             continue
         x1, y1, x2, y2 = map(int, bm.groups())
+        lab = attr('text') or attr('content-desc')
+        if lab:
+            labeled.append((x1, y1, x2, y2, lab))
+        raw.append((s, x1, y1, x2, y2, lab, attr('clickable') == 'true'))
+
+    def inherited_label(x1, y1, x2, y2):
+        best = None
+        for (a1, b1, a2, b2, lab) in labeled:
+            if a1 >= x1 and b1 >= y1 and a2 <= x2 and b2 <= y2:
+                area = (a2 - a1) * (b2 - b1)
+                if best is None or area < best[0]:
+                    best = (area, lab)
+        return best[1] if best else ''
+
+    out = []
+    for (s, x1, y1, x2, y2, lab, clickable) in raw:
         w, h = x2 - x1, y2 - y1
         if w < 24 or h < 24 or w * h < 1200:
             continue
-        text = attr('text')
-        desc = attr('content-desc')
-        clickable = attr('clickable') == 'true'
         if not clickable:
             continue
-        label = text or desc
+        label = lab or inherited_label(x1, y1, x2, y2)
         if label in SKIP_TEXT:
             continue
         out.append({
