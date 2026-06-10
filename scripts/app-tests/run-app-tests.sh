@@ -86,8 +86,25 @@ ensure_android_device() {
   return 2
 }
 
+# iOS lane (goodreach is sim-only): boot the sim headless when needed and
+# pin maestro to it so a co-running Android emulator never gets picked.
+sim_for() {
+  case "$1" in
+    goodreach) echo "F1F5540D-4EEF-42EC-B9CB-679768FC21FD" ;;  # Goodreach-iPhone-15
+    *) echo "" ;;
+  esac
+}
+
+MAESTRO_DEVICE_ARGS=()
+ensure_ios_device() {
+  UDID=$(sim_for "$APP"); [ -z "$UDID" ] && return 0
+  xcrun simctl bootstatus "$UDID" -b >/dev/null 2>&1 || { echo "[app-tests] FATAL: sim $UDID did not boot" >&2; return 2; }
+  MAESTRO_DEVICE_ARGS=(--device "$UDID")
+}
+
 load_creds "$APP"
 ensure_android_device
+ensure_ios_device
 
 TOTAL=0
 FAILED=0
