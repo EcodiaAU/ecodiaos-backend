@@ -185,10 +185,69 @@ function buildAnchorDigest(rows) {
   }
 }
 
+/**
+ * confirmEvidence(pendingRow, priorRows) -> the confirmed superseding row, ready for INSERT.
+ *
+ * Binding design note (W5): confirmation is APPEND-AS-SUPERSEDE, never UPDATE. The 002
+ * append-only trigger rejects UPDATE for every role including service_role, so flipping
+ * confirmation_status in place is impossible by construction. Confirming a
+ * 'pending_confirmation' row means appending a NEW row at the head of the chain that
+ * carries the same content, confirmation_status = 'confirmed', and
+ * supersedes_id = pendingRow.id.
+ *
+ * priorRows is the full caller-fetched chain for the engagement and MUST include the
+ * pending row itself (it is already committed). The chain is verified first; confirming
+ * on top of a broken chain would extend corruption, so that throws. Misuse (no pending
+ * row, pending row absent from priors, wrong status) also throws: those are programmer
+ * errors, not weird input.
+ *
+ * Pure: no DB, no clock. captured_at is copied from the pending row (the evidence's
+ * capture time does not change because a human confirmed it); committed_at stays
+ * DB-assigned at INSERT.
+ */
+function confirmEvidence(pendingRow, priorRows) {
+  if (!pendingRow || typeof pendingRow !== 'object') {
+    throw new TypeError('confirmEvidence expects the pending evidence row object')
+  }
+  if (pendingRow.confirmation_status !== 'pending_confirmation') {
+    throw new Error(
+      `confirmEvidence refused: row ${pendingRow.id} has confirmation_status ` +
+        `'${pendingRow.confirmation_status}', expected 'pending_confirmation'`
+    )
+  }
+  if (!Array.isArray(priorRows) || priorRows.length === 0) {
+    throw new Error('confirmEvidence expects the non-empty prior chain (including the pending row)')
+  }
+  if (!priorRows.some((r) => r && r.id === pendingRow.id)) {
+    throw new Error(
+      `confirmEvidence refused: pending row ${pendingRow.id} is not in the supplied prior chain`
+    )
+  }
+  const { valid, brokenAtSeq } = verifyChain(priorRows)
+  if (!valid) {
+    throw new Error(`confirmEvidence refused: prior chain invalid at seq ${brokenAtSeq}`)
+  }
+
+  const sorted = [...priorRows].sort((a, b) => Number(a.seq) - Number(b.seq))
+  const head = sorted[sorted.length - 1]
+
+  const confirmed = {}
+  for (const col of CONTENT_COLUMNS) {
+    confirmed[col] = pendingRow[col] === undefined ? null : pendingRow[col]
+  }
+  confirmed.seq = Number(head.seq) + 1
+  confirmed.supersedes_id = pendingRow.id
+  confirmed.confirmation_status = 'confirmed'
+  confirmed.prev_hash = head.row_hash
+  confirmed.row_hash = hashRow(confirmed, head.row_hash)
+  return confirmed
+}
+
 module.exports = {
   CONTENT_COLUMNS,
   canonicalise,
   hashRow,
   verifyChain,
   buildAnchorDigest,
+  confirmEvidence,
 }
