@@ -366,22 +366,27 @@ async function computeDriftSignals() {
     }
 
     // silent_hook_candidate: hook in source_layer enumeration with 0 surfaces in 24h.
-    const knownLayers = ['hook:brief-consistency', 'hook:cred-mention', 'hook:doctrine-edit-cross-ref', 'hook:status-board-write']
+    // Only enumerate hooks verified to ALWAYS emit when traffic flows. Conditional-emit
+    // hooks (e.g. doctrine-edit-cross-ref only populates surfaces[] when an edited file
+    // matches a doctrine-keyword trigger) are structurally silent by design and produce
+    // persistent false positives. Dead-wire hooks (e.g. brief-consistency, whose matcher
+    // points at mcp__forks__spawn_fork + mcp__factory__start_cc_session - both DEAD
+    // surfaces post-2026-06-08 migration; superseded by dispatch-fact-gate.py at the
+    // cowork.dispatch_worker layer) are likewise removed. Both dropped on 2026-06-10
+    // by decision-quality-pass cron 49d9ffe2 after three consecutive false-positive
+    // fires generated persistent P3 status_board noise.
+    const knownLayers = ['hook:cred-mention', 'hook:status-board-write']
     const recentLayers = await client.query(`
       SELECT DISTINCT source_layer FROM surface_event
       WHERE ts > NOW() - INTERVAL '24 hours'
     `)
     const recentSet = new Set(recentLayers.rows.map(r => r.source_layer))
     for (const layer of knownLayers) {
-      // Note: this fires legitimately if the hook was never *needed* in 24h
-      // (e.g. no doctrine-edit-cross-ref hook because no doctrine files were
-      // edited). The drift cron treats it as a P3 information signal, not a
-      // bug to fix. Tate-review distinguishes "no traffic" from "regression".
       if (!recentSet.has(layer)) {
         flags.push({
           flag_type: 'silent_hook_candidate',
           name: `Silent hook: ${layer} (24h)`,
-          context: `Hook ${layer} emitted zero surface_event rows in the last 24 hours. Either no traffic legitimately reached this hook (acceptable) OR the hook's JSONL emission is broken (regression). Inspect ~/ecodiaos/logs/telemetry/dispatch-events.jsonl for recent hook fires from this layer.`,
+          context: `Hook ${layer} emitted zero surface_event rows in the last 24 hours. This hook is on the always-emit allowlist so silence is a strong regression signal. Inspect dispatch-events.jsonl for recent fires from this layer.`,
           next_action: 'Verify whether silence is regression or low-traffic legitimate',
         })
       }
