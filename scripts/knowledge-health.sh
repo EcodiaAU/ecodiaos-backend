@@ -94,6 +94,13 @@ notes_count=$(find "$CODE_ROOT/ecodiaos/backend/drafts/notes" -type f 2>/dev/nul
 [ "${notes_count:-0}" -gt 0 ] && \
   alerts="${alerts}DRAFTS CATCH-ALL REBORN: $notes_count file(s) in drafts/notes/ - read each one and place it semantically; the catch-all is banned. "
 
+# 5d. docs/ top level holds ONLY the canonical entry docs (operational-manual,
+# MIGRATION_FULL_ARCHITECTURE). 42 loose era-docs accumulated before 2026-06-10;
+# semantically filed into architecture/ reference/ specs/ _archive/.
+docs_loose=$(find "$CODE_ROOT/ecodiaos/backend/docs" -maxdepth 1 -type f ! -name ".DS_Store" 2>/dev/null | wc -l | tr -d ' ')
+[ "${docs_loose:-0}" -gt 6 ] && \
+  alerts="${alerts}DOCS FILING DRIFT: $docs_loose loose files at docs/ top level (cap 6) - read each and file semantically (architecture/ reference/ specs/ plans/ _archive/). "
+
 # 6. enforcement gates still wired (silent unwiring = the enforcement dies quietly)
 SETTINGS="$HOME/.claude/settings.json"
 gates_unwired=""
