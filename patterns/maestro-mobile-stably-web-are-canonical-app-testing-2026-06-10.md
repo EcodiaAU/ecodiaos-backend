@@ -26,6 +26,31 @@ A full day of bespoke walker build was redirected by Tate the same day it went g
 - **Authoring assistance:** Maestro Studio to record, Maestro MCP for agent-driven authoring; EcodiaOS maintains flows (we are the AI-maintenance layer the vendors sell).
 - **Red flows are allowed to stay red** when they track a real app bug (the coexist cold-clear flow reds until 1b1e718d is fixed); that is the gate working.
 
+## 3b. The dual activity (Tate, 2026-06-10, the operating shape)
+
+Testing is a DUAL ACTIVITY between Maestro and EcodiaOS; neither alone is
+the gate. Tate verbatim: "the math absolutely needs to be correct, text
+needs to contrast against backgrounds, formatting needs to actually look
+aesthetic, and it needs to handle react capacitor apps like co-exist, or
+dual native apps like locals and glovebox."
+
+- **Maestro drives** (all app shapes: Capacitor WebView via devtools
+  hierarchy, Compose and SwiftUI natively): journeys, forms, persistence
+  kill+relaunch, and METRIC READS: copyTextFrom the on-screen number,
+  fetch the DB truth over REST in runScript, assertTrue equality. A
+  stats surface without an invariance check is untested math.
+- **EcodiaOS judges** what structure cannot: every run (green included)
+  produces a screenshot gallery and the nightly worker vision-judges
+  contrast (text against backgrounds), aesthetic formatting, broken
+  images, washed tints, clipped layouts. A structural pass with ugly or
+  unreadable pixels is a FINDING.
+- **Flow design split:** journey flows may self-heal known-bug
+  preconditions (commented, with the row id, removed when fixed); each
+  known bug keeps ONE strict unhealed canary flow so detection never
+  degrades into accommodation.
+- Production-ready for a public push = structural green x metrics
+  invariance green x vision pass, per app, per platform.
+
 ## 4. Anti-patterns
 
 - Adding detectors, matrix engines, or walkers next to Maestro: that is the deleted build growing back. Glue must stay thin (runner emits verdict.json, nothing more).
