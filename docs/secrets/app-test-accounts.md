@@ -9,7 +9,7 @@ from the kv-mirror).
 | coexist | coexist.json | creds.coexist | MAESTRO_CX_EMAIL / _PASSWORD | has ADMIN role on the web app |
 | locals | locals.json | creds.locals | MAESTRO_LC_EMAIL / _PASSWORD | locals-apptest@ecodia.au, customer only (NO merchant role), minted 2026-06-11 via GoTrue admin API on dpumgcxpwfigtpotayjq, password-grant verified |
 | glovebox | glovebox.json | creds.glovebox | MAESTRO_GB_EMAIL / _PASSWORD | glovebox-apptest@ecodia.au, minted 2026-06-11 on vzauarlfmkjfkcphojbd, password-grant verified |
-| goodreach | goodreach.json | (pending) | MAESTRO_GR_EMAIL / _PASSWORD | demo@goodreach.com.au; password not yet mirrored |
+| goodreach | (none yet) | (none yet) | MAESTRO_GR_EMAIL / _PASSWORD | NO account mintable: Supabase project ngoeairmbigqulhfjqso INACTIVE (restore 403, org 2-active free cap); mint per recipe the day it restores |
 
 Minting recipe (when an app lacks a test account): org PAT from
 `PRIVATE/ecodia-creds/supabase.env` -> management API
