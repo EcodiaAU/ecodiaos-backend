@@ -1,11 +1,20 @@
 ---
 triggers: release walker matrix, state matrix testing, pairwise cells, permission state testing, pm grant pm revoke walker, simctl privacy walker, appearance dark cell, font_scale cell, network offline cell, data_state returning, matrix release gate, release cut gate, mobile app release verification, walk away from a release, operator away release safety, walker editfield target, capacitor input fill editfield, fill-verify probe, offline white screen capacitor, cell state reset baseline, uncovered dimensions verdict
-priority: critical
-canonical: true
+priority: low
+canonical: false
+status: archived
+superseded_by: maestro-mobile-stably-web-are-canonical-app-testing-2026-06-10
 binding: hook=release-walker-ship-gate.py + skill=release-walker + cron=cowork.release-walker-nightly + script=backend/scripts/release-walker/bin/release-walk.sh
 ---
 
-# Release gate = spec flows x state-matrix cells + exploration; coverage names what it did NOT run
+# [ARCHIVED 2026-06-10, same day] Release gate = spec flows x state-matrix cells + exploration
+
+> ARCHIVED hours after going green: the bespoke engine was retired per
+> [[buy-before-build-market-sweep-gates-infrastructure-builds-2026-06-10]]
+> and deleted from the tree (git history keeps it). Maestro + Stably are
+> canonical per [[maestro-mobile-stably-web-are-canonical-app-testing-2026-06-10]].
+> The state-DIMENSION analysis and device gotchas below still hold and
+> inform Maestro flow authoring; the engine sections do not.
 
 ## 1. The rule
 
@@ -97,4 +106,5 @@ full-product cells in 7.
 2026-06-10 production-readiness brief: four apps, operator offline for
 weeks, release gate must exercise the customer-state cross product.
 Built same-day on the 2026-06-09 walker spine; first matrix run caught
-the coexist offline blank-shell and the harness's own stdin-slurp bug.
+the coexist offline a11y-empty tree (pixels fine, TalkBack blind) plus
+the dead offline signup nav, and the harness's own stdin-slurp bug.
