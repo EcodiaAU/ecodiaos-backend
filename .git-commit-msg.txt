@@ -1,23 +1,29 @@
-drafts: re-file the 560-file flat dump into topic dirs + codify the filing rule
+drafts: semantic placement pass over every unfiled file, catch-all eliminated
 
-Tate caught backend/drafts/ by eye: 560 loose files (verify screenshots,
-one-off audits, workbooks) flat at top level, no scheme, nothing watching.
-The 2026-06-10 handoff brief had waved it through as correct-by-design;
-that call was wrong and is now reversed in doctrine.
+Tate rejected token-prefix filing ("i dont want heuristic bullshit
+categorising stuff"). All 194 mechanically-unfiled files (the notes/
+catch-all plus the unmapped token dirs) were READ and judged from content:
 
-- scripts/drafts-refile.py: deterministic re-file (dry-run default).
-  559 files -> 46 topic dirs; binaries to drafts/_shots/<topic>/ (now
-  gitignored - regenerable verify evidence, 26M+ kept out of the repo).
-- 585 previously-untracked draft text files enter git (the only backup
-  this machine has); 237 tracked files move as renames.
-- WHERE THINGS GO gains the work-in-progress bullet (CLAUDE.md) +
-  patterns/drafts-filing-topic-dirs-not-flat-dump-2026-06-10.md.
-- knowledge-health canary now counts loose top-level files (cap 15) and
-  alarms at session start on drift, so the dump regrows loudly or never.
+- 177 placed or archived by judgement: ~80 dead/superseded artifacts
+  (Corazon-era scripts, VPS-era audits, consumed briefings, receipts) to
+  _archive/<origin>/; ~97 to real topic homes (cortex, briefings, biz-dev,
+  research, scheduler-notes, ops, social, clients, conservation-platform).
+- 2 promoted to docs/reference/: upgrade-atlas-2026-05-18 (strategic audit
+  atlas referenced by Decisions) and mac-organisation-system-v2-hardened
+  (swarm-hardened org doctrine with triggers).
+- notes/, session/, tate/, scratch/, previews/, cron/ catch-all dirs are
+  GONE; 23 dated verify-evidence dirs collapsed into _archive/run-evidence/
+  (regenerable run evidence drops out of git, stays on disk).
+- Standing loop: knowledge-health canary alarms on ANY file in drafts/notes/
+  (the catch-all is banned) and on >15 loose top-level files; the weekly
+  sunday-doctrine-synthesis cron carries the semantic placement + promotion
+  pass. drafts-apply-judgements.py applies a judgement JSONL after reading.
+- Doctrine updated: placement is a semantic judgement, never a filename
+  heuristic; the token-mapper was the one-time bulk untangler only.
 
-probe: post-move find at drafts/ maxdepth 1 returns only .DS_Store, not a
-residual loose file; reindex after the move shows 258 changed + 258 ghosts
-pruned with eval-recall still 12/12, as opposed to stale old-path rows
-surviving in the index; canary run reads drafts_loose=0 under the cap.
+probe: find drafts -maxdepth 1 -type f returns nothing and drafts/notes/
+does not exist, as opposed to a residual catch-all; reindex after the moves
+pruned 104 ghost rows with eval-recall still 12/12, not stale old-path rows
+surviving; canary run reads status ok with the new notes-reborn check armed.
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>

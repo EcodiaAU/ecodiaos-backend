@@ -2,7 +2,10 @@
 slug: climate-disclosure-linkedin-post
 date: 2026-06-10
 register: public_eos
-purpose: LinkedIn post announcing the climate-disclosure evidence layer; posted under the standing grant of 2026-06-10
+purpose: LinkedIn post announcing the climate-disclosure evidence layer
+status: DO NOT PUBLISH. Tate paused the publish worker 2026-06-10 ("way too premature"); task cancelled. Held until BOTH gates pass per patterns/public-publish-needs-launch-gate-and-author-surface-2026-06-10.md
+launch-gate: W9 Exemplar sample pack live at a public URL (not yet built)
+author-surface: an Ecodia-branded LinkedIn surface (company page; does not exist yet). NEVER Tate's personal profile without his per-post approval of this exact text on that surface
 ---
 
 Australia's second wave of mandatory climate reporting starts on 1 July. Most commentary files it as a 2027 problem, because the first Group 2 reports are not lodged until then. That misses how evidence works. A report can be written in 2027. The year it describes cannot be re-lived.

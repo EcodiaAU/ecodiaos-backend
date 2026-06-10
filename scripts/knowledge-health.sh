@@ -82,11 +82,17 @@ done < <(find "$PATTERNS" -maxdepth 1 -name "*.md" ! -name "INDEX.md" ! -name "R
 
 # 5b. drafts filing hygiene - loose files dumped flat at drafts/ top level.
 # 560 accumulated unnoticed before 2026-06-10 because nothing watched it;
-# re-filed into topic dirs (scripts/drafts-refile.py). Threshold 15 allows a
+# semantically re-filed into topic dirs the same day. Threshold 15 allows a
 # few in-flight files; sustained growth means sessions are dumping flat again.
 drafts_loose=$(find "$CODE_ROOT/ecodiaos/backend/drafts" -maxdepth 1 -type f ! -name ".DS_Store" 2>/dev/null | wc -l | tr -d ' ')
 [ "${drafts_loose:-0}" -gt 15 ] && \
-  alerts="${alerts}DRAFTS FILING DRIFT: $drafts_loose loose files at drafts/ top level (cap 15) - re-file with scripts/drafts-refile.py (topic dirs; binaries to _shots/). "
+  alerts="${alerts}DRAFTS FILING DRIFT: $drafts_loose loose files at drafts/ top level (cap 15) - read each and file semantically into drafts/<topic>/ (binaries to _shots/<topic>/); scripts/drafts-apply-judgements.py applies a judgement JSONL. "
+# 5c. the notes/ catch-all must stay dead - it was the heuristic dumping
+# ground (151 unjudged files). Anything in it means a session punted on the
+# semantic placement judgement instead of reading the file.
+notes_count=$(find "$CODE_ROOT/ecodiaos/backend/drafts/notes" -type f 2>/dev/null | wc -l | tr -d ' ')
+[ "${notes_count:-0}" -gt 0 ] && \
+  alerts="${alerts}DRAFTS CATCH-ALL REBORN: $notes_count file(s) in drafts/notes/ - read each one and place it semantically; the catch-all is banned. "
 
 # 6. enforcement gates still wired (silent unwiring = the enforcement dies quietly)
 SETTINGS="$HOME/.claude/settings.json"
