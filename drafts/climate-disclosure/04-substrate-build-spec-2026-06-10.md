@@ -99,6 +99,18 @@ W1 + W2 first (the spine), then W3 and W4 in parallel (independent), then W5 to 
 
 Every brief dispatched from this spec carries: this file path, the architecture file path, the W-item verify gate verbatim, and the reminder that client evidence never touches the EcodiaOS substrate project. Worker's final act: `coord.close_my_tab`.
 
+## Stage-1 exit criteria: the reality-testing campaign (Tate mandate, 2026-06-10)
+
+Tate's bar, verbatim: "if this hasnt been extensively and exhaustively real-world tested then its not viable yet." Unit, property and golden coverage (474 green as of W6) is the floor. Three reality layers gate the line's first outreach beyond the insurance brokers, and ALL THREE must hold:
+
+1. The document zoo. A corpus of real-world-shaped documents (retailer invoice formats from Origin, AGL, Energex and peers; fuel card statements; scanned and photographed invoices; merged-cell spreadsheets; credit notes and re-issued invoices; GST-inclusive vs exclusive; kWh vs MJ vs GJ units) run through ingest + classification with measured extraction accuracy and a failure taxonomy. Pass bar: accuracy above an explicit threshold set when the corpus exists, and ZERO silent failures: every miss goes to the below-confidence review queue, never into a number.
+
+2. Engagement zero: Ecodia Pty Ltd itself, in production. Real bills, a real ingest address, the monthly cycle firing for real, treated by the machinery exactly as a client. Pass bar: at least one full clean monthly cycle (ingest -> register -> calc -> coverage -> integrity event) with no manual rescue.
+
+3. The Exemplar end-to-end (W9), adversarially attacked. Real emails with real PDFs to a real ingest address through a real database to a rendered pack. Pass bar: the W9 gate (byte-identical regeneration, live anchor, synthetic labels) PLUS an adversarial pass in the spirit of the W4 spot-check: tamper attempts, duplicate ingestion, period-boundary and factor-ambiguity probes, supersession edge cases, all either rejected or staged, never silently absorbed.
+
+W6's audit already proved the value of layer 3 thinking at the view level (coverage counted pending and superseded evidence; fix is migration 011_cd_coverage_view_v2.sql). As-built corrections from the W6 build: the PDF mechanics live at `scripts/html-to-pdf.js` + `scripts/_fork-render-pdf.js` (the spec's earlier `scripts/render-pdf` name was wrong for library use, and PDF generation stays caller-side because PDF generators embed creation timestamps that would break byte-reproducibility); `coverageReport` takes a caller-supplied `asOf` ISO date for overdue computation since a reproducible renderer cannot read a clock.
+
 ## Red-team amendments (2026-06-10, wf_017d6d7e-830)
 
 W9 is re-cut to a minimal vertical slice shipped within two weeks: one site, two evidence types (fuel card + electricity invoice), one calculator, ten clauses, a real hash chain, a real anchor. The full Exemplar pack follows. The slice is the trust artifact every send links to, and it ships only after the pack format is sanity-checked with at least one assurance practitioner.
