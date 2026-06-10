@@ -255,9 +255,22 @@ def main():
                      or (not cand['label'] and cand.get('area_frac', 0) > 0.6))
         if post_sig == sig and not is_canvas and cand['key'] not in fired_dead:
             fired_dead.add(cand['key'])
-            finding('X-dead-tap', 'medium',
-                    f'clickable "{cand["label"]}" changes the hierarchy',
-                    f'signature unchanged after tap on "{cand["label"]}"', seen_sigs[sig])
+            if cand['label']:
+                finding('X-dead-tap', 'medium',
+                        f'clickable "{cand["label"]}" changes the hierarchy',
+                        f'signature unchanged after tap on "{cand["label"]}"', seen_sigs[sig])
+            else:
+                # Unlabeled + dead is indistinguishable from clickable
+                # decoration until the app labels its controls (tracked as
+                # the a11y finding, status_board e2d50791). Notes channel,
+                # not a finding; flips back to a hard finding per element
+                # once labels exist.
+                with open(os.path.join(explore_dir, 'notes.jsonl'), 'a') as nf:
+                    nf.write(json.dumps({'note': 'unlabeled-dead-tap',
+                                         'key': cand['key'],
+                                         'at': [cand['cx'], cand['cy']],
+                                         'evidence': seen_sigs[sig]}) + '\n')
+                print(f"[explore] note: unlabeled dead tap at ({cand['cx']},{cand['cy']})")
 
         # X-nav-loop on the forward trace
         forward_trace.append(post_sig)
@@ -302,6 +315,7 @@ def main():
         'unique_screens': len(seen_sigs),
         'tried_elements': len(tried),
         'dead_taps_fired': len(fired_dead),
+        'notes_file': os.path.join(explore_dir, 'notes.jsonl'),
         'nav_loops_fired': len(fired_loops),
         'surfaces_matched': sorted(surfaces_matched),
         'persist_results': persist_results,
