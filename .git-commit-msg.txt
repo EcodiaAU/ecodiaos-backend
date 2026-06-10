@@ -1,29 +1,29 @@
-drafts: semantic placement pass over every unfiled file, catch-all eliminated
+docs+clients: semantic filing pass - era-docs judged, archived, or promoted
 
-Tate rejected token-prefix filing ("i dont want heuristic bullshit
-categorising stuff"). All 194 mechanically-unfiled files (the notes/
-catch-all plus the unmapped token dirs) were READ and judged from content:
+Extends the read-and-judge filing system (PR #64, drafts) to the two
+remaining knowledge trees. Every loose file read and judged from content:
 
-- 177 placed or archived by judgement: ~80 dead/superseded artifacts
-  (Corazon-era scripts, VPS-era audits, consumed briefings, receipts) to
-  _archive/<origin>/; ~97 to real topic homes (cortex, briefings, biz-dev,
-  research, scheduler-notes, ops, social, clients, conservation-platform).
-- 2 promoted to docs/reference/: upgrade-atlas-2026-05-18 (strategic audit
-  atlas referenced by Decisions) and mac-organisation-system-v2-hardened
-  (swarm-hardened org doctrine with triggers).
-- notes/, session/, tate/, scratch/, previews/, cron/ catch-all dirs are
-  GONE; 23 dated verify-evidence dirs collapsed into _archive/run-evidence/
-  (regenerable run evidence drops out of git, stays on disk).
-- Standing loop: knowledge-health canary alarms on ANY file in drafts/notes/
-  (the catch-all is banned) and on >15 loose top-level files; the weekly
-  sunday-doctrine-synthesis cron carries the semantic placement + promotion
-  pass. drafts-apply-judgements.py applies a judgement JSONL after reading.
-- Doctrine updated: placement is a semantic judgement, never a filename
-  heuristic; the token-mapper was the one-time bulk untangler only.
+- docs/ top level: 42 loose files -> 2 canonical entry docs
+  (operational-manual, MIGRATION_FULL_ARCHITECTURE with its STALE banner).
+  Live strategic thinking to docs/architecture/ (SECURITY_HARDENING,
+  JARVIS_GAP_ANALYSIS, FORK_ATOMICITY_SPEC - feeds tonight's worktree
+  isolation session, ARCHITECTURE_EVOLUTION_MAP, ANTHROPIC_NATIVE_LEVERAGE);
+  live recipes + the pending-strategic queue to docs/reference/; living
+  specs to docs/specs/; the consumed 2026-04-30 recovery corpus, the
+  completed 2026-05-15 migration lane docs, and the superseded May audits
+  to docs/_archive/<era>/. MCP_CONNECTOR_CREDENTIALS (creds-grade) moved
+  into docs/secrets/ where the secrets category already governs it.
+- clients/: one-off data pulls (coexist-vic CSVs), dead-substrate records
+  (macincloud-access, corazon-peer-architecture) and consumed April audits
+  to clients/archived/; canonical dossiers, manifests, and release flows
+  stay.
+- indexer: exclude lists now accept arrays; docs root excludes /secrets/
+  AND /_archive/ so archived era-docs leave the index.
+- knowledge-health canary: docs/ top-level cap 6 alarms on regrowth.
 
-probe: find drafts -maxdepth 1 -type f returns nothing and drafts/notes/
-does not exist, as opposed to a residual catch-all; reindex after the moves
-pruned 104 ghost rows with eval-recall still 12/12, not stale old-path rows
-surviving; canary run reads status ok with the new notes-reborn check armed.
+probe: find docs -maxdepth 1 -type f returns exactly the 2 canonical
+entries, not residual era-docs; reindex pruned 45 ghosts with eval-recall
+12/12 and zero docs/_archive rows in the index, as opposed to archived
+paths still surfacing in lookup.
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>

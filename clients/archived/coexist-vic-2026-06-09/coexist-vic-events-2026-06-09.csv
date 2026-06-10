@@ -1,0 +1,68 @@
+year,event_date,collective,title,activity,status,attendees,trees_planted,rubbish_kg,volunteer_hours,app_checkins,walkins
+2025,2025-01-14,Melbourne City,Brighton Beach Clean,shore_cleanup,completed,14,0,40.00,56.00,0,0
+2025,2025-01-30,Melbourne City,Nature Hike,nature_walk,completed,10,0,0,40.00,0,0
+2025,2025-02-21,Melbourne City,Brighton Baths,workshop,completed,12,0,0,48.00,0,0
+2025,2025-03-01,Melbourne City,CUAD,shore_cleanup,completed,18,0,27.00,72.00,0,0
+2025,2025-03-14,Melbourne City,Nature Hike,nature_walk,completed,10,0,0,40.00,0,0
+2025,2025-04-04,Melbourne City,Tree Planting & Camp Out,tree_planting,completed,33,80,0,132.00,0,0
+2025,2025-04-08,Melbourne City,Beach Clean & BBQ,shore_cleanup,completed,35,0,20.00,140.00,0,0
+2025,2025-05-17,Melbourne City,Dight Falls Nature Hike,nature_walk,completed,23,0,0,92.00,0,0
+2025,2025-05-24,Melbourne City,Frankston Beach Clean Up,shore_cleanup,completed,16,0,10.00,64.00,0,0
+2025,2025-06-21,Melbourne City,Tree Planting,tree_planting,completed,15,500,0,60.00,0,0
+2025,2025-07-12,Melbourne City,Trig Point hike - Churchill national park,nature_walk,completed,12,0,0.00,36.00,0,0
+2025,2025-07-29,Melbourne City,Brighton Beach clean-up,shore_cleanup,completed,13,0,20.00,39.00,0,0
+2025,2025-08-08,Melbourne City,Tree Plantnig & Campout,tree_planting,completed,38,2500,0,152.00,0,0
+2025,2025-08-16,Melbourne City,Coexist X MCCC Landcare Balnarring Tree planting,tree_planting,completed,33,1300,0.00,99.00,0,0
+2025,2025-09-13,Melbourne City,Healesville tree planting,tree_planting,completed,23,1200,0.00,69.00,0,0
+2025,2025-09-20,Melbourne City,Coexist / regenerating farms Yarra valley treeplanting 2.0,tree_planting,completed,20,1600,0.00,60.00,0,0
+2025,2025-10-07,Melbourne City,Mentone beach cleanup,shore_cleanup,completed,8,0,15.00,24.00,0,0
+2025,2025-10-24,Melbourne City,Red Gum Trail Hike,nature_walk,completed,17,0,0.00,51.00,0,0
+2025,2025-11-15,Melbourne City,Yarra Riverside Clean Up,shore_cleanup,completed,18,0,29.00,54.00,0,0
+2026,2026-01-31,Melbourne City,Sherbrooke Falls Nature Hike,nature_hike,completed,30,0,0.00,90.00,0,0
+2026,2026-02-13,Melbourne City,Zorali Back to Nature Campout,tree_planting,completed,35,82,0.00,105.00,0,0
+2026,2026-02-14,Melbourne City,Elwood Sunset Beach Clean Up,clean_up,completed,30,0,8.00,90.00,0,0
+2026,2026-02-20,Melbourne City,Geelong Waterfront Clean Up,shore_cleanup,completed,5,0,6.00,20.00,0,0
+2026,2026-02-21,Geelong,Geelong Waterfront Clean Up,shore_cleanup,completed,5,0,6.00,10.00,0,0
+2026,2026-02-21,Melbourne City,Churchill NP Nature Hike,nature_hike,completed,10,0,0.00,30.00,0,0
+2026,2026-02-28,Melbourne City,CUAD Catani Gardens Clean up,clean_up,completed,30,0,48.00,90.00,0,0
+2026,2026-02-28,Melbourne City,CUAD Ocean Grove Beach,shore_cleanup,completed,30,0,48.00,60.00,0,0
+2026,2026-02-28,Melbourne City,CUAD Safety Beach 2026 w/ Zorali,shore_cleanup,completed,30,0,48.00,60.00,0,0
+2026,2026-03-01,Mornington Peninsula,Clean Up Australia Day @ Safety Beach w/ Zorali,shore_cleanup,completed,10,0,32.00,20.00,0,0
+2026,2026-03-01,Geelong,Clean Up Australia Day @ Ocean Grove Beach w/ Zorali,shore_cleanup,completed,22,0,25.00,44.00,0,0
+2026,2026-03-06,Geelong,Buckley Falls Nature Walk,nature_hike,completed,4,0,0.00,12.00,0,0
+2026,2026-03-06,Melbourne City,Buckley Falls Nature Walk,nature_walk,completed,4,0,0,16.00,0,0
+2026,2026-03-07,Geelong,Barwon River Buckley Falls Nature Hike,nature_walk,completed,4,0,0,8.00,0,0
+2026,2026-03-21,Melbourne City,Blue Lake Nature Hike,nature_hike,completed,12,0,0.00,36.00,0,0
+2026,2026-03-22,Mornington Peninsula,Greens Bush Nature Hike,nature_walk,completed,13,0,0,13.00,0,0
+2026,2026-03-22,Mornington Peninsula,Greens Bush Hike,nature_walk,completed,13,0,0.00,39.00,0,0
+2026,2026-03-22,Melbourne City,Greens Bush Hike,nature_walk,completed,13,0,0,52.00,0,0
+2026,2026-04-04,Melbourne City,Tree Planting/ Camp out,tree_planting,completed,33,80,0,99.00,0,0
+2026,2026-04-11,Mornington Peninsula,Beach Clean Up,clean_up,completed,5,0,4.00,15.00,0,0
+2026,2026-04-12,Melbourne City,Bee Habitat Workshop w/ Bees & Blossoms,workshop,published,34,0,0.00,51.00,0,0
+2026,2026-04-17,Geelong,Balyang Sanctuary Clean Up,clean_up,completed,3,0,4.00,9.00,0,0
+2026,2026-04-24,Mornington Peninsula,Arthur’s seat hike,nature_hike,completed,15,0,0.00,45.00,0,0
+2026,2026-04-25,Geelong,Botanical Gardens Nature Walk,nature_hike,completed,8,0,0.00,24.00,0,0
+2026,2026-04-26,Melbourne City,Altona Beach Clean Up,clean_up,published,14,0,20.00,35.00,0,0
+2026,2026-05-01,North East Victoria,North East Victoria - Mt Buffalo Hike (Lake Catani to Bents lookout),nature_hike,completed,7,0,0.00,21.00,0,0
+2026,2026-05-02,Melbourne City,Merri Mornings,land_regeneration,completed,40,0,0.00,120.00,0,0
+2026,2026-05-09,Melbourne City,Lilydale Tree Planting w/ Tree Project,tree_planting,completed,26,1000,0,104.00,2,0
+2026,2026-05-12,Geelong,Rippleside Costal Walk,nature_hike,completed,6,0,0.00,18.00,0,0
+2026,2026-05-16,Mornington Peninsula,Balnarring Tree Planting w/ MCC Landcare,tree_planting,completed,20,50,0,90.00,15,2
+2026,2026-05-17,Melbourne City,Lilydale Tree Planting w/ Yarra Ranges Council,tree_planting,published,18,1000,0,68.40,18,0
+2026,2026-05-23,Geelong,Torquay Beach Clean Up,clean_up,completed,8,0,0,16.00,6,0
+2026,2026-05-31,Mornington Peninsula,The Briars Nature Hike & BBQ,nature_hike,completed,6,0,0,12.00,7,0
+2026,2026-06-06,Geelong,Waterfront Beach Clean Up,clean_up,cancelled,0,0,0,0,0,0
+2026,2026-06-07,Melbourne City,Merri Mornings,ecosystem_restoration,published,0,0,0,0,34,6
+2026,2026-06-07,North East Victoria,Strathbogie Tree Planting,tree_planting,published,0,0,0,0,8,0
+2026,2026-06-07,Mornington Peninsula,Canadian Bay Beach Clean Up,clean_up,completed,9,0,25.00,18.00,0,0
+2026,2026-06-13,Mornington Peninsula,Main Ridge Tree Planting w/ Mornington Peninsula Koala,tree_planting,published,0,0,0,0,0,0
+2026,2026-06-14,Melbourne City,Mordialloc Beach Clean Up w/ Deakin Enviro Club,clean_up,published,0,0,0,0,0,0
+2026,2026-06-20,Geelong,You Yangs Nature Hike,nature_hike,published,0,0,0,0,0,0
+2026,2026-06-27,Melbourne City,Seville Tree Planting w/ Tree Project,tree_planting,cancelled,0,0,0,0,0,0
+2026,2026-06-27,Melbourne City,Seville Tree Planting w/ Tree Project,tree_planting,published,0,0,0,0,0,0
+2026,2026-07-05,Melbourne City,Merri Mornings,ecosystem_restoration,published,0,0,0,0,0,0
+2026,2026-08-02,Mornington Peninsula,Flinders Tree Planting w/ Mornington Peninsula Koala ,tree_planting,published,0,0,0,0,0,0
+2026,2026-08-02,Melbourne City,Merri Mornings,ecosystem_restoration,published,0,0,0,0,0,0
+2026,2026-08-08,Geelong,Little River Reserve Tree Planting w/ Koala Clancy,tree_planting,published,0,0,0,0,0,0
+2026,2026-08-08,Melbourne City,Little River Reserve Tree Planting w/ Koala Clancy,tree_planting,cancelled,0,0,0,0,0,0
+2026,2026-09-06,Melbourne City,Merri Mornings,ecosystem_restoration,published,0,0,0,0,0,0

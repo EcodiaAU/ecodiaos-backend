@@ -15,12 +15,12 @@ const { open } = require("./db");
 const BACKEND = path.resolve(__dirname, "..");
 const HOME = require("os").homedir();
 
-// (root dir, category-or-null-to-infer, source_root label, exclude-substring)
+// (root dir, category-or-null-to-infer, source_root label, exclude-substrings)
 const ROOTS = [
   [path.join(BACKEND, "patterns"), null, "patterns", "/_archived/"],
   [path.join(BACKEND, "clients"), "reference", "clients", "/archived/"],
   [path.join(BACKEND, "docs", "secrets"), "secrets", "secrets", null],
-  [path.join(BACKEND, "docs"), "reference", "docs", "/secrets/"],
+  [path.join(BACKEND, "docs"), "reference", "docs", ["/secrets/", "/_archive/"]],
   [path.join(BACKEND, "voice"), "identity", "voice", "/out/"],
   [path.join(BACKEND, "brand"), "identity", "brand", null],
   [path.join(BACKEND, "drafts"), "workbench", "drafts", "/_archive/"],
@@ -92,9 +92,10 @@ function walk(dir, exclude, acc) {
   } catch (_) {
     return acc;
   }
+  const excludes = exclude ? (Array.isArray(exclude) ? exclude : [exclude]) : [];
   for (const e of entries) {
     const full = path.join(dir, e.name);
-    if (exclude && full.includes(exclude)) continue;
+    if (excludes.some((x) => full.includes(x))) continue;
     if (e.isDirectory()) {
       // do not recurse into node_modules / .git / out
       if (/node_modules|\.git|\/out$/.test(full)) continue;

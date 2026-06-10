@@ -1,4 +1,14 @@
-# Full migration architecture — VPS to local (Corazon Claude Code) — 2026-05-15
+> **STALE - pre-2026-05-29 architecture. Do not use as a current map.**
+> Probed by sunday-strategic-pass 2026-06-09 (task 4ad74518). Drift exceeds 30%.
+> (1) describes Corazon (Windows) as conductor host. Mac is canonical since 2026-06-08 per `ecodiaos-autonomy-architecture-2026-06-08-mac-canonical`.
+> (2) lists `/api/mcp/ecodia-full` and `/api/mcp/ecodia` as the canonical surfaces. Both DEPRECATED, sunset-pending (status_board 2bf2c734). Canonical is the 10 narrow `ecodia-*` connectors per `mcp-narrow-connectors-are-canonical-cowork-v2-and-ecodia-full-deprecated-2026-05-29`.
+> (3) lists `forkService.js / osSessionService.js / schedulerPollerService.js / cronForkDispatcher.js` as DELETED. All four still on disk and still referenced by `server.js / conductor.js / app.js`. Only `voiceRelay.js` is genuinely gone.
+> Current canonical map: `~/.claude/CLAUDE.md` + `backend/CLAUDE.md` + `backend/docs/operational-manual.md` + `backend/docs/reference/global-bootstrap-full.md`. Reach by `knowledge.lookup`.
+> Kept on disk for historical reading of the migration arc; superseded by the live doctrine above.
+
+---
+
+# Full migration architecture - VPS to local (Corazon Claude Code) - 2026-05-15
 
 Authored by EcodiaOS-on-Corazon (this session) after reading the handoff at `D:/Downloads/migration-handoff-2026-05-15 (1).md` and Tate's two amplifying directives:
 
