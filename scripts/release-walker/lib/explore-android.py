@@ -107,7 +107,8 @@ def parse_nodes(blob, package):
         lab = attr('text') or attr('content-desc')
         if lab:
             labeled.append((x1, y1, x2, y2, lab))
-        raw.append((s, x1, y1, x2, y2, lab, attr('clickable') == 'true'))
+        already_on = attr('selected') == 'true' or attr('checked') == 'true'
+        raw.append((s, x1, y1, x2, y2, lab, attr('clickable') == 'true', already_on))
 
     def inherited_label(x1, y1, x2, y2):
         best = None
@@ -119,7 +120,7 @@ def parse_nodes(blob, package):
         return best[1] if best else ''
 
     out = []
-    for (s, x1, y1, x2, y2, lab, clickable) in raw:
+    for (s, x1, y1, x2, y2, lab, clickable, already_on) in raw:
         w, h = x2 - x1, y2 - y1
         if w < 24 or h < 24 or w * h < 1200:
             continue
@@ -134,6 +135,7 @@ def parse_nodes(blob, package):
             'cx': (x1 + x2) // 2,
             'cy': (y1 + y2) // 2,
             'area_frac': (w * h) / (1080 * 2400),
+            'already_on': already_on,
         })
     return out
 
@@ -272,8 +274,11 @@ def main():
         # mutation: anything labelled map, or an unlabeled container
         # covering most of the screen (the full-bleed map FrameLayout
         # fired false dead-taps on runs 003209Z + 005504Z).
+        # Already-selected/checked controls no-op by design (the active
+        # theme chip; judged on glovebox run 20260610T040658Z).
         is_canvas = ('map' in (cand['label'] or '').lower()
-                     or (not cand['label'] and cand.get('area_frac', 0) > 0.6))
+                     or (not cand['label'] and cand.get('area_frac', 0) > 0.6)
+                     or cand.get('already_on'))
         if post_sig == sig and not is_canvas and cand['key'] not in fired_dead:
             fired_dead.add(cand['key'])
             if cand['label']:
