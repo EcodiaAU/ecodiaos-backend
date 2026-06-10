@@ -36,6 +36,11 @@ supabase/.temp/
 .codeEcodiaOScoordination/
 
 # Tmp/scratch dumps from one-shot test responses, screenshots, etc.
+# scratch/ MUST be ignored: smoke-test scripts there routinely hardcode prod
+# env (DATABASE_URL with password, SUPABASE_SERVICE_KEY, ENCRYPTION_KEY).
+# Drift here put commit 09c10fb3 into the PUBLIC repo on 2026-06-09 (P1 leak,
+# status_board f3ddb387). Pattern: scratch-gitignore-comment-not-rule-leaked-prod-secrets-2026-06-10.
+scratch/
 tmp*
 *-shot-response.json
 
@@ -44,3 +49,4 @@ tmp*
 # that get cleaned up on clean DB close and leak runtime PIDs/positions otherwise.
 *.sqlite-shm
 *.sqlite-wal
+scripts/release-walker/runs/

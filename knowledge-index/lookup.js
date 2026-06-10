@@ -211,17 +211,22 @@ function stats() {
 
 module.exports = { lookup, lookupHybrid, stats };
 
-// CLI: node lookup.js "need"            -> keyword
-//      node lookup.js --hybrid "need"   -> hybrid (loads model)
+// CLI: node lookup.js "need"             -> hybrid (loads model, auto-degrades
+//                                            to keyword if model/vectors absent).
+//                                            Matches the MCP front door so the
+//                                            retrieval quality is identical by
+//                                            either entry path.
+//      node lookup.js --keyword "need"    -> fast keyword-only, no model load.
+//      node lookup.js --hybrid "need"     -> explicit hybrid (back-compat alias).
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const hybrid = args[0] === "--hybrid";
-  const need = (hybrid ? args.slice(1) : args).join(" ");
+  const keywordOnly = args[0] === "--keyword";
+  const need = args.filter((a) => a !== "--keyword" && a !== "--hybrid").join(" ");
   if (!need) {
     console.log(JSON.stringify(stats(), null, 2));
-  } else if (hybrid) {
-    lookupHybrid(need).then((r) => console.log(JSON.stringify(r, null, 2)));
-  } else {
+  } else if (keywordOnly) {
     console.log(JSON.stringify(lookup(need), null, 2));
+  } else {
+    lookupHybrid(need).then((r) => console.log(JSON.stringify(r, null, 2)));
   }
 }
