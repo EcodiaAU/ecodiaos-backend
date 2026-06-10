@@ -385,7 +385,7 @@ values
  'pillar=metrics_targets. B21-B22 AMENDED by AASB S2025-1 (jurisdictional GWP relief). Binds the calc engine factor handling.'),
 
 ('AASB_S2', 'Sep 2024 (amended by AASB S2025-1 Dec 2025)', 'AASB S2 para B28',
- 'When emissions are measured using a method other than the GHG Protocol Corporate Standard (under para 29(a)(ii), B24-B25 or C4(a)), disclose for each alternative method the method and measurement approach used and the reasons for choosing it.',
+ 'When emissions are measured using a method other than the GHG Protocol Corporate Standard (under para 29(a)(ii), B24-B25 or C4(a)), disclose for each alternative method the method and measurement approach used, the reasons for choosing it, and how that approach relates to the para 27 disclosure objective.',
  array['methodology_memo'],
  'pillar=metrics_targets. AMENDED by AASB S2025-1 (extended to per-method disclosure under the partial relief).'),
 
@@ -418,7 +418,7 @@ values
 ('AASB_S2', 'Sep 2024 (amended by AASB S2025-1 Dec 2025)', 'AASB S2 App C para AusC1.1',
  'AASB S2 applies to annual reporting periods beginning on or after 1 January 2025; earlier application is permitted and must be disclosed.',
  array['disclosure_checklist','compliance_statement'],
- 'pillar=transition. Corporations Act group phasing (Group 1/2/3 entry dates) sits in s 1707D, outside this register''s scope.'),
+ 'pillar=transition. Corporations Act group phasing (Group 1/2/3 entry dates) sits in s 1707B, outside this register''s scope (s 1707D is the limited-immunity provision; spot-check fix 2026-06-10).'),
 
 ('AASB_S2', 'Sep 2024 (amended by AASB S2025-1 Dec 2025)', 'AASB S2 App C para C3',
  'Comparative information is not required in the first annual reporting period in which the entity applies the Standard.',
