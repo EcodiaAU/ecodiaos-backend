@@ -130,6 +130,23 @@ function enrich(db, ranked, limit) {
   });
 }
 
+// Drafts/work-in-progress must stay findable but never outrank load-bearing
+// doctrine on a generic query. Weight applies to BOTH entry doors (keyword +
+// hybrid) so retrieval quality stays identical; an explicit category ask
+// (opts.category or the word in the need) exempts that category.
+const TIER_WEIGHTS = { workbench: 0.6 };
+function applyTierWeights(db, ranked, need, opts) {
+  if (!ranked.length) return ranked;
+  const explicit = (opts && opts.category) || detectCategory(need);
+  const catStmt = db.prepare("SELECT category FROM docs WHERE path = ?");
+  for (const r of ranked) {
+    const m = catStmt.get(r.path);
+    const w = m && TIER_WEIGHTS[m.category];
+    if (w && m.category !== explicit) r.score *= w;
+  }
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
 function noteFor(results) {
   return results.length === 0
     ? "No hit. If the index is fresh this knowledge likely does not exist yet - author it after acting (grep-absence is not absence)."
@@ -141,7 +158,7 @@ function lookup(need, opts) {
   const limit = Math.min(Math.max((opts && opts.limit) || 5, 1), 25);
   const db = open({ readonly: true });
   try {
-    const ranked = keywordRanked(db, need, opts);
+    const ranked = applyTierWeights(db, keywordRanked(db, need, opts), need, opts);
     const results = enrich(db, ranked, limit);
     return { need, mode: "keyword", count: results.length, results, index: freshness(db), note: noteFor(results) };
   } finally {
@@ -182,9 +199,14 @@ async function lookupHybrid(need, opts) {
       s.add("L3-dense");
       layers.set(r.path, s);
     });
-    const ranked = Array.from(rrf.entries())
-      .map(([p, s]) => ({ path: p, score: s, layers: Array.from(layers.get(p) || []) }))
-      .sort((a, b) => b.score - a.score);
+    const ranked = applyTierWeights(
+      db,
+      Array.from(rrf.entries())
+        .map(([p, s]) => ({ path: p, score: s, layers: Array.from(layers.get(p) || []) }))
+        .sort((a, b) => b.score - a.score),
+      need,
+      opts
+    );
 
     const results = enrich(db, ranked, limit);
     return { need, mode, count: results.length, results, index: freshness(db), note: noteFor(results) };
@@ -211,17 +233,22 @@ function stats() {
 
 module.exports = { lookup, lookupHybrid, stats };
 
-// CLI: node lookup.js "need"            -> keyword
-//      node lookup.js --hybrid "need"   -> hybrid (loads model)
+// CLI: node lookup.js "need"             -> hybrid (loads model, auto-degrades
+//                                            to keyword if model/vectors absent).
+//                                            Matches the MCP front door so the
+//                                            retrieval quality is identical by
+//                                            either entry path.
+//      node lookup.js --keyword "need"    -> fast keyword-only, no model load.
+//      node lookup.js --hybrid "need"     -> explicit hybrid (back-compat alias).
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const hybrid = args[0] === "--hybrid";
-  const need = (hybrid ? args.slice(1) : args).join(" ");
+  const keywordOnly = args[0] === "--keyword";
+  const need = args.filter((a) => a !== "--keyword" && a !== "--hybrid").join(" ");
   if (!need) {
     console.log(JSON.stringify(stats(), null, 2));
-  } else if (hybrid) {
-    lookupHybrid(need).then((r) => console.log(JSON.stringify(r, null, 2)));
-  } else {
+  } else if (keywordOnly) {
     console.log(JSON.stringify(lookup(need), null, 2));
+  } else {
+    lookupHybrid(need).then((r) => console.log(JSON.stringify(r, null, 2)));
   }
 }

@@ -16,6 +16,13 @@ The single front door to your own knowledge (doctrine, recipes, reference, memor
 
 The `knowledge-route` skill carries the full protocol. This supersedes the old "grep patterns/ triggers:" ritual (still works, but lookup is the front door).
 
+## WHERE THINGS GO - the filing rule (write-side twin of lookup)
+
+Two questions decide where anything goes: is it knowledge, or is it a file on the machine.
+
+- **Knowledge (a rule, recipe, reference fact, decision, memory).** Qualify first with the `memory-route` skill (which substrate: disk doctrine vs Neo4j memory vs auto-memory vs nowhere). If it is durable doctrine, author it with `pattern-codify` as a `.md` with `triggers:` frontmatter (add `category:` doctrine|recipes|reference|memory|identity and `facet:` when you want to override inference). It lands in `patterns/` (or `docs/`, `clients/`); the indexer auto-assigns category+facet and the `knowledge-index-refresh` hook re-indexes it so `knowledge.lookup` finds it. Categorisation is automatic - you do not hand-file into folders. Disk is canonical. (The physical `knowledge/<category>/` tree is a deferred migration; today the categories are a logical layer over the flat dirs via the index.)
+- **A file/repo/artifact/state on the machine.** It goes to a canonical home, never HOME-root sprawl, never a hardcoded `/Users/ecodia` literal (source `~/.ecodiaos/env`): repos -> `~/.code`; regenerable (models/caches) -> `~/.cache`; state/logs/indexes -> `~/.local/state`; precious data/archive -> `~/.local/share`; creds -> `~/PRIVATE` (FROZEN). Full scheme + the FROZEN never-move set: `knowledge.lookup "canonical homes"` (`docs/reference/mac-canonical-homes.md`). NOTE: placement is doctrine + this rule today; the enforcing hook is deferred, so this half still leans on discipline until it ships.
+
 ## HOST + SUBSTRATE MAP - query the right surface, never re-derive
 
 - **HOST:** Mac (`MacBookPro.lan`) is canonical since 2026-06-08. `D:/...` paths are Corazon-era and SUSPECT here - never assume they resolve. Backend at `/Users/ecodia/.code/ecodiaos/backend`.
