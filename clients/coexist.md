@@ -6,7 +6,12 @@
 > (see glovebox.md "Manifest format" at the bottom).
 
 **Product:** Co-Exist Australia - conservation/youth-engagement mobile app.
-Kurt Jones (CEO) is the contact at hello@coexistaus.org.
+
+**People (verified by Tate 2026-06-11):**
+- **Kurt Jones (CEO)** at `hello@coexistaus.org`. Decision-holder. The "Kurt opening the foundation/trust committee door" arc is his pitch.
+- **Jess (Jessica Ditchfield, community manager)** at `jessicaditchfield@coexistaus.org`. Community manager, NOT CEO. Not a principal. The 2026-06-10 Woodfordia prep brief asserted Jess as CEO and Tate as a "Co-Exist principal" - both false. Quarantined at `.archive/quarantine/2026-06-11-woodfordia-prep-brief/`. Doctrine at `patterns/factual-claims-require-substrate-citation-before-deliverable-2026-06-11.md`.
+- **`ceo@coexistaus.org`** routes to Kurt Jones. Earlier kv_store guess "Jocelyn likely" was unverified and is now retired.
+- **Ecodia (Tate) posture toward Co-Exist:** Ecodia is the platform vendor + app builder for Co-Exist. Tate is NOT part of Co-Exist and does not represent Co-Exist in external meetings. Standing arrangement does not extend to author-level open lines (see "No client contact without Tate go-ahead" + agreement clauses 2.5 / 10.2 below).
 
 **Immutable identifiers (never change these):**
 - iOS bundle id / Android package: `org.coexistaus.app`

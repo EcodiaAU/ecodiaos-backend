@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Woodfordia site visit prep, 17 June 2026</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;1,300;1,400&display=swap">
+<!--
+verified-from:
+  - clients/coexist.md L7-L17 (Kurt Jones CEO; Jess Ditchfield community manager; ceo@ routes to Kurt; Tate sits outside Co-Exist)
+  - clients/woodfordia.md L8-L29 (org.woodfordia.app bundle; TestFlight build 2 valid 2026-05-28; native rewrite arc; admin SPA has no Vercel project)
+  - clients/woodfordia.md L4 + L8 (annual Woodford Folk Festival app, December cadence, ~100k attendees)
+  - status_board f9e70100 (event 2026-06-17 13:00-14:30 AEST, organiser amanda.jackes@woodfordia.com, Tate accepted)
+  - status_board c80b1241 (Woodfordia native rewrite arc on feat/ios-native-foundation, 17 SwiftUI files)
+  - status_board 7451f74f (Co-Exist + chambers-frontend CI lint red, remediation worker assigned)
+  - status_board 7d44be0e (Co-Exist anon Supabase key in mobile bundle, long-tail rotation item)
+  - kv_store cowork.calendar.meeting.woodfordia_site_visit_2026-06-17 attendee_emails (verified-facts-only block, 2026-06-11 quarantine)
+  - Tate chat 2026-06-11: Kurt is still Co-Exist CEO; Jess is Co-Exist community manager; Tate goes to the meeting as Ecodia; "we're likely going to be involved in the development of their app for the festival (biggest win ever)"
+-->
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #000000;
+    --fg-trace: rgba(0,0,0,0.32);
+    --fg-soft: rgba(0,0,0,0.62);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --fg: #ffffff;
+      --fg-trace: rgba(255,255,255,0.32);
+      --fg-soft: rgba(255,255,255,0.62);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Spectral", "Iowan Old Style", Garamond, "Times New Roman", serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "liga", "dlig", "onum";
+  }
+  body {
+    min-height: 100dvh;
+    padding: clamp(24px, 5vw, 60px);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  ::selection { background: var(--fg); color: var(--bg); }
+
+  .title-page {
+    min-height: 80vh;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 6vh 0 10vh;
+  }
+  .title-page .sentence {
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+    max-width: 24ch;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .title-page .byline {
+    margin-top: 3.2em;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  main.memo {
+    max-width: 62ch;
+    margin: 0 auto;
+    padding: 4vh 0 8vh;
+    font-size: clamp(17px, 1.4vw, 19px);
+    line-height: 1.55;
+  }
+  main.memo p { margin: 0 0 1.05em 0; text-wrap: pretty; }
+  main.memo p.lede {
+    font-style: italic;
+    font-size: 1.18em;
+    line-height: 1.42;
+    margin-bottom: 2em;
+  }
+  main.memo .section-label {
+    font-style: italic;
+    font-size: 12.5px;
+    letter-spacing: 0.06em;
+    color: var(--fg-trace);
+    margin: 3.2em 0 0.9em 0;
+    font-weight: 400;
+  }
+  main.memo em, main.memo i { font-style: italic; }
+  main.memo strong, main.memo b { font-style: italic; font-weight: 400; }
+  a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--fg-trace); }
+  a:hover { border-bottom-color: var(--fg); }
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--fg-trace);
+    font-style: italic;
+    padding: 4vh 0 1vh;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 540px) {
+    body { padding: 24px 20px; }
+    main.memo { font-size: 17px; }
+  }
+
+  @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
+  @media print {
+    html, body { background: #fff !important; color: #000 !important; }
+    body { padding: 0; }
+    .title-page {
+      min-height: 0;
+      page-break-after: always;
+      padding: 24vh 0 12vh;
+    }
+    .title-page .sentence { font-size: 36pt; line-height: 1.2; max-width: 24ch; }
+    .title-page .byline { font-size: 9.5pt; margin-top: 5em; }
+    main.memo { max-width: 100%; padding: 0; font-size: 11.5pt; line-height: 1.5; }
+    main.memo p { orphans: 3; widows: 3; }
+    main.memo p.lede { font-size: 13pt; line-height: 1.4; margin-bottom: 1.6em; }
+    main.memo .section-label { font-size: 8.5pt; margin: 1.8em 0 0.6em 0; page-break-after: avoid; }
+    footer { font-size: 8pt; padding: 1.6em 0 0; }
+    a { color: #000 !important; border-bottom-color: rgba(0,0,0,0.32) !important; }
+  }
+</style>
+</head>
+<body>
+
+<section class="title-page">
+  <p class="sentence">Woodfordia's organisers, in the room, ninety minutes.</p>
+  <p class="byline">EcodiaOS for Tate &middot; prep brief &middot; 17 June 2026 &middot; 13:00 AEST</p>
+</section>
+
+<main class="memo">
+
+<p class="lede">Wednesday 17 June, one in the afternoon, ninety minutes on the Woodfordia grounds. Amanda Jackes set the invite five days out and Tate accepted within five minutes. Tate is in the room as Ecodia. Co-Exist's people are at the table because Co-Exist runs on the Ecodia platform; their presence is about the platform layer underneath their app. Tate's own framing on the meeting is "biggest win ever", with the work likely being the festival app build for Woodford.</p>
+
+<p class="section-label">The room</p>
+
+<p>Amanda Jackes is the organiser of the meeting, on her own woodfordia.com mailbox. Anna Williams, Karen McBride and Chris Shervey are on the invite from woodfordia.com addresses. The generic woodfordia.com catch-all is also listed. <em>UNVERIFIED. Roles for Anna, Karen, Chris and the catch-all are open. The calendar event does not carry titles, and there is no prior touch on either Tate or code mailboxes that would place them. Treat the introductions in the room as the first reliable signal.</em></p>
+
+<p>From Co-Exist, two addresses are on the invite. The ceo@coexistaus.org mailbox routes to Kurt Jones, who holds the CEO chair at Co-Exist Australia. The jessicaditchfield@coexistaus.org mailbox is Jess, the community manager at Co-Exist. Kurt holds the Co-Exist relationship; Jess holds community on the ground. An earlier draft of this brief had the roles inverted and was quarantined.</p>
+
+<p>The hotmail address attached to the surname Fleiter Hodges is the only genuine identity unknown. <em>UNVERIFIED. Probable Hugh Fleiter Hodges based on the email handle. There is no prior touch with that mailbox on either Tate or code accounts and no contact in any substrate that attaches to it. Hold the identity open until Amanda introduces him.</em></p>
+
+<p class="section-label">Why this room is the room</p>
+
+<p>Ecodia ships two apps relevant to this table. Woodfordia's all-in-one festival app, bundle id <em>org.woodfordia.app</em>, is at TestFlight build 2 and has been valid since 28 May, with a SwiftUI native rewrite in flight on the <em>feat/ios-native-foundation</em> branch (seventeen files committed). Co-Exist Australia's app, bundle id <em>org.coexistaus.app</em>, is live on the App Store and Google Play with the Ecodia conservation-tech platform as its operational backbone.</p>
+
+<p>Two clients, sibling stacks, one builder. With Amanda's team and Kurt's team in the same room, the room reads as Woodfordia wanting to size up the team that already ships the working Woodfordia app and is supported by an existing Co-Exist deployment. <em>UNVERIFIED. Precise centre of gravity remains open. The verified read is Tate's own, that the work likely on the table is the development of the Woodford Folk Festival app, and that framing comes directly from Tate.</em></p>
+
+<p class="section-label">What is demo-ready by Wednesday</p>
+
+<p>TestFlight build 2 of the Capacitor app is the shippable Woodfordia artefact. It carries the unified UI primitive layer at <em>apps/mobile/src/components/ui/</em>. Tate can install it on Amanda's phone in two minutes if she asks to see it. Demo this one.</p>
+
+<p>The SwiftUI native rewrite is seventeen files into a foundation and remains pre-demo for Wednesday. If it comes up, frame it as a performance and feel upgrade arriving after the December festival, then move on. The admin SPA still has no Vercel project, so there is no admin URL to hand to Amanda. The honest answer if she asks is that admin tooling is published per event when wired up.</p>
+
+<p>The Co-Exist app is in active production for Co-Exist's own membership. Two known issues are worth flagging if anyone asks. CI lint is red on both <em>coexist</em> and <em>chambers-frontend</em>, with a remediation worker assigned. The legacy anon Supabase key is still in the mobile bundle as a long-tail rotation item, with no client-visible reach today. Neither blocks what Jess would show on a phone.</p>
+
+<p class="section-label">Three questions worth asking Amanda</p>
+
+<p>First, what is the decision Amanda is trying to land in this meeting. A ninety-minute meeting with four Woodfordia people, two Co-Exist people and one unverified external attendee is more than a site walkthrough. Naming the centre of gravity early lets the rest of the time go to the right work.</p>
+
+<p>Second, what does Woodford Folk Festival 2026 in December need the app to do that TestFlight build 2 does not. The answer to that question sets the scope of the next six months of Woodfordia work, and it is the closest direct path into the build Tate is reading as on the table.</p>
+
+<p>Third, who at the table is choosing. The invite groups Woodfordia and Co-Exist; the decision-shape is open. Asking clears the framing for the rest of the room.</p>
+
+<p class="section-label">Logistics</p>
+
+<p>Woodford sits about ninety minutes north of Brisbane through the D'Aguilar Range by road. The meeting starts at one in the afternoon AEST. Leaving Brisbane by eleven gives margin for traffic and a settle on arrival. Tate is the sole Ecodia attendee; EcodiaOS holds the substrate behind him but does not appear in the room. No outbound from Ecodia to Amanda or to the Co-Exist team between now and the meeting without Tate's go-ahead.</p>
+
+<p class="section-label">Stakes</p>
+
+<p>Woodford Folk Festival is an annual event of about a hundred thousand people in December. An Ecodia contract to build the festival-grade app for that event is a category change in revenue, reputation and reference. Tate's framing on the meeting is "biggest win ever" and that framing sits at the front of the brief, not buried at the back.</p>
+
+</main>
+
+<footer>
+  Woodfordia site visit prep &middot; EcodiaOS for Tate &middot; redrafted 11 June 2026 after the 10 June version was quarantined for factual errors &middot;
+  <a href="mailto:code@ecodia.au">code@ecodia.au</a>
+</footer>
+
+</body>
+</html>
