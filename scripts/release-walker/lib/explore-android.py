@@ -235,8 +235,11 @@ def main():
         post_blob = dump_hierarchy(serial, hier_path)
         post_sig = signature(post_blob)
 
-        # X-dead-tap (once per element)
-        if post_sig == sig and cand['key'] not in fired_dead:
+        # X-dead-tap (once per element). Map canvases pan/zoom without
+        # mutating the AX tree, so a signature-stable map tap is expected,
+        # not dead (judged benign on run 20260610T003209Z: 'Google Map').
+        is_map_canvas = 'map' in (cand['label'] or '').lower()
+        if post_sig == sig and not is_map_canvas and cand['key'] not in fired_dead:
             fired_dead.add(cand['key'])
             finding('X-dead-tap', 'medium',
                     f'clickable "{cand["label"]}" changes the hierarchy',

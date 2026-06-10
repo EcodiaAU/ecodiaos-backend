@@ -2,7 +2,7 @@
 triggers: release walker matrix, state matrix testing, pairwise cells, permission state testing, pm grant pm revoke walker, simctl privacy walker, appearance dark cell, font_scale cell, network offline cell, data_state returning, matrix release gate, release cut gate, mobile app release verification, walk away from a release, operator away release safety, walker editfield target, capacitor input fill editfield, fill-verify probe, offline white screen capacitor, cell state reset baseline, uncovered dimensions verdict
 priority: critical
 canonical: true
-binding: skill=release-walker + cron=cowork.release-walker-nightly + script=backend/scripts/release-walker/bin/release-walk.sh
+binding: hook=release-walker-ship-gate.py + skill=release-walker + cron=cowork.release-walker-nightly + script=backend/scripts/release-walker/bin/release-walk.sh
 ---
 
 # Release gate = spec flows x state-matrix cells + exploration; coverage names what it did NOT run
@@ -62,6 +62,13 @@ full-product cells in 7.
 - A GREEN release-cut claim cites flows x cells + explore taps + the
   uncovered list. Per [[exploratory-walker-is-first-class-test-substrate-2026-06-09]]
   both layers are mandatory.
+- ENFORCEMENT is mechanical, not prose: the PreToolUse hook
+  `release-walker-ship-gate.py` (registered in ~/.claude/settings.json)
+  blocks ship-ios.py / bundleRelease / Play / ASC-submit commands for a
+  tracked app unless the newest walker verdict is green and under 24h
+  old. Bypass token `walker-ok` (conscious, logged). Verified live
+  2026-06-10: glovebox blocked (no run), coexist allowed (green 0.5h),
+  locals blocked (findings verdict), non-ship commands untouched.
 
 ## 4. Anti-patterns
 
