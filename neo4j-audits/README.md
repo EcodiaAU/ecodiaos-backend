@@ -19,7 +19,11 @@ The catalogue is the operational manifestation of `patterns/neo4j-world-model-re
 
 `run-sweep.mjs` reads every `.cypher` file, executes against Neo4j via the direct driver (`neo4j-driver` npm package), aggregates findings, emits one status_board upsert per non-empty finding as JSONL on stdout. The cron worker parses the JSONL and posts the upserts through `mcp__ecodia-core__status_board_upsert`.
 
-**Prerequisite:** `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` must be in env. The cron prompt sources `/Users/ecodia/PRIVATE/ecodia-creds/neo4j.env` before the runner. That env file is NOT in `kv-mirror` yet; first cron fire after schema land needs Tate to drop the Aura URI + password into that file. Once present, every subsequent fire works without intervention.
+**Prerequisite:** `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` must be reachable. The runner auto-loads them from `backend/.env` (canonical), falling back to `backend/.env.production` and `backend/.env.development`. Override the search path with `ECODIAOS_ENV_FILE=/path/to/.env`. No separate `neo4j.env` is needed; the existing backend env already carries the four NEO4J_* vars + AURA_INSTANCEID + AURA_INSTANCENAME.
+
+The cron prompt does not need to source anything; the runner discovers the creds itself.
+
+Verified live 2026-06-11: `node run-sweep.mjs` against the production Aura instance returns the full 8-query catalogue. Current operational debt (snapshot 2026-06-11): persons-without-primary-affiliation 80, organizations-without-contact-person 142, edges-missing-provenance 155, events-without-organiser 200, weak-edges-to-migrate 300, duplicate-entity-candidates 112, apps-without-builder-or-owner 0, claims-without-supersession 0.
 
 ## Usage
 

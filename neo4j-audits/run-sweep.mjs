@@ -19,6 +19,13 @@ import neo4j from 'neo4j-driver';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const QUERIES_DIR = join(HERE, 'queries');
+const BACKEND_DIR = dirname(HERE);
+const ENV_PATHS = [
+  process.env.ECODIAOS_ENV_FILE,
+  join(BACKEND_DIR, '.env'),
+  join(BACKEND_DIR, '.env.production'),
+  join(BACKEND_DIR, '.env.development'),
+].filter(Boolean);
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
@@ -27,12 +34,41 @@ const ONLY = (() => {
   return i >= 0 ? args[i + 1] : null;
 })();
 
+// Auto-load NEO4J_* from backend/.env if missing from process env.
+// Order: explicit env first, then walk ENV_PATHS for the first file
+// that contains NEO4J_URI. The runner only needs URI / USER / PASSWORD.
+async function autoloadNeoEnv() {
+  if (process.env.NEO4J_URI && process.env.NEO4J_PASSWORD) return null;
+  for (const path of ENV_PATHS) {
+    try {
+      const text = await readFile(path, 'utf8');
+      const keep = ['NEO4J_URI', 'NEO4J_USER', 'NEO4J_PASSWORD', 'NEO4J_DATABASE'];
+      let loaded = 0;
+      for (const line of text.split('\n')) {
+        const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
+        if (!m) continue;
+        if (!keep.includes(m[1])) continue;
+        if (process.env[m[1]]) continue;
+        process.env[m[1]] = m[2].replace(/^["']|["']$/g, '').trim();
+        loaded++;
+      }
+      if (loaded > 0 && process.env.NEO4J_URI && process.env.NEO4J_PASSWORD) {
+        return path;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+const envSource = await autoloadNeoEnv();
 const NEO4J_URI = process.env.NEO4J_URI || process.env.AURA_URI;
 const NEO4J_USER = process.env.NEO4J_USER || process.env.AURA_USER || 'neo4j';
 const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || process.env.AURA_PASSWORD;
 
+if (envSource) console.error(`[sweep] loaded Neo4j creds from ${envSource}`);
+
 if (!NEO4J_URI || !NEO4J_PASSWORD) {
-  console.error('[sweep] NEO4J_URI + NEO4J_PASSWORD required in env. Try sourcing /Users/ecodia/PRIVATE/ecodia-creds/neo4j.env first.');
+  console.error('[sweep] NEO4J_URI + NEO4J_PASSWORD required. Searched: ' + ENV_PATHS.join(', '));
   process.exit(2);
 }
 
