@@ -494,21 +494,45 @@ async function checkClassificationEntropy(client) {
   if (entropy < 0.5) {
     const dominantClass = r.rows.reduce((a, b) => (a.n > b.n ? a : b))
     const NAME = 'Phase D classifier single-class collapse - entropy below 0.5 bits'
-    const ctx = `Rolling-50 entropy: ${entropy.toFixed(3)} bits (threshold 0.5). Dominant class: '${dominantClass.classification}' (${dominantClass.n}/${total} rows). Distribution: ${JSON.stringify(distribution)}. Action: audit classifier routing - a healthy 7-class distribution should reach ~2.8 bits.`
+
+    // Producer-freshness guard: distinguish a true classifier-routing collapse
+    // from a producer-stall artefact. When upstream telemetry production has
+    // stopped, the rolling-50 window is homogeneous because its only classifiable
+    // input is a stale burst already drained to one class - NOT because routing
+    // collapsed. Treating the two identically pollutes the TUNE layer with a
+    // recurring false P2 every fire while production is paused. The newest
+    // outcome_event ts is the honest discriminator (same shape as
+    // silent-hook-candidate-drift-signal-needs-emit-surfaces-vs-wired-distinction-2026-06-10:
+    // a defensible default must not absorb a wrong-class input and mislabel it).
+    const freshR = await client.query(
+      `SELECT EXTRACT(EPOCH FROM (NOW() - MAX(ts)))::int AS age_sec FROM outcome_event`
+    )
+    const producerAgeSec = freshR.rows[0]?.age_sec ?? null
+    const producerStalled = producerAgeSec != null && producerAgeSec > 6 * 3600
+    const ageH = producerAgeSec != null ? Math.round(producerAgeSec / 3600) : null
+
+    const priority = producerStalled ? 3 : 2
+    const ctx = producerStalled
+      ? `Rolling-50 entropy: ${entropy.toFixed(3)} bits, dominant '${dominantClass.classification}' (${dominantClass.n}/${total}). PRODUCER-STALL ARTEFACT, not a routing collapse: newest outcome_event row is ${ageH}h old, so the only classifiable input is a stale homogeneous burst already drained to one class. No classifier-routing action while telemetry production is paused; re-evaluate entropy when fresh outcomes resume.`
+      : `Rolling-50 entropy: ${entropy.toFixed(3)} bits (threshold 0.5). Dominant class: '${dominantClass.classification}' (${dominantClass.n}/${total} rows). Distribution: ${JSON.stringify(distribution)}. Action: audit classifier routing - a healthy 7-class distribution should reach ~2.8 bits.`
+    const nextAction = producerStalled
+      ? 'Producer stalled; homogeneity is a stall artefact. No action until fresh telemetry resumes.'
+      : 'Audit Phase D classifier routing; check SQL WHERE clause includes all outcome classes'
+
     const exists = await client.query(
       `SELECT id FROM status_board WHERE name = $1 AND archived_at IS NULL LIMIT 1`,
       [NAME]
     )
     if (exists.rowCount > 0) {
       await client.query(
-        `UPDATE status_board SET status = 'in-progress', context = $2, last_touched = NOW() WHERE id = $1`,
-        [exists.rows[0].id, ctx]
+        `UPDATE status_board SET status = 'in-progress', context = $2, priority = $3, next_action = $4, last_touched = NOW() WHERE id = $1`,
+        [exists.rows[0].id, ctx, priority, nextAction]
       )
     } else {
       await client.query(
         `INSERT INTO status_board (entity_type, name, status, next_action, next_action_by, priority, context, last_touched)
-         VALUES ('infrastructure', $1, 'in-progress', 'Audit Phase D classifier routing; check SQL WHERE clause includes all outcome classes', 'ecodiaos', 2, $2, NOW())`,
-        [NAME, ctx]
+         VALUES ('infrastructure', $1, 'in-progress', $3, 'ecodiaos', $4, $2, NOW())`,
+        [NAME, ctx, nextAction, priority]
       )
     }
   }
