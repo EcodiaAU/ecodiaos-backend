@@ -68,15 +68,26 @@ async function recordConnectorAuditRow({ connectorName, toolName, bearerFingerpr
   } catch (err) {
     logger.warn('connector-audit: row insert failed', { error: err.message, connectorName, toolName })
   }
-  // 2. Per-connector kv mirror for fast at-a-glance triage
+  // 2. Per-connector kv mirror for fast at-a-glance triage.
+  //
+  // BOUNDED by design (fixed 2026-06-14, kv-store-hygiene cron): the canonical,
+  // queryable audit history lives in the ecodia_full_audit_log TABLE above. This
+  // kv mirror only answers "what did connector X last do" at a glance, so it is a
+  // ROLLING latest-call-per-connector key that overwrites in place. The earlier
+  // design embedded the timestamp + callId in the key, so ON CONFLICT never fired
+  // and every call appended a new row; that leaked 5350 never-read keys (~7 MB,
+  // 81% of kv_store) before this fix. kv_store is ephemeral state, not a log sink:
+  // unbounded append-only history belongs in a table, never in kv_store.
+  // Doctrine: patterns/kv-store-is-ephemeral-state-not-an-append-only-log-2026-06-14.md
   try {
     const ts = new Date().toISOString()
-    const key = `cowork.mcp_audit.${connectorName}.${ts}.${callId || bearerFingerprint || 'anon'}`
+    const key = `cowork.mcp_audit_last.${connectorName}`
     const payload = {
       ts, connector: connectorName, tool: toolName,
       bearer_fingerprint: bearerFingerprint,
       status_code: statusCode || 200,
       duration_ms: durationMs || 0,
+      call_id: callId || null,
       args: _redactArgs(toolName, args || {}),
       result_summary: _summariseResult(result),
     }
