@@ -15,6 +15,16 @@ const logger = require('../config/logger')
 
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0'
 const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token'
+// NOTE (2026-06-14): Xero Custom Connection client_credentials grants now
+// REJECT an explicit `scope` parameter with HTTP 400
+// invalid_scope / "No valid scopes remaining after filtering for grant type".
+// The scopes a Custom Connection grants are fixed in the Xero app config and
+// are returned in full when NO scope param is sent. Sending scope broke every
+// token fetch (this is why the 4-hourly sync silently stalled and accumulated
+// a 41-row backlog). Probe 2026-06-14: omitting scope returns
+// accounting.banktransactions + accounting.manualjournals + contacts + settings
+// (everything the push needs). Do NOT re-add an explicit scope param.
+// The reference list below is retained for documentation only.
 const CUSTOM_CONNECTION_SCOPE = [
   'accounting.banktransactions',
   'accounting.banktransactions.read',
@@ -33,13 +43,14 @@ let _cachedExpiry = 0
 async function _getCustomConnectionToken() {
   const now = Date.now()
   if (_cachedToken && now < _cachedExpiry) return _cachedToken
+  // No `scope` param: Custom Connection scopes are derived from the app
+  // config. Passing scope here triggers invalid_scope (see note above).
   const resp = await axios.post(
     XERO_TOKEN_URL,
     new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: env.XERO_CLIENT_ID,
       client_secret: env.XERO_CLIENT_SECRET,
-      scope: CUSTOM_CONNECTION_SCOPE,
     }),
     { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 15_000 }
   )
