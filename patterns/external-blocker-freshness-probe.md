@@ -10,6 +10,8 @@ Status_board rows where `next_action_by = 'external'` go stale silently. Externa
 
 **Threshold:** Any status_board row where `next_action_by = 'external'` AND `last_touched > NOW() - INTERVAL '14 days'` is FALSE (meaning idle 14+ days) MUST be probed against the real-world source before it appears on another morning briefing as still-blocked.
 
+**`last_touched` is NOT a reliable staleness proxy - scan ALL external rows, not just the 14-day slice.** `last_touched` gets bumped by unrelated activity (priority-repair crons, audit sweeps, status-board-hygiene passes) that never actually verify the external counterparty. A genuinely-old blocker can read `last_touched = 2 days ago` while the real-world wait has been open for a month. So the `last_touched < NOW() - INTERVAL '14 days'` window is structurally blind to exactly the rows it exists to catch. The probe is cheap (external rows are typically under ten) - **enumerate every non-archived `next_action_by='external'` row each fire and derive true blocker-age from the dates inside the status/context text, not from `last_touched`.** Treat the 14-day-window query as a lower bound, never the whole job. Proof case: 2026-06-14 the window query returned 0 rows, but scanning all 7 external rows surfaced 3 drifted blockers (Glovebox CarPlay entitlement had Apple's reply sitting unanswered 10 days; Chambers iOS review had cleared; Co-Exist 1.9.3 was superseded) - every one invisible to the window because `last_touched` was 3-6 days old.
+
 **Re-probe cadence:** every 14 days until the blocker either clears or the row archives.
 
 ## Why this happens
