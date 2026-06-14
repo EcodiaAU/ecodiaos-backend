@@ -95,6 +95,7 @@ const DIRECT_EXEC_CRONS = new Set([
   'telemetry-dispatch-consumer',  // every 15m — JSONL→Postgres consumer (Layer 4 decision-quality)
   'telemetry-perf-consumer',      // every 15m — JSONL→Postgres consumer for perf events (Layer 6 Phase E)
   'observation-retention-cleanup',// daily 02:00 AEST — purge observer_*, os_observations, session_memory_chunks, gkg_events. Deterministic SQL, no agentic decisions. Migration 118.
+  'approval-queue-reconciler',    // hourly — safety-net backfill of status_board->approval_queue mirrors the trigger missed. Deterministic INSERT...SELECT...ON CONFLICT, no agentic decisions.
 ])
 
 // Shell commands for each direct-exec cron. Keyed by task name (must match
@@ -104,6 +105,7 @@ const DIRECT_EXEC_COMMANDS = new Map([
   ['telemetry-dispatch-consumer',   'cd /home/tate/ecodiaos && node src/services/telemetry/dispatchEventConsumer.js --once'],
   ['telemetry-perf-consumer',       'cd /home/tate/ecodiaos && node src/services/telemetry/perfEventConsumer.js --once'],
   ['observation-retention-cleanup', 'cd /home/tate/ecodiaos && node src/db/cron/observationRetention.js --once'],
+  ['approval-queue-reconciler',     'cd /home/tate/ecodiaos && node src/db/cron/approvalQueueReconciler.js --once'],
 ])
 
 // ─── Route 3: HIGH-priority forks (always run, never budget-gated) ──────────
