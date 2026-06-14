@@ -10,6 +10,8 @@ Status_board rows where `next_action_by = 'external'` go stale silently. Externa
 
 **Threshold:** Any status_board row where `next_action_by = 'external'` AND `last_touched > NOW() - INTERVAL '14 days'` is FALSE (meaning idle 14+ days) MUST be probed against the real-world source before it appears on another morning briefing as still-blocked.
 
+**Scope is wider than the `external` tag.** The failure class is "a row is waiting on a counterparty and nobody is probing", and the tag is not a reliable proxy for that. A row blocked on a counterparty can carry `next_action_by = 'client'` (client reply / signature / kickoff awaited) or even `next_action_by IS NULL` (mistagged at creation). Those rows are invisible to a query that filters on `'external'` alone, so they rot forever, which is exactly the origin failure (a real revenue blocker that was tagged but unprobed for 84 days). The probe MUST therefore sweep `next_action_by IN ('external','client')` AND scan the `NULL`-tagged backlog for external-waiting semantics (await / waiting / pending / review / verdict / submitted / approval / reply / response / ATO / Apple / Google / Stripe / broker / insurer / signature / locked-in / kickoff). Verified live 2026-06-14: 4 `external` + 2 `client` rows were all fresh (0-6d) and the closest-to-stale was Wildmountains at 6d, but a `client`-tagged blocker idle 20 days would have been silently missed by the old `external`-only query.
+
 **Re-probe cadence:** every 14 days until the blocker either clears or the row archives.
 
 ## Why this happens
@@ -32,17 +34,22 @@ The probe should not depend on me remembering. It should be a cron:
 
 ```
 schedule_cron name="status-board-external-freshness-probe" schedule="every 24h" prompt="
-Query status_board for rows where next_action_by='external' AND archived_at IS NULL
-AND last_touched < NOW() - INTERVAL '14 days'.
+Query status_board for rows where next_action_by IN ('external','client') AND archived_at IS NULL
+AND last_touched < NOW() - INTERVAL '14 days'. THEN separately scan the next_action_by IS NULL
+backlog over the same 14-day threshold for external-waiting semantics (await / waiting / pending /
+review / verdict / submitted / approval / reply / response / ATO / Apple / Google / Stripe / broker /
+insurer / signature / locked-in / kickoff) so a mistagged blocker cannot rot invisibly.
 For each row, probe the real-world source per the playbook in
-~/ecodiaos/patterns/external-blocker-freshness-probe.md.
+backend/patterns/external-blocker-freshness-probe.md.
 If the blocker has cleared, update the row to next_action_by='ecodiaos' or 'tate'
 with the new actionable next_action, and write a Neo4j Episode capturing the unblock.
 If the blocker is still real, update last_touched=NOW() and a fresh context note.
 "
 ```
 
-Until that cron exists, the manual rule is: every meta-loop, after reading the status board, do a `WHERE next_action_by='external' AND last_touched < NOW() - INTERVAL '14 days'` sweep and probe each row.
+The canonical doctrine path is `backend/patterns/external-blocker-freshness-probe.md` on the Mac host. The `~/ecodiaos/patterns/` form is a Corazon-era ghost and does not resolve here per [[hook-substrate-must-track-canonical-host-not-corazon-ghosts-2026-06-10]].
+
+Until that cron runs reliably, the manual rule is: every meta-loop, after reading the status board, sweep `WHERE next_action_by IN ('external','client') AND last_touched < NOW() - INTERVAL '14 days'` plus the NULL-semantics scan above, and probe each row.
 
 ## Do
 
